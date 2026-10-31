@@ -62,6 +62,14 @@ def classify_device(row):
 
 df["_device"] = df.apply(classify_device, axis=1)
 
+def classify_product_category(item_name, item_code=""):
+    text = f"{item_name} {item_code}".upper()
+    if any(word in text for word in ("ANTI GORES", "ANTI-GORES", "ANTIGORES", "TEMPERED", "SCREEN PROTECTOR", "GLASS", "HYDRO GEL", "HYDROGEL", "KACA")):
+        return "Anti Gores"
+    if any(word in text for word in ("CASE", "CASING", "CESAN", "CESING", "COVER", "SOFTCASE", "SOFT CASE", "HARDCASE", "HARD CASE", "SILICON", "SILIKON", "BUMPER")):
+        return "Case"
+    return "Lainnya"
+
 device_spend = df.groupby(["Cabang", "Customer/Vendor Code", "_device"], as_index=False, dropna=False)["_total"].sum()
 phone_candidates = [c for c in df.columns if any(k in str(c).lower() for k in ("no hp", "whatsapp", "telepon", "telephone", "phone", "mobile", "contact"))]
 phone_col = phone_candidates[0] if phone_candidates else None
@@ -119,6 +127,34 @@ for (branch, code), group in invoice.groupby(["Cabang", "Customer/Vendor Code"],
         for _, row in device_rows.iterrows()
     ] if device_total else []
     top_device = devices[0]["name"] if devices else "LAINNYA / TAK TERKLASIFIKASI"
+
+    purchase_rows = df[(df["Cabang"] == branch) & (df["Customer/Vendor Code"] == code)].copy()
+    purchase_items = []
+    if len(purchase_rows):
+        purchase_name = "Dscription" if "Dscription" in purchase_rows.columns else "Item/Service Description" if "Item/Service Description" in purchase_rows.columns else None
+        purchase_code = "ItemCode" if "ItemCode" in purchase_rows.columns else "Item No." if "Item No." in purchase_rows.columns else None
+        if purchase_name or purchase_code:
+            purchase_rows["_item_name"] = purchase_rows[purchase_name].fillna("").astype(str).str.strip() if purchase_name else ""
+            purchase_rows["_item_code"] = purchase_rows[purchase_code].fillna("").astype(str).str.strip() if purchase_code else ""
+            purchase_rows["_quantity"] = pd.to_numeric(purchase_rows["Quantity"], errors="coerce").fillna(0) if "Quantity" in purchase_rows.columns else 0
+            purchase_rows["_exclude_item"] = (
+                purchase_rows["_item_code"].str.upper().str.startswith(("JAS.", "INS.")) |
+                purchase_rows["_item_name"].str.upper().str.contains("JASA|SERVICE|GMART CARE|INSURANCE|ASURANSI|GARANSI", regex=True, na=False)
+            )
+            grouped_purchases = purchase_rows[(purchase_rows["_quantity"] > 0) & (~purchase_rows["_exclude_item"])].groupby(["_item_code", "_item_name", "Posting Date", "Document Number"], as_index=False).agg(quantity=("_quantity", "sum"), spend=("_total", "sum"))
+            grouped_purchases = grouped_purchases.sort_values("Posting Date", ascending=False)
+            for _, purchase in grouped_purchases.head(20).iterrows():
+                item_name = str(purchase["_item_name"] or purchase["_item_code"] or "").strip()
+                if not item_name:
+                    continue
+                purchase_items.append({
+                    "item_name": item_name,
+                    "item_code": str(purchase["_item_code"] or ""),
+                    "category": classify_product_category(item_name, str(purchase["_item_code"] or "")),
+                    "quantity": round(float(purchase["quantity"]), 2),
+                    "spend": round(float(purchase["spend"])),
+                    "date": purchase["Posting Date"].strftime("%Y-%m-%d") if not pd.isna(purchase["Posting Date"]) else "",
+                })
     rows.append({
         "branch": str(branch), "code": str(code), "name": str(name).strip(),
         "frequency": frequency, "spend": round(spend), "avg": round(avg),
@@ -129,6 +165,7 @@ for (branch, code), group in invoice.groupby(["Cabang", "Customer/Vendor Code"],
         "phone": phone,
         "devices": devices,
         "top_device": top_device,
+        "previous_items": purchase_items,
     })
 
 item_name_col = "Dscription" if "Dscription" in df.columns else "Item/Service Description" if "Item/Service Description" in df.columns else None
@@ -241,6 +278,15 @@ for (branch, code), records in customer_groups.items():
     categories = [record.get("category") for record in records if record.get("category")]
     sales = [record.get("sales") for record in records if record.get("sales")]
     phones = [str(record.get("phone", "")).strip() for record in records if str(record.get("phone", "")).strip()]
+    previous_items = []
+    seen_previous_items = set()
+    for record in sorted(records, key=lambda record: record.get("last", ""), reverse=True):
+        for purchase in record.get("previous_items", []) or []:
+            item_name = str(purchase.get("item_name", "") or "").strip()
+            item_key = (item_name.upper(), str(purchase.get("item_code", "") or ""))
+            if item_name and item_key not in seen_previous_items:
+                seen_previous_items.add(item_key)
+                previous_items.append(purchase)
 
     device_scores = {}
     for record in records:
@@ -268,6 +314,7 @@ for (branch, code), records in customer_groups.items():
         "phone": phones[-1] if phones else "",
         "devices": devices,
         "top_device": top_device,
+        "previous_items": previous_items[:20],
     })
 
 combined_customers.sort(key=lambda customer: (customer["branch"], -customer["score"]))
