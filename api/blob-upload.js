@@ -24,7 +24,7 @@ export default async function handler(req, res) {
           throw new Error('Periode harus YYYY-MM');
         }
         return {
-          access: 'private',
+          access: 'public',
           allowedContentTypes: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv', 'application/octet-stream'],
           maximumSizeInBytes: 100 * 1024 * 1024,
           addRandomSuffix: true,

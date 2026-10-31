@@ -2,28 +2,25 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { get } from '@vercel/blob';
 
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   if (req.method !== 'POST') return res.status(405).json({ success: false, message: 'Metode tidak valid' });
 
-  const pathname = String(req.body?.pathname || '').trim();
+  const url = String(req.body?.url || '').trim();
   const period = String(req.body?.period || '').trim();
   const filename = String(req.body?.filename || 'import.csv');
-  if (!pathname) return res.status(400).json({ success: false, message: 'Pathname Blob tidak valid' });
+  if (!/^https:\/\/[^\s]+/.test(url)) return res.status(400).json({ success: false, message: 'URL Blob tidak valid' });
   if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ success: false, message: 'Periode harus YYYY-MM' });
   if (!/\.(xlsx|xls|csv)$/i.test(filename)) return res.status(400).json({ success: false, message: 'Format harus XLSX, XLS, atau CSV' });
 
   let sourcePath;
   try {
-    const downloaded = await get(pathname, { access: 'private' });
-    if (!downloaded) throw new Error('File Blob tidak ditemukan');
-    const chunks = [];
-    for await (const chunk of downloaded.stream) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-    const content = Buffer.concat(chunks);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Blob tidak dapat diambil: HTTP ${response.status}`);
+    const length = Number(response.headers.get('content-length') || 0);
+    if (length > 100 * 1024 * 1024) throw new Error('Ukuran file maksimal 100 MB');
+    const content = Buffer.from(await response.arrayBuffer());
     if (content.length > 100 * 1024 * 1024) throw new Error('Ukuran file maksimal 100 MB');
 
     sourcePath = path.join(os.tmpdir(), `dcms-import-${Date.now()}${path.extname(filename).toLowerCase()}`);
