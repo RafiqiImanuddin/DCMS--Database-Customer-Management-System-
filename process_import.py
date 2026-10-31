@@ -131,6 +131,34 @@ for (branch, code), group in invoice.groupby(["Cabang", "Customer/Vendor Code"],
         "top_device": top_device,
     })
 
+item_name_col = "Dscription" if "Dscription" in df.columns else "Item/Service Description" if "Item/Service Description" in df.columns else None
+item_code_col = "ItemCode" if "ItemCode" in df.columns else "Item No." if "Item No." in df.columns else None
+item_rows = df.copy()
+if item_name_col:
+    item_rows["_item_name"] = item_rows[item_name_col].fillna("").astype(str).str.strip()
+else:
+    item_rows["_item_name"] = ""
+if item_code_col:
+    item_rows["_item_code"] = item_rows[item_code_col].fillna("").astype(str).str.strip()
+else:
+    item_rows["_item_code"] = ""
+item_rows["_quantity"] = pd.to_numeric(item_rows["Quantity"], errors="coerce").fillna(0) if "Quantity" in item_rows.columns else 0
+item_rows["_exclude_item"] = (
+    item_rows["_item_code"].str.upper().str.startswith(("JAS.", "INS.")) |
+    item_rows["_item_name"].str.upper().str.contains("JASA|SERVICE|GMART CARE|INSURANCE|ASURANSI|GARANSI", regex=True, na=False)
+)
+item_summary = item_rows[(item_rows["_quantity"] > 0) & (~item_rows["_exclude_item"])].groupby(["Cabang", "_item_code", "_item_name"], as_index=False, dropna=False).agg(quantity=("_quantity", "sum"), spend=("_total", "sum"), transactions=("Document Number", "nunique"))
+item_summary["quantity"] = item_summary["quantity"].round(2)
+item_summary["spend"] = item_summary["spend"].round()
+item_summary["item_name"] = item_summary["_item_name"]
+item_summary["item_code"] = item_summary["_item_code"]
+item_summary["branch"] = item_summary["Cabang"]
+item_summary = item_summary[["branch", "item_code", "item_name", "quantity", "spend", "transactions"]]
+item_ranking = []
+for branch in sorted(df["Cabang"].dropna().astype(str).unique().tolist()):
+    rows_for_branch = item_summary[item_summary["branch"] == branch].sort_values(["quantity", "spend"], ascending=False).head(20)
+    item_ranking.extend(rows_for_branch.to_dict("records"))
+
 branches = sorted(df["Cabang"].dropna().astype(str).unique().tolist())
 branch_summary = []
 for branch in branches:
@@ -155,7 +183,7 @@ for branch in branches:
         "series": [{"date": value.strftime("%Y-%m-%d"), "total": round(float(total))} for value, total in zip(subset["Posting Date"], subset["total"])]
     })
 
-result = {
+monthly_result = {
     "generated_at": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
     "data_through": max_date.strftime("%Y-%m-%d"),
     "source": source.name,
@@ -164,8 +192,177 @@ result = {
     "branch_summary": branch_summary,
     "trend": trend,
     "customers": rows,
+    "item_ranking": item_ranking,
+}
+
+history_dir = root / "uploads" / "DCMS" / "history"
+history_dir.mkdir(parents=True, exist_ok=True)
+safe_period = str(period or "unknown-period").replace("..", "_").replace("/", "-").replace("\\", "-")
+(history_dir / f"{safe_period}.json").write_text(json.dumps(monthly_result, ensure_ascii=False), encoding="utf-8")
+
+history_files = sorted(history_dir.glob("*.json"))
+history_results = []
+for history_file in history_files:
+    try:
+        history_results.append(json.loads(history_file.read_text(encoding="utf-8")))
+    except Exception:
+        continue
+
+data_through = max((item.get("data_through", "") for item in history_results), default=max_date.strftime("%Y-%m-%d"))
+combined_customers = []
+customer_groups = {}
+for item in history_results:
+    for customer in item.get("customers", []):
+        key = (str(customer.get("branch", "")), str(customer.get("code", "")))
+        customer_groups.setdefault(key, []).append(customer)
+
+max_overall_date = pd.to_datetime(data_through, errors="coerce")
+for (branch, code), records in customer_groups.items():
+    frequency = sum(int(record.get("frequency", 0)) for record in records)
+    spend = sum(float(record.get("spend", 0)) for record in records)
+    last_values = [pd.to_datetime(record.get("last"), errors="coerce") for record in records]
+    first_values = [pd.to_datetime(record.get("first"), errors="coerce") for record in records]
+    valid_last = [value for value in last_values if not pd.isna(value)]
+    valid_first = [value for value in first_values if not pd.isna(value)]
+    last = max(valid_last).strftime("%Y-%m-%d") if valid_last else ""
+    first = min(valid_first).strftime("%Y-%m-%d") if valid_first else ""
+    recency = int((max_overall_date - pd.to_datetime(last)).days) if last and not pd.isna(max_overall_date) else 0
+
+    score = 35 if frequency >= 5 else 22 if frequency >= 3 else 12 if frequency >= 2 else 3
+    score += 25 if recency <= 3 else 20 if recency <= 7 else 12 if recency <= 14 else 0
+    score += 20 if spend >= 5000000 else 12 if spend >= 1000000 else 5
+    score = min(score, 100)
+    status = "Siap repeat" if score >= 65 else "Potensi repeat" if score >= 45 else "Reaktivasi"
+    if str(code).startswith(("C9", "C910", "C990", "C300", "C100")):
+        status = "Perlu verifikasi"
+        score = min(score, 55)
+
+    latest_record = sorted(records, key=lambda record: record.get("last", ""), reverse=True)[0]
+    categories = [record.get("category") for record in records if record.get("category")]
+    sales = [record.get("sales") for record in records if record.get("sales")]
+    phones = [str(record.get("phone", "")).strip() for record in records if str(record.get("phone", "")).strip()]
+
+    device_scores = {}
+    for record in records:
+        for device in record.get("devices", []):
+            name = str(device.get("name", "LAINNYA / TAK TERKLASIFIKASI"))
+            device_scores[name] = device_scores.get(name, 0) + float(device.get("percent", 0))
+    devices = [{"name": name, "percent": round(percent / len(records), 1)} for name, percent in sorted(device_scores.items(), key=lambda item: item[1], reverse=True)]
+    top_device = devices[0]["name"] if devices else "LAINNYA / TAK TERKLASIFIKASI"
+
+    combined_customers.append({
+        "branch": branch,
+        "code": code,
+        "name": str(latest_record.get("name", "") or ""),
+        "frequency": frequency,
+        "spend": round(spend),
+        "avg": round(spend / frequency if frequency else 0),
+        "recency": recency,
+        "score": score,
+        "status": status,
+        "last": last,
+        "first": first,
+        "category": latest_record.get("category", categories[0] if categories else "-"),
+        "sales": latest_record.get("sales", sales[-1] if sales else "-"),
+        "suggested_days": 7 if recency <= 7 else 14 if recency <= 14 else 30,
+        "phone": phones[-1] if phones else "",
+        "devices": devices,
+        "top_device": top_device,
+    })
+
+combined_customers.sort(key=lambda customer: (customer["branch"], -customer["score"]))
+combined_branches = sorted({branch for branch, _ in customer_groups})
+combined_branch_summary = []
+for branch in combined_branches:
+    subset = [customer for customer in combined_customers if customer["branch"] == branch]
+    combined_branch_summary.append({
+        "branch": branch,
+        "customers": len(subset),
+        "orders": sum(customer["frequency"] for customer in subset),
+        "spend": sum(customer["spend"] for customer in subset),
+        "high_priority": sum(customer["score"] >= 65 for customer in subset),
+        "avg_score": round(sum(customer["score"] for customer in subset) / len(subset), 1),
+    })
+
+combined_trend_map = {}
+for item in history_results:
+    for branch_trend in item.get("trend", []):
+        branch_name = branch_trend.get("branch")
+        for point in branch_trend.get("series", []):
+            date = point.get("date")
+            combined_trend_map[(branch_name, date)] = combined_trend_map.get((branch_name, date), 0) + float(point.get("total", 0))
+combined_item_map = {}
+for item in history_results:
+    for ranking in item.get("item_ranking", []):
+        branch_name = str(ranking.get("branch", ""))
+        item_code = str(ranking.get("item_code", "") or "")
+        item_name = str(ranking.get("item_name", "") or "")
+        key = (branch_name, item_code, item_name)
+        current = combined_item_map.setdefault(key, {"quantity": 0, "spend": 0, "transactions": 0})
+        current["quantity"] += float(ranking.get("quantity", 0) or 0)
+        current["spend"] += float(ranking.get("spend", 0) or 0)
+        current["transactions"] += int(ranking.get("transactions", 0) or 0)
+combined_item_ranking = []
+for branch in combined_branches:
+    branch_items = []
+    for (branch_name, item_code, item_name), totals in combined_item_map.items():
+        if branch_name == branch:
+            branch_items.append({
+                "branch": branch_name,
+                "item_code": item_code,
+                "item_name": item_name,
+                "quantity": round(totals["quantity"], 2),
+                "spend": round(totals["spend"]),
+                "transactions": totals["transactions"],
+            })
+    branch_items.sort(key=lambda row: (-row["quantity"], -row["spend"]))
+    combined_item_ranking.extend(branch_items[:20])
+
+combined_trend = []
+for branch in combined_branches:
+    series = [
+        {"date": date, "total": round(total)}
+        for (branch_name, date), total in sorted(combined_trend_map.items(), key=lambda item: (item[0][0], item[0][1]))
+        if branch_name == branch
+    ]
+    combined_trend.append({"branch": branch, "series": series})
+
+# Generate practical next-best-item suggestions from branch demand and device affinity.
+for customer in combined_customers:
+    branch_items = [row for row in combined_item_ranking if row["branch"] == customer["branch"]]
+    device = customer.get("top_device", "LAINNYA / TAK TERKLASIFIKASI")
+    device_terms = {
+        "APPLE / IPHONE": ("APPLE", "IPHONE"), "SAMSUNG": ("SAMSUNG", "GALAXY"),
+        "XIAOMI": ("XIAOMI", "REDMI", "POCO", "MI "), "OPPO": ("OPPO",),
+        "VIVO": ("VIVO",), "REALME": ("REALME",), "INFINIX": ("INFINIX",),
+        "TECNO": ("TECNO",), "HUAWEI": ("HUAWEI",), "HONOR": ("HONOR",),
+        "ASUS": ("ASUS", "ROG"), "NOKIA": ("NOKIA",), "LENOVO": ("LENOVO",),
+    }.get(device, ())
+    scored = []
+    for row in branch_items:
+        text = f"{row.get('item_name', '')} {row.get('item_code', '')}".upper()
+        device_match = bool(device_terms) and any(term in text for term in device_terms)
+        confidence = min(95, 55 + (3 if device_match else 0) + (2 if customer.get("score", 0) >= 65 else 0))
+        confidence = int(confidence + min(10, float(row.get("transactions", 0))))
+        scored.append({**row, "device_match": device_match, "confidence": min(confidence, 95),
+                       "reason": "Sesuaikan tipe perangkat" if device_match else "Produk laris di cabang"})
+    scored.sort(key=lambda row: (-row["device_match"], -row["confidence"], -row["quantity"]))
+    customer["recommended_items"] = scored[:3]
+    customer["recommended_item"] = scored[0]["item_name"] if scored else "Konfirmasi kebutuhan pelanggan"
+
+result = {
+    "generated_at": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+    "data_through": data_through,
+    "source": " + ".join(item.get("source", "") for item in history_results if item.get("source")),
+    "period": " + ".join(sorted({item.get("period", "") for item in history_results if item.get("period")})),
+    "branches": combined_branches,
+    "branch_summary": combined_branch_summary,
+    "trend": combined_trend,
+    "customers": combined_customers,
+    "item_ranking": combined_item_ranking,
+    "history_periods": sorted({item.get("period", "") for item in history_results if item.get("period")}),
 }
 output = root / "assets" / "data.json"
 output.parent.mkdir(parents=True, exist_ok=True)
 output.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
-print(json.dumps({"success": True, "rows": len(df), "customers": len(rows), "branches": len(branches), "period": period}))
+print(json.dumps({"success": True, "rows": len(df), "customers": len(combined_customers), "branches": len(combined_branches), "period": period, "history_periods": result["history_periods"]}))

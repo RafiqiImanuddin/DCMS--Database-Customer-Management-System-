@@ -1,0 +1,22 @@
+[
+    {
+        "batch_id": "20261031053140-6bd21961",
+        "created_at": "2026-10-31T05:31:40+01:00",
+        "sent": 1,
+        "failed": 0,
+        "total": 1,
+        "recipients": [
+            {
+                "customer_key": "BJMC-C203050",
+                "name": "zainal",
+                "code": "C203050",
+                "branch": "BJMC",
+                "phone": "6281351312254",
+                "message": "Terkirim\/diterima API",
+                "status": 200,
+                "top_device": "SAMSUNG",
+                "success": true
+            }
+        ]
+    }
+]
