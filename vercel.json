@@ -3,6 +3,7 @@
   "rewrites": [
     { "source": "/broadcast.php", "destination": "/api/broadcast" },
     { "source": "/api/broadcast.php", "destination": "/api/broadcast" },
-    { "source": "/import.php", "destination": "/api/import" }
+    { "source": "/import.php", "destination": "/api/import" },
+    { "source": "/api/import.php", "destination": "/api/import" }
   ]
 }
