@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
     const script = path.join(process.cwd(), 'process_import.py');
     const result = await new Promise((resolve, reject) => {
-      const child = spawn('python', [script, sourcePath, period], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn('python', [script, sourcePath, period, filename], { stdio: ['ignore', 'pipe', 'pipe'] });
       let stdout = '', stderr = '';
       child.stdout.on('data', chunk => { stdout += chunk; });
       child.stderr.on('data', chunk => { stderr += chunk; });

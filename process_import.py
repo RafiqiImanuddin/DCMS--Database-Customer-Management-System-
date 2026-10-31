@@ -1,11 +1,139 @@
 import json
 import sys
+import os
 from pathlib import Path
 import pandas as pd
+import pymysql
 
 root = Path(__file__).resolve().parent
 source = Path(sys.argv[1])
 period = sys.argv[2] if len(sys.argv) > 2 else ""
+source_filename = sys.argv[3] if len(sys.argv) > 3 else source.name
+
+column_map = {
+    "Cabang": "cabang",
+    "Info": "info",
+    "Keterangan": "keterangan",
+    "Group": "group_name",
+    "Posting Date": "posting_date",
+    "Waktu": "waktu",
+    "Document Number": "document_number",
+    "Customer/Vendor Code": "customer_vendor_code",
+    "Customer/Vendor Name": "customer_vendor_name",
+    "ItemCode": "item_code",
+    "Dscription": "description",
+    "ItmsGrpNam": "item_group_name",
+    "Brand": "brand",
+    "WhsCode": "warehouse_code",
+    "Quantity": "quantity",
+    "Harga Jual": "selling_price",
+    "Harga Sebelum Potongan": "price_before_discount",
+    "Selisih/Total Potongan": "discount_difference",
+    "P_Bonus": "p_bonus",
+    "P_Voucher": "p_voucher",
+    "P_Nego": "p_nego",
+    "P_Leasing": "p_leasing",
+    "P_Program": "p_program",
+    "P_EDC": "p_edc",
+    "P_OTORISASI POSVIT": "p_authorization_posvit",
+    "Price List": "price_list",
+    "Remarks": "remarks",
+    "SC/HL Code": "schl_code",
+    "SlpName": "sales_employee_name",
+    "PROMO": "promo",
+    "User Input": "user_input",
+    "No HP Customer": "customer_phone",
+    "HARGA MODAL": "cost_price",
+    "GROSS PROFIT": "gross_profit",
+    "RESELLER": "reseller",
+    "Beban Subsidi Leasing": "leasing_subsidy",
+    "TRANSAKSI CUSTOMER": "customer_transaction",
+    "Name": "name",
+    "NoReff": "reference_number",
+    "NO_PO": "purchase_order_number",
+}
+
+
+def clean_text(value):
+    if value is None or pd.isna(value):
+        return None
+    text = str(value).strip()
+    return text if text and text.lower() not in ("nan", "none", "nat") else None
+
+
+def clean_number(value, default=0):
+    if value is None or pd.isna(value):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def save_cross_selling_to_mysql(raw_df):
+    host = os.getenv("DB_HOST", "127.0.0.1")
+    port = int(os.getenv("DB_PORT", "3306"))
+    database = os.getenv("DB_NAME", "dcms")
+    user = os.getenv("DB_USER", "root")
+    password = os.getenv("DB_PASS", "")
+
+    connection = pymysql.connect(
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        database=database,
+        charset="utf8mb4",
+        autocommit=False,
+        connect_timeout=15,
+    )
+
+    database_columns = list(column_map.values())
+    insert_columns = ["source_period"] + database_columns + ["source_file", "source_row"]
+    placeholders = ", ".join(["%s"] * len(insert_columns))
+    column_names = ", ".join(f"`{name}`" for name in insert_columns)
+    insert_sql = f"INSERT INTO cross_selling ({column_names}) VALUES ({placeholders})"
+
+    rows = []
+    for source_row, (_, source) in enumerate(raw_df.iterrows(), start=2):
+        values = [period]
+        for source_name, database_name in column_map.items():
+            value = source.get(source_name)
+            if source_name == "Posting Date":
+                posting_date = pd.to_datetime(value, errors="coerce")
+                values.append(posting_date.strftime("%Y-%m-%d") if not pd.isna(posting_date) else None)
+            elif source_name == "Document Number":
+                values.append(clean_text(value))
+            elif source_name == "No HP Customer":
+                phone = clean_text(value)
+                values.append(phone.replace(".0", "") if phone else None)
+            elif source_name in {
+                "Quantity", "Harga Jual", "Harga Sebelum Potongan",
+                "Selisih/Total Potongan", "P_Bonus", "P_Voucher", "P_Nego",
+                "P_Leasing", "P_Program", "P_EDC", "P_OTORISASI POSVIT",
+                "HARGA MODAL", "GROSS PROFIT", "Beban Subsidi Leasing",
+            }:
+                values.append(clean_number(value))
+            else:
+                values.append(clean_text(value))
+        values.extend([source_filename, source_row])
+        rows.append(values)
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM cross_selling WHERE source_period = %s AND source_file = %s",
+                (period, source_filename),
+            )
+            for start in range(0, len(rows), 500):
+                cursor.executemany(insert_sql, rows[start:start + 500])
+        connection.commit()
+        return len(rows)
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 try:
     if source.suffix.lower() == ".csv":
