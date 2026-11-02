@@ -1,7 +1,0 @@
-{
-  "name": "dcms-dashboard",
-  "private": true,
-  "dependencies": {
-    "@vercel/blob": "^1.1.1"
-  }
-}
