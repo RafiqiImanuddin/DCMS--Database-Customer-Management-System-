@@ -11,6 +11,20 @@ require __DIR__.'/../vendor/autoload.php';
 
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
+$bootstrapPath = '/tmp/bootstrap';
+$bootstrapCachePath = $bootstrapPath.'/cache';
+
+if (! is_dir($bootstrapCachePath)) {
+    mkdir($bootstrapCachePath, 0777, true);
+}
+
+if (! is_dir($bootstrapPath.'/cache')) {
+    mkdir($bootstrapPath.'/cache', 0777, true);
+}
+
+copy(__DIR__.'/../bootstrap/providers.php', $bootstrapPath.'/providers.php');
+$app->useBootstrapPath($bootstrapPath);
+
 $app->useStoragePath('/tmp/storage');
 
 $storageDirectories = [
