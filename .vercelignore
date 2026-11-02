@@ -6,6 +6,10 @@
 .env.*
 !.env.example
 node_modules
+.claude
+database/*.sqlite
+storage/app/private/*
+storage/app/public/*
 storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
