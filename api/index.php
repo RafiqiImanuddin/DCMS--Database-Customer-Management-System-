@@ -40,10 +40,4 @@ foreach ($storageDirectories as $directory) {
     }
 }
 
-try {
-    $app->handleRequest(Request::capture());
-} catch (Throwable $exception) {
-    http_response_code(500);
-    header('Content-Type: text/plain; charset=utf-8');
-    echo $exception::class.': '.$exception->getMessage()."\n".$exception->getTraceAsString();
-}
+$app->handleRequest(Request::capture());
