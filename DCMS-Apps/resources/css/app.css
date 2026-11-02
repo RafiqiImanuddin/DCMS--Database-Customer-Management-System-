@@ -6,4 +6,44 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-brand-50: #eff6ff;
+    --color-brand-100: #dbeafe;
+    --color-brand-500: #2563eb;
+    --color-brand-600: #1d4ed8;
+    --color-brand-700: #1e40af;
+}
+
+@layer base {
+    body {
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection {
+        background: #dbeafe;
+        color: #1e3a8a;
+    }
+}
+
+@layer components {
+    .dcms-card {
+        @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(15_23_42_/_0.04)];
+    }
+
+    .dcms-input {
+        @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10;
+    }
+
+    .dcms-primary-button {
+        @apply inline-flex items-center justify-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    table th {
+        white-space: nowrap;
+    }
+
+    .overflow-x-auto {
+        scrollbar-color: #cbd5e1 transparent;
+        scrollbar-width: thin;
+    }
 }

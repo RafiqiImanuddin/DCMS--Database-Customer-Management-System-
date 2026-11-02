@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BroadcastReportController;
 use App\Http\Controllers\CrossSellingImportController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LeadCustomerController;
 use App\Http\Controllers\RepeatOrderPredictionController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,8 +22,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/imports', [CrossSellingImportController::class, 'index'])->name('imports.index');
     Route::post('/imports', [CrossSellingImportController::class, 'store'])->name('imports.store');
+    Route::get('/imports/{import}/status', [CrossSellingImportController::class, 'status'])->name('imports.status');
     Route::delete('/imports/{import}', [CrossSellingImportController::class, 'destroy'])->name('imports.destroy');
     Route::get('/predictions', RepeatOrderPredictionController::class)->name('predictions.index');
+    Route::post('/predictions/assign', [LeadCustomerController::class, 'assign'])->name('predictions.assign');
+    Route::get('/leads', [LeadCustomerController::class, 'index'])->name('leads.index');
     Route::get('/broadcasts', [BroadcastReportController::class, 'index'])->name('broadcasts.index');
+    Route::get('/broadcasts/download', [BroadcastReportController::class, 'download'])->name('broadcasts.download');
+    Route::post('/broadcasts/bulk', [BroadcastReportController::class, 'bulkStore'])->name('broadcasts.bulk');
+    Route::delete('/broadcasts/{report}', [BroadcastReportController::class, 'destroy'])->name('broadcasts.destroy');
     Route::post('/predictions/{prediction}/broadcast', [BroadcastReportController::class, 'store'])->name('broadcasts.store');
 });

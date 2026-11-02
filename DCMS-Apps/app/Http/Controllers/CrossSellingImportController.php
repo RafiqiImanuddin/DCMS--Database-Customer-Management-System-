@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ImportCrossSellingJob;
 use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
 use App\Models\RepeatOrderPrediction;
-use App\Services\CrossSellingImporter;
 use App\Services\RepeatOrderPredictor;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,7 @@ class CrossSellingImportController extends Controller
         ]);
     }
 
-    public function store(Request $request, CrossSellingImporter $importer, RepeatOrderPredictor $predictor): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:102400'],
@@ -36,19 +37,24 @@ class CrossSellingImportController extends Controller
             'status' => 'processing',
         ]);
 
-        $importer->import($import);
-        $import->refresh();
-
-        if ($import->status === 'completed') {
-            $predictor->rebuild();
-        }
+        ImportCrossSellingJob::dispatch($import);
 
         return redirect()->route('imports.index')->with(
-            $import->status === 'completed' ? 'success' : 'error',
-            $import->status === 'completed'
-                ? $import->success_count.' baris berhasil diimport dan prediksi diperbarui.'
-                : 'Import gagal: '.$import->error_log,
+            'success',
+            'File masuk ke antrean import. Status akan diperbarui setelah pemrosesan selesai.',
         );
+    }
+
+    public function status(Request $request, CrossSellingImport $import): JsonResponse
+    {
+        abort_unless($import->user_id === $request->user()->id, 404);
+
+        return response()->json([
+            'status' => $import->status,
+            'row_count' => $import->row_count,
+            'success_count' => $import->success_count,
+            'failed_count' => $import->failed_count,
+        ]);
     }
 
     public function destroy(Request $request, CrossSellingImport $import, RepeatOrderPredictor $predictor): RedirectResponse

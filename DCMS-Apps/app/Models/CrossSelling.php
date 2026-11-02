@@ -51,6 +51,28 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class CrossSelling extends Model
 {
+    public const ESSENTIAL_ATTRIBUTES = [
+        'cabang',
+        'posting_date',
+        'document_number',
+        'customer_vendor_code',
+        'customer_vendor_name',
+        'item_code',
+        'dscription',
+        'brand',
+        'quantity',
+        'harga_jual',
+        'slp_name',
+        'user_input',
+        'no_hp_customer',
+        'gross_profit',
+        'reseller',
+        'transaksi_customer',
+        'name',
+        'no_reff',
+        'no_po',
+    ];
+
     public const HEADER_MAP = [
         'Cabang' => 'cabang',
         'Info' => 'info',
@@ -84,6 +106,14 @@ class CrossSelling extends Model
         'PROMO' => 'promo',
         'User Input' => 'user_input',
         'No HP Customer' => 'no_hp_customer',
+        'No HP Konsumen' => 'no_hp_customer',
+        'No HP Pelanggan' => 'no_hp_customer',
+        'Nomor HP Customer' => 'no_hp_customer',
+        'Nomor HP Konsumen' => 'no_hp_customer',
+        'No Handphone Customer' => 'no_hp_customer',
+        'No Handphone Konsumen' => 'no_hp_customer',
+        'Telepon Customer' => 'no_hp_customer',
+        'Telepon Konsumen' => 'no_hp_customer',
         'HARGA MODAL' => 'harga_modal',
         'GROSS PROFIT' => 'gross_profit',
         'RESELLER' => 'reseller',
@@ -92,6 +122,14 @@ class CrossSelling extends Model
         'Name' => 'name',
         'NoReff' => 'no_reff',
         'NO_PO' => 'no_po',
+        'Nominal Transaksi' => 'harga_jual',
+        'Nominal' => 'harga_jual',
+        'Total Transaksi' => 'harga_jual',
+        'Total Harga' => 'harga_jual',
+        'Nama Sales' => 'slp_name',
+        'Sales Name' => 'slp_name',
+        'Nama Customer' => 'customer_vendor_name',
+        'Nama Pelanggan' => 'customer_vendor_name',
     ];
 
     protected function casts(): array
