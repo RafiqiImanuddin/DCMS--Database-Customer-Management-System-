@@ -2,6 +2,11 @@
 
 use Illuminate\Http\Request;
 
+$viewCompiledPath = '/tmp/storage/framework/views';
+putenv("VIEW_COMPILED_PATH={$viewCompiledPath}");
+$_ENV['VIEW_COMPILED_PATH'] = $viewCompiledPath;
+$_SERVER['VIEW_COMPILED_PATH'] = $viewCompiledPath;
+
 require __DIR__.'/../vendor/autoload.php';
 
 $app = require_once __DIR__.'/../bootstrap/app.php';
@@ -21,6 +26,10 @@ foreach ($storageDirectories as $directory) {
     }
 }
 
-$app->register(\Illuminate\View\ViewServiceProvider::class);
-
-$app->handleRequest(Request::capture());
+try {
+    $app->handleRequest(Request::capture());
+} catch (Throwable $exception) {
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo $exception::class.': '.$exception->getMessage()."\n".$exception->getTraceAsString();
+}
