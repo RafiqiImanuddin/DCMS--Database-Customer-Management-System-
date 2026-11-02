@@ -16,3 +16,5 @@ storage/framework/sessions/*
 storage/framework/views/*
 tests
 phpunit.xml
+/bootstrap/cache/*.php
+/public/hot
