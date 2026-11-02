@@ -21,4 +21,6 @@ foreach ($storageDirectories as $directory) {
     }
 }
 
+$app->register(\Illuminate\View\ViewServiceProvider::class);
+
 $app->handleRequest(Request::capture());
