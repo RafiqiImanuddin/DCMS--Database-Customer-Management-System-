@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\RepeatOrderPrediction;
+use App\Support\PhoneNumberSql;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -68,7 +69,7 @@ class RepeatOrderPredictionController extends Controller
             } elseif ($selectedPhoneStatus === 'invalid') {
                 $query->where($this->phonePresentCondition())
                     ->where(function ($builder) {
-                        $builder->whereRaw("NOT (no_hp_customer LIKE '62%' AND LENGTH(no_hp_customer) BETWEEN 10 AND 15 AND no_hp_customer NOT GLOB '*[^0-9]*')");
+                        $builder->whereRaw(PhoneNumberSql::invalidWhatsApp());
                     });
             } else {
                 $query->where($this->missingPhoneCondition());
@@ -117,7 +118,7 @@ class RepeatOrderPredictionController extends Controller
         $phoneChart = [
             'valid' => (clone $phoneChartBase)->where($this->validWhatsAppCondition())->count(),
             'invalid' => (clone $phoneChartBase)->where($this->phonePresentCondition())
-                ->whereRaw("NOT (no_hp_customer LIKE '62%' AND LENGTH(no_hp_customer) BETWEEN 10 AND 15 AND no_hp_customer NOT GLOB '*[^0-9]*')")
+                ->whereRaw(PhoneNumberSql::invalidWhatsApp())
                 ->count(),
             'missing' => (clone $phoneChartBase)->where($this->missingPhoneCondition())->count(),
         ];
@@ -143,7 +144,7 @@ class RepeatOrderPredictionController extends Controller
                 ->whereRaw("TRIM(no_hp_customer) <> ''")
                 ->whereRaw("no_hp_customer LIKE '62%'")
                 ->whereRaw('LENGTH(no_hp_customer) BETWEEN 10 AND 15')
-                ->whereRaw("no_hp_customer NOT GLOB '*[^0-9]*'");
+                ->whereRaw(PhoneNumberSql::numericOnly());
         };
     }
 

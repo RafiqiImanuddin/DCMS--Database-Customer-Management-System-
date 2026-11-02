@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LeadCustomer;
 use App\Models\RepeatOrderPrediction;
+use App\Support\PhoneNumberSql;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -42,11 +43,11 @@ class LeadCustomerController extends Controller
                 ->whereRaw("TRIM(no_hp_customer) <> ''")
                 ->whereRaw("no_hp_customer LIKE '62%'")
                 ->whereRaw('LENGTH(no_hp_customer) BETWEEN 10 AND 15')
-                ->whereRaw("no_hp_customer NOT GLOB '*[^0-9]*'");
+                ->whereRaw(PhoneNumberSql::numericOnly());
         } elseif ($phoneStatus === 'invalid') {
             $query->whereNotNull('no_hp_customer')
                 ->whereRaw("TRIM(no_hp_customer) <> ''")
-                ->whereRaw("NOT (no_hp_customer LIKE '62%' AND LENGTH(no_hp_customer) BETWEEN 10 AND 15 AND no_hp_customer NOT GLOB '*[^0-9]*')");
+                ->whereRaw(PhoneNumberSql::invalidWhatsApp());
         } elseif ($phoneStatus === 'missing') {
             $query->where(function ($builder) {
                 $builder->whereNull('no_hp_customer')

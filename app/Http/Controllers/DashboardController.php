@@ -6,6 +6,7 @@ use App\Models\BroadcastReport;
 use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
 use App\Models\RepeatOrderPrediction;
+use App\Support\PhoneNumberSql;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -30,7 +31,7 @@ class DashboardController extends Controller
                     $exists->where($this->validWhatsAppCondition());
                 } elseif ($selectedPhoneStatus === 'invalid') {
                     $exists->where($this->phonePresentCondition())
-                        ->whereRaw("NOT (no_hp_customer LIKE '62%' AND LENGTH(no_hp_customer) BETWEEN 10 AND 15 AND no_hp_customer NOT GLOB '*[^0-9]*')");
+                        ->whereRaw(PhoneNumberSql::invalidWhatsApp());
                 } else {
                     $exists->where($this->missingPhoneCondition());
                 }
@@ -105,7 +106,7 @@ class DashboardController extends Controller
             $predictionQuery->where($this->validWhatsAppCondition());
         } elseif ($selectedPhoneStatus === 'invalid') {
             $predictionQuery->where($this->phonePresentCondition())
-                ->whereRaw("NOT (no_hp_customer LIKE '62%' AND LENGTH(no_hp_customer) BETWEEN 10 AND 15 AND no_hp_customer NOT GLOB '*[^0-9]*')");
+                ->whereRaw(PhoneNumberSql::invalidWhatsApp());
         } elseif ($selectedPhoneStatus === 'missing') {
             $predictionQuery->where($this->missingPhoneCondition());
         }
@@ -139,7 +140,7 @@ class DashboardController extends Controller
                 ->whereRaw("TRIM(no_hp_customer) <> ''")
                 ->whereRaw("no_hp_customer LIKE '62%'")
                 ->whereRaw('LENGTH(no_hp_customer) BETWEEN 10 AND 15')
-                ->whereRaw("no_hp_customer NOT GLOB '*[^0-9]*'");
+                ->whereRaw(PhoneNumberSql::numericOnly());
         };
     }
 
