@@ -15,9 +15,18 @@
             @endforeach
         </select>
     </div>
+    <div class="flex-1">
+        <label for="phone-status-filter" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Filter WhatsApp</label>
+        <select id="phone-status-filter" name="phone_status" class="dcms-input py-2.5">
+            <option value="">Semua WhatsApp</option>
+            <option value="valid" @selected($selectedPhoneStatus === 'valid')>WhatsApp valid</option>
+            <option value="invalid" @selected($selectedPhoneStatus === 'invalid')>Nomor tidak valid</option>
+            <option value="missing" @selected($selectedPhoneStatus === 'missing')>Tanpa nomor</option>
+        </select>
+    </div>
     <div class="flex gap-2">
         <button type="submit" class="dcms-primary-button px-5 py-2.5">Terapkan</button>
-        @if($selectedBrand !== '')
+        @if($selectedBrand !== '' || $selectedPhoneStatus !== '')
             <a href="{{ route('dashboard') }}" class="dcms-secondary-button px-4 py-2.5">Reset</a>
         @endif
     </div>
@@ -51,7 +60,7 @@
             @foreach(['tinggi' => 'bg-emerald-500', 'sedang' => 'bg-amber-500', 'rendah' => 'bg-sky-500', 'baru' => 'bg-slate-400'] as $classification => $color)
                 @php($count = (int) ($potentialChart[$classification] ?? 0))
                 @php($width = round(($count / $potentialMax) * 100, 1))
-                <a href="{{ route('predictions.index', ['classification' => $classification]) }}" class="group block rounded-lg transition hover:bg-slate-50">
+                <a href="{{ route('predictions.index', array_filter(['classification' => $classification, 'phone_status' => $selectedPhoneStatus], fn ($value) => filled($value))) }}" class="group block rounded-lg transition hover:bg-slate-50">
                     <div class="mb-1.5 flex justify-between gap-3 text-sm"><span class="font-semibold capitalize text-slate-700">{{ $classification }}</span><span class="font-black text-slate-900">{{ number_format($count) }}</span></div>
                     <div class="h-2.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full {{ $color }}" style="width: {{ $width }}%"></div></div>
                 </a>
@@ -75,7 +84,7 @@
             @forelse($brandSales as $brandSale)
                 @php($barWidth = $brandSale['quantity'] > 0 ? max(4, round(($brandSale['quantity'] / $brandMax) * 100, 1)) : 0)
                 @php($brandParams = $selectedBrand === $brandSale['brand'] ? [] : ['brand' => $brandSale['brand']])
-                <a href="{{ route('dashboard', $brandParams) }}" class="rounded-lg transition hover:bg-slate-50">
+                <a href="{{ route('dashboard', array_filter(array_merge($brandParams, ['phone_status' => $selectedPhoneStatus]), fn ($value) => filled($value))) }}" class="rounded-lg transition hover:bg-slate-50">
                     <div class="mb-1.5 flex items-center justify-between gap-3 text-sm">
                         <span class="font-semibold text-slate-700">{{ $brandSale['brand'] }}</span>
                         <span class="shrink-0 font-black text-slate-900">{{ number_format($brandSale['quantity']) }} unit</span>

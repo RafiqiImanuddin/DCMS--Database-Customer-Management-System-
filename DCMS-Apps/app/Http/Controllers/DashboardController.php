@@ -14,8 +14,30 @@ class DashboardController extends Controller
     public function __invoke(Request $request): View
     {
         $selectedBrand = $request->string('brand')->trim()->toString();
+        $selectedPhoneStatus = $request->string('phone_status')->trim()->toString();
+        if (! in_array($selectedPhoneStatus, ['valid', 'invalid', 'missing'], true)) {
+            $selectedPhoneStatus = '';
+        }
 
-        $brandTotals = CrossSelling::query()
+        $crossSellingQuery = CrossSelling::query();
+        if ($selectedPhoneStatus !== '') {
+            $crossSellingQuery->whereExists(function ($exists) use ($selectedPhoneStatus) {
+                $exists->selectRaw('1')
+                    ->from('repeat_order_predictions')
+                    ->whereColumn('repeat_order_predictions.customer_vendor_code', 'cross_sellings.customer_vendor_code');
+
+                if ($selectedPhoneStatus === 'valid') {
+                    $exists->where($this->validWhatsAppCondition());
+                } elseif ($selectedPhoneStatus === 'invalid') {
+                    $exists->where($this->phonePresentCondition())
+                        ->whereRaw("NOT (no_hp_customer LIKE '62%' AND LENGTH(no_hp_customer) BETWEEN 10 AND 15 AND no_hp_customer NOT GLOB '*[^0-9]*')");
+                } else {
+                    $exists->where($this->missingPhoneCondition());
+                }
+            });
+        }
+
+        $brandTotals = (clone $crossSellingQuery)
             ->whereNotNull('brand')
             ->whereRaw("TRIM(brand) <> ''")
             ->selectRaw('UPPER(TRIM(brand)) as brand_code, SUM(quantity) as total_quantity')
@@ -36,7 +58,6 @@ class DashboardController extends Controller
             $selectedBrand = '';
         }
 
-        $crossSellingQuery = CrossSelling::query();
         if ($selectedBrand !== '') {
             $matchingBrandCodes = CrossSelling::query()
                 ->whereNotNull('brand')
@@ -79,25 +100,65 @@ class DashboardController extends Controller
             'quantity' => $quantity,
         ])->values();
 
-        $potentialChart = RepeatOrderPrediction::query()
+        $predictionQuery = RepeatOrderPrediction::query();
+        if ($selectedPhoneStatus === 'valid') {
+            $predictionQuery->where($this->validWhatsAppCondition());
+        } elseif ($selectedPhoneStatus === 'invalid') {
+            $predictionQuery->where($this->phonePresentCondition())
+                ->whereRaw("NOT (no_hp_customer LIKE '62%' AND LENGTH(no_hp_customer) BETWEEN 10 AND 15 AND no_hp_customer NOT GLOB '*[^0-9]*')");
+        } elseif ($selectedPhoneStatus === 'missing') {
+            $predictionQuery->where($this->missingPhoneCondition());
+        }
+
+        $potentialChart = (clone $predictionQuery)
             ->selectRaw('classification, COUNT(*) as total')
             ->groupBy('classification')
             ->pluck('total', 'classification');
 
         return view('dashboard.index', [
             'totalTransactions' => (clone $crossSellingQuery)->count(),
-            'totalCustomers' => RepeatOrderPrediction::distinct('customer_vendor_code')->count('customer_vendor_code'),
-            'totalPredictions' => RepeatOrderPrediction::count(),
-            'highPotentials' => RepeatOrderPrediction::where('classification', 'tinggi')->count(),
+            'totalCustomers' => (clone $predictionQuery)->distinct('customer_vendor_code')->count('customer_vendor_code'),
+            'totalPredictions' => (clone $predictionQuery)->count(),
+            'highPotentials' => (clone $predictionQuery)->where('classification', 'tinggi')->count(),
             'broadcastSent' => BroadcastReport::where('status', 'sent')->count(),
             'latestImports' => CrossSellingImport::latest()->take(5)->get(),
-            'topPredictions' => RepeatOrderPrediction::whereNotNull('predicted_repeat_date')->orderBy('predicted_repeat_date')->take(10)->get(),
+            'topPredictions' => (clone $predictionQuery)->whereNotNull('predicted_repeat_date')->orderBy('predicted_repeat_date')->take(10)->get(),
             'periods' => $periods,
             'brandSales' => $filteredBrandSales,
             'potentialChart' => $potentialChart,
             'brandOptions' => $brandOptions,
             'selectedBrand' => $selectedBrand,
+            'selectedPhoneStatus' => $selectedPhoneStatus,
         ]);
+    }
+
+    private function validWhatsAppCondition(): callable
+    {
+        return function ($builder) {
+            $builder->whereNotNull('no_hp_customer')
+                ->whereRaw("TRIM(no_hp_customer) <> ''")
+                ->whereRaw("no_hp_customer LIKE '62%'")
+                ->whereRaw('LENGTH(no_hp_customer) BETWEEN 10 AND 15')
+                ->whereRaw("no_hp_customer NOT GLOB '*[^0-9]*'");
+        };
+    }
+
+    private function missingPhoneCondition(): callable
+    {
+        return function ($builder) {
+            $builder->where(function ($missing) {
+                $missing->whereNull('no_hp_customer')
+                    ->orWhereRaw("TRIM(no_hp_customer) = ''");
+            });
+        };
+    }
+
+    private function phonePresentCondition(): callable
+    {
+        return function ($builder) {
+            $builder->whereNotNull('no_hp_customer')
+                ->whereRaw("TRIM(no_hp_customer) <> ''");
+        };
     }
 
     private function mapBrandName(string $brandCode): string

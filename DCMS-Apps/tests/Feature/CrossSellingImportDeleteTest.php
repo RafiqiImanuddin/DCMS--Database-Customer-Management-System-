@@ -101,6 +101,8 @@ class CrossSellingImportDeleteTest extends TestCase
             'customer_vendor_name' => 'Pelangan Satu',
             'no_hp_customer' => '6281234567890',
             'classification' => 'tinggi',
+            'predicted_repeat_date' => '2026-12-01',
+            'predicted_repeat_date' => '2026-12-01',
             'confidence' => 90,
         ]);
         $second = RepeatOrderPrediction::create([
@@ -451,6 +453,42 @@ class CrossSellingImportDeleteTest extends TestCase
 
         $response->assertNotFound();
         $this->assertModelExists($report);
+    }
+
+    public function test_dashboard_can_filter_by_whatsapp_status(): void
+    {
+        $user = User::factory()->create();
+
+        RepeatOrderPrediction::create([
+            'customer_vendor_code' => 'DVALID',
+            'customer_vendor_name' => 'Dashboard Valid',
+            'no_hp_customer' => '6281234567890',
+            'classification' => 'tinggi',
+            'predicted_repeat_date' => '2026-12-01',
+        ]);
+        RepeatOrderPrediction::create([
+            'customer_vendor_code' => 'DINVALID',
+            'customer_vendor_name' => 'Dashboard Invalid',
+            'no_hp_customer' => '081234567890',
+            'classification' => 'sedang',
+            'predicted_repeat_date' => '2026-12-02',
+        ]);
+        RepeatOrderPrediction::create([
+            'customer_vendor_code' => 'DMISSING',
+            'customer_vendor_name' => 'Dashboard Tanpa Nomor',
+            'no_hp_customer' => null,
+            'classification' => 'baru',
+            'predicted_repeat_date' => '2026-12-03',
+        ]);
+
+        $validResponse = $this->actingAs($user)->get(route('dashboard', ['phone_status' => 'valid']));
+        $invalidResponse = $this->actingAs($user)->get(route('dashboard', ['phone_status' => 'invalid']));
+        $missingResponse = $this->actingAs($user)->get(route('dashboard', ['phone_status' => 'missing']));
+
+        $validResponse->assertOk()->assertViewHas('totalPredictions', 1)->assertSee('Dashboard Valid');
+        $invalidResponse->assertOk()->assertViewHas('totalPredictions', 1)->assertSee('Dashboard Invalid');
+        $missingResponse->assertOk()->assertViewHas('totalPredictions', 1)->assertSee('Dashboard Tanpa Nomor');
+        $validResponse->assertSee('Filter WhatsApp')->assertSee('WhatsApp valid');
     }
 
     public function test_master_customer_phone_chart_can_filter_valid_invalid_and_missing_numbers(): void
