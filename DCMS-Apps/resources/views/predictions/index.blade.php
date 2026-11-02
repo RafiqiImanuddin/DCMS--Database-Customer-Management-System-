@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Prediksi Repeat Order')
+@section('title', 'Pelanggan Potensial')
 @section('content')
 <form method="GET" class="mb-6 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
     <input name="search" value="{{ request('search') }}" placeholder="Cari pelanggan atau item" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">

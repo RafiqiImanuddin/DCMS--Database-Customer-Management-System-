@@ -16,7 +16,7 @@
             <nav class="space-y-1 px-3 py-5 text-sm">
                 <a href="{{ route('dashboard') }}" class="block rounded-lg px-3 py-2 hover:bg-white/10 {{ request()->routeIs('dashboard') ? 'bg-white/10' : '' }}">Dashboard</a>
                 <a href="{{ route('imports.index') }}" class="block rounded-lg px-3 py-2 hover:bg-white/10 {{ request()->routeIs('imports.*') ? 'bg-white/10' : '' }}">Import Cross-selling</a>
-                <a href="{{ route('predictions.index') }}" class="block rounded-lg px-3 py-2 hover:bg-white/10 {{ request()->routeIs('predictions.*') ? 'bg-white/10' : '' }}">Prediksi Repeat Order</a>
+                <a href="{{ route('predictions.index') }}" class="block rounded-lg px-3 py-2 hover:bg-white/10 {{ request()->routeIs('predictions.*') ? 'bg-white/10' : '' }}">Pelanggan Potensial</a>
                 <a href="{{ route('broadcasts.index') }}" class="block rounded-lg px-3 py-2 hover:bg-white/10 {{ request()->routeIs('broadcasts.*') ? 'bg-white/10' : '' }}">Laporan Broadcast</a>
             </nav>
         </aside>

@@ -21,6 +21,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/imports', [CrossSellingImportController::class, 'index'])->name('imports.index');
     Route::post('/imports', [CrossSellingImportController::class, 'store'])->name('imports.store');
+    Route::delete('/imports/{import}', [CrossSellingImportController::class, 'destroy'])->name('imports.destroy');
     Route::get('/predictions', RepeatOrderPredictionController::class)->name('predictions.index');
     Route::get('/broadcasts', [BroadcastReportController::class, 'index'])->name('broadcasts.index');
     Route::post('/predictions/{prediction}/broadcast', [BroadcastReportController::class, 'store'])->name('broadcasts.store');

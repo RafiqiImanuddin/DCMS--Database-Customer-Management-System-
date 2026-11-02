@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
+use App\Models\RepeatOrderPrediction;
 use App\Services\CrossSellingImporter;
 use App\Services\RepeatOrderPredictor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class CrossSellingImportController extends Controller
@@ -45,5 +49,26 @@ class CrossSellingImportController extends Controller
                 ? $import->success_count.' baris berhasil diimport dan prediksi diperbarui.'
                 : 'Import gagal: '.$import->error_log,
         );
+    }
+
+    public function destroy(Request $request, CrossSellingImport $import, RepeatOrderPredictor $predictor): RedirectResponse
+    {
+        abort_unless($import->user_id === $request->user()->id, 404);
+
+        $storedPath = $import->stored_path;
+
+        DB::transaction(function () use ($import): void {
+            RepeatOrderPrediction::where('cross_selling_import_id', $import->id)->delete();
+            CrossSelling::where('cross_selling_import_id', $import->id)->delete();
+            $import->delete();
+        });
+
+        if ($storedPath) {
+            Storage::disk('local')->delete($storedPath);
+        }
+
+        $predictor->rebuild();
+
+        return redirect()->route('imports.index')->with('success', 'Data import berhasil dihapus.');
     }
 }

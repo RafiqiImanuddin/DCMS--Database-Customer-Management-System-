@@ -17,12 +17,27 @@
 <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
-            <thead class="border-b bg-slate-50 text-slate-500"><tr><th class="px-5 py-3">File</th><th>Periode</th><th>Status</th><th>Baris</th><th>Sukses</th><th>Gagal</th><th>Tanggal</th></tr></thead>
+            <thead class="border-b bg-slate-50 text-slate-500"><tr><th class="px-5 py-3">File</th><th>Periode</th><th>Status</th><th>Baris</th><th>Sukses</th><th>Gagal</th><th>Tanggal</th><th class="px-5 text-center">Aksi</th></tr></thead>
             <tbody>
             @forelse($imports as $import)
-                <tr class="border-b border-slate-100"><td class="px-5 py-3 font-semibold">{{ $import->original_name }}</td><td>{{ $import->batch_label ?: '-' }}</td><td><span class="rounded-full px-2 py-1 text-xs {{ $import->status === 'completed' ? 'bg-emerald-100 text-emerald-700' : ($import->status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700') }}">{{ $import->status }}</span></td><td>{{ $import->row_count }}</td><td>{{ $import->success_count }}</td><td>{{ $import->failed_count }}</td><td>{{ $import->created_at?->format('d M Y H:i') }}</td></tr>
+                <tr class="border-b border-slate-100">
+                    <td class="px-5 py-3 font-semibold">{{ $import->original_name }}</td>
+                    <td>{{ $import->batch_label ?: '-' }}</td>
+                    <td><span class="rounded-full px-2 py-1 text-xs {{ $import->status === 'completed' ? 'bg-emerald-100 text-emerald-700' : ($import->status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700') }}">{{ $import->status }}</span></td>
+                    <td>{{ $import->row_count }}</td>
+                    <td>{{ $import->success_count }}</td>
+                    <td>{{ $import->failed_count }}</td>
+                    <td>{{ $import->created_at?->format('d M Y H:i') }}</td>
+                    <td class="px-5 py-3 text-center">
+                        <form method="POST" action="{{ route('imports.destroy', ['import' => $import->id]) }}" onsubmit="return confirm('Hapus import dan semua data terkait?')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Hapus</button>
+                        </form>
+                    </td>
+                </tr>
             @empty
-                <tr><td colspan="7" class="px-5 py-8 text-center text-slate-500">Belum ada import.</td></tr>
+                <tr><td colspan="8" class="px-5 py-8 text-center text-slate-500">Belum ada import.</td></tr>
             @endforelse
             </tbody>
         </table>
