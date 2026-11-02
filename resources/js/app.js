@@ -28,6 +28,14 @@ importUploadForm?.addEventListener('submit', (event) => {
         return;
     }
 
+    const maxSizeBytes = 3584 * 1024;
+    const selectedFile = fileInput.files[0];
+    if (selectedFile.size > maxSizeBytes) {
+        event.preventDefault();
+        window.alert(`File "${selectedFile.name}" berukuran ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB. Batas upload Vercel adalah 3,5 MB. Pecah file menjadi beberapa file yang lebih kecil, atau gunakan format CSV.`);
+        return;
+    }
+
     const submitButton = document.getElementById('import-submit-button');
     if (submitButton) {
         submitButton.disabled = true;

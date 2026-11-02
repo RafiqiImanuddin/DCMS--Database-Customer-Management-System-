@@ -22,6 +22,21 @@ class CrossSellingImportDeleteTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_cross_selling_upload_rejects_files_above_vercel_payload_limit(): void
+    {
+        Queue::fake();
+        Storage::fake('local');
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create('cross-selling.xlsx', 3585, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $this->actingAs($user)
+            ->post('/imports', ['file' => $file])
+            ->assertSessionHasErrors('file');
+
+        Queue::assertNothingPushed();
+        $this->assertDatabaseCount('cross_selling_imports', 0);
+    }
+
     public function test_csv_import_cleans_rows_and_removes_duplicates(): void
     {
         Storage::fake('local');

@@ -26,7 +26,7 @@ class CrossSellingImportController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:102400'],
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:3584'],
         ]);
 
         $storedPath = $validated['file']->store('cross-selling-imports', 'local');
