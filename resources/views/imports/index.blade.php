@@ -5,7 +5,7 @@
 @section('content')
 <div class="mb-6"><p class="text-sm font-medium text-brand-600">Pengelolaan Data</p><h1 class="mt-1 text-2xl font-black text-slate-900">Import Cross-selling</h1></div>
 <section class="dcms-card mb-6 p-5 sm:p-6">
-    <div class="mb-5 flex items-start gap-3"><div class="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg></div><div><h2 class="font-black text-slate-900">Upload file bulanan atau gabungan</h2><p class="mt-1 text-sm text-slate-500">File XLSX, XLS, atau CSV, maksimum 3,5 MB</p></div></div>
+    <div class="mb-5 flex items-start gap-3"><div class="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg></div><div><h2 class="font-black text-slate-900">Upload file bulanan atau gabungan</h2><p class="mt-1 text-sm text-slate-500">File besar akan dipecah otomatis menjadi batch maksimal 3,5 MB dan batch dapat dipilih sebelum upload.</p></div></div>
     <form id="import-upload-form" method="POST" action="{{ route('imports.store') }}" enctype="multipart/form-data" class="flex flex-col gap-3 sm:flex-row sm:items-end">
         @csrf
         <div class="flex-1">
@@ -15,6 +15,13 @@
         </div>
         <button id="import-submit-button" class="dcms-primary-button">Mulai Import</button>
     </form>
+    <div id="import-batch-panel" class="mt-4 hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <div><p class="text-sm font-bold text-slate-700">Pilih batch upload</p><p id="import-batch-summary" class="mt-1 text-xs text-slate-500"></p></div>
+            <label class="flex items-center gap-2 text-xs font-semibold text-slate-600"><input id="select-all-import-batches" type="checkbox" checked class="size-4 rounded border-slate-300 text-brand-600">Pilih semua</label>
+        </div>
+        <div id="import-batch-list" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"></div>
+    </div>
     <div class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500"><span class="font-bold text-slate-700">Data yang diproses:</span> cabang, pelanggan, item, nominal, tanggal, nomor transaksi, nomor telepon, nama konsumen, dan nama sales.</div>
 </section>
 <section class="dcms-card overflow-hidden">
