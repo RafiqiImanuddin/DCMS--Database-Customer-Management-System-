@@ -1,0 +1,26 @@
+eProvider->{closure:Illuminate\\View\\ViewServiceProvider::registerFactory():39}(Object(Illuminate\\Foundation\\Application), Array)
+#14 /var/task/user/vendor/laravel/framework/src/Illuminate/Container/Container.php(939): Illuminate\\Container\\Container->build(Object(Closure))
+#15 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1086): Illuminate\\Container\\Container->resolve('view', Array, true)
+#16 /var/task/user/vendor/laravel/framework/src/Illuminate/Container/Container.php(867): Illuminate\\Foundation\\Application->resolve('view', Array)
+#17 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1066): Illuminate\\Container\\Container->make('view', Array)
+#18 /var/task/user/vendor/laravel/framework/src/Illuminate/Container/Container.php(1850): Illuminate\\Foundation\\Application->make('view')
+#19 /var/task/user/vendor/laravel/framework/src/Illuminate/Support/Facades/Facade.php(240): Illuminate\\Container\\Container->offsetGet('view')
+#20 /var/task/user/vendor/laravel/framework/src/Illuminate/Support/Facades/Facade.php(211): Illuminate\\Support\\Facades\\Facade::resolveFacadeInstance('view')
+#21 /var/task/user/vendor/laravel/framework/src/Illuminate/Support/Facades/Facade.php(358): Illuminate\\Support\\Facades\\Facade::getFacadeRoot()
+#22 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/RegisterErrorViewPaths.php(17): Illuminate\\Support\\Facades\\Facade::__callStatic('replaceNamespac...', Array)
+#23 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(1065): Illuminate\\Foundation\\Exceptions\\RegisterErrorViewPaths->__invoke()
+#24 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(1040): Illuminate\\Foundation\\Exceptions\\Handler->registerErrorViewPaths()
+#25 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(963): Illuminate\\Foundation\\Exceptions\\Handler->renderHttpException(Object(Symfony\\Component\\HttpKernel\\Exception\\HttpException))
+#26 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(844): Illuminate\\Foundation\\Exceptions\\Handler->prepareResponse(Object(Illuminate\\Http\\Request), Object(Symfony\\Component\\HttpKernel\\Exception\\HttpException))
+#27 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(731): Illuminate\\Foundation\\Exceptions\\Handler->renderExceptionResponse(Object(Illuminate\\Http\\Request), Object(Illuminate\\Contracts\\Container\\BindingResolutionException))
+#28 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(228): Illuminate\\Foundation\\Exceptions\\Handler->render(Object(Illuminate\\Http\\Request), Object(Illuminate\\Contracts\\Container\\BindingResolutionException))
+#29 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(205): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->renderHttpResponse(Object(Illuminate\\Contracts\\Container\\BindingResolutionException))
+#30 /var/task/user/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(265): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleException(Object(Illuminate\\Contracts\\Container\\BindingResolutionException))
+#31 [internal function]: Illuminate\\Foundation\\Bootstrap\\HandleExceptions->{closure:Illuminate\\Foundation\\Bootstrap\\HandleExceptions::forwardsTo():264}(Object(Illuminate\\Contracts\\Container\\BindingResolutionException))
+#32 {main}
+  thrown at /var/task/user/vendor/laravel/framework/src/Illuminate/Container/Container.php:1153)
+[stacktrace]
+#0 {main}
+"} 
+
+🐘STDERR: [Mon Nov  2 10:00:05 2026] 127.0.0.1:34256 Closing
