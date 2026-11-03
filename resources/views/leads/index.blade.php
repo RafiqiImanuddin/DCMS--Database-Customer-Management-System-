@@ -3,7 +3,26 @@
 @section('content')
 <div class="mb-5 flex items-end justify-between gap-4">
     <div><p class="text-sm font-medium text-brand-600">Follow Up</p><h1 class="mt-1 text-2xl font-black text-slate-900">Leads Customer</h1></div>
-    <div class="flex items-center gap-3"><p class="hidden text-sm text-slate-500 sm:block">{{ $leads->total() }} lead ditemukan</p><a href="{{ route('leads.download', request()->query()) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"><svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>Download Leads (CSV)</a></div>
+    <div class="flex flex-wrap items-center gap-2">
+        <p class="hidden text-sm text-slate-500 md:block">{{ number_format($leads->total(), 0, ',', '.') }} lead</p>
+        @if ($leads->total() <= 25000)
+            <a href="{{ route('leads.download', request()->except('page')) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
+                <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+                Download Leads (CSV)
+            </a>
+        @else
+            <span class="text-xs text-slate-500 hidden sm:inline">Download Batch:</span>
+            @php($totalBatches = (int) ceil($leads->total() / 25000))
+            @for ($b = 1; $b <= $totalBatches; $b++)
+                @php($start = ($b - 1) * 25000 + 1)
+                @php($end = min($b * 25000, $leads->total()))
+                <a href="{{ route('leads.download', array_merge(request()->except(['page', 'batch']), ['batch' => $b])) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700">
+                    <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+                    Batch {{ $b }} ({{ number_format($start, 0, ',', '.') }}-{{ number_format($end, 0, ',', '.') }})
+                </a>
+            @endfor
+        @endif
+    </div>
 </div>
 
 <form method="GET" class="dcms-card mb-5 grid gap-3 p-4 md:grid-cols-[minmax(220px,1fr)_160px_160px_auto]">

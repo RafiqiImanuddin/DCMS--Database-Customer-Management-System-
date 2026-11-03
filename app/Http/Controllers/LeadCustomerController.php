@@ -8,8 +8,8 @@ use App\Support\PhoneNumberSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LeadCustomerController extends Controller
 {
@@ -22,44 +22,63 @@ class LeadCustomerController extends Controller
         ]);
     }
 
-    public function download(Request $request): StreamedResponse
+    public function download(Request $request): Response
     {
         $query = $this->buildFilteredQuery($request);
 
-        $filename = 'leads-customer-'.now()->format('Y-m-d-His').'.csv';
+        $perBatch = 25000;
+        $batch = max(1, (int) $request->integer('batch', 1));
+        $offset = ($batch - 1) * $perBatch;
 
-        return response()->streamDownload(function () use ($query) {
-            $output = fopen('php://output', 'w');
-            fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, [
-                'Kode Pelanggan',
-                'Nama Pelanggan',
-                'No HP Konsumen',
-                'Kode Item',
-                'Nama Barang',
-                'Klasifikasi',
-                'Status',
-                'Tanggal Masuk Lead',
-            ]);
+        $totalFiltered = (clone $query)->count();
+        $query->latest('assigned_at')->skip($offset)->take($perBatch);
 
-            $query->latest('assigned_at')->chunk(500, function ($leads) use ($output) {
-                foreach ($leads as $lead) {
-                    fputcsv($output, [
-                        $lead->customer_vendor_code,
-                        $lead->customer_vendor_name,
-                        $lead->no_hp_customer,
-                        $lead->item_code,
-                        $lead->dscription,
-                        ucfirst($lead->classification ?? '-'),
-                        $lead->status ?? '-',
-                        $lead->assigned_at?->format('d-m-Y H:i') ?? '-',
-                    ]);
-                }
-            });
+        $filename = 'leads-customer';
+        if ($totalFiltered > $perBatch) {
+            $filename .= '-batch-'.$batch;
+        }
+        $filename .= '-'.now()->format('Y-m-d').'.csv';
 
-            fclose($output);
-        }, $filename, [
+        $fp = fopen('php://temp', 'r+');
+        fwrite($fp, "\xEF\xBB\xBF");
+        fputcsv($fp, [
+            'Kode Pelanggan',
+            'Nama Pelanggan',
+            'No HP Konsumen',
+            'Kode Item',
+            'Nama Barang',
+            'Klasifikasi',
+            'Status',
+            'Tanggal Masuk Lead',
+        ]);
+
+        $query->chunk(500, function ($leads) use ($fp) {
+            foreach ($leads as $lead) {
+                fputcsv($fp, [
+                    $lead->customer_vendor_code,
+                    $lead->customer_vendor_name,
+                    $lead->no_hp_customer,
+                    $lead->item_code,
+                    $lead->dscription,
+                    ucfirst($lead->classification ?? '-'),
+                    $lead->status ?? '-',
+                    $lead->assigned_at?->format('d-m-Y H:i') ?? '-',
+                ]);
+            }
+        });
+
+        rewind($fp);
+        $csvContent = stream_get_contents($fp);
+        fclose($fp);
+
+        $gzipped = gzencode($csvContent, 6);
+
+        return response($gzipped, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Encoding' => 'gzip',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Length' => strlen($gzipped),
+            'Cache-Control' => 'no-cache, private',
         ]);
     }
 

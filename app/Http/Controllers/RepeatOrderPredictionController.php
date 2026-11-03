@@ -6,8 +6,8 @@ use App\Models\RepeatOrderPrediction;
 use App\Support\PhoneNumberSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RepeatOrderPredictionController extends Controller
 {
@@ -54,52 +54,71 @@ class RepeatOrderPredictionController extends Controller
         ]);
     }
 
-    public function download(Request $request): StreamedResponse
+    public function download(Request $request): Response
     {
         $query = $this->buildFilteredQuery($request);
 
-        $filename = 'master-customer-'.now()->format('Y-m-d-His').'.csv';
+        $perBatch = 25000;
+        $batch = max(1, (int) $request->integer('batch', 1));
+        $offset = ($batch - 1) * $perBatch;
 
-        return response()->streamDownload(function () use ($query) {
-            $output = fopen('php://output', 'w');
-            fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, [
-                'Kode Pelanggan',
-                'Nama Pelanggan',
-                'No HP Konsumen',
-                'Kode Item',
-                'Nama Barang',
-                'Klasifikasi',
-                'Confidence (%)',
-                'Interval Hari',
-                'Total Transaksi',
-                'Total Nominal',
-                'Prediksi Repeat Date',
-                'Periode',
-            ]);
+        $totalFiltered = (clone $query)->count();
+        $query->orderBy('predicted_repeat_date')->skip($offset)->take($perBatch);
 
-            $query->orderBy('predicted_repeat_date')->chunk(500, function ($predictions) use ($output) {
-                foreach ($predictions as $row) {
-                    fputcsv($output, [
-                        $row->customer_vendor_code,
-                        $row->customer_vendor_name,
-                        $row->no_hp_customer,
-                        $row->item_code,
-                        $row->dscription,
-                        ucfirst($row->classification ?? '-'),
-                        $row->confidence ?? 0,
-                        $row->interval_days ?? 0,
-                        $row->transaction_count ?? 0,
-                        $row->total_nominal ?? 0,
-                        $row->predicted_repeat_date?->format('d-m-Y') ?? '-',
-                        $row->period_label ?? '-',
-                    ]);
-                }
-            });
+        $filename = 'master-customer';
+        if ($totalFiltered > $perBatch) {
+            $filename .= '-batch-'.$batch;
+        }
+        $filename .= '-'.now()->format('Y-m-d').'.csv';
 
-            fclose($output);
-        }, $filename, [
+        $fp = fopen('php://temp', 'r+');
+        fwrite($fp, "\xEF\xBB\xBF");
+        fputcsv($fp, [
+            'Kode Pelanggan',
+            'Nama Pelanggan',
+            'No HP Konsumen',
+            'Kode Item',
+            'Nama Barang',
+            'Klasifikasi',
+            'Confidence (%)',
+            'Interval Hari',
+            'Total Transaksi',
+            'Total Nominal',
+            'Prediksi Repeat Date',
+            'Periode',
+        ]);
+
+        $query->chunk(500, function ($predictions) use ($fp) {
+            foreach ($predictions as $row) {
+                fputcsv($fp, [
+                    $row->customer_vendor_code,
+                    $row->customer_vendor_name,
+                    $row->no_hp_customer,
+                    $row->item_code,
+                    $row->dscription,
+                    ucfirst($row->classification ?? '-'),
+                    $row->confidence ?? 0,
+                    $row->interval_days ?? 0,
+                    $row->transaction_count ?? 0,
+                    $row->total_nominal ?? 0,
+                    $row->predicted_repeat_date?->format('d-m-Y') ?? '-',
+                    $row->period_label ?? '-',
+                ]);
+            }
+        });
+
+        rewind($fp);
+        $csvContent = stream_get_contents($fp);
+        fclose($fp);
+
+        $gzipped = gzencode($csvContent, 6);
+
+        return response($gzipped, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Encoding' => 'gzip',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Length' => strlen($gzipped),
+            'Cache-Control' => 'no-cache, private',
         ]);
     }
 

@@ -86,13 +86,17 @@ class AdminRolePermissionTest extends TestCase
         // Download Master Customer
         $predDownload = $this->actingAs($admin)->get(route('predictions.download'));
         $predDownload->assertOk();
-        $this->assertStringContainsString('Kode Pelanggan', $predDownload->streamedContent());
-        $this->assertStringContainsString('Nama Pelanggan', $predDownload->streamedContent());
+        $this->assertEquals('gzip', $predDownload->headers->get('Content-Encoding'));
+        $decompressed = gzdecode($predDownload->getContent());
+        $this->assertStringContainsString('Kode Pelanggan', $decompressed);
+        $this->assertStringContainsString('Nama Pelanggan', $decompressed);
 
         // Download Leads
         $leadDownload = $this->actingAs($admin)->get(route('leads.download'));
         $leadDownload->assertOk();
-        $this->assertStringContainsString('Kode Pelanggan', $leadDownload->streamedContent());
-        $this->assertStringContainsString('Budi Santoso', $leadDownload->streamedContent());
+        $this->assertEquals('gzip', $leadDownload->headers->get('Content-Encoding'));
+        $leadDecompressed = gzdecode($leadDownload->getContent());
+        $this->assertStringContainsString('Kode Pelanggan', $leadDecompressed);
+        $this->assertStringContainsString('Budi Santoso', $leadDecompressed);
     }
 }
