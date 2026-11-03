@@ -12,7 +12,7 @@
     </div>
     <a href="{{ route('broadcasts.download', request()->only('status')) }}" class="dcms-primary-button inline-flex items-center justify-center gap-2 px-4 py-2.5">
         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/></svg>
-        Download CSV
+        Download Excel (.xlsx)
     </a>
 </form>
 <section class="dcms-card overflow-hidden">

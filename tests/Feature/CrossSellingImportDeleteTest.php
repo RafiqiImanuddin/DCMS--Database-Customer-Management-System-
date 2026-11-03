@@ -425,12 +425,18 @@ class CrossSellingImportDeleteTest extends TestCase
 
         $response->assertOk();
         $response->assertDownload();
-        $content = $response->streamedContent();
-        $this->assertStringContainsString('Kode Pelanggan', $content);
-        $this->assertStringContainsString('C001', $content);
-        $this->assertStringNotContainsString('C002', $content);
-        $this->assertStringNotContainsString('OTHER', $content);
-        $this->assertStringNotContainsString('Pesan user lain', $content);
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', (string) $response->headers->get('content-type'));
+
+        $zip = new \ZipArchive();
+        $zip->open($response->getFile()->getPathname());
+        $sheetXml = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+
+        $this->assertStringContainsString('Kode Pelanggan', $sheetXml);
+        $this->assertStringContainsString('C001', $sheetXml);
+        $this->assertStringNotContainsString('C002', $sheetXml);
+        $this->assertStringNotContainsString('OTHER', $sheetXml);
+        $this->assertStringNotContainsString('Pesan user lain', $sheetXml);
     }
 
     public function test_owner_can_delete_broadcast_report(): void

@@ -8,19 +8,31 @@
         @if ($predictions->total() <= 25000)
             <a href="{{ route('predictions.download', request()->except('page')) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
                 <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-                Download Data (CSV)
+                Download Excel (.xlsx)
             </a>
         @else
-            <span class="text-xs text-slate-500 hidden sm:inline">Download Batch:</span>
-            @php($totalBatches = (int) ceil($predictions->total() / 25000))
-            @for ($b = 1; $b <= $totalBatches; $b++)
-                @php($start = ($b - 1) * 25000 + 1)
-                @php($end = min($b * 25000, $predictions->total()))
-                <a href="{{ route('predictions.download', array_merge(request()->except(['page', 'batch']), ['batch' => $b])) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700">
-                    <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-                    Batch {{ $b }} ({{ number_format($start, 0, ',', '.') }}-{{ number_format($end, 0, ',', '.') }})
-                </a>
-            @endfor
+            <details class="relative inline-block text-left">
+                <summary class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-100 list-none">
+                    <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+                    Download Excel ({{ number_format($predictions->total(), 0, ',', '.') }} data)
+                    <svg class="size-3.5 text-emerald-700" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                </summary>
+                <div class="absolute right-0 z-30 mt-2 w-64 origin-top-right rounded-xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-black/5 focus:outline-none">
+                    <div class="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Pilih Batch (Maks 25k data/file)</div>
+                    @php($totalBatches = (int) ceil($predictions->total() / 25000))
+                    @for ($b = 1; $b <= $totalBatches; $b++)
+                        @php($start = ($b - 1) * 25000 + 1)
+                        @php($end = min($b * 25000, $predictions->total()))
+                        <a href="{{ route('predictions.download', array_merge(request()->except(['page', 'batch']), ['batch' => $b])) }}" class="flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition">
+                            <span class="flex items-center gap-2">
+                                <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+                                Batch {{ $b }}
+                            </span>
+                            <span class="text-[11px] text-slate-400 font-mono">{{ number_format($start, 0, ',', '.') }} - {{ number_format($end, 0, ',', '.') }}</span>
+                        </a>
+                    @endfor
+                </div>
+            </details>
         @endif
     </div>
 </div>

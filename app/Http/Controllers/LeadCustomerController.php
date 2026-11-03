@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\LeadCustomer;
 use App\Models\RepeatOrderPrediction;
+use App\Services\FastXlsxWriter;
 use App\Support\PhoneNumberSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class LeadCustomerController extends Controller
 {
@@ -22,7 +23,7 @@ class LeadCustomerController extends Controller
         ]);
     }
 
-    public function download(Request $request): Response
+    public function download(Request $request): BinaryFileResponse
     {
         $query = $this->buildFilteredQuery($request);
 
@@ -37,11 +38,9 @@ class LeadCustomerController extends Controller
         if ($totalFiltered > $perBatch) {
             $filename .= '-batch-'.$batch;
         }
-        $filename .= '-'.now()->format('Y-m-d').'.csv';
+        $filename .= '-'.now()->format('Y-m-d').'.xlsx';
 
-        $fp = fopen('php://temp', 'r+');
-        fwrite($fp, "\xEF\xBB\xBF");
-        fputcsv($fp, [
+        $headers = [
             'Kode Pelanggan',
             'Nama Pelanggan',
             'No HP Konsumen',
@@ -50,11 +49,11 @@ class LeadCustomerController extends Controller
             'Klasifikasi',
             'Status',
             'Tanggal Masuk Lead',
-        ]);
+        ];
 
-        $query->chunk(500, function ($leads) use ($fp) {
-            foreach ($leads as $lead) {
-                fputcsv($fp, [
+        $rowsGenerator = function () use ($query) {
+            foreach ($query->cursor() as $lead) {
+                yield [
                     $lead->customer_vendor_code,
                     $lead->customer_vendor_name,
                     $lead->no_hp_customer,
@@ -63,23 +62,11 @@ class LeadCustomerController extends Controller
                     ucfirst($lead->classification ?? '-'),
                     $lead->status ?? '-',
                     $lead->assigned_at?->format('d-m-Y H:i') ?? '-',
-                ]);
+                ];
             }
-        });
+        };
 
-        rewind($fp);
-        $csvContent = stream_get_contents($fp);
-        fclose($fp);
-
-        $gzipped = gzencode($csvContent, 6);
-
-        return response($gzipped, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Encoding' => 'gzip',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-            'Content-Length' => strlen($gzipped),
-            'Cache-Control' => 'no-cache, private',
-        ]);
+        return FastXlsxWriter::download($filename, $headers, $rowsGenerator());
     }
 
     private function buildFilteredQuery(Request $request): Builder

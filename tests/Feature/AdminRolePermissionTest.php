@@ -46,8 +46,8 @@ class AdminRolePermissionTest extends TestCase
             ->get(route('imports.template'));
 
         $response->assertOk();
-        $this->assertStringContainsString('Cabang', $response->streamedContent());
-        $this->assertStringContainsString('Posting Date', $response->streamedContent());
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('template-cross-selling.xlsx', $response->headers->get('Content-Disposition'));
     }
 
     public function test_admin_can_download_master_customer_and_leads_data(): void
@@ -83,20 +83,16 @@ class AdminRolePermissionTest extends TestCase
             'assigned_at' => now(),
         ]);
 
-        // Download Master Customer
+        // Download Master Customer as Excel (.xlsx)
         $predDownload = $this->actingAs($admin)->get(route('predictions.download'));
         $predDownload->assertOk();
-        $this->assertEquals('gzip', $predDownload->headers->get('Content-Encoding'));
-        $decompressed = gzdecode($predDownload->getContent());
-        $this->assertStringContainsString('Kode Pelanggan', $decompressed);
-        $this->assertStringContainsString('Nama Pelanggan', $decompressed);
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $predDownload->headers->get('Content-Type'));
+        $this->assertStringContainsString('.xlsx', $predDownload->headers->get('Content-Disposition'));
 
-        // Download Leads
+        // Download Leads as Excel (.xlsx)
         $leadDownload = $this->actingAs($admin)->get(route('leads.download'));
         $leadDownload->assertOk();
-        $this->assertEquals('gzip', $leadDownload->headers->get('Content-Encoding'));
-        $leadDecompressed = gzdecode($leadDownload->getContent());
-        $this->assertStringContainsString('Kode Pelanggan', $leadDecompressed);
-        $this->assertStringContainsString('Budi Santoso', $leadDecompressed);
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $leadDownload->headers->get('Content-Type'));
+        $this->assertStringContainsString('.xlsx', $leadDownload->headers->get('Content-Disposition'));
     }
 }

@@ -10,7 +10,7 @@
     </div>
     <a href="{{ route('imports.template') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
         <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-        Download Template CSV (12 Kolom)
+        Download Template Excel (.xlsx)
     </a>
 </div>
 <section class="dcms-card mb-6 p-5 sm:p-6">

@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\RepeatOrderPrediction;
+use App\Services\FastXlsxWriter;
 use App\Support\PhoneNumberSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RepeatOrderPredictionController extends Controller
 {
@@ -54,7 +55,7 @@ class RepeatOrderPredictionController extends Controller
         ]);
     }
 
-    public function download(Request $request): Response
+    public function download(Request $request): BinaryFileResponse
     {
         $query = $this->buildFilteredQuery($request);
 
@@ -69,11 +70,9 @@ class RepeatOrderPredictionController extends Controller
         if ($totalFiltered > $perBatch) {
             $filename .= '-batch-'.$batch;
         }
-        $filename .= '-'.now()->format('Y-m-d').'.csv';
+        $filename .= '-'.now()->format('Y-m-d').'.xlsx';
 
-        $fp = fopen('php://temp', 'r+');
-        fwrite($fp, "\xEF\xBB\xBF");
-        fputcsv($fp, [
+        $headers = [
             'Kode Pelanggan',
             'Nama Pelanggan',
             'No HP Konsumen',
@@ -86,11 +85,11 @@ class RepeatOrderPredictionController extends Controller
             'Total Nominal',
             'Prediksi Repeat Date',
             'Periode',
-        ]);
+        ];
 
-        $query->chunk(500, function ($predictions) use ($fp) {
-            foreach ($predictions as $row) {
-                fputcsv($fp, [
+        $rowsGenerator = function () use ($query) {
+            foreach ($query->cursor() as $row) {
+                yield [
                     $row->customer_vendor_code,
                     $row->customer_vendor_name,
                     $row->no_hp_customer,
@@ -103,23 +102,11 @@ class RepeatOrderPredictionController extends Controller
                     $row->total_nominal ?? 0,
                     $row->predicted_repeat_date?->format('d-m-Y') ?? '-',
                     $row->period_label ?? '-',
-                ]);
+                ];
             }
-        });
+        };
 
-        rewind($fp);
-        $csvContent = stream_get_contents($fp);
-        fclose($fp);
-
-        $gzipped = gzencode($csvContent, 6);
-
-        return response($gzipped, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Encoding' => 'gzip',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-            'Content-Length' => strlen($gzipped),
-            'Cache-Control' => 'no-cache, private',
-        ]);
+        return FastXlsxWriter::download($filename, $headers, $rowsGenerator());
     }
 
     private function buildFilteredQuery(Request $request, bool $applyClassification = true): Builder

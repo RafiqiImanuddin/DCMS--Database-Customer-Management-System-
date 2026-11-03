@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\BroadcastReport;
 use App\Models\RepeatOrderPrediction;
 use App\Services\BroadcastService;
+use App\Services\FastXlsxWriter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BroadcastReportController extends Controller
 {
@@ -56,38 +57,32 @@ class BroadcastReportController extends Controller
         );
     }
 
-    public function download(Request $request): StreamedResponse
+    public function download(Request $request): BinaryFileResponse
     {
         $query = BroadcastReport::query()->where('user_id', $request->user()->id);
         if (($status = $request->string('status')->toString()) && in_array($status, ['sent', 'failed', 'logged', 'queued'], true)) {
             $query->where('status', $status);
         }
 
-        $filename = 'laporan-broadcast-'.now()->format('Y-m-d-His').'.csv';
+        $filename = 'laporan-broadcast-'.now()->format('Y-m-d').'.xlsx';
 
-        return response()->streamDownload(function () use ($query) {
-            $output = fopen('php://output', 'w');
-            fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Kode Pelanggan', 'No HP', 'Channel', 'Status', 'Pesan', 'Waktu', 'Respons Provider']);
+        $headers = ['Kode Pelanggan', 'No HP', 'Channel', 'Status', 'Pesan', 'Waktu', 'Respons Provider'];
 
-            $query->latest()->chunk(500, function ($reports) use ($output) {
-                foreach ($reports as $report) {
-                    fputcsv($output, [
-                        $this->csvSafe($report->customer_vendor_code),
-                        $this->csvSafe($report->phone_number),
-                        $this->csvSafe($report->channel),
-                        $this->csvSafe($report->status),
-                        $this->csvSafe($report->message),
-                        $report->sent_at?->format('d-m-Y H:i:s') ?? '',
-                        $this->csvSafe($report->provider_response),
-                    ]);
-                }
-            });
+        $rowsGenerator = function () use ($query) {
+            foreach ($query->latest()->cursor() as $report) {
+                yield [
+                    $report->customer_vendor_code,
+                    $report->phone_number,
+                    $report->channel,
+                    $report->status,
+                    $report->message,
+                    $report->sent_at?->format('d-m-Y H:i:s') ?? '-',
+                    $report->provider_response,
+                ];
+            }
+        };
 
-            fclose($output);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return FastXlsxWriter::download($filename, $headers, $rowsGenerator());
     }
 
     public function destroy(Request $request, BroadcastReport $report): RedirectResponse
