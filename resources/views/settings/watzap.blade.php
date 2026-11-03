@@ -27,9 +27,22 @@
 @endif
 
 @if(session('error'))
-<div class="mb-5 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800 shadow-sm">
-    <svg class="mt-0.5 size-5 shrink-0 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-    <div class="text-xs font-semibold leading-relaxed">{{ session('error') }}</div>
+<div class="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800 shadow-sm">
+    <div class="flex items-start gap-3">
+        <svg class="mt-0.5 size-5 shrink-0 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <div class="flex-1">
+            <div class="text-xs font-bold text-rose-900">Perhatian: Pengiriman Pesan Belum Berhasil</div>
+            <div class="mt-1 text-xs leading-relaxed text-rose-800">{{ session('error') }}</div>
+            @if(str_contains(session('error'), 'Not Started') || str_contains(session('error'), 'Offline') || str_contains(session('error'), 'Scan QR'))
+            <div class="mt-3 flex items-center gap-2">
+                <a href="https://app.watzap.id" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-rose-500">
+                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Buka Member Area WatZap & Scan QR
+                </a>
+            </div>
+            @endif
+        </div>
+    </div>
 </div>
 @endif
 

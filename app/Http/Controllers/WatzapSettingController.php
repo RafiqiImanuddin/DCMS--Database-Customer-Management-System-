@@ -84,7 +84,7 @@ class WatzapSettingController extends Controller
 
         return redirect()->route('settings.watzap.index')->with(
             'error',
-            'Uji coba gagal: '.$res['message'].($res['raw'] ? ' | '.$res['raw'] : ''),
+            $res['message'],
         );
     }
 }

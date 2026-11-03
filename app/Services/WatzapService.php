@@ -69,7 +69,7 @@ class WatzapService
         if (! $this->isConfigured()) {
             return [
                 'success' => false,
-                'message' => 'WatZap belum dikonfigurasi. Silakan lengkapi API Key dan Number Key di halaman Pengaturan Super Admin.',
+                'message' => 'WatZap belum dikonfigurasi. Silakan lengkapi API Key dan Number Key di halaman Setup WhatsApp.',
                 'status' => 'unconfigured',
                 'data' => [],
                 'raw' => '',
@@ -105,7 +105,25 @@ class WatzapService
             $status = (string) ($json['status'] ?? $response->status());
             $ack = strtolower((string) ($json['ack'] ?? ''));
             $isSuccess = ($status === '200' || $ack === 'successfully');
-            $msg = (string) ($json['message'] ?? ($isSuccess ? 'Pesan berhasil dikirim via WatZap' : 'Gagal mengirim pesan'));
+            $rawMsg = (string) ($json['message'] ?? '');
+
+            if ($isSuccess) {
+                $msg = $rawMsg ?: 'Pesan berhasil dikirim via WatZap.';
+            } else {
+                $waNumber = $json['wa_number'] ?? null;
+                if ($status === '1005' || str_contains(strtolower($rawMsg), 'not started')) {
+                    $numLabel = $waNumber ? " (Nomor: {$waNumber})" : '';
+                    $msg = "WhatsApp Instance Not Started{$numLabel}. Sesi WhatsApp pada nomor ini di WatZap belum berjalan (status Offline). Silakan buka Member Area WatZap (https://app.watzap.id) -> menu WhatsApp (tab API) -> klik Connect dan Scan QR Code dengan WhatsApp di HP Anda agar statusnya Online.";
+                } elseif ($status === '1002') {
+                    $msg = 'API Key atau Number Key tidak valid / tidak cocok dengan akun WatZap.';
+                } elseif ($status === '1003') {
+                    $msg = 'Nomor pengirim di WatZap sedang Offline. Silakan buka member area WatZap dan lakukan scan ulang QR code.';
+                } elseif ($status === '1004') {
+                    $msg = 'Format nomor tujuan tidak valid.';
+                } else {
+                    $msg = $rawMsg ?: 'Gagal mengirim pesan via WatZap.';
+                }
+            }
 
             return [
                 'success' => $isSuccess,
@@ -196,7 +214,7 @@ class WatzapService
         if (! $check['success']) {
             return [
                 'configured' => true,
-                'status' => 'API Key Tidak Valid / Error',
+                'status' => 'Periksa API Key / Koneksi',
                 'online' => false,
                 'phone' => '-',
                 'account_name' => '-',
@@ -206,8 +224,16 @@ class WatzapService
         }
 
         $data = $check['data']['data'] ?? $check['data'] ?? [];
-        $accountName = $data['account_name'] ?? $data['name'] ?? '-';
-        $package = $data['package'] ?? $data['package_name'] ?? '-';
+
+        $accountData = $data['account'] ?? [];
+        $accountName = is_array($accountData)
+            ? ($accountData['name'] ?? $accountData['email'] ?? '-')
+            : ($data['account_name'] ?? $data['name'] ?? '-');
+
+        $packageData = $data['package'] ?? [];
+        $packageName = is_array($packageData)
+            ? ($packageData['name'] ?? $packageData['status'] ?? '-')
+            : ($data['package_name'] ?? $data['package'] ?? '-');
 
         $senders = $data['senders'] ?? [];
         $currentNumberKey = $this->getNumberKey();
@@ -225,9 +251,9 @@ class WatzapService
             }
         }
 
-        $senderStatus = (string) ($senderMatch['status'] ?? 'Online');
+        $senderStatus = (string) ($senderMatch['status'] ?? 'Belum Terhubung');
         $isOnline = strcasecmp($senderStatus, 'online') === 0;
-        $phone = (string) ($senderMatch['phone_number'] ?? $senderMatch['phone'] ?? '-');
+        $phone = (string) ($senderMatch['sender_number'] ?? $senderMatch['phone_number'] ?? $senderMatch['phone'] ?? '-');
 
         return [
             'configured' => true,
@@ -235,8 +261,7 @@ class WatzapService
             'online' => $isOnline,
             'phone' => $phone,
             'account_name' => $accountName,
-            'package' => $package,
+            'package' => $packageName,
         ];
     }
 }
-
