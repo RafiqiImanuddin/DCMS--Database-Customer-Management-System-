@@ -16,7 +16,7 @@ Route::get('/', function () {
 });
 
 // Endpoint publik untuk akses file media broadcast (agar WatZap server dapat mengunduh gambar)
-Route::get('/media/broadcasts/{media}', [BroadcastMediaController::class, 'show'])->name('broadcasts.media.show');
+Route::get('/media/broadcasts/{media}/{filename?}', [BroadcastMediaController::class, 'show'])->name('broadcasts.media.show');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');

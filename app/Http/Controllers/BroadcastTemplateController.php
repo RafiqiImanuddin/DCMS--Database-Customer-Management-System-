@@ -32,14 +32,21 @@ class BroadcastTemplateController extends Controller
 
         if ($request->hasFile('image') && $request->file('image')->isValid()) {
             $file = $request->file('image');
+            $originalName = $file->getClientOriginalName() ?: 'broadcast-image.jpg';
+            $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION) ?: 'jpg');
+            if (! in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+                $ext = 'jpg';
+            }
+            $safeName = (pathinfo($originalName, PATHINFO_FILENAME) ?: 'broadcast-image').'.'.$ext;
+
             $media = BroadcastMedia::create([
                 'user_id' => $request->user()->id,
-                'filename' => $file->getClientOriginalName() ?: 'broadcast-image.jpg',
+                'filename' => $safeName,
                 'mime_type' => $file->getMimeType() ?: 'image/jpeg',
                 'file_size' => $file->getSize(),
                 'data' => base64_encode($file->getContent()),
             ]);
-            $imageUrl = route('broadcasts.media.show', ['media' => $media->id], true);
+            $imageUrl = route('broadcasts.media.show', ['media' => $media->id, 'filename' => $safeName], true);
         }
 
         BroadcastTemplate::create([
@@ -65,14 +72,21 @@ class BroadcastTemplateController extends Controller
 
         if ($request->hasFile('image') && $request->file('image')->isValid()) {
             $file = $request->file('image');
+            $originalName = $file->getClientOriginalName() ?: 'broadcast-image.jpg';
+            $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION) ?: 'jpg');
+            if (! in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+                $ext = 'jpg';
+            }
+            $safeName = (pathinfo($originalName, PATHINFO_FILENAME) ?: 'broadcast-image').'.'.$ext;
+
             $media = BroadcastMedia::create([
                 'user_id' => $request->user()->id,
-                'filename' => $file->getClientOriginalName() ?: 'broadcast-image.jpg',
+                'filename' => $safeName,
                 'mime_type' => $file->getMimeType() ?: 'image/jpeg',
                 'file_size' => $file->getSize(),
                 'data' => base64_encode($file->getContent()),
             ]);
-            $imageUrl = route('broadcasts.media.show', ['media' => $media->id], true);
+            $imageUrl = route('broadcasts.media.show', ['media' => $media->id, 'filename' => $safeName], true);
         }
 
         $template->update([

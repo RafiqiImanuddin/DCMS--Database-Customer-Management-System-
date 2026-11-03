@@ -169,4 +169,41 @@ class WatzapIntegrationTest extends TestCase
         $resp->assertJsonPath('success', true);
         $resp->assertJsonPath('message', 'API key is valid');
     }
+
+    public function test_watzap_service_send_image_posts_correct_payload(): void
+    {
+        Setting::set('watzap_api_key', 'my_api_key');
+        Setting::set('watzap_number_key', 'my_num_key');
+
+        Http::fake([
+            'https://api.watzap.id/v1/send_image_url' => function ($request) {
+                $data = $request->data();
+                $isValid = ($data['api_key'] ?? '') === 'my_api_key'
+                    && ($data['number_key'] ?? '') === 'my_num_key'
+                    && ($data['phone_no'] ?? '') === '628123456789'
+                    && ($data['url'] ?? '') === 'https://dcms-gadgetmart-app.vercel.app/media/broadcasts/1/promo.jpg'
+                    && ($data['message'] ?? '') === 'Cek promo gadget terbaru!';
+
+                if (! $isValid) {
+                    return Http::response(['status' => '1001', 'message' => 'Wrong Parameters'], 200);
+                }
+
+                return Http::response([
+                    'status' => '200',
+                    'ack' => 'successfully',
+                    'message' => 'Image sent successfully',
+                ], 200);
+            },
+        ]);
+
+        $service = app(WatzapService::class);
+        $result = $service->sendImage(
+            '08123456789',
+            'https://dcms-gadgetmart-app.vercel.app/media/broadcasts/1/promo.jpg',
+            'Cek promo gadget terbaru!'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertEquals('200', $result['status']);
+    }
 }

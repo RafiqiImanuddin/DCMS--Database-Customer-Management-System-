@@ -111,7 +111,9 @@ class WatzapService
                 $msg = $rawMsg ?: 'Pesan berhasil dikirim via WatZap.';
             } else {
                 $waNumber = $json['wa_number'] ?? null;
-                if ($status === '1005' || str_contains(strtolower($rawMsg), 'not started')) {
+                if ($status === '1001') {
+                    $msg = 'Parameter pengiriman gambar tidak sesuai (Wrong Parameters).';
+                } elseif ($status === '1005' || str_contains(strtolower($rawMsg), 'not started')) {
                     $numLabel = $waNumber ? " (Nomor: {$waNumber})" : '';
                     $msg = "WhatsApp Instance Not Started{$numLabel}. Sesi WhatsApp pada nomor ini di WatZap belum berjalan (status Offline). Silakan buka Member Area WatZap (https://app.watzap.id) -> menu WhatsApp (tab API) -> klik Connect dan Scan QR Code dengan WhatsApp di HP Anda agar statusnya Online.";
                 } elseif ($status === '1002') {
@@ -177,11 +179,11 @@ class WatzapService
                 'api_key' => $this->getApiKey(),
                 'number_key' => $this->getNumberKey(),
                 'phone_no' => $phone,
-                'image_url' => $imageUrl,
+                'url' => $imageUrl,
             ];
 
             if ($caption !== null && trim($caption) !== '') {
-                $payload['caption'] = $caption;
+                $payload['message'] = $caption;
             }
 
             $response = Http::timeout(25)
@@ -201,7 +203,9 @@ class WatzapService
                 $msg = $rawMsg ?: 'Gambar berhasil dikirim via WatZap.';
             } else {
                 $waNumber = $json['wa_number'] ?? null;
-                if ($status === '1005' || str_contains(strtolower($rawMsg), 'not started')) {
+                if ($status === '1001') {
+                    $msg = 'Parameter pengiriman gambar tidak sesuai (Wrong Parameters).';
+                } elseif ($status === '1005' || str_contains(strtolower($rawMsg), 'not started')) {
                     $numLabel = $waNumber ? " (Nomor: {$waNumber})" : '';
                     $msg = "WhatsApp Instance Not Started{$numLabel}. Sesi WhatsApp pada nomor ini di WatZap belum berjalan (status Offline). Silakan buka Member Area WatZap (https://app.watzap.id) -> menu WhatsApp (tab API) -> klik Connect dan Scan QR Code dengan WhatsApp di HP Anda agar statusnya Online.";
                 } elseif ($status === '1002') {

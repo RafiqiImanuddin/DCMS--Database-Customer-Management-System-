@@ -11,7 +11,7 @@ class BroadcastMediaController extends Controller
      * Publicly serve uploaded broadcast media so external services (like WatZap)
      * can fetch the image without authentication headers.
      */
-    public function show(BroadcastMedia $media): Response
+    public function show(BroadcastMedia $media, ?string $filename = null): Response
     {
         $binary = base64_decode($media->data);
 
@@ -19,7 +19,7 @@ class BroadcastMediaController extends Controller
             'Content-Type' => $media->mime_type ?: 'image/jpeg',
             'Content-Length' => strlen($binary),
             'Cache-Control' => 'public, max-age=86400',
-            'Content-Disposition' => 'inline; filename="'.addslashes($media->filename).'"',
+            'Content-Disposition' => 'inline; filename="'.addslashes($filename ?: $media->filename).'"',
         ]);
     }
 }
