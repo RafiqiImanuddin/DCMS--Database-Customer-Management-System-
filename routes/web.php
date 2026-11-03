@@ -1,19 +1,22 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BroadcastMediaController;
 use App\Http\Controllers\BroadcastReportController;
+use App\Http\Controllers\BroadcastTemplateController;
 use App\Http\Controllers\CrossSellingImportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeadCustomerController;
-use App\Http\Controllers\RepeatOrderDashboardController;
 use App\Http\Controllers\RepeatOrderPredictionController;
 use App\Http\Controllers\WatzapSettingController;
-use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route(auth()->check() ? 'dashboard' : 'login');
 });
+
+// Endpoint publik untuk akses file media broadcast (agar WatZap server dapat mengunduh gambar)
+Route::get('/media/broadcasts/{media}', [BroadcastMediaController::class, 'show'])->name('broadcasts.media.show');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
@@ -23,7 +26,9 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
-    Route::get('/repeat-orders', RepeatOrderDashboardController::class)->name('repeat-orders.dashboard');
+
+    // Dashboard Repeat Order dialihkan langsung ke Master Customer
+    Route::get('/repeat-orders', fn () => redirect()->route('predictions.index'))->name('repeat-orders.dashboard');
 
     // Fitur Import Data (Khusus Superadmin)
     Route::get('/imports/template', [CrossSellingImportController::class, 'template'])->name('imports.template');
@@ -32,7 +37,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/imports/{import}/status', [CrossSellingImportController::class, 'status'])->name('imports.status');
     Route::delete('/imports/{import}', [CrossSellingImportController::class, 'destroy'])->name('imports.destroy');
 
-    // Fitur Data Master Customer & Download
+    // Fitur Data Master Customer & Download (Sudah Terpadu dengan Repeat Order Dashboard)
     Route::get('/predictions/download', [RepeatOrderPredictionController::class, 'download'])->name('predictions.download');
     Route::get('/predictions', RepeatOrderPredictionController::class)->name('predictions.index');
     Route::post('/predictions/assign', [LeadCustomerController::class, 'assign'])->name('predictions.assign');
@@ -41,7 +46,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/leads/download', [LeadCustomerController::class, 'download'])->name('leads.download');
     Route::get('/leads', [LeadCustomerController::class, 'index'])->name('leads.index');
 
-    // Fitur Broadcast & Download
+    // Fitur Broadcast, Template & Download
+    Route::get('/broadcasts/templates', [BroadcastTemplateController::class, 'index'])->name('broadcasts.templates.index');
+    Route::post('/broadcasts/templates', [BroadcastTemplateController::class, 'store'])->name('broadcasts.templates.store');
+    Route::put('/broadcasts/templates/{template}', [BroadcastTemplateController::class, 'update'])->name('broadcasts.templates.update');
+    Route::delete('/broadcasts/templates/{template}', [BroadcastTemplateController::class, 'destroy'])->name('broadcasts.templates.destroy');
+
     Route::get('/broadcasts', [BroadcastReportController::class, 'index'])->name('broadcasts.index');
     Route::get('/broadcasts/download', [BroadcastReportController::class, 'download'])->name('broadcasts.download');
     Route::post('/broadcasts/bulk', [BroadcastReportController::class, 'bulkStore'])->name('broadcasts.bulk');

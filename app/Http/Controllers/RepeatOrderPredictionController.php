@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BroadcastTemplate;
+use App\Models\CrossSelling;
 use App\Models\RepeatOrderPrediction;
 use App\Services\FastXlsxWriter;
 use App\Support\BrandCategory;
@@ -18,6 +20,62 @@ class RepeatOrderPredictionController extends Controller
         $query = $this->buildFilteredQuery($request);
         $chartQuery = $this->buildFilteredQuery($request, false);
 
+        $today = now()->toDateString();
+        $in30Days = now()->addDays(30)->toDateString();
+        $thisMonthStart = now()->startOfMonth()->toDateString();
+        $thisMonthEnd = now()->endOfMonth()->toDateString();
+
+        // 1. Executive Summary Statistics (Repeat Order Intelligence)
+        $totalRepeatCustomers = RepeatOrderPrediction::distinct('customer_vendor_code')->count('customer_vendor_code');
+        $totalRepeatOrders = RepeatOrderPrediction::count();
+        $totalAllCustomers = CrossSelling::distinct('customer_vendor_code')->count('customer_vendor_code');
+        $repeatOrderRate = $totalAllCustomers > 0 ? round(($totalRepeatCustomers / $totalAllCustomers) * 100, 1) : 0;
+        $avgGapDays = round((float) RepeatOrderPrediction::avg('average_gap_days'), 1);
+
+        $overdueCount = RepeatOrderPrediction::whereNotNull('predicted_repeat_date')
+            ->where('predicted_repeat_date', '<', $today)
+            ->count();
+
+        $dueThisMonthCount = RepeatOrderPrediction::whereNotNull('predicted_repeat_date')
+            ->whereBetween('predicted_repeat_date', [$thisMonthStart, $thisMonthEnd])
+            ->count();
+
+        $dueNext30DaysCount = RepeatOrderPrediction::whereNotNull('predicted_repeat_date')
+            ->whereBetween('predicted_repeat_date', [$today, $in30Days])
+            ->count();
+
+        $highPotentialCount = RepeatOrderPrediction::where('classification', 'tinggi')->count();
+
+        $validPhoneCount = RepeatOrderPrediction::whereNotNull('no_hp_customer')
+            ->whereRaw("TRIM(no_hp_customer) <> ''")
+            ->whereRaw("no_hp_customer LIKE '62%'")
+            ->whereRaw('LENGTH(no_hp_customer) BETWEEN 10 AND 15')
+            ->whereRaw(PhoneNumberSql::numericOnly())
+            ->count();
+
+        $totalEstimatedValue = (float) RepeatOrderPrediction::sum('total_value');
+
+        // 2. Loyalty Segmentation Breakdown
+        $freq2 = RepeatOrderPrediction::where('transaction_count', 2)->count();
+        $freq3to5 = RepeatOrderPrediction::whereBetween('transaction_count', [3, 5])->count();
+        $freqAbove5 = RepeatOrderPrediction::where('transaction_count', '>', 5)->count();
+
+        // 3. Purchase Cycle (Gap Days) Distribution
+        $gapUnder30 = RepeatOrderPrediction::where('average_gap_days', '<', 30)->count();
+        $gap30to60 = RepeatOrderPrediction::whereBetween('average_gap_days', [30, 60])->count();
+        $gap60to90 = RepeatOrderPrediction::whereBetween('average_gap_days', [60.01, 90])->count();
+        $gapAbove90 = RepeatOrderPrediction::where('average_gap_days', '>', 90)->count();
+
+        // 4. Product Category Breakdown (ACC is always LAINNYA)
+        $accCount = RepeatOrderPrediction::whereRaw("UPPER(item_code) LIKE '%ACC%'")->count();
+        $smartphoneCount = RepeatOrderPrediction::whereRaw("UPPER(item_code) NOT LIKE '%ACC%'")
+            ->where(function ($q) {
+                $q->whereRaw("UPPER(item_code) LIKE 'GAD.%'")
+                    ->orWhereRaw("UPPER(item_code) LIKE 'HP%'");
+            })->count();
+        $otherCategoryCount = max(0, $totalRepeatOrders - $accCount - $smartphoneCount);
+
+        // 5. Filter Options & Charts
         $brandOptions = collect(BrandCategory::BRAND_OPTIONS);
         $selectedBrand = $request->string('brand')->trim()->toString();
         if (! $brandOptions->contains($selectedBrand)) {
@@ -38,8 +96,11 @@ class RepeatOrderPredictionController extends Controller
             'missing' => (clone $phoneChartBase)->where($this->missingPhoneCondition())->count(),
         ];
 
+        // 6. Broadcast Templates
+        $templates = BroadcastTemplate::orderBy('id')->get();
+
         return view('predictions.index', [
-            'predictions' => $query->orderBy('predicted_repeat_date')->paginate(20)->withQueryString(),
+            'predictions' => $query->orderByRaw('predicted_repeat_date ASC NULLS LAST')->orderByDesc('transaction_count')->paginate(20)->withQueryString(),
             'periods' => RepeatOrderPrediction::whereNotNull('period_label')->distinct()->orderByDesc('period_label')->pluck('period_label'),
             'brandOptions' => $brandOptions,
             'selectedBrand' => $selectedBrand,
@@ -49,6 +110,35 @@ class RepeatOrderPredictionController extends Controller
                 ->selectRaw('classification, COUNT(*) as total')
                 ->groupBy('classification')
                 ->pluck('total', 'classification'),
+
+            // Executive Repeat Order Analytics
+            'totalRepeatCustomers' => $totalRepeatCustomers,
+            'totalRepeatOrders' => $totalRepeatOrders,
+            'totalAllCustomers' => $totalAllCustomers,
+            'repeatOrderRate' => $repeatOrderRate,
+            'avgGapDays' => $avgGapDays,
+            'overdueCount' => $overdueCount,
+            'dueThisMonthCount' => $dueThisMonthCount,
+            'dueNext30DaysCount' => $dueNext30DaysCount,
+            'highPotentialCount' => $highPotentialCount,
+            'validPhoneCount' => $validPhoneCount,
+            'totalEstimatedValue' => $totalEstimatedValue,
+
+            // Segmentation
+            'freq2' => $freq2,
+            'freq3to5' => $freq3to5,
+            'freqAbove5' => $freqAbove5,
+            'gapUnder30' => $gapUnder30,
+            'gap30to60' => $gap30to60,
+            'gap60to90' => $gap60to90,
+            'gapAbove90' => $gapAbove90,
+            'smartphoneCount' => $smartphoneCount,
+            'accCount' => $accCount,
+            'otherCategoryCount' => $otherCategoryCount,
+
+            // Templates & Date
+            'templates' => $templates,
+            'today' => $today,
         ]);
     }
 
@@ -61,9 +151,9 @@ class RepeatOrderPredictionController extends Controller
         $offset = ($batch - 1) * $perBatch;
 
         $totalFiltered = (clone $query)->count();
-        $query->orderBy('predicted_repeat_date')->skip($offset)->take($perBatch);
+        $query->orderByRaw('predicted_repeat_date ASC NULLS LAST')->orderByDesc('transaction_count')->skip($offset)->take($perBatch);
 
-        $filename = 'master-customer';
+        $filename = 'master-customer-repeat-order';
         if ($totalFiltered > $perBatch) {
             $filename .= '-batch-'.$batch;
         }
@@ -78,7 +168,7 @@ class RepeatOrderPredictionController extends Controller
             'Nama Barang',
             'Klasifikasi',
             'Confidence (%)',
-            'Interval Hari',
+            'Interval / Siklus Hari',
             'Total Transaksi',
             'Total Nominal',
             'Prediksi Repeat Date',
@@ -96,9 +186,9 @@ class RepeatOrderPredictionController extends Controller
                     $row->dscription,
                     ucfirst($row->classification ?? '-'),
                     $row->confidence ?? 0,
-                    $row->interval_days ?? 0,
+                    $row->average_gap_days ?? $row->interval_days ?? 0,
                     $row->transaction_count ?? 0,
-                    $row->total_nominal ?? 0,
+                    $row->total_value ?? $row->total_nominal ?? 0,
                     $row->predicted_repeat_date?->format('d-m-Y') ?? '-',
                     $row->period_label ?? '-',
                 ];
@@ -143,8 +233,36 @@ class RepeatOrderPredictionController extends Controller
             }
         }
 
+        $today = now()->toDateString();
+        $in30Days = now()->addDays(30)->toDateString();
+        $thisMonthStart = now()->startOfMonth()->toDateString();
+        $thisMonthEnd = now()->endOfMonth()->toDateString();
+
         if ($period = $request->string('period')->toString()) {
-            $query->where('period_label', $period);
+            if ($period === 'overdue') {
+                $query->whereNotNull('predicted_repeat_date')->where('predicted_repeat_date', '<', $today);
+            } elseif ($period === 'this_month') {
+                $query->whereNotNull('predicted_repeat_date')->whereBetween('predicted_repeat_date', [$thisMonthStart, $thisMonthEnd]);
+            } elseif ($period === 'next_30_days') {
+                $query->whereNotNull('predicted_repeat_date')->whereBetween('predicted_repeat_date', [$today, $in30Days]);
+            } else {
+                $query->where('period_label', $period);
+            }
+        }
+
+        if ($category = $request->string('category')->toString()) {
+            if ($category === 'ACC' || $category === 'LAINNYA') {
+                $query->where(function ($q) {
+                    $q->whereRaw("UPPER(repeat_order_predictions.item_code) LIKE '%ACC%'")
+                        ->orWhereRaw("UPPER(repeat_order_predictions.item_code) NOT LIKE 'GAD.%'");
+                });
+            } elseif ($category === 'SMARTPHONE') {
+                $query->whereRaw("UPPER(repeat_order_predictions.item_code) NOT LIKE '%ACC%'")
+                    ->where(function ($q) {
+                        $q->whereRaw("UPPER(repeat_order_predictions.item_code) LIKE 'GAD.%'")
+                            ->orWhereRaw("UPPER(repeat_order_predictions.item_code) LIKE 'HP%'");
+                    });
+            }
         }
 
         $selectedPhoneStatus = $request->string('phone_status')->toString();

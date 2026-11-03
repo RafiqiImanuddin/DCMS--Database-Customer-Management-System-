@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\CrossSelling;
 use App\Models\RepeatOrderPrediction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +17,15 @@ class RepeatOrderDashboardTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
-    public function test_authenticated_user_can_access_repeat_order_dashboard(): void
+    public function test_repeat_order_dashboard_redirects_to_master_customer(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($user)->get(route('repeat-orders.dashboard'));
+        $response->assertRedirect(route('predictions.index'));
+    }
+
+    public function test_authenticated_user_can_access_master_customer_with_repeat_order_intelligence(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
 
@@ -38,16 +45,17 @@ class RepeatOrderDashboardTest extends TestCase
             'classification' => 'tinggi',
         ]);
 
-        $response = $this->actingAs($user)->get(route('repeat-orders.dashboard'));
+        $response = $this->actingAs($user)->get(route('predictions.index'));
 
         $response->assertOk();
-        $response->assertSee('Dashboard Konsumen Repeat Order');
+        $response->assertSee('Master Customer');
+        $response->assertSee('Konsumen Repeat');
         $response->assertSee('Budi Santoso');
         $response->assertSee('Samsung Galaxy A55 5G');
-        $response->assertSee('45.5');
+        $response->assertSee('46 hari'); // average_gap_days formatted
     }
 
-    public function test_repeat_order_dashboard_filters(): void
+    public function test_master_customer_repeat_order_filters(): void
     {
         $user = User::factory()->create(['role' => 'superadmin']);
 
@@ -76,13 +84,13 @@ class RepeatOrderDashboardTest extends TestCase
         ]);
 
         // Test overdue filter
-        $respOverdue = $this->actingAs($user)->get(route('repeat-orders.dashboard', ['period' => 'overdue']));
+        $respOverdue = $this->actingAs($user)->get(route('predictions.index', ['period' => 'overdue']));
         $respOverdue->assertOk();
         $respOverdue->assertSee('Pelanggan Overdue');
         $respOverdue->assertDontSee('Pelanggan Masa Depan');
 
         // Test category filter (ACC)
-        $respCategory = $this->actingAs($user)->get(route('repeat-orders.dashboard', ['category' => 'ACC']));
+        $respCategory = $this->actingAs($user)->get(route('predictions.index', ['category' => 'ACC']));
         $respCategory->assertOk();
         $respCategory->assertSee('Pelanggan Masa Depan');
         $respCategory->assertDontSee('Pelanggan Overdue');

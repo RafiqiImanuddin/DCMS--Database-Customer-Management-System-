@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BroadcastTemplate;
 use App\Models\LeadCustomer;
 use App\Models\RepeatOrderPrediction;
 use App\Services\FastXlsxWriter;
@@ -20,6 +21,7 @@ class LeadCustomerController extends Controller
 
         return view('leads.index', [
             'leads' => $query->latest('assigned_at')->paginate(20)->withQueryString(),
+            'templates' => BroadcastTemplate::orderBy('id')->get(),
         ]);
     }
 

@@ -12,15 +12,27 @@ class BroadcastService
         protected WatzapService $watzap
     ) {}
 
-    public function send(RepeatOrderPrediction $prediction, string $message, int $userId): BroadcastReport
+    public function send(RepeatOrderPrediction $prediction, string $message, int $userId, ?string $imageUrl = null): BroadcastReport
     {
+        // Personalize message placeholders
+        $customerName = trim((string) ($prediction->customer_vendor_name ?: 'Kaka'));
+        $itemDesc = trim((string) ($prediction->dscription ?: ($prediction->item_code ?: 'produk')));
+        $customerCode = trim((string) ($prediction->customer_vendor_code ?: ''));
+
+        $personalizedMessage = str_replace(
+            ['{nama}', '{nama_pelanggan}', '{item}', '{kode}'],
+            [$customerName, $customerName, $itemDesc, $customerCode],
+            $message
+        );
+
         $report = BroadcastReport::create([
             'user_id' => $userId,
             'repeat_order_prediction_id' => $prediction->id,
             'customer_vendor_code' => $prediction->customer_vendor_code,
             'phone_number' => $prediction->no_hp_customer,
             'channel' => 'whatsapp',
-            'message' => $message,
+            'message' => $personalizedMessage,
+            'image_url' => $imageUrl,
             'status' => 'queued',
         ]);
 
@@ -43,7 +55,11 @@ class BroadcastService
         }
 
         try {
-            $res = $this->watzap->sendMessage($prediction->no_hp_customer, $message);
+            if ($imageUrl !== null && trim($imageUrl) !== '') {
+                $res = $this->watzap->sendImage($prediction->no_hp_customer, $imageUrl, $personalizedMessage);
+            } else {
+                $res = $this->watzap->sendMessage($prediction->no_hp_customer, $personalizedMessage);
+            }
 
             $report->update([
                 'status' => $res['success'] ? 'sent' : 'failed',

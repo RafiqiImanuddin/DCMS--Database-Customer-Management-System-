@@ -1,10 +1,24 @@
 @extends('layouts.app')
 @section('title', 'Leads Customer')
 @section('content')
-<div class="mb-5 flex items-end justify-between gap-4">
-    <div><p class="text-sm font-medium text-brand-600">Follow Up</p><h1 class="mt-1 text-2xl font-black text-slate-900">Leads Customer</h1></div>
+<div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-xs font-bold text-brand-700">
+                <span class="size-2 rounded-full bg-brand-500"></span>
+                Follow Up Hub
+            </span>
+            <span class="text-xs text-slate-400">&bull;</span>
+            <span class="text-xs font-medium text-slate-500">Pelanggan Siap Follow Up</span>
+        </div>
+        <h1 class="mt-1 text-2xl font-black text-slate-900">Leads Customer</h1>
+    </div>
     <div class="flex flex-wrap items-center gap-2">
         <p class="hidden text-sm text-slate-500 md:block">{{ number_format($leads->total(), 0, ',', '.') }} lead</p>
+        <a href="{{ route('broadcasts.templates.index') }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
+            <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+            Kelola Template
+        </a>
         @if ($leads->total() <= 25000)
             <a href="{{ route('leads.download', request()->except('page')) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
                 <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
@@ -54,14 +68,76 @@
     <button class="dcms-primary-button px-5">Filter</button>
 </form>
 
-<form method="POST" action="{{ route('broadcasts.bulk') }}" id="lead-broadcast-form">
+<form method="POST" action="{{ route('broadcasts.bulk') }}" enctype="multipart/form-data" id="lead-broadcast-form">
     @csrf
-    <section class="dcms-card mb-4 flex flex-col gap-3 p-4 lg:flex-row lg:items-end">
-        <div class="flex min-w-0 flex-1 flex-col gap-2">
-            <label for="lead-bulk-message" class="text-sm font-bold text-slate-700">Pesan broadcast terpilih</label>
-            <textarea id="lead-bulk-message" name="message" required maxlength="2000" rows="2" class="dcms-input min-h-20 resize-y py-2.5" placeholder="Halo, kami punya promo khusus untuk Anda."></textarea>
+    <input type="hidden" name="redirect_to" value="leads.index">
+    <section class="dcms-card mb-5 p-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
+            <div>
+                <h2 class="text-sm font-black text-slate-900">Kirim Broadcast WhatsApp</h2>
+                <p class="text-xs text-slate-500">Kirim pesan WhatsApp otomatis ke pelanggan terpilih melalui WatZap Gateway.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                @if(isset($templates) && $templates->isNotEmpty())
+                    <select id="lead-template-select" class="dcms-input py-1.5 px-3 text-xs font-semibold w-auto border-brand-300 bg-brand-50/50 text-brand-900" onchange="applyLeadTemplate(this)">
+                        <option value="">⚡ Gunakan Template Pesan...</option>
+                        @foreach($templates as $tmpl)
+                            <option value="{{ $tmpl->id }}" data-message="{{ $tmpl->message }}" data-image="{{ $tmpl->image_url ?? '' }}">{{ $tmpl->title }}</option>
+                        @endforeach
+                    </select>
+                @endif
+                <a href="{{ route('broadcasts.templates.index') }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                    <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Kelola Template
+                </a>
+            </div>
         </div>
-        <button id="lead-broadcast-button" type="submit" disabled class="dcms-primary-button shrink-0 px-5 py-3 disabled:cursor-not-allowed disabled:opacity-50">Broadcast <span id="lead-selected-count">(0)</span> lead</button>
+
+        <div class="mt-4 grid gap-4 lg:grid-cols-12">
+            <!-- Kolom Pesan Teks (8 Kolom) -->
+            <div class="lg:col-span-8 space-y-2">
+                <div class="flex items-center justify-between">
+                    <label for="lead-bulk-message" class="text-xs font-bold uppercase tracking-wide text-slate-600">Isi Pesan Broadcast <span class="text-rose-500">*</span></label>
+                    <span class="text-[11px] text-slate-400">Maks. 2500 karakter</span>
+                </div>
+                <textarea id="lead-bulk-message" name="message" required maxlength="2500" rows="4" class="dcms-input text-xs leading-relaxed" placeholder="Halo Kak {nama}, kami punya promo khusus untuk Anda."></textarea>
+                
+                <div class="flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
+                    <span class="font-bold">Variabel dinamis:</span>
+                    <button type="button" onclick="insertLeadPlaceholder('{nama}')" class="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand-700 hover:bg-brand-100">{nama}</button>
+                    <button type="button" onclick="insertLeadPlaceholder('{item}')" class="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand-700 hover:bg-brand-100">{item}</button>
+                    <button type="button" onclick="insertLeadPlaceholder('{kode}')" class="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand-700 hover:bg-brand-100">{kode}</button>
+                    <span class="text-slate-400 text-[10px] ml-1">(Otomatis diganti sesuai data pelanggan saat terkirim)</span>
+                </div>
+            </div>
+
+            <!-- Kolom Lampiran Gambar (4 Kolom) -->
+            <div class="lg:col-span-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 flex flex-col justify-between">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wide text-slate-700 mb-1">Lampirkan Gambar</label>
+                    <p class="text-[11px] text-slate-500 mb-2">Pilih file gambar flyer / promo (JPG, PNG, WebP maks 5MB).</p>
+                    <input type="file" id="lead-broadcast-image" name="image" accept="image/*" class="dcms-input text-xs" onchange="previewLeadUploadImage(this)">
+
+                    <div id="lead-image-preview-box" class="mt-2 hidden rounded-lg border border-slate-200 bg-white p-2 text-center">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[10px] font-bold text-slate-600">Gambar Terlampir:</span>
+                            <button type="button" onclick="removeLeadUploadImage()" class="text-[10px] font-bold text-rose-600 hover:underline">Hapus</button>
+                        </div>
+                        <img id="lead-image-preview-el" src="#" alt="Pratinjau" class="max-h-24 w-auto rounded object-contain mx-auto shadow-sm">
+                    </div>
+
+                    <div class="mt-2">
+                        <input type="hidden" id="lead-template-image-url" name="image_url" value="">
+                    </div>
+                </div>
+
+                <div class="mt-3 pt-3 border-t border-slate-200">
+                    <button id="lead-broadcast-button" type="submit" disabled class="dcms-primary-button w-full py-2.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">
+                        🚀 Kirim Broadcast <span id="lead-selected-count">(0)</span> Lead
+                    </button>
+                </div>
+            </div>
+        </div>
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -134,4 +210,69 @@
     </section>
 </form>
 <div class="mt-4">{{ $leads->links() }}</div>
+
+<script>
+function applyLeadTemplate(select) {
+    const selectedOption = select.options[select.selectedIndex];
+    const message = selectedOption.getAttribute('data-message') || '';
+    const image = selectedOption.getAttribute('data-image') || '';
+
+    const textarea = document.getElementById('lead-bulk-message');
+    if (textarea && message) {
+        textarea.value = message;
+    }
+
+    const imageUrlInput = document.getElementById('lead-template-image-url');
+    const previewBox = document.getElementById('lead-image-preview-box');
+    const previewEl = document.getElementById('lead-image-preview-el');
+
+    if (image && imageUrlInput && previewBox && previewEl) {
+        imageUrlInput.value = image;
+        previewEl.src = image;
+        previewBox.classList.remove('hidden');
+    }
+}
+
+function insertLeadPlaceholder(placeholder) {
+    const textarea = document.getElementById('lead-bulk-message');
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    textarea.value = text.substring(0, start) + placeholder + text.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + placeholder.length;
+    textarea.focus();
+}
+
+function previewLeadUploadImage(input) {
+    const previewBox = document.getElementById('lead-image-preview-box');
+    const previewEl = document.getElementById('lead-image-preview-el');
+    const imageUrlInput = document.getElementById('lead-template-image-url');
+
+    if (imageUrlInput) imageUrlInput.value = '';
+
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewEl.src = e.target.result;
+            previewBox.classList.remove('hidden');
+        };
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        previewBox.classList.add('hidden');
+    }
+}
+
+function removeLeadUploadImage() {
+    const input = document.getElementById('lead-broadcast-image');
+    const previewBox = document.getElementById('lead-image-preview-box');
+    const previewEl = document.getElementById('lead-image-preview-el');
+    const imageUrlInput = document.getElementById('lead-template-image-url');
+
+    if (input) input.value = '';
+    if (previewEl) previewEl.src = '#';
+    if (imageUrlInput) imageUrlInput.value = '';
+    if (previewBox) previewBox.classList.add('hidden');
+}
+</script>
 @endsection

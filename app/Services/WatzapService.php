@@ -144,6 +144,96 @@ class WatzapService
     }
 
     /**
+     * Send an image with optional caption via WatZap REST API (/send_image_url).
+     *
+     * @return array{success: bool, message: string, status: string, data: array, raw: string}
+     */
+    public function sendImage(string $rawPhone, string $imageUrl, ?string $caption = null): array
+    {
+        if (! $this->isConfigured()) {
+            return [
+                'success' => false,
+                'message' => 'WatZap belum dikonfigurasi. Silakan lengkapi API Key dan Number Key di halaman Setup WhatsApp.',
+                'status' => 'unconfigured',
+                'data' => [],
+                'raw' => '',
+            ];
+        }
+
+        $phone = $this->normalizePhone($rawPhone);
+        if (! $phone) {
+            return [
+                'success' => false,
+                'message' => 'Nomor WhatsApp tidak valid (harus 10-15 digit, diawali 08/62).',
+                'status' => 'invalid_phone',
+                'data' => [],
+                'raw' => '',
+            ];
+        }
+
+        try {
+            $url = $this->getBaseUrl().'/send_image_url';
+            $payload = [
+                'api_key' => $this->getApiKey(),
+                'number_key' => $this->getNumberKey(),
+                'phone_no' => $phone,
+                'image_url' => $imageUrl,
+            ];
+
+            if ($caption !== null && trim($caption) !== '') {
+                $payload['caption'] = $caption;
+            }
+
+            $response = Http::timeout(25)
+                ->asJson()
+                ->acceptJson()
+                ->post($url, $payload);
+
+            $json = $response->json();
+            $rawBody = $response->body();
+
+            $status = (string) ($json['status'] ?? $response->status());
+            $ack = strtolower((string) ($json['ack'] ?? ''));
+            $isSuccess = ($status === '200' || $ack === 'successfully');
+            $rawMsg = (string) ($json['message'] ?? '');
+
+            if ($isSuccess) {
+                $msg = $rawMsg ?: 'Gambar berhasil dikirim via WatZap.';
+            } else {
+                $waNumber = $json['wa_number'] ?? null;
+                if ($status === '1005' || str_contains(strtolower($rawMsg), 'not started')) {
+                    $numLabel = $waNumber ? " (Nomor: {$waNumber})" : '';
+                    $msg = "WhatsApp Instance Not Started{$numLabel}. Sesi WhatsApp pada nomor ini di WatZap belum berjalan (status Offline). Silakan buka Member Area WatZap (https://app.watzap.id) -> menu WhatsApp (tab API) -> klik Connect dan Scan QR Code dengan WhatsApp di HP Anda agar statusnya Online.";
+                } elseif ($status === '1002') {
+                    $msg = 'API Key atau Number Key tidak valid / tidak cocok dengan akun WatZap.';
+                } elseif ($status === '1003') {
+                    $msg = 'Nomor pengirim di WatZap sedang Offline. Silakan buka member area WatZap dan lakukan scan ulang QR code.';
+                } elseif ($status === '1004') {
+                    $msg = 'Format nomor tujuan tidak valid.';
+                } else {
+                    $msg = $rawMsg ?: 'Gagal mengirim gambar via WatZap.';
+                }
+            }
+
+            return [
+                'success' => $isSuccess,
+                'message' => $msg,
+                'status' => $status,
+                'data' => is_array($json) ? $json : [],
+                'raw' => $rawBody,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Koneksi ke WatZap gagal: '.$e->getMessage(),
+                'status' => 'connection_error',
+                'data' => [],
+                'raw' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Check API Key and get connected account/sender info.
      *
      * @return array{success: bool, message: string, status: string, data: array, raw: string}
