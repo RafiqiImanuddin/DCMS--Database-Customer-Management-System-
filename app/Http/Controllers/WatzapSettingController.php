@@ -13,7 +13,7 @@ class WatzapSettingController extends Controller
 {
     public function index(Request $request, WatzapService $watzap): View
     {
-        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengakses pengaturan ini.');
+        $isSuperAdmin = $request->user()->isSuperAdmin();
 
         $apiKey = Setting::get('watzap_api_key', (string) config('services.watzap.api_key', ''));
         $numberKey = Setting::get('watzap_number_key', (string) config('services.watzap.number_key', ''));
@@ -30,6 +30,7 @@ class WatzapSettingController extends Controller
             'webUrl' => $webUrl,
             'isConfigured' => $watzap->isConfigured(),
             'deviceStatus' => $deviceStatus,
+            'isSuperAdmin' => $isSuperAdmin,
         ]);
     }
 
@@ -87,4 +88,3 @@ class WatzapSettingController extends Controller
         );
     }
 }
-

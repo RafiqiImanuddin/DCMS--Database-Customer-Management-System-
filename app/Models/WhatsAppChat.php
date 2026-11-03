@@ -56,3 +56,4 @@ class WhatsAppChat extends Model
         $this->attributes['tags_json'] = json_encode(array_values(array_unique($tags)));
     }
 }
+

@@ -1,15 +1,15 @@
 @extends('layouts.app')
-@section('title', 'Pengaturan WatZap.id')
+@section('title', 'Setup WhatsApp (WatZap)')
 @section('content')
 <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
     <div>
-        <p class="text-sm font-medium text-brand-600">Integrasi Gateway</p>
-        <h1 class="mt-1 text-2xl font-black text-slate-900">Pengaturan WatZap.id</h1>
-        <p class="mt-1 text-xs text-slate-500">Konfigurasi API Key & Number Key untuk integrasi broadcast pesan dan WhatsApp Web tim.</p>
+        <p class="text-sm font-medium text-emerald-600">Integrasi Gateway</p>
+        <h1 class="mt-1 text-2xl font-black text-slate-900">Setup WhatsApp (WatZap.id)</h1>
+        <p class="mt-1 text-xs text-slate-500">Konfigurasi API Key & Number Key untuk integrasi broadcast pesan WhatsApp otomatis.</p>
     </div>
     <div class="flex items-center gap-2">
         <a href="https://api-docs.watzap.id/" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50">
-            <svg class="size-4 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
             Dokumentasi API
         </a>
         <a href="https://app.watzap.id" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500">
@@ -30,6 +30,15 @@
 <div class="mb-5 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800 shadow-sm">
     <svg class="mt-0.5 size-5 shrink-0 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
     <div class="text-xs font-semibold leading-relaxed">{{ session('error') }}</div>
+</div>
+@endif
+
+@if(! $isSuperAdmin)
+<div class="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800 shadow-sm">
+    <svg class="mt-0.5 size-5 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div class="text-xs leading-relaxed">
+        <strong>Mode Lihat:</strong> Anda sedang login sebagai Staff/Admin. Anda dapat melihat status kesiapan gateway WhatsApp di bawah. Kredensial API Key & Number Key hanya dapat diubah oleh Superadmin.
+    </div>
 </div>
 @endif
 
@@ -55,7 +64,7 @@
                         API Key (Secret Key) <span class="text-rose-500">*</span>
                     </label>
                     <div class="relative">
-                        <input id="watzap_api_key" name="watzap_api_key" type="password" value="{{ old('watzap_api_key', $apiKey) }}" placeholder="Contoh: wt_sec_xxxxxxxxxxxx" class="dcms-input pr-10 font-mono text-xs">
+                        <input id="watzap_api_key" name="watzap_api_key" type="password" value="{{ old('watzap_api_key', $apiKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: wt_sec_xxxxxxxxxxxx" class="dcms-input pr-10 font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
                         <button type="button" onclick="togglePasswordVisibility('watzap_api_key')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">
                             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         </button>
@@ -67,18 +76,11 @@
                     <label for="watzap_number_key" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
                         Number Key (Device Key) <span class="text-rose-500">*</span>
                     </label>
-                    <input id="watzap_number_key" name="watzap_number_key" type="text" value="{{ old('watzap_number_key', $numberKey) }}" placeholder="Contoh: nk_xxxxxxxxxxxx" class="dcms-input font-mono text-xs">
+                    <input id="watzap_number_key" name="watzap_number_key" type="text" value="{{ old('watzap_number_key', $numberKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: nk_xxxxxxxxxxxx" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
                     <p class="mt-1 text-[11px] text-slate-400">ID Number Key khusus untuk nomor WhatsApp pengirim yang sudah terhubung (Online) di WatZap.</p>
                 </div>
 
-                <div>
-                    <label for="watzap_web_url" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                        URL WhatsApp Web / Team Chat
-                    </label>
-                    <input id="watzap_web_url" name="watzap_web_url" type="url" value="{{ old('watzap_web_url', $webUrl) }}" placeholder="https://watzap.chat" class="dcms-input text-xs">
-                    <p class="mt-1 text-[11px] text-slate-400">URL workspace live chat untuk multi-agent staff & super admin (default: <span class="font-mono font-bold">https://watzap.chat</span>).</p>
-                </div>
-
+                @if($isSuperAdmin)
                 <div class="flex items-center justify-between pt-3">
                     <button type="button" id="btn-check-api" onclick="checkApiConnection()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50">
                         <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -88,6 +90,7 @@
                         Simpan Pengaturan
                     </button>
                 </div>
+                @endif
             </form>
 
             <div id="check-result-container" class="mt-4 hidden rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
@@ -100,7 +103,8 @@
             </div>
         </section>
 
-        <!-- Uji Coba Kirim Pesan -->
+        <!-- Uji Coba Kirim Pesan (Hanya jika Super Admin) -->
+        @if($isSuperAdmin)
         <section class="dcms-card p-6">
             <div class="mb-4 border-b border-slate-100 pb-3">
                 <h2 class="font-black text-slate-900">Uji Coba Kirim Pesan WhatsApp</h2>
@@ -125,28 +129,29 @@
                 </div>
             </form>
         </section>
+        @endif
     </div>
 
-    <!-- Kolom Kanan: Status Device & Panduan Multi-Agent -->
+    <!-- Kolom Kanan: Status Device & Langkah Setup -->
     <div class="space-y-6">
         <section class="dcms-card p-6">
             <h2 class="font-black text-slate-900">Status Device WhatsApp</h2>
-            <p class="mt-1 text-xs text-slate-500">Nomor customer service aktif di WatZap.</p>
+            <p class="mt-1 text-xs text-slate-500">Nomor WhatsApp resmi toko di WatZap.</p>
 
             <div class="mt-4 space-y-3">
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Status Sender</span>
+                    <span class="text-xs text-slate-500">Status Pengirim</span>
                     <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold {{ ($deviceStatus['online'] ?? false) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700' }}">
                         <span class="size-2 rounded-full {{ ($deviceStatus['online'] ?? false) ? 'bg-emerald-500' : 'bg-slate-400' }}"></span>
                         {{ $deviceStatus['status'] ?? ($isConfigured ? 'Cek Koneksi' : 'Belum Terhubung') }}
                     </span>
                 </div>
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Nomor CS</span>
+                    <span class="text-xs text-slate-500">Nomor CS Toko</span>
                     <span class="font-mono text-xs font-bold text-slate-900">{{ $deviceStatus['phone'] ?? '-' }}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Akun WatZap</span>
+                    <span class="text-xs text-slate-500">Nama Akun WatZap</span>
                     <span class="text-xs font-semibold text-slate-900">{{ $deviceStatus['account_name'] ?? '-' }}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
@@ -156,27 +161,31 @@
             </div>
 
             <div class="mt-5 border-t border-slate-100 pt-4">
-                <a href="{{ route('whatsapp.index') }}" class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500">
-                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
-                    Buka WhatsApp Web / Team Chat
+                <a href="{{ route('broadcasts.index') }}" class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800">
+                    <svg class="size-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>
+                    Lihat Laporan Broadcast
                 </a>
             </div>
         </section>
 
         <section class="dcms-card p-6">
-            <h3 class="font-bold text-slate-900">Petunjuk 1 WA Multi-Agent</h3>
+            <h3 class="font-bold text-slate-900">Petunjuk Setup WatZap API</h3>
             <ul class="mt-3 space-y-2.5 text-xs text-slate-600">
                 <li class="flex items-start gap-2">
-                    <span class="grid size-5 shrink-0 place-items-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-700">1</span>
-                    <span>Hubungkan nomor WhatsApp resmi CS toko di <strong>Member Area WatZap</strong> dengan scan QR.</span>
+                    <span class="grid size-5 shrink-0 place-items-center rounded-full bg-emerald-50 text-[11px] font-bold text-emerald-700">1</span>
+                    <span>Login ke <a href="https://app.watzap.id" target="_blank" rel="noopener" class="font-semibold text-emerald-700 underline">Member Area WatZap</a> dan hubungkan nomor WhatsApp toko dengan scan QR Code.</span>
                 </li>
                 <li class="flex items-start gap-2">
-                    <span class="grid size-5 shrink-0 place-items-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-700">2</span>
-                    <span>Salin <strong>API Key</strong> dan <strong>Number Key</strong> ke formulir pengaturan ini.</span>
+                    <span class="grid size-5 shrink-0 place-items-center rounded-full bg-emerald-50 text-[11px] font-bold text-emerald-700">2</span>
+                    <span>Buka tab <strong>API</strong> di WatZap, lalu salin <strong>API Key</strong> dan <strong>Number Key</strong> ke form di samping.</span>
                 </li>
                 <li class="flex items-start gap-2">
-                    <span class="grid size-5 shrink-0 place-items-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-700">3</span>
-                    <span>Seluruh Staff & Superadmin dapat membuka <strong>WhatsApp Web</strong> bersamaan melalui menu atau jendela workspace tanpa saling keluar (logout).</span>
+                    <span class="grid size-5 shrink-0 place-items-center rounded-full bg-emerald-50 text-[11px] font-bold text-emerald-700">3</span>
+                    <span>Klik tombol <strong>Tes Koneksi API</strong> untuk memverifikasi keabsahan API Key.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="grid size-5 shrink-0 place-items-center rounded-full bg-emerald-50 text-[11px] font-bold text-emerald-700">4</span>
+                    <span>Kirim pesan uji coba ke nomor Anda sendiri. Jika masuk, fitur broadcast di menu Master Customer & Leads siap digunakan!</span>
                 </li>
             </ul>
         </section>
@@ -245,4 +254,3 @@ async function checkApiConnection() {
 }
 </script>
 @endsection
-

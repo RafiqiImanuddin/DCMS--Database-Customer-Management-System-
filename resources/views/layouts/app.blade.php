@@ -25,17 +25,10 @@
                 <a href="{{ route('predictions.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('predictions.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 2v6m3-3h-6"/></svg>Master Customer</a>
                 <a href="{{ route('leads.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('leads.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Leads Customer</a>
                 <a href="{{ route('broadcasts.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('broadcasts.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>Laporan Broadcast</a>
-                <a href="{{ route('whatsapp.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('whatsapp.*') ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                <a href="{{ route('settings.watzap.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('settings.watzap.*', 'whatsapp.*') ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
-                    <span>WhatsApp CRM</span>
-                    <span class="ml-auto rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">Tim</span>
+                    <span>Setup WhatsApp (WatZap)</span>
                 </a>
-                @if (auth()->user()->isSuperAdmin())
-                <a href="{{ route('settings.watzap.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('settings.watzap.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.3 4.3a2 2 0 0 1 3.4 0l.9 1.6a2 2 0 0 0 1.5.9l1.8.3a2 2 0 0 1 1.7 1.7l.3 1.8a2 2 0 0 0 .9 1.5l1.6.9a2 2 0 0 1 0 3.4l-1.6.9a2 2 0 0 0-.9 1.5l-.3 1.8a2 2 0 0 1-1.7 1.7l-1.8.3a2 2 0 0 0-1.5.9l-.9 1.6a2 2 0 0 1-3.4 0l-.9-1.6a2 2 0 0 0-1.5-.9l-1.8-.3a2 2 0 0 1-1.7-1.7l-.3-1.8a2 2 0 0 0-.9-1.5l-1.6-.9a2 2 0 0 1 0-3.4l1.6-.9a2 2 0 0 0 .9-1.5l.3-1.8a2 2 0 0 1 1.7-1.7l1.8-.3a2 2 0 0 0 1.5-.9l.9-1.6z"/><circle cx="12" cy="12" r="3"/></svg>
-                    Pengaturan WatZap
-                </a>
-                @endif
             </nav>
             <div class="absolute inset-x-4 bottom-5 rounded-xl border border-white/10 bg-white/5 p-4">
                 <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->user()->isSuperAdmin() ? 'text-amber-300' : 'text-emerald-300' }}">{{ auth()->user()->isSuperAdmin() ? 'Superadmin' : 'Admin' }}</span></div>
@@ -70,55 +63,5 @@
             </div>
         </main>
     </div>
-
-    <!-- Floating WhatsApp Launcher (Multi-Agent, Persistent Anti-Logout) -->
-    <div id="floating-whatsapp-container" class="fixed bottom-5 right-5 z-40">
-        <button id="open-whatsapp-drawer-btn" type="button" onclick="toggleWhatsAppDrawer()" class="group inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xl shadow-emerald-950/25 transition-all hover:bg-emerald-500 hover:scale-105 active:scale-95">
-            <svg class="size-4 text-white animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
-            <span class="font-bold">WhatsApp Tim</span>
-            <span class="size-2 rounded-full bg-emerald-300"></span>
-        </button>
-    </div>
-
-    <!-- WhatsApp Slide-over In-App Drawer (Anti-Logout saat gonta-ganti menu) -->
-    <div id="whatsapp-drawer-backdrop" onclick="toggleWhatsAppDrawer()" class="fixed inset-0 z-50 hidden bg-slate-950/40 backdrop-blur-xs transition-opacity duration-300"></div>
-    <div id="whatsapp-drawer" class="fixed inset-y-0 right-0 z-50 w-full max-w-4xl translate-x-full bg-white shadow-2xl transition-transform duration-300 flex flex-col">
-        <div class="h-12 border-b border-slate-200 bg-slate-900 px-4 flex items-center justify-between text-white shrink-0">
-            <div class="flex items-center gap-2">
-                <svg class="size-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
-                <span class="text-xs font-black tracking-wide">WhatsApp Tim & CRM (Anti-Logout)</span>
-            </div>
-            <div class="flex items-center gap-3">
-                <a href="{{ route('whatsapp.index') }}" class="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/20 transition">
-                    <span>↗</span> Buka Layar Penuh
-                </a>
-                <button type="button" onclick="toggleWhatsAppDrawer()" class="text-slate-400 hover:text-white text-lg font-bold p-1 leading-none">&times;</button>
-            </div>
-        </div>
-        <div class="flex-1 relative bg-slate-100">
-            <iframe id="whatsapp-drawer-iframe" src="about:blank" data-src="{{ route('whatsapp.index') }}" class="w-full h-full border-0"></iframe>
-        </div>
-    </div>
-
-    <script>
-        function toggleWhatsAppDrawer() {
-            const drawer = document.getElementById('whatsapp-drawer');
-            const backdrop = document.getElementById('whatsapp-drawer-backdrop');
-            const iframe = document.getElementById('whatsapp-drawer-iframe');
-
-            if (drawer.classList.contains('translate-x-full')) {
-                // Buka panel samping
-                drawer.classList.remove('translate-x-full');
-                backdrop.classList.remove('hidden');
-                if (iframe.src === 'about:blank' || !iframe.src || iframe.src.endsWith('about:blank')) {
-                    iframe.src = iframe.getAttribute('data-src');
-                }
-            } else {
-                // Tutup panel samping tanpa logout
-                drawer.classList.add('translate-x-full');
-                backdrop.classList.add('hidden');
-            }
-        }
-    </script>
 </body>
 </html>
