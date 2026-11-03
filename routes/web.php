@@ -48,6 +48,11 @@ Route::middleware('auth')->group(function () {
 
     // WhatsApp Web & Team Chat (Super Admin & Staff)
     Route::get('/whatsapp', [WhatsAppController::class, 'index'])->name('whatsapp.index');
+    Route::post('/whatsapp/{chat}/send', [WhatsAppController::class, 'sendMessage'])->name('whatsapp.send');
+    Route::post('/whatsapp/{chat}/crm', [WhatsAppController::class, 'saveCrm'])->name('whatsapp.crm');
+    Route::post('/whatsapp/{chat}/resolve', [WhatsAppController::class, 'resolve'])->name('whatsapp.resolve');
+    Route::post('/whatsapp/{chat}/block', [WhatsAppController::class, 'block'])->name('whatsapp.block');
+    Route::post('/whatsapp/start', [WhatsAppController::class, 'startChat'])->name('whatsapp.start');
 
     // Pengaturan Gateway WatZap (Khusus Superadmin)
     Route::get('/settings/watzap', [WatzapSettingController::class, 'index'])->name('settings.watzap.index');

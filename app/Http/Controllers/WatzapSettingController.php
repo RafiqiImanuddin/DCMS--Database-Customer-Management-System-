@@ -87,3 +87,4 @@ class WatzapSettingController extends Controller
         );
     }
 }
+

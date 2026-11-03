@@ -56,11 +56,13 @@ class WatzapIntegrationTest extends TestCase
 
         $respSuper = $this->actingAs($superadmin)->get(route('whatsapp.index'));
         $respSuper->assertOk();
-        $respSuper->assertSee('WhatsApp Web & Team Chat', false);
+        $respSuper->assertSee('WhatsApp', false);
+        $respSuper->assertSee('Gadget', false);
 
         $respAdmin = $this->actingAs($admin)->get(route('whatsapp.index'));
         $respAdmin->assertOk();
-        $respAdmin->assertSee('WhatsApp Web & Team Chat', false);
+        $respAdmin->assertSee('WhatsApp', false);
+        $respAdmin->assertSee('Gadget', false);
     }
 
     public function test_watzap_service_phone_normalization(): void
@@ -138,5 +140,57 @@ class WatzapIntegrationTest extends TestCase
         $resp->assertOk();
         $resp->assertJsonPath('success', true);
         $resp->assertJsonPath('message', 'API key is valid');
+    }
+
+    public function test_staff_can_send_message_in_whatsapp_chat(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $chat = \App\Models\WhatsAppChat::create([
+            'customer_name' => 'Test Customer',
+            'phone_number' => '628999888777',
+            'cabang' => 'GM AMT',
+            'folder' => 'all',
+            'format_type' => 'Keep',
+        ]);
+
+        $resp = $this->actingAs($admin)->post(route('whatsapp.send', $chat->id), [
+            'message' => 'Halo kak, barang ready!',
+        ]);
+
+        $resp->assertRedirect();
+        $this->assertDatabaseHas('whatsapp_messages', [
+            'whatsapp_chat_id' => $chat->id,
+            'message' => 'Halo kak, barang ready!',
+            'sender_type' => 'agent',
+        ]);
+    }
+
+    public function test_staff_can_save_crm_data_in_whatsapp(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $chat = \App\Models\WhatsAppChat::create([
+            'customer_name' => 'Amel',
+            'phone_number' => '628999888777',
+            'cabang' => 'TANPA CABANG',
+            'folder' => 'all',
+        ]);
+
+        $resp = $this->actingAs($admin)->post(route('whatsapp.crm', $chat->id), [
+            'customer_name' => 'Amel Updated',
+            'phone_number' => '628999888777',
+            'cabang' => 'GM AMT',
+            'format_type' => 'Keep',
+            'barang_keep' => 'Infinix XPAD 20 PRO',
+            'tanggal_pengambilan' => '2026-11-10',
+            'notes' => 'Catatan customer',
+            'tags' => ['potensi', 'infinix'],
+        ]);
+
+        $resp->assertRedirect();
+        $chat->refresh();
+        $this->assertEquals('Amel Updated', $chat->customer_name);
+        $this->assertEquals('GM AMT', $chat->cabang);
+        $this->assertEquals('Infinix XPAD 20 PRO', $chat->barang_keep);
+        $this->assertContains('potensi', $chat->tags);
     }
 }

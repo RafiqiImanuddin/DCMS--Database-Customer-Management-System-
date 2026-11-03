@@ -245,3 +245,4 @@ async function checkApiConnection() {
 }
 </script>
 @endsection
+

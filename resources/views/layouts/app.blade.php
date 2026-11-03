@@ -27,7 +27,8 @@
                 <a href="{{ route('broadcasts.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('broadcasts.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>Laporan Broadcast</a>
                 <a href="{{ route('whatsapp.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('whatsapp.*') ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
-                    WhatsApp Web
+                    <span>WhatsApp CRM</span>
+                    <span class="ml-auto rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">Tim</span>
                 </a>
                 @if (auth()->user()->isSuperAdmin())
                 <a href="{{ route('settings.watzap.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('settings.watzap.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
@@ -69,22 +70,53 @@
             </div>
         </main>
     </div>
+
     <!-- Floating WhatsApp Launcher (Multi-Agent, Persistent Anti-Logout) -->
     <div id="floating-whatsapp-container" class="fixed bottom-5 right-5 z-40">
-        <button id="open-whatsapp-workspace" type="button" onclick="openGlobalWhatsAppWorkspace()" class="group inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-xl shadow-emerald-950/25 transition-all hover:bg-emerald-500 hover:scale-105 active:scale-95">
-            <svg class="size-4 animate-pulse text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
-            <span class="hidden sm:inline">WhatsApp CS</span>
+        <button id="open-whatsapp-drawer-btn" type="button" onclick="toggleWhatsAppDrawer()" class="group inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xl shadow-emerald-950/25 transition-all hover:bg-emerald-500 hover:scale-105 active:scale-95">
+            <svg class="size-4 text-white animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
+            <span class="font-bold">WhatsApp Tim</span>
             <span class="size-2 rounded-full bg-emerald-300"></span>
         </button>
     </div>
+
+    <!-- WhatsApp Slide-over In-App Drawer (Anti-Logout saat gonta-ganti menu) -->
+    <div id="whatsapp-drawer-backdrop" onclick="toggleWhatsAppDrawer()" class="fixed inset-0 z-50 hidden bg-slate-950/40 backdrop-blur-xs transition-opacity duration-300"></div>
+    <div id="whatsapp-drawer" class="fixed inset-y-0 right-0 z-50 w-full max-w-4xl translate-x-full bg-white shadow-2xl transition-transform duration-300 flex flex-col">
+        <div class="h-12 border-b border-slate-200 bg-slate-900 px-4 flex items-center justify-between text-white shrink-0">
+            <div class="flex items-center gap-2">
+                <svg class="size-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
+                <span class="text-xs font-black tracking-wide">WhatsApp Tim & CRM (Anti-Logout)</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('whatsapp.index') }}" class="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/20 transition">
+                    <span>↗</span> Buka Layar Penuh
+                </a>
+                <button type="button" onclick="toggleWhatsAppDrawer()" class="text-slate-400 hover:text-white text-lg font-bold p-1 leading-none">&times;</button>
+            </div>
+        </div>
+        <div class="flex-1 relative bg-slate-100">
+            <iframe id="whatsapp-drawer-iframe" src="about:blank" data-src="{{ route('whatsapp.index') }}" class="w-full h-full border-0"></iframe>
+        </div>
+    </div>
+
     <script>
-        function openGlobalWhatsAppWorkspace() {
-            const targetUrl = '{{ app(\App\Services\WatzapService::class)->getWebUrl() }}';
-            const win = window.open(targetUrl, 'dcms_whatsapp_workspace', 'width=1280,height=820,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');
-            if (win) {
-                win.focus();
+        function toggleWhatsAppDrawer() {
+            const drawer = document.getElementById('whatsapp-drawer');
+            const backdrop = document.getElementById('whatsapp-drawer-backdrop');
+            const iframe = document.getElementById('whatsapp-drawer-iframe');
+
+            if (drawer.classList.contains('translate-x-full')) {
+                // Buka panel samping
+                drawer.classList.remove('translate-x-full');
+                backdrop.classList.remove('hidden');
+                if (iframe.src === 'about:blank' || !iframe.src || iframe.src.endsWith('about:blank')) {
+                    iframe.src = iframe.getAttribute('data-src');
+                }
             } else {
-                window.location.href = '{{ route("whatsapp.index") }}';
+                // Tutup panel samping tanpa logout
+                drawer.classList.add('translate-x-full');
+                backdrop.classList.add('hidden');
             }
         }
     </script>
