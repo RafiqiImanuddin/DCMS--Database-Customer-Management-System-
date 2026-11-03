@@ -114,3 +114,4 @@ class BrandCategoryAccTest extends TestCase
         $this->assertEquals(5, $lainnyaSale['quantity'] ?? 0);
     }
 }
+

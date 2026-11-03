@@ -6,6 +6,8 @@ use App\Http\Controllers\CrossSellingImportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeadCustomerController;
 use App\Http\Controllers\RepeatOrderPredictionController;
+use App\Http\Controllers\WatzapSettingController;
+use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -43,4 +45,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/broadcasts/bulk', [BroadcastReportController::class, 'bulkStore'])->name('broadcasts.bulk');
     Route::delete('/broadcasts/{report}', [BroadcastReportController::class, 'destroy'])->name('broadcasts.destroy');
     Route::post('/predictions/{prediction}/broadcast', [BroadcastReportController::class, 'store'])->name('broadcasts.store');
+
+    // WhatsApp Web & Team Chat (Super Admin & Staff)
+    Route::get('/whatsapp', [WhatsAppController::class, 'index'])->name('whatsapp.index');
+
+    // Pengaturan Gateway WatZap (Khusus Superadmin)
+    Route::get('/settings/watzap', [WatzapSettingController::class, 'index'])->name('settings.watzap.index');
+    Route::post('/settings/watzap', [WatzapSettingController::class, 'update'])->name('settings.watzap.update');
+    Route::post('/settings/watzap/check', [WatzapSettingController::class, 'check'])->name('settings.watzap.check');
+    Route::post('/settings/watzap/test-send', [WatzapSettingController::class, 'testSend'])->name('settings.watzap.test_send');
 });

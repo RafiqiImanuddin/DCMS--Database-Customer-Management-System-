@@ -39,4 +39,11 @@ return [
         'webhook_url' => env('WHATSAPP_WEBHOOK_URL'),
     ],
 
+    'watzap' => [
+        'api_key' => env('WATZAP_API_KEY'),
+        'number_key' => env('WATZAP_NUMBER_KEY'),
+        'base_url' => env('WATZAP_BASE_URL', 'https://api.watzap.id/v1'),
+        'web_url' => env('WATZAP_WEB_URL', 'https://watzap.chat'),
+    ],
+
 ];

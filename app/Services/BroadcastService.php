@@ -4,11 +4,14 @@ namespace App\Services;
 
 use App\Models\BroadcastReport;
 use App\Models\RepeatOrderPrediction;
-use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class BroadcastService
 {
+    public function __construct(
+        protected WatzapService $watzap
+    ) {}
+
     public function send(RepeatOrderPrediction $prediction, string $message, int $userId): BroadcastReport
     {
         $report = BroadcastReport::create([
@@ -21,35 +24,36 @@ class BroadcastService
             'status' => 'queued',
         ]);
 
-        $webhookUrl = config('services.whatsapp.webhook_url');
-        if (! $webhookUrl || ! $prediction->no_hp_customer) {
+        if (! $prediction->no_hp_customer) {
             $report->update([
                 'status' => 'logged',
-                'provider_response' => $prediction->no_hp_customer
-                    ? 'Webhook WhatsApp belum dikonfigurasi. Pesan tersimpan sebagai laporan.'
-                    : 'Nomor WhatsApp pelanggan belum tersedia. Pesan tersimpan sebagai laporan.',
+                'provider_response' => 'Nomor WhatsApp pelanggan belum tersedia. Pesan tersimpan sebagai laporan.',
+            ]);
+
+            return $report;
+        }
+
+        if (! $this->watzap->isConfigured()) {
+            $report->update([
+                'status' => 'logged',
+                'provider_response' => 'WatZap belum dikonfigurasi. Silakan isi API Key dan Number Key di menu Pengaturan Super Admin.',
             ]);
 
             return $report;
         }
 
         try {
-            $response = Http::timeout(15)->post($webhookUrl, [
-                'phone' => $prediction->no_hp_customer,
-                'message' => $message,
-                'customer_code' => $prediction->customer_vendor_code,
-                'customer_name' => $prediction->customer_vendor_name,
-            ]);
+            $res = $this->watzap->sendMessage($prediction->no_hp_customer, $message);
 
             $report->update([
-                'status' => $response->successful() ? 'sent' : 'failed',
-                'provider_response' => $response->body(),
-                'sent_at' => $response->successful() ? now() : null,
+                'status' => $res['success'] ? 'sent' : 'failed',
+                'provider_response' => $res['message'].($res['raw'] ? ' | '.$res['raw'] : ''),
+                'sent_at' => $res['success'] ? now() : null,
             ]);
         } catch (Throwable $exception) {
             $report->update([
                 'status' => 'failed',
-                'provider_response' => $exception->getMessage(),
+                'provider_response' => 'Terjadi kesalahan: '.$exception->getMessage(),
             ]);
         }
 

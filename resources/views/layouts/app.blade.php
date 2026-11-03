@@ -25,6 +25,16 @@
                 <a href="{{ route('predictions.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('predictions.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 2v6m3-3h-6"/></svg>Master Customer</a>
                 <a href="{{ route('leads.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('leads.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Leads Customer</a>
                 <a href="{{ route('broadcasts.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('broadcasts.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>Laporan Broadcast</a>
+                <a href="{{ route('whatsapp.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('whatsapp.*') ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
+                    WhatsApp Web
+                </a>
+                @if (auth()->user()->isSuperAdmin())
+                <a href="{{ route('settings.watzap.index') }}" class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition {{ request()->routeIs('settings.watzap.*') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.3 4.3a2 2 0 0 1 3.4 0l.9 1.6a2 2 0 0 0 1.5.9l1.8.3a2 2 0 0 1 1.7 1.7l.3 1.8a2 2 0 0 0 .9 1.5l1.6.9a2 2 0 0 1 0 3.4l-1.6.9a2 2 0 0 0-.9 1.5l-.3 1.8a2 2 0 0 1-1.7 1.7l-1.8.3a2 2 0 0 0-1.5.9l-.9 1.6a2 2 0 0 1-3.4 0l-.9-1.6a2 2 0 0 0-1.5-.9l-1.8-.3a2 2 0 0 1-1.7-1.7l-.3-1.8a2 2 0 0 0-.9-1.5l-1.6-.9a2 2 0 0 1 0-3.4l1.6-.9a2 2 0 0 0 .9-1.5l.3-1.8a2 2 0 0 1 1.7-1.7l1.8-.3a2 2 0 0 0 1.5-.9l.9-1.6z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Pengaturan WatZap
+                </a>
+                @endif
             </nav>
             <div class="absolute inset-x-4 bottom-5 rounded-xl border border-white/10 bg-white/5 p-4">
                 <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->user()->isSuperAdmin() ? 'text-amber-300' : 'text-emerald-300' }}">{{ auth()->user()->isSuperAdmin() ? 'Superadmin' : 'Admin' }}</span></div>
@@ -59,5 +69,24 @@
             </div>
         </main>
     </div>
+    <!-- Floating WhatsApp Launcher (Multi-Agent, Persistent Anti-Logout) -->
+    <div id="floating-whatsapp-container" class="fixed bottom-5 right-5 z-40">
+        <button id="open-whatsapp-workspace" type="button" onclick="openGlobalWhatsAppWorkspace()" class="group inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-xl shadow-emerald-950/25 transition-all hover:bg-emerald-500 hover:scale-105 active:scale-95">
+            <svg class="size-4 animate-pulse text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
+            <span class="hidden sm:inline">WhatsApp CS</span>
+            <span class="size-2 rounded-full bg-emerald-300"></span>
+        </button>
+    </div>
+    <script>
+        function openGlobalWhatsAppWorkspace() {
+            const targetUrl = '{{ app(\App\Services\WatzapService::class)->getWebUrl() }}';
+            const win = window.open(targetUrl, 'dcms_whatsapp_workspace', 'width=1280,height=820,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes');
+            if (win) {
+                win.focus();
+            } else {
+                window.location.href = '{{ route("whatsapp.index") }}';
+            }
+        }
+    </script>
 </body>
 </html>

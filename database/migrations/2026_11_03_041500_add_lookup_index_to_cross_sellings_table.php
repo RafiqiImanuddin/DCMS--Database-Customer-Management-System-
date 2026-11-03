@@ -17,3 +17,4 @@ return new class extends Migration
         DB::statement('DROP INDEX IF EXISTS idx_cross_sellings_lookup;');
     }
 };
+
