@@ -110,7 +110,17 @@
                                 <div class="mt-1 text-[11px] font-bold text-slate-500">Tanpa nomor</div>
                             @endif
                         </td>
-                        <td class="px-3 py-4"><div class="font-medium text-slate-800">{{ $lead->item_code ?: '-' }}</div><div class="mt-1 max-w-52 truncate text-xs text-slate-500">{{ $lead->dscription ?: '-' }}</div></td>
+                        <td class="px-3 py-4">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="font-medium text-slate-800">{{ $lead->item_code ?: '-' }}</span>
+                                @if($lead->category === 'LAINNYA')
+                                    <span class="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">Lainnya</span>
+                                @else
+                                    <span class="inline-flex items-center rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{{ $lead->category }}</span>
+                                @endif
+                            </div>
+                            <div class="mt-1 max-w-52 truncate text-xs text-slate-500">{{ $lead->dscription ?: '-' }}</div>
+                        </td>
                         <td class="px-3 py-4"><span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">{{ $lead->classification }}</span></td>
                         <td class="px-3 py-4 whitespace-nowrap text-slate-600">{{ $lead->assigned_at?->format('d M Y H:i') ?: '-' }}</td>
                         <td class="px-5 py-4"><span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">Follow Up</span></td>

@@ -6,6 +6,7 @@ use App\Models\BroadcastReport;
 use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
 use App\Models\RepeatOrderPrediction;
+use App\Support\BrandCategory;
 use App\Support\PhoneNumberSql;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -39,16 +40,32 @@ class DashboardController extends Controller
         }
 
         $brandTotals = (clone $crossSellingQuery)
-            ->whereNotNull('brand')
-            ->whereRaw("TRIM(brand) <> ''")
-            ->selectRaw('UPPER(TRIM(brand)) as brand_code, SUM(quantity) as total_quantity')
-            ->groupByRaw('UPPER(TRIM(brand))')
+            ->selectRaw("
+                CASE 
+                    WHEN UPPER(item_code) LIKE '%ACC%' THEN 'LAINNYA'
+                    ELSE UPPER(TRIM(COALESCE(brand, '')))
+                END as brand_code, 
+                SUM(quantity) as total_quantity
+            ")
+            ->where(function ($q) {
+                $q->whereRaw("UPPER(item_code) LIKE '%ACC%'")
+                  ->orWhere(function ($q2) {
+                      $q2->whereNotNull('brand')->whereRaw("TRIM(brand) <> ''");
+                  });
+            })
+            ->groupByRaw("
+                CASE 
+                    WHEN UPPER(item_code) LIKE '%ACC%' THEN 'LAINNYA'
+                    ELSE UPPER(TRIM(COALESCE(brand, '')))
+                END
+            ")
             ->orderByDesc('total_quantity')
             ->get();
 
         $brandSales = [];
         foreach ($brandTotals as $brandTotal) {
-            $brandName = $this->mapBrandName((string) $brandTotal->brand_code);
+            $brandCode = (string) $brandTotal->brand_code;
+            $brandName = $brandCode === BrandCategory::DEFAULT_CATEGORY ? BrandCategory::DEFAULT_CATEGORY : BrandCategory::resolve(null, $brandCode);
             $brandSales[$brandName] = ($brandSales[$brandName] ?? 0) + (int) round((float) $brandTotal->total_quantity);
         }
         arsort($brandSales);
@@ -60,25 +77,23 @@ class DashboardController extends Controller
         }
 
         if ($selectedBrand !== '') {
-            $matchingBrandCodes = CrossSelling::query()
-                ->whereNotNull('brand')
-                ->whereRaw("TRIM(brand) <> ''")
-                ->distinct()
-                ->pluck('brand')
-                ->map(fn ($brandCode) => strtoupper(preg_replace('/[^A-Z0-9]/', '', strtoupper(trim((string) $brandCode))) ?? ''))
-                ->filter(fn ($brandCode) => $this->mapBrandName($brandCode) === $selectedBrand)
-                ->unique()
-                ->values();
-
-            $crossSellingQuery->where(function ($query) use ($matchingBrandCodes, $selectedBrand) {
-                foreach ($matchingBrandCodes as $brandCode) {
-                    $query->orWhereRaw('UPPER(TRIM(brand)) = ?', [$brandCode]);
-                }
-
-                if ($selectedBrand === 'LAINNYA' && $matchingBrandCodes->isEmpty()) {
-                    $query->whereRaw('1 = 0');
-                }
-            });
+            if ($selectedBrand === BrandCategory::DEFAULT_CATEGORY) {
+                $knownBrandCodes = collect(BrandCategory::allKnownBrandCodes());
+                $placeholders = implode(',', array_fill(0, $knownBrandCodes->count(), '?'));
+                $crossSellingQuery->where(function ($query) use ($knownBrandCodes, $placeholders) {
+                    $query->whereRaw("UPPER(item_code) LIKE '%ACC%'")
+                        ->orWhere(function ($sub) use ($knownBrandCodes, $placeholders) {
+                            $sub->whereNotNull('brand')
+                                ->whereRaw("TRIM(brand) <> ''")
+                                ->whereRaw("UPPER(TRIM(brand)) NOT IN ($placeholders)", $knownBrandCodes->map(fn ($code) => strtoupper($code))->all());
+                        });
+                });
+            } else {
+                $matchingBrandCodes = collect(BrandCategory::brandCodesFor($selectedBrand));
+                $placeholders = implode(',', array_fill(0, $matchingBrandCodes->count(), '?'));
+                $crossSellingQuery->whereRaw("UPPER(item_code) NOT LIKE '%ACC%'")
+                    ->whereRaw("UPPER(TRIM(brand)) IN ($placeholders)", $matchingBrandCodes->map(fn ($code) => strtoupper($code))->all());
+            }
         }
 
         $periods = (clone $crossSellingQuery)
@@ -90,7 +105,8 @@ class DashboardController extends Controller
 
         $filteredBrandSales = [];
         foreach ($brandTotals as $brandTotal) {
-            $brandName = $this->mapBrandName((string) $brandTotal->brand_code);
+            $brandCode = (string) $brandTotal->brand_code;
+            $brandName = $brandCode === BrandCategory::DEFAULT_CATEGORY ? BrandCategory::DEFAULT_CATEGORY : BrandCategory::resolve(null, $brandCode);
             if ($selectedBrand === '' || $brandName === $selectedBrand) {
                 $filteredBrandSales[$brandName] = ($filteredBrandSales[$brandName] ?? 0) + (int) round((float) $brandTotal->total_quantity);
             }
@@ -109,6 +125,40 @@ class DashboardController extends Controller
                 ->whereRaw(PhoneNumberSql::invalidWhatsApp());
         } elseif ($selectedPhoneStatus === 'missing') {
             $predictionQuery->where($this->missingPhoneCondition());
+        }
+
+        if ($selectedBrand !== '') {
+            if ($selectedBrand === BrandCategory::DEFAULT_CATEGORY) {
+                $knownBrandCodes = collect(BrandCategory::allKnownBrandCodes());
+                $placeholders = implode(',', array_fill(0, $knownBrandCodes->count(), '?'));
+                $predictionQuery->where(function ($sub) use ($knownBrandCodes, $placeholders) {
+                    $sub->whereRaw("UPPER(repeat_order_predictions.item_code) LIKE '%ACC%'")
+                        ->orWhereExists(function ($exists) use ($knownBrandCodes, $placeholders) {
+                            $exists->selectRaw('1')
+                                ->from('cross_sellings')
+                                ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
+                                ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
+                                ->whereNotNull('cross_sellings.brand')
+                                ->whereRaw("TRIM(cross_sellings.brand) <> ''")
+                                ->whereRaw("UPPER(TRIM(cross_sellings.brand)) NOT IN ($placeholders)", $knownBrandCodes->map(fn ($code) => strtoupper($code))->all());
+                        });
+                });
+            } else {
+                $matchingBrandCodes = collect(BrandCategory::brandCodesFor($selectedBrand));
+                if ($matchingBrandCodes->isEmpty()) {
+                    $predictionQuery->whereRaw('1 = 0');
+                } else {
+                    $placeholders = implode(',', array_fill(0, $matchingBrandCodes->count(), '?'));
+                    $predictionQuery->whereRaw("UPPER(repeat_order_predictions.item_code) NOT LIKE '%ACC%'")
+                        ->whereExists(function ($exists) use ($matchingBrandCodes, $placeholders) {
+                            $exists->selectRaw('1')
+                                ->from('cross_sellings')
+                                ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
+                                ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
+                                ->whereRaw("UPPER(TRIM(cross_sellings.brand)) IN ($placeholders)", $matchingBrandCodes->map(fn ($code) => strtoupper($code))->all());
+                        });
+                }
+            }
         }
 
         $potentialChart = (clone $predictionQuery)
@@ -160,31 +210,5 @@ class DashboardController extends Controller
             $builder->whereNotNull('no_hp_customer')
                 ->whereRaw("TRIM(no_hp_customer) <> ''");
         };
-    }
-
-    private function mapBrandName(string $brandCode): string
-    {
-        $code = strtoupper(preg_replace('/[^A-Z0-9]/', '', $brandCode) ?? '');
-        $brands = [
-            'IQO' => 'IQOO', 'IQOO' => 'IQOO',
-            'ZTE' => 'ZTE',
-            'RLM' => 'REALME', 'REALME' => 'REALME',
-            'XMI' => 'XIAOMI', 'XIAOMI' => 'XIAOMI',
-            'POC' => 'POCO', 'POCO' => 'POCO',
-            'APL' => 'IPHONE', 'APPLE' => 'IPHONE', 'IPHONE' => 'IPHONE',
-            'ITV' => 'ITEL', 'ITEL' => 'ITEL',
-            'TCN' => 'TECNO', 'TECNO' => 'TECNO',
-            'IFX' => 'INFINIX', 'INFINIX' => 'INFINIX',
-            'MTL' => 'MOTOROLA', 'MOTOROLA' => 'MOTOROLA',
-            'HWP' => 'HUAWEI', 'HWI' => 'HUAWEI', 'HKM' => 'HUAWEI', 'HUAWEI' => 'HUAWEI',
-            'HON' => 'HONOR', 'HONOR' => 'HONOR',
-            'ADV' => 'ADVAN', 'ADVAN' => 'ADVAN',
-            'VVN' => 'VILLAON', 'VLN' => 'VILLAON', 'VILLAON' => 'VILLAON',
-            'OPO' => 'OPPO', 'OPPO' => 'OPPO',
-            'VIV' => 'VIVO', 'VIVO' => 'VIVO',
-            'SAM' => 'SAMSUNG', 'SAMSUNG' => 'SAMSUNG',
-        ];
-
-        return $brands[$code] ?? 'LAINNYA';
     }
 }

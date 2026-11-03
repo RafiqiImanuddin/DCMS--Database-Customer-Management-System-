@@ -172,7 +172,14 @@
                         @endif
                     </td>
                     <td class="px-3 py-4">
-                        <div class="font-medium text-slate-800">{{ $prediction->item_code ?: '-' }}</div>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-medium text-slate-800">{{ $prediction->item_code ?: '-' }}</span>
+                            @if($prediction->category === 'LAINNYA')
+                                <span class="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">Lainnya</span>
+                            @else
+                                <span class="inline-flex items-center rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{{ $prediction->category }}</span>
+                            @endif
+                        </div>
                         <div class="mt-1 max-w-52 truncate text-xs text-slate-500" title="{{ $prediction->dscription }}">{{ $prediction->dscription ?: '-' }}</div>
                     </td>
                     <td class="px-3 py-4 text-center font-semibold text-slate-700">{{ $prediction->transaction_count }}</td>

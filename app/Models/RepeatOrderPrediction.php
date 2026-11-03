@@ -25,4 +25,9 @@ class RepeatOrderPrediction extends Model
     {
         return $this->belongsTo(CrossSellingImport::class);
     }
+
+    public function getCategoryAttribute(): string
+    {
+        return \App\Support\BrandCategory::resolve($this->item_code);
+    }
 }

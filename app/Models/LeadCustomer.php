@@ -23,4 +23,9 @@ class LeadCustomer extends Model
     {
         return $this->belongsTo(RepeatOrderPrediction::class, 'repeat_order_prediction_id');
     }
+
+    public function getCategoryAttribute(): string
+    {
+        return \App\Support\BrandCategory::resolve($this->item_code);
+    }
 }

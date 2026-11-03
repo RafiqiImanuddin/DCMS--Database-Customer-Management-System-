@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\RepeatOrderPrediction;
 use App\Services\FastXlsxWriter;
+use App\Support\BrandCategory;
 use App\Support\PhoneNumberSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -17,11 +18,7 @@ class RepeatOrderPredictionController extends Controller
         $query = $this->buildFilteredQuery($request);
         $chartQuery = $this->buildFilteredQuery($request, false);
 
-        $brandOptions = collect([
-            'IQOO', 'ZTE', 'REALME', 'XIAOMI', 'POCO', 'IPHONE', 'ITEL', 'TECNO',
-            'INFINIX', 'MOTOROLA', 'HUAWEI', 'HONOR', 'ADVAN', 'VILLAON',
-            'OPPO', 'VIVO', 'SAMSUNG', 'LAINNYA',
-        ]);
+        $brandOptions = collect(BrandCategory::BRAND_OPTIONS);
         $selectedBrand = $request->string('brand')->trim()->toString();
         if (! $brandOptions->contains($selectedBrand)) {
             $selectedBrand = '';
@@ -77,6 +74,7 @@ class RepeatOrderPredictionController extends Controller
             'Nama Pelanggan',
             'No HP Konsumen',
             'Kode Item',
+            'Kategori',
             'Nama Barang',
             'Klasifikasi',
             'Confidence (%)',
@@ -94,6 +92,7 @@ class RepeatOrderPredictionController extends Controller
                     $row->customer_vendor_name,
                     $row->no_hp_customer,
                     $row->item_code,
+                    $row->category,
                     $row->dscription,
                     ucfirst($row->classification ?? '-'),
                     $row->confidence ?? 0,
@@ -122,11 +121,7 @@ class RepeatOrderPredictionController extends Controller
         };
         $query->where($applyMasterCustomerScope);
 
-        $brandOptions = collect([
-            'IQOO', 'ZTE', 'REALME', 'XIAOMI', 'POCO', 'IPHONE', 'ITEL', 'TECNO',
-            'INFINIX', 'MOTOROLA', 'HUAWEI', 'HONOR', 'ADVAN', 'VILLAON',
-            'OPPO', 'VIVO', 'SAMSUNG', 'LAINNYA',
-        ]);
+        $brandOptions = collect(BrandCategory::BRAND_OPTIONS);
         $selectedBrand = $request->string('brand')->trim()->toString();
         if (! $brandOptions->contains($selectedBrand)) {
             $selectedBrand = '';
@@ -165,31 +160,35 @@ class RepeatOrderPredictionController extends Controller
         }
 
         if ($selectedBrand !== '') {
-            if ($selectedBrand === 'LAINNYA') {
-                $knownBrandCodes = collect($this->allKnownBrandCodes());
+            if ($selectedBrand === BrandCategory::DEFAULT_CATEGORY) {
+                $knownBrandCodes = collect(BrandCategory::allKnownBrandCodes());
                 $placeholders = implode(',', array_fill(0, $knownBrandCodes->count(), '?'));
-                $query->whereExists(function ($exists) use ($knownBrandCodes, $placeholders) {
-                    $exists->selectRaw('1')
-                        ->from('cross_sellings')
-                        ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
-                        ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
-                        ->whereNotNull('cross_sellings.brand')
-                        ->whereRaw("TRIM(cross_sellings.brand) <> ''")
-                        ->whereRaw("UPPER(TRIM(cross_sellings.brand)) NOT IN ($placeholders)", $knownBrandCodes->map(fn ($code) => strtoupper($code))->all());
+                $query->where(function ($sub) use ($knownBrandCodes, $placeholders) {
+                    $sub->whereRaw("UPPER(repeat_order_predictions.item_code) LIKE '%ACC%'")
+                        ->orWhereExists(function ($exists) use ($knownBrandCodes, $placeholders) {
+                            $exists->selectRaw('1')
+                                ->from('cross_sellings')
+                                ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
+                                ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
+                                ->whereNotNull('cross_sellings.brand')
+                                ->whereRaw("TRIM(cross_sellings.brand) <> ''")
+                                ->whereRaw("UPPER(TRIM(cross_sellings.brand)) NOT IN ($placeholders)", $knownBrandCodes->map(fn ($code) => strtoupper($code))->all());
+                        });
                 });
             } else {
-                $matchingBrandCodes = collect($this->brandCodesFor($selectedBrand));
+                $matchingBrandCodes = collect(BrandCategory::brandCodesFor($selectedBrand));
                 if ($matchingBrandCodes->isEmpty()) {
                     $query->whereRaw('1 = 0');
                 } else {
                     $placeholders = implode(',', array_fill(0, $matchingBrandCodes->count(), '?'));
-                    $query->whereExists(function ($exists) use ($matchingBrandCodes, $placeholders) {
-                        $exists->selectRaw('1')
-                            ->from('cross_sellings')
-                            ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
-                            ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
-                            ->whereRaw("UPPER(TRIM(cross_sellings.brand)) IN ($placeholders)", $matchingBrandCodes->map(fn ($code) => strtoupper($code))->all());
-                    });
+                    $query->whereRaw("UPPER(repeat_order_predictions.item_code) NOT LIKE '%ACC%'")
+                        ->whereExists(function ($exists) use ($matchingBrandCodes, $placeholders) {
+                            $exists->selectRaw('1')
+                                ->from('cross_sellings')
+                                ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
+                                ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
+                                ->whereRaw("UPPER(TRIM(cross_sellings.brand)) IN ($placeholders)", $matchingBrandCodes->map(fn ($code) => strtoupper($code))->all());
+                        });
                 }
             }
         }
@@ -224,69 +223,5 @@ class RepeatOrderPredictionController extends Controller
             $builder->whereNotNull('no_hp_customer')
                 ->whereRaw("TRIM(no_hp_customer) <> ''");
         };
-    }
-
-    private function brandCodesFor(string $brandName): array
-    {
-        return match ($brandName) {
-            'IQOO' => ['IQO', 'IQOO'],
-            'REALME' => ['RLM', 'REALME'],
-            'XIAOMI' => ['XMI', 'XIAOMI'],
-            'POCO' => ['POC', 'POCO'],
-            'IPHONE' => ['APL', 'APPLE', 'IPHONE'],
-            'ITEL' => ['ITV', 'ITEL'],
-            'TECNO' => ['TCN', 'TECNO'],
-            'INFINIX' => ['IFX', 'INFINIX'],
-            'MOTOROLA' => ['MTL', 'MOTOROLA'],
-            'HUAWEI' => ['HWP', 'HWI', 'HKM', 'HUAWEI'],
-            'HONOR' => ['HON', 'HONOR'],
-            'ADVAN' => ['ADV', 'ADVAN'],
-            'VILLAON' => ['VVN', 'VLN', 'VILLAON'],
-            'OPPO' => ['OPO', 'OPPO'],
-            'VIVO' => ['VIV', 'VIVO'],
-            'SAMSUNG' => ['SAM', 'SAMSUNG'],
-            'ZTE' => ['ZTE'],
-            default => [$brandName],
-        };
-    }
-
-    private function allKnownBrandCodes(): array
-    {
-        $codes = [];
-        foreach ([
-            'IQOO', 'ZTE', 'REALME', 'XIAOMI', 'POCO', 'IPHONE', 'ITEL', 'TECNO',
-            'INFINIX', 'MOTOROLA', 'HUAWEI', 'HONOR', 'ADVAN', 'VILLAON',
-            'OPPO', 'VIVO', 'SAMSUNG',
-        ] as $brandName) {
-            $codes = array_merge($codes, $this->brandCodesFor($brandName));
-        }
-
-        return array_values(array_unique($codes));
-    }
-
-    private function mapBrandName(string $brandCode): string
-    {
-        $code = strtoupper(preg_replace('/[^A-Z0-9]/', '', $brandCode) ?? '');
-        $brands = [
-            'IQO' => 'IQOO', 'IQOO' => 'IQOO',
-            'ZTE' => 'ZTE',
-            'RLM' => 'REALME', 'REALME' => 'REALME',
-            'XMI' => 'XIAOMI', 'XIAOMI' => 'XIAOMI',
-            'POC' => 'POCO', 'POCO' => 'POCO',
-            'APL' => 'IPHONE', 'APPLE' => 'IPHONE', 'IPHONE' => 'IPHONE',
-            'ITV' => 'ITEL', 'ITEL' => 'ITEL',
-            'TCN' => 'TECNO', 'TECNO' => 'TECNO',
-            'IFX' => 'INFINIX', 'INFINIX' => 'INFINIX',
-            'MTL' => 'MOTOROLA', 'MOTOROLA' => 'MOTOROLA',
-            'HWP' => 'HUAWEI', 'HWI' => 'HUAWEI', 'HKM' => 'HUAWEI', 'HUAWEI' => 'HUAWEI',
-            'HON' => 'HONOR', 'HONOR' => 'HONOR',
-            'ADV' => 'ADVAN', 'ADVAN' => 'ADVAN',
-            'VVN' => 'VILLAON', 'VLN' => 'VILLAON', 'VILLAON' => 'VILLAON',
-            'OPO' => 'OPPO', 'OPPO' => 'OPPO',
-            'VIV' => 'VIVO', 'VIVO' => 'VIVO',
-            'SAM' => 'SAMSUNG', 'SAMSUNG' => 'SAMSUNG',
-        ];
-
-        return $brands[$code] ?? 'LAINNYA';
     }
 }
