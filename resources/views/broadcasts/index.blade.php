@@ -35,7 +35,7 @@
 
 <section class="dcms-card overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full min-w-[960px] text-left text-sm">
+        <table class="w-full min-w-[850px] text-left text-sm">
             <thead class="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
                     <th class="px-5 py-3.5">Pelanggan</th>
@@ -43,7 +43,6 @@
                     <th class="px-3 py-3.5">Pesan</th>
                     <th class="px-3 py-3.5">Status</th>
                     <th class="px-3 py-3.5">Waktu</th>
-                    <th class="px-3 py-3.5">Respons Provider</th>
                     <th class="px-5 py-3.5 text-right">Aksi</th>
                 </tr>
             </thead>
@@ -52,30 +51,32 @@
                 <tr class="border-b border-slate-100 align-top transition hover:bg-slate-50/70">
                     <td class="px-5 py-4">
                         <div class="font-bold text-slate-900">{{ $report->customer_vendor_code ?: '-' }}</div>
-                        <div class="mt-1 text-xs text-slate-500">{{ $report->phone_number ?: 'No HP kosong' }}</div>
+                        <div class="mt-1 text-xs text-slate-500 font-mono">{{ $report->phone_number ?: 'No HP kosong' }}</div>
                     </td>
                     <td class="px-3 py-4">
                         @if($report->image_url)
-                            <a href="{{ $report->image_url }}" target="_blank" rel="noopener" class="group block overflow-hidden rounded-lg border border-slate-200 bg-white p-0.5 hover:border-brand-500 transition w-12 h-12 text-center" title="Klik untuk memperbesar gambar">
+                            <a href="{{ $report->image_url }}" target="_blank" rel="noopener" class="group block overflow-hidden rounded-lg border border-slate-200 bg-white p-0.5 hover:border-brand-500 transition w-12 h-12 text-center shadow-xs" title="Klik untuk memperbesar gambar">
                                 <img src="{{ $report->image_url }}" alt="Lampiran" class="h-full w-full rounded object-cover">
                             </a>
                         @else
                             <span class="text-xs text-slate-400">Teks saja</span>
                         @endif
                     </td>
-                    <td class="max-w-md px-3 py-4">
+                    <td class="max-w-lg px-3 py-4">
                         <div class="line-clamp-3 leading-relaxed text-xs text-slate-700 whitespace-pre-wrap font-sans">{{ $report->message }}</div>
                     </td>
-                    <td class="px-3 py-4">
-                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold {{ $report->status === 'sent' ? 'bg-emerald-100 text-emerald-700' : ($report->status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700') }}">
-                            {{ $report->status }}
+                    <td class="px-3 py-4 whitespace-nowrap">
+                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold {{ $report->status === 'sent' ? 'bg-emerald-100 text-emerald-700' : ($report->status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700') }}" title="{{ $report->provider_response }}">
+                            {{ $report->status === 'sent' ? 'Terkirim' : ($report->status === 'failed' ? 'Gagal' : ucfirst($report->status)) }}
                         </span>
+                        @if($report->status === 'failed' && $report->provider_response)
+                            <div class="mt-1 max-w-xs truncate text-[10px] text-rose-600 font-medium" title="{{ $report->provider_response }}">
+                                {{ Str::limit($report->provider_response, 45) }}
+                            </div>
+                        @endif
                     </td>
                     <td class="px-3 py-4 whitespace-nowrap text-xs text-slate-600">
                         {{ $report->sent_at?->format('d M Y H:i') ?: '-' }}
-                    </td>
-                    <td class="max-w-xs px-3 py-4 text-xs leading-5 text-slate-500">
-                        {{ $report->provider_response ?: '-' }}
                     </td>
                     <td class="px-5 py-4 text-right">
                         <form method="POST" action="{{ route('broadcasts.destroy', $report) }}" onsubmit="return confirm('Hapus laporan broadcast ini?')">
@@ -89,7 +90,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">Belum ada laporan broadcast.</td></tr>
+                <tr><td colspan="6" class="px-5 py-12 text-center text-slate-500">Belum ada laporan broadcast.</td></tr>
             @endforelse
             </tbody>
         </table>

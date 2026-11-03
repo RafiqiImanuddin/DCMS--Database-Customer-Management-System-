@@ -87,7 +87,7 @@ class BroadcastReportController extends Controller
 
         $filename = 'laporan-broadcast-'.now()->format('Y-m-d').'.xlsx';
 
-        $headers = ['Kode Pelanggan', 'No HP', 'Channel', 'Status', 'Pesan', 'Lampiran Gambar', 'Waktu', 'Respons Provider'];
+        $headers = ['Kode Pelanggan', 'No HP', 'Channel', 'Status', 'Pesan', 'Lampiran Gambar', 'Waktu'];
 
         $rowsGenerator = function () use ($query) {
             foreach ($query->latest()->cursor() as $report) {
@@ -99,7 +99,6 @@ class BroadcastReportController extends Controller
                     $report->message,
                     $report->image_url ?? '-',
                     $report->sent_at?->format('d-m-Y H:i:s') ?? '-',
-                    $report->provider_response,
                 ];
             }
         };
