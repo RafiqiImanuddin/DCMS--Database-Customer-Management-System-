@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\ImportCrossSellingJob;
 use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
 use App\Models\RepeatOrderPrediction;
+use App\Services\CrossSellingImporter;
 use App\Services\RepeatOrderPredictor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CrossSellingImportController extends Controller
@@ -23,25 +24,52 @@ class CrossSellingImportController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, CrossSellingImporter $importer, RepeatOrderPredictor $predictor): JsonResponse|RedirectResponse
     {
-        $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:3584'],
-        ]);
+        try {
+            $validated = $request->validate([
+                'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:3584'],
+            ]);
+        } catch (ValidationException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage(), 'errors' => $e->errors()], 422);
+            }
+            throw $e;
+        }
 
         $storedPath = $validated['file']->store('cross-selling-imports', 'local');
         $import = CrossSellingImport::create([
-            'user_id' => $request->user()->id,
+            'user_id'       => $request->user()->id,
             'original_name' => $validated['file']->getClientOriginalName(),
-            'stored_path' => $storedPath,
-            'status' => 'processing',
+            'stored_path'   => $storedPath,
+            'status'        => 'processing',
         ]);
 
-        ImportCrossSellingJob::dispatch($import);
+        // Process synchronously so data appears immediately (no queue worker on Vercel).
+        try {
+            $importer->import($import);
+            $import->refresh();
+            if ($import->status === 'completed') {
+                $predictor->rebuild();
+            }
+        } catch (\Throwable $e) {
+            // Error already recorded inside importer; continue to redirect.
+        }
+
+        if ($request->expectsJson()) {
+            $import->refresh();
+            return response()->json([
+                'message'       => 'Import selesai.',
+                'status'        => $import->status,
+                'row_count'     => $import->row_count,
+                'success_count' => $import->success_count,
+                'failed_count'  => $import->failed_count,
+            ]);
+        }
 
         return redirect()->route('imports.index')->with(
             'success',
-            'File masuk ke antrean import. Status akan diperbarui setelah pemrosesan selesai.',
+            'File berhasil diimport.',
         );
     }
 

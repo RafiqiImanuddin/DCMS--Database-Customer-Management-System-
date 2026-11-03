@@ -242,16 +242,32 @@ importUploadForm?.addEventListener('submit', (event) => {
                 const response = await fetch(importUploadForm.action, {
                     method: 'POST',
                     body: formData,
-                    headers: { Accept: 'text/html' },
+                    headers: { Accept: 'application/json' },
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Batch ${index + 1} gagal diunggah (HTTP ${response.status}).`);
+                    let errorMsg = `Batch ${index + 1} gagal diunggah (HTTP ${response.status}).`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.message) {
+                            errorMsg = errorData.message;
+                        } else if (errorData.errors) {
+                            errorMsg = Object.values(errorData.errors).flat().join(' ');
+                        }
+                    } catch {}
+                    throw new Error(errorMsg);
                 }
+
+                const result = await response.json().catch(() => ({}));
 
                 completed++;
                 const progress = Math.round((completed / selectedIndexes.length) * 100);
-                uploadProgressLabel.textContent = `Mengunggah batch ${completed} dari ${selectedIndexes.length}...`;
+                const batchStatus = result.status === 'failed'
+                    ? ` ⚠️ (${result.failed_count ?? 0} baris gagal)`
+                    : result.status === 'completed'
+                        ? ` ✓ (${result.success_count ?? 0} baris berhasil)`
+                        : '';
+                uploadProgressLabel.textContent = `Batch ${completed} dari ${selectedIndexes.length} selesai${batchStatus}`;
                 uploadProgressPercent.textContent = `${progress}%`;
                 uploadProgressBar.style.width = `${progress}%`;
             }

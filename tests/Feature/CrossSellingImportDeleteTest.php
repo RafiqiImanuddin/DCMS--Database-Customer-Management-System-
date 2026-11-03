@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\ImportCrossSellingJob;
 use App\Models\BroadcastReport;
 use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
@@ -144,9 +143,8 @@ class CrossSellingImportDeleteTest extends TestCase
         ]);
     }
 
-    public function test_store_dispatches_background_import_job(): void
+    public function test_store_creates_import_and_processes_synchronously(): void
     {
-        Queue::fake();
         Storage::fake('local');
         $user = User::factory()->create();
         $file = UploadedFile::fake()->create(
@@ -159,12 +157,15 @@ class CrossSellingImportDeleteTest extends TestCase
 
         $response->assertRedirect(route('imports.index'));
         $response->assertSessionHas('success');
+        // Import is processed synchronously; status is either completed or failed (not processing).
         $this->assertDatabaseHas('cross_selling_imports', [
             'user_id' => $user->id,
             'original_name' => 'cross-selling.xlsx',
+        ]);
+        $this->assertDatabaseMissing('cross_selling_imports', [
+            'user_id' => $user->id,
             'status' => 'processing',
         ]);
-        Queue::assertPushed(ImportCrossSellingJob::class);
     }
 
     public function test_predictions_page_filters_by_brand(): void
