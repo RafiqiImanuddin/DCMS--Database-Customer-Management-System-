@@ -5,6 +5,7 @@ use App\Http\Controllers\BroadcastReportController;
 use App\Http\Controllers\CrossSellingImportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeadCustomerController;
+use App\Http\Controllers\RepeatOrderDashboardController;
 use App\Http\Controllers\RepeatOrderPredictionController;
 use App\Http\Controllers\WatzapSettingController;
 use App\Http\Controllers\WhatsAppController;
@@ -22,6 +23,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/repeat-orders', RepeatOrderDashboardController::class)->name('repeat-orders.dashboard');
 
     // Fitur Import Data (Khusus Superadmin)
     Route::get('/imports/template', [CrossSellingImportController::class, 'template'])->name('imports.template');
