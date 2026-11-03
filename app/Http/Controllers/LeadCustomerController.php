@@ -5,13 +5,65 @@ namespace App\Http\Controllers;
 use App\Models\LeadCustomer;
 use App\Models\RepeatOrderPrediction;
 use App\Support\PhoneNumberSql;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LeadCustomerController extends Controller
 {
     public function index(Request $request): View
+    {
+        $query = $this->buildFilteredQuery($request);
+
+        return view('leads.index', [
+            'leads' => $query->latest('assigned_at')->paginate(20)->withQueryString(),
+        ]);
+    }
+
+    public function download(Request $request): StreamedResponse
+    {
+        $query = $this->buildFilteredQuery($request);
+
+        $filename = 'leads-customer-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, [
+                'Kode Pelanggan',
+                'Nama Pelanggan',
+                'No HP Konsumen',
+                'Kode Item',
+                'Nama Barang',
+                'Klasifikasi',
+                'Status',
+                'Tanggal Masuk Lead',
+            ]);
+
+            $query->latest('assigned_at')->chunk(500, function ($leads) use ($output) {
+                foreach ($leads as $lead) {
+                    fputcsv($output, [
+                        $lead->customer_vendor_code,
+                        $lead->customer_vendor_name,
+                        $lead->no_hp_customer,
+                        $lead->item_code,
+                        $lead->dscription,
+                        ucfirst($lead->classification ?? '-'),
+                        $lead->status ?? '-',
+                        $lead->assigned_at?->format('d-m-Y H:i') ?? '-',
+                    ]);
+                }
+            });
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    private function buildFilteredQuery(Request $request): Builder
     {
         $query = LeadCustomer::query()
             ->where('user_id', $request->user()->id)
@@ -55,9 +107,7 @@ class LeadCustomerController extends Controller
             });
         }
 
-        return view('leads.index', [
-            'leads' => $query->latest('assigned_at')->paginate(20)->withQueryString(),
-        ]);
+        return $query;
     }
 
     public function assign(Request $request): RedirectResponse

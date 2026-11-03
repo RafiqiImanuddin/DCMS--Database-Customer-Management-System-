@@ -3,7 +3,16 @@
 @section('head')
 @endsection
 @section('content')
-<div class="mb-6"><p class="text-sm font-medium text-brand-600">Pengelolaan Data</p><h1 class="mt-1 text-2xl font-black text-slate-900">Import Cross-selling</h1></div>
+<div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+        <p class="text-sm font-medium text-brand-600">Pengelolaan Data (Superadmin)</p>
+        <h1 class="mt-1 text-2xl font-black text-slate-900">Import Cross-selling</h1>
+    </div>
+    <a href="{{ route('imports.template') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
+        <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+        Download Template CSV (12 Kolom)
+    </a>
+</div>
 <section class="dcms-card mb-6 p-5 sm:p-6">
     <div class="mb-5 flex items-start gap-3"><div class="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700"><svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg></div><div><h2 class="font-black text-slate-900">Upload file bulanan atau gabungan</h2><p class="mt-1 text-sm text-slate-500">File besar akan dipecah otomatis menjadi batch maksimal 3,5 MB dan batch dapat dipilih sebelum upload.</p></div></div>
     <form id="import-upload-form" method="POST" action="{{ route('imports.store') }}" enctype="multipart/form-data" class="flex flex-col gap-3 sm:flex-row sm:items-end">

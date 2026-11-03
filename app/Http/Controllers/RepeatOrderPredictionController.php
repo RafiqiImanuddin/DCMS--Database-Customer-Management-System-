@@ -4,25 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\RepeatOrderPrediction;
 use App\Support\PhoneNumberSql;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RepeatOrderPredictionController extends Controller
 {
     public function __invoke(Request $request): View
     {
-        $query = RepeatOrderPrediction::query();
-        $chartQuery = RepeatOrderPrediction::query();
-        $applyMasterCustomerScope = function ($builder) use ($request) {
-            $builder->whereNotExists(function ($exists) use ($request) {
-                $exists->selectRaw('1')
-                    ->from('lead_customers')
-                    ->whereColumn('lead_customers.repeat_order_prediction_id', 'repeat_order_predictions.id')
-                    ->where('lead_customers.user_id', $request->user()->id);
-            });
-        };
-        $query->where($applyMasterCustomerScope);
-        $chartQuery->where($applyMasterCustomerScope);
+        $query = $this->buildFilteredQuery($request);
+        $chartQuery = $this->buildFilteredQuery($request, false);
 
         $brandOptions = collect([
             'IQOO', 'ZTE', 'REALME', 'XIAOMI', 'POCO', 'IPHONE', 'ITEL', 'TECNO',
@@ -34,84 +26,9 @@ class RepeatOrderPredictionController extends Controller
             $selectedBrand = '';
         }
 
-        if ($search = $request->string('search')->trim()->toString()) {
-            $query->where(function ($builder) use ($search) {
-                $builder->where('customer_vendor_code', 'like', '%'.$search.'%')
-                    ->orWhere('customer_vendor_name', 'like', '%'.$search.'%')
-                    ->orWhere('no_hp_customer', 'like', '%'.$search.'%')
-                    ->orWhere('item_code', 'like', '%'.$search.'%')
-                    ->orWhere('dscription', 'like', '%'.$search.'%');
-            });
-            $chartQuery->where(function ($builder) use ($search) {
-                $builder->where('customer_vendor_code', 'like', '%'.$search.'%')
-                    ->orWhere('customer_vendor_name', 'like', '%'.$search.'%')
-                    ->orWhere('no_hp_customer', 'like', '%'.$search.'%')
-                    ->orWhere('item_code', 'like', '%'.$search.'%')
-                    ->orWhere('dscription', 'like', '%'.$search.'%');
-            });
-        }
-        if ($classification = $request->string('classification')->toString()) {
-            if (in_array($classification, ['tinggi', 'sedang', 'rendah', 'baru'], true)) {
-                $query->where('classification', $classification);
-            }
-        }
-        if ($period = $request->string('period')->toString()) {
-            $query->where('period_label', $period);
-            $chartQuery->where('period_label', $period);
-        }
         $selectedPhoneStatus = $request->string('phone_status')->toString();
         if (! in_array($selectedPhoneStatus, ['valid', 'invalid', 'missing'], true)) {
             $selectedPhoneStatus = '';
-        }
-        if ($selectedPhoneStatus !== '') {
-            if ($selectedPhoneStatus === 'valid') {
-                $query->where($this->validWhatsAppCondition());
-            } elseif ($selectedPhoneStatus === 'invalid') {
-                $query->where($this->phonePresentCondition())
-                    ->where(function ($builder) {
-                        $builder->whereRaw(PhoneNumberSql::invalidWhatsApp());
-                    });
-            } else {
-                $query->where($this->missingPhoneCondition());
-            }
-        }
-        if ($selectedBrand !== '') {
-            if ($selectedBrand === 'LAINNYA') {
-                $knownBrandCodes = collect($this->allKnownBrandCodes());
-                $placeholders = implode(',', array_fill(0, $knownBrandCodes->count(), '?'));
-                $applyBrandFilter = function ($builder) use ($knownBrandCodes, $placeholders) {
-                    $builder->whereExists(function ($exists) use ($knownBrandCodes, $placeholders) {
-                        $exists->selectRaw('1')
-                            ->from('cross_sellings')
-                            ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
-                            ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
-                            ->whereNotNull('cross_sellings.brand')
-                            ->whereRaw("TRIM(cross_sellings.brand) <> ''")
-                            ->whereRaw("UPPER(TRIM(cross_sellings.brand)) NOT IN ($placeholders)", $knownBrandCodes->map(fn ($code) => strtoupper($code))->all());
-                    });
-                };
-                $query->where($applyBrandFilter);
-                $chartQuery->where($applyBrandFilter);
-            } else {
-                $matchingBrandCodes = collect($this->brandCodesFor($selectedBrand));
-                if ($matchingBrandCodes->isEmpty()) {
-                    $query->whereRaw('1 = 0');
-                    $chartQuery->whereRaw('1 = 0');
-                } else {
-                    $placeholders = implode(',', array_fill(0, $matchingBrandCodes->count(), '?'));
-                    $applyBrandFilter = function ($builder) use ($matchingBrandCodes, $placeholders) {
-                        $builder->whereExists(function ($exists) use ($matchingBrandCodes, $placeholders) {
-                            $exists->selectRaw('1')
-                                ->from('cross_sellings')
-                                ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
-                                ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
-                                ->whereRaw("UPPER(TRIM(cross_sellings.brand)) IN ($placeholders)", $matchingBrandCodes->map(fn ($code) => strtoupper($code))->all());
-                        });
-                    };
-                    $query->where($applyBrandFilter);
-                    $chartQuery->where($applyBrandFilter);
-                }
-            }
         }
 
         $phoneChartBase = clone $chartQuery;
@@ -135,6 +52,143 @@ class RepeatOrderPredictionController extends Controller
                 ->groupBy('classification')
                 ->pluck('total', 'classification'),
         ]);
+    }
+
+    public function download(Request $request): StreamedResponse
+    {
+        $query = $this->buildFilteredQuery($request);
+
+        $filename = 'master-customer-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, [
+                'Kode Pelanggan',
+                'Nama Pelanggan',
+                'No HP Konsumen',
+                'Kode Item',
+                'Nama Barang',
+                'Klasifikasi',
+                'Confidence (%)',
+                'Interval Hari',
+                'Total Transaksi',
+                'Total Nominal',
+                'Prediksi Repeat Date',
+                'Periode',
+            ]);
+
+            $query->orderBy('predicted_repeat_date')->chunk(500, function ($predictions) use ($output) {
+                foreach ($predictions as $row) {
+                    fputcsv($output, [
+                        $row->customer_vendor_code,
+                        $row->customer_vendor_name,
+                        $row->no_hp_customer,
+                        $row->item_code,
+                        $row->dscription,
+                        ucfirst($row->classification ?? '-'),
+                        $row->confidence ?? 0,
+                        $row->interval_days ?? 0,
+                        $row->transaction_count ?? 0,
+                        $row->total_nominal ?? 0,
+                        $row->predicted_repeat_date?->format('d-m-Y') ?? '-',
+                        $row->period_label ?? '-',
+                    ]);
+                }
+            });
+
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    private function buildFilteredQuery(Request $request, bool $applyClassification = true): Builder
+    {
+        $query = RepeatOrderPrediction::query();
+        $applyMasterCustomerScope = function ($builder) use ($request) {
+            $builder->whereNotExists(function ($exists) use ($request) {
+                $exists->selectRaw('1')
+                    ->from('lead_customers')
+                    ->whereColumn('lead_customers.repeat_order_prediction_id', 'repeat_order_predictions.id')
+                    ->where('lead_customers.user_id', $request->user()->id);
+            });
+        };
+        $query->where($applyMasterCustomerScope);
+
+        $brandOptions = collect([
+            'IQOO', 'ZTE', 'REALME', 'XIAOMI', 'POCO', 'IPHONE', 'ITEL', 'TECNO',
+            'INFINIX', 'MOTOROLA', 'HUAWEI', 'HONOR', 'ADVAN', 'VILLAON',
+            'OPPO', 'VIVO', 'SAMSUNG', 'LAINNYA',
+        ]);
+        $selectedBrand = $request->string('brand')->trim()->toString();
+        if (! $brandOptions->contains($selectedBrand)) {
+            $selectedBrand = '';
+        }
+
+        if ($search = $request->string('search')->trim()->toString()) {
+            $query->where(function ($builder) use ($search) {
+                $builder->where('customer_vendor_code', 'like', '%'.$search.'%')
+                    ->orWhere('customer_vendor_name', 'like', '%'.$search.'%')
+                    ->orWhere('no_hp_customer', 'like', '%'.$search.'%')
+                    ->orWhere('item_code', 'like', '%'.$search.'%')
+                    ->orWhere('dscription', 'like', '%'.$search.'%');
+            });
+        }
+
+        if ($applyClassification && ($classification = $request->string('classification')->toString())) {
+            if (in_array($classification, ['tinggi', 'sedang', 'rendah', 'baru'], true)) {
+                $query->where('classification', $classification);
+            }
+        }
+
+        if ($period = $request->string('period')->toString()) {
+            $query->where('period_label', $period);
+        }
+
+        $selectedPhoneStatus = $request->string('phone_status')->toString();
+        if ($selectedPhoneStatus === 'valid') {
+            $query->where($this->validWhatsAppCondition());
+        } elseif ($selectedPhoneStatus === 'invalid') {
+            $query->where($this->phonePresentCondition())
+                ->where(function ($builder) {
+                    $builder->whereRaw(PhoneNumberSql::invalidWhatsApp());
+                });
+        } elseif ($selectedPhoneStatus === 'missing') {
+            $query->where($this->missingPhoneCondition());
+        }
+
+        if ($selectedBrand !== '') {
+            if ($selectedBrand === 'LAINNYA') {
+                $knownBrandCodes = collect($this->allKnownBrandCodes());
+                $placeholders = implode(',', array_fill(0, $knownBrandCodes->count(), '?'));
+                $query->whereExists(function ($exists) use ($knownBrandCodes, $placeholders) {
+                    $exists->selectRaw('1')
+                        ->from('cross_sellings')
+                        ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
+                        ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
+                        ->whereNotNull('cross_sellings.brand')
+                        ->whereRaw("TRIM(cross_sellings.brand) <> ''")
+                        ->whereRaw("UPPER(TRIM(cross_sellings.brand)) NOT IN ($placeholders)", $knownBrandCodes->map(fn ($code) => strtoupper($code))->all());
+                });
+            } else {
+                $matchingBrandCodes = collect($this->brandCodesFor($selectedBrand));
+                if ($matchingBrandCodes->isEmpty()) {
+                    $query->whereRaw('1 = 0');
+                } else {
+                    $placeholders = implode(',', array_fill(0, $matchingBrandCodes->count(), '?'));
+                    $query->whereExists(function ($exists) use ($matchingBrandCodes, $placeholders) {
+                        $exists->selectRaw('1')
+                            ->from('cross_sellings')
+                            ->whereColumn('cross_sellings.customer_vendor_code', 'repeat_order_predictions.customer_vendor_code')
+                            ->whereColumn('cross_sellings.item_code', 'repeat_order_predictions.item_code')
+                            ->whereRaw("UPPER(TRIM(cross_sellings.brand)) IN ($placeholders)", $matchingBrandCodes->map(fn ($code) => strtoupper($code))->all());
+                    });
+                }
+            }
+        }
+
+        return $query;
     }
 
     private function validWhatsAppCondition(): callable

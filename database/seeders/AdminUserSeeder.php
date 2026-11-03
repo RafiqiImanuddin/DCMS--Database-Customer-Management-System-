@@ -16,8 +16,26 @@ class AdminUserSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'superadmin@gmail.com'],
             [
-                'name' => 'Administrator DCMS',
+                'name' => 'Superadmin DCMS',
                 'password' => Hash::make('mahasewa@gmail.com'),
+                'role' => 'superadmin',
+            ],
+        );
+
+        User::updateOrCreate(
+            ['email' => 'rafiqirfq24@gmail.com'],
+            [
+                'name' => 'Administrator DCMS',
+                'role' => 'superadmin',
+            ],
+        );
+
+        User::updateOrCreate(
+            ['email' => 'admin@gmail.com'],
+            [
+                'name' => 'Staff Admin DCMS',
+                'password' => Hash::make('admin12345'),
+                'role' => 'admin',
             ],
         );
     }

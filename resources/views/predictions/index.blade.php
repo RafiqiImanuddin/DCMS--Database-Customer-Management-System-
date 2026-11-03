@@ -3,7 +3,7 @@
 @section('content')
 <div class="mb-5 flex items-end justify-between gap-4">
     <div><p class="text-sm font-medium text-brand-600">Customer Intelligence</p><h1 class="mt-1 text-2xl font-black text-slate-900">Master Customer</h1></div>
-    <p class="hidden text-sm text-slate-500 sm:block">{{ $predictions->total() }} rekomendasi ditemukan</p>
+    <div class="flex items-center gap-3"><p class="hidden text-sm text-slate-500 sm:block">{{ $predictions->total() }} rekomendasi ditemukan</p><a href="{{ route('predictions.download', request()->query()) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"><svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>Download Data (CSV)</a></div>
 </div>
 <form method="GET" class="dcms-card mb-5 grid gap-3 p-4 lg:grid-cols-[minmax(220px,1fr)_170px_150px_150px_150px_auto]">
     <input name="search" value="{{ request('search') }}" placeholder="Cari pelanggan, item, atau nomor HP" class="dcms-input py-2.5">

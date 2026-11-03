@@ -20,13 +20,24 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    // Fitur Import Data (Khusus Superadmin)
+    Route::get('/imports/template', [CrossSellingImportController::class, 'template'])->name('imports.template');
     Route::get('/imports', [CrossSellingImportController::class, 'index'])->name('imports.index');
     Route::post('/imports', [CrossSellingImportController::class, 'store'])->name('imports.store');
     Route::get('/imports/{import}/status', [CrossSellingImportController::class, 'status'])->name('imports.status');
     Route::delete('/imports/{import}', [CrossSellingImportController::class, 'destroy'])->name('imports.destroy');
+
+    // Fitur Data Master Customer & Download
+    Route::get('/predictions/download', [RepeatOrderPredictionController::class, 'download'])->name('predictions.download');
     Route::get('/predictions', RepeatOrderPredictionController::class)->name('predictions.index');
     Route::post('/predictions/assign', [LeadCustomerController::class, 'assign'])->name('predictions.assign');
+
+    // Fitur Leads Customer & Download
+    Route::get('/leads/download', [LeadCustomerController::class, 'download'])->name('leads.download');
     Route::get('/leads', [LeadCustomerController::class, 'index'])->name('leads.index');
+
+    // Fitur Broadcast & Download
     Route::get('/broadcasts', [BroadcastReportController::class, 'index'])->name('broadcasts.index');
     Route::get('/broadcasts/download', [BroadcastReportController::class, 'download'])->name('broadcasts.download');
     Route::post('/broadcasts/bulk', [BroadcastReportController::class, 'bulkStore'])->name('broadcasts.bulk');
