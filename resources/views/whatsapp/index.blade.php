@@ -31,10 +31,7 @@
                 Buka CRM
             </a>
 
-            <!-- Back to DCMS link -->
-            <a href="{{ route('dashboard') }}" class="text-xs font-medium text-slate-500 hover:text-blue-600 transition ml-2 hidden md:inline-flex items-center gap-1">
-                <span>&larr;</span> Kembali ke DCMS
-            </a>
+
         </div>
 
         <div class="flex items-center gap-4">
