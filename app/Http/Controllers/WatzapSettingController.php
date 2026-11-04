@@ -147,4 +147,26 @@ class WatzapSettingController extends Controller
             $res['message'],
         );
     }
+
+    public function registerWebhook(Request $request, WatzapService $watzap): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mendaftarkan webhook.');
+
+        $channel = $request->input('channel', 'inbox');
+        $webhookUrl = url('/api/watzap-webhook');
+
+        $res = $watzap->setWebhook($webhookUrl, $channel);
+
+        return response()->json($res);
+    }
+
+    public function getWebhookStatus(Request $request, WatzapService $watzap): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $channel = $request->query('channel', 'inbox');
+        $res = $watzap->getWebhook($channel);
+
+        return response()->json($res);
+    }
 }

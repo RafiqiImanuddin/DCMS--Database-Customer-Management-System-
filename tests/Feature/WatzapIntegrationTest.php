@@ -273,4 +273,29 @@ class WatzapIntegrationTest extends TestCase
         $response->assertSee('Setting');
         $response->assertSee('Setup WhatsApp');
     }
+
+    public function test_superadmin_can_register_webhook_via_api(): void
+    {
+        $superadmin = User::factory()->create(['role' => 'superadmin']);
+
+        Setting::set('watzap_api_key', 'my_api_key');
+        Setting::set('watzap_number_key', 'my_number_key');
+
+        Http::fake([
+            'https://api.watzap.id/v1/set_webhook' => Http::response([
+                'status' => '200',
+                'ack' => 'successfully',
+                'message' => 'Webhook URL updated successfully',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($superadmin)->postJson(route('settings.watzap.register_webhook'), [
+            'channel' => 'inbox',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+        ]);
+    }
 }

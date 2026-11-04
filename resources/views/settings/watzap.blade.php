@@ -292,20 +292,27 @@
                     <div class="flex items-center justify-between mb-1.5">
                         <label class="text-xs font-extrabold uppercase tracking-wide text-emerald-950 flex items-center gap-1.5">
                             <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                            Webhook URL Penerima Chat Masuk (Inbound Webhook)
+                            Webhook Penerima Chat Masuk (Inbound Webhook)
                         </label>
-                        <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Auto Sync</span>
+                        <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Auto Sync API</span>
                     </div>
                     <p class="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
-                        Salin URL webhook di bawah ini dan pasang pada Member Area WatZap (<strong>Menu Webhook / Webhook Setting</strong>). Setiap kali ada chat baru dari PIC FU atau Customer (berupa teks, gambar, atau file), WatZap akan otomatis mengirimkannya ke Inbox DCMS Anda.
+                        Di dashboard WatZap tidak ada kolom input webhook manual karena WatZap menggunakan sistem registrasi via API. Cukup klik tombol <strong>⚡ Daftarkan Otomatis ke WatZap</strong> di bawah untuk menghubungkan nomor WhatsApp Anda secara instan ke Inbox DCMS.
                     </p>
-                    <div class="flex items-center gap-2">
-                        <input id="webhook_url_display" type="text" readonly value="{{ $webhookUrl }}" class="dcms-input font-mono text-xs bg-white select-all">
-                        <button type="button" onclick="copyWebhookUrl()" id="btn-copy-webhook" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm">
-                            <svg class="size-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input id="webhook_url_display" type="text" readonly value="{{ $webhookUrl }}" class="dcms-input font-mono text-xs bg-white select-all flex-1 min-w-[240px]">
+                        <button type="button" onclick="copyWebhookUrl()" id="btn-copy-webhook" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 shadow-sm">
+                            <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                             <span>Salin URL</span>
                         </button>
+                        @if($isSuperAdmin)
+                        <button type="button" onclick="autoRegisterWebhook()" id="btn-register-webhook" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 shadow-sm">
+                            <svg class="size-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            <span>⚡ Daftarkan Otomatis ke WatZap</span>
+                        </button>
+                        @endif
                     </div>
+                    <div id="webhook-register-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
                 </div>
 
                 @if($isSuperAdmin)
@@ -443,6 +450,48 @@ function copyWebhookUrl() {
             setTimeout(function() { btn.innerHTML = original; }, 2000);
         }
     });
+}
+
+async function autoRegisterWebhook() {
+    const btn = document.getElementById('btn-register-webhook');
+    const feedback = document.getElementById('webhook-register-feedback');
+    if (!btn || !feedback) return;
+
+    btn.disabled = true;
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="flex items-center gap-1.5"><span class="size-3 rounded-full border-2 border-white border-t-transparent animate-spin"></span> Menghubungkan...</span>';
+    feedback.className = 'mt-2.5 text-xs font-semibold text-slate-600 flex items-center gap-2 p-2 bg-slate-100 rounded-lg';
+    feedback.innerHTML = '<span class="size-2 rounded-full bg-amber-500 animate-pulse"></span> Mengirim permintaan pendaftaran webhook ke server WatZap...';
+    feedback.classList.remove('hidden');
+
+    try {
+        const response = await fetch('{{ route("settings.watzap.register_webhook") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ channel: 'inbox' })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            feedback.className = 'mt-2.5 text-xs font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-200 rounded-lg p-2.5 flex items-center gap-2';
+            feedback.innerHTML = '<svg class="size-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ' +
+                (data.message || 'Webhook berhasil didaftarkan ke WatZap! Chat masuk dari WhatsApp otomatis masuk ke Inbox FU.');
+        } else {
+            feedback.className = 'mt-2.5 text-xs font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg p-2.5 flex items-center gap-2';
+            feedback.innerHTML = '<svg class="size-4 shrink-0 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' +
+                (data.message || 'Gagal mendaftarkan webhook. Pastikan API Key dan Number Key sudah terisi dan device Online.');
+        }
+    } catch (err) {
+        feedback.className = 'mt-2.5 text-xs font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg p-2.5';
+        feedback.innerHTML = '⚠️ Terjadi kesalahan: ' + err.message;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+    }
 }
 
 async function checkApiConnection() {

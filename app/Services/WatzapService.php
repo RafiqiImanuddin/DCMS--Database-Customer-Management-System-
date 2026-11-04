@@ -519,4 +519,107 @@ class WatzapService
             'package' => $packageName,
         ];
     }
+
+    /**
+     * Register / Set Webhook URL to WatZap API.
+     *
+     * @return array{success: bool, message: string, status: string, data: array}
+     */
+    public function setWebhook(string $webhookUrl, ?string $channel = 'inbox'): array
+    {
+        $apiKey = $this->getApiKey($channel);
+        $numberKey = $this->getNumberKey($channel);
+
+        if ($apiKey === '' || $numberKey === '') {
+            return [
+                'success' => false,
+                'message' => 'API Key atau Number Key untuk channel ini belum dikonfigurasi.',
+                'status' => 'not_configured',
+                'data' => [],
+            ];
+        }
+
+        try {
+            $url = $this->getBaseUrl().'/set_webhook';
+            $response = Http::timeout(15)
+                ->asJson()
+                ->acceptJson()
+                ->post($url, [
+                    'api_key' => $apiKey,
+                    'number_key' => $numberKey,
+                    'url' => $webhookUrl,
+                ]);
+
+            $json = $response->json();
+            $status = (string) ($json['status'] ?? $response->status());
+            $ack = strtolower((string) ($json['ack'] ?? ''));
+            $isSuccess = ($status === '200' || $ack === 'successfully');
+            $msg = (string) ($json['message'] ?? ($isSuccess ? 'Webhook berhasil didaftarkan ke WatZap.' : 'Gagal mendaftarkan webhook.'));
+
+            return [
+                'success' => $isSuccess,
+                'message' => $msg,
+                'status' => $status,
+                'data' => is_array($json) ? $json : [],
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Koneksi ke server WatZap gagal: '.$e->getMessage(),
+                'status' => 'connection_error',
+                'data' => [],
+            ];
+        }
+    }
+
+    /**
+     * Get currently registered Webhook from WatZap API.
+     *
+     * @return array{success: bool, message: string, status: string, data: array}
+     */
+    public function getWebhook(?string $channel = 'inbox'): array
+    {
+        $apiKey = $this->getApiKey($channel);
+        $numberKey = $this->getNumberKey($channel);
+
+        if ($apiKey === '' || $numberKey === '') {
+            return [
+                'success' => false,
+                'message' => 'API Key atau Number Key belum diisi.',
+                'status' => 'not_configured',
+                'data' => [],
+            ];
+        }
+
+        try {
+            $url = $this->getBaseUrl().'/get_webhook';
+            $response = Http::timeout(15)
+                ->asJson()
+                ->acceptJson()
+                ->post($url, [
+                    'api_key' => $apiKey,
+                    'number_key' => $numberKey,
+                ]);
+
+            $json = $response->json();
+            $status = (string) ($json['status'] ?? $response->status());
+            $ack = strtolower((string) ($json['ack'] ?? ''));
+            $isSuccess = ($status === '200' || $ack === 'successfully');
+            $msg = (string) ($json['message'] ?? ($isSuccess ? 'Berhasil mengambil data webhook.' : 'Gagal mengambil webhook.'));
+
+            return [
+                'success' => $isSuccess,
+                'message' => $msg,
+                'status' => $status,
+                'data' => is_array($json) ? $json : [],
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Koneksi ke server WatZap gagal: '.$e->getMessage(),
+                'status' => 'connection_error',
+                'data' => [],
+            ];
+        }
+    }
 }
