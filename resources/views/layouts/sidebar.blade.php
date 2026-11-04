@@ -1,10 +1,23 @@
-<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex flex-col w-72 shrink-0 -translate-x-full border-r border-slate-800 bg-slate-950 text-white shadow-2xl transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0">
+<style>
+#sidebar, #sidebar *, #sidebar a, #sidebar span, #sidebar div, #sidebar p {
+    font-family: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    box-sizing: border-box !important;
+}
+#sidebar {
+    width: 18rem !important;
+    min-width: 18rem !important;
+    max-width: 18rem !important;
+    flex-shrink: 0 !important;
+}
+</style>
+
+<aside id="sidebar" style="font-family: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; width: 18rem !important; min-width: 18rem !important; max-width: 18rem !important; flex-shrink: 0 !important;" class="fixed inset-y-0 left-0 z-40 flex flex-col w-72 shrink-0 -translate-x-full border-r border-slate-800 bg-slate-950 text-white shadow-2xl transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0">
     <div class="flex h-20 items-center gap-3 border-b border-white/10 px-6 shrink-0">
-        <div class="min-w-0">
-            <div class="text-lg font-black tracking-tight">DCMS</div>
-            <div class="text-xs font-medium text-slate-400">Database Customer Management System</div>
+        <div class="min-w-0 flex-1">
+            <div class="text-lg font-black tracking-tight leading-tight">DCMS</div>
+            <div class="text-xs font-medium text-slate-400 leading-snug">Database Customer Management System</div>
         </div>
-        <img src="{{ asset('images/gadgetmart-logo.png') }}" alt="Gadgetmart" class="ml-auto h-14 w-14 shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm">
+        <img src="{{ asset('images/gadgetmart-logo.png') }}" alt="Gadgetmart" class="ml-auto h-12 w-12 shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm">
     </div>
 
     <nav class="flex-1 overflow-y-auto space-y-1 px-4 py-4 text-sm">

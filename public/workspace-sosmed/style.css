@@ -29,15 +29,12 @@
   --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-* {
+.app-layout, .app-layout * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #ffffff;
+  background-color: #f8fafc;
   color: var(--ink);
   line-height: 1.5;
   min-height: 100vh;
@@ -49,8 +46,8 @@ a, button, input[type="button"], input[type="submit"], select, .cursor-pointer, 
   cursor: pointer;
 }
 
-/* Text Elements: Inter */
-body, button, input, select, textarea, p, span, a, td, th, label, .nav-item-text, .dropdown-text {
+/* Text Elements: Inter (Scoped to Workspace main layout so DCMS sidebar remains 100% untouched) */
+.app-layout, .app-layout button, .app-layout input, .app-layout select, .app-layout textarea, .app-layout p, .app-layout span, .app-layout a, .app-layout td, .app-layout th, .app-layout label, .nav-item-text, .dropdown-text {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -78,7 +75,9 @@ h1, h2, h3, h4, h5, h6,
 /* App Container: Full Width Layout with Floating Header (Edge-to-Edge Tanpa Ruang Kosong) */
 .app-layout {
   min-height: 100vh;
-  width: 100%;
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
   padding: 0;
   background-color: #ffffff;
@@ -90,7 +89,7 @@ h1, h2, h3, h4, h5, h6,
    ========================================================================== */
 .workspace-header-wrapper {
   width: 100%;
-  min-width: 100%;
+  max-width: 100%;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);

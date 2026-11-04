@@ -29,7 +29,7 @@
     <div class="flex min-h-screen">
         @include('layouts.sidebar')
         <div id="sidebar-overlay" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar(false)}" class="fixed inset-0 z-30 hidden bg-slate-950/50 backdrop-blur-sm md:hidden"></div>
-        <div class="app-layout min-w-0 flex-1 bg-slate-50 overflow-x-hidden" id="dropZone">
+        <main class="app-layout min-w-0 flex-1 bg-slate-50 overflow-x-hidden" id="dropZone">
             <!-- Top Horizontal Navigation Header Bar (Harmonized with DCMS Tailwind Design) -->
             <header class="workspace-header-wrapper">
                 <div class="workspace-header-pill">
@@ -2277,13 +2277,12 @@
             </div>
         </div>
     </div>
+    </main>
+</div>
 
   <script src="client.js?v=7.1"></script>
   <script>
-    window.switchWorkspaceTab = function(tabIndex) {
-        if (typeof switchTab === 'function') {
-            switchTab(tabIndex);
-        }
+    function updateSidebarActiveTab(tabIndex) {
         document.querySelectorAll('.workspace-sidebar-link').forEach(link => {
             const isTarget = link.getAttribute('data-tab') == tabIndex;
             if (isTarget) {
@@ -2292,12 +2291,27 @@
                 link.className = 'workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition text-slate-300 hover:bg-white/10 hover:text-white';
             }
         });
+    }
+
+    // Intercept switchTab so ANY tab switch updates the DCMS sidebar instantly
+    const origSwitchTab = window.switchTab;
+    window.switchTab = function(tabIndex) {
+        if (typeof origSwitchTab === 'function') {
+            origSwitchTab(tabIndex);
+        }
+        updateSidebarActiveTab(tabIndex);
+        try {
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabIndex);
+            window.history.replaceState({}, '', url);
+        } catch(e) {}
+    };
+
+    window.switchWorkspaceTab = function(tabIndex) {
+        window.switchTab(tabIndex);
         if (window.innerWidth < 768 && typeof window.toggleDcmsSidebar === 'function') {
             window.toggleDcmsSidebar(false);
         }
-        const url = new URL(window.location);
-        url.searchParams.set('tab', tabIndex);
-        window.history.pushState({}, '', url);
     };
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -2305,12 +2319,10 @@
         const requestedTab = parseInt(urlParams.get('tab'));
         if (requestedTab && [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(requestedTab)) {
             setTimeout(() => {
-                if (typeof window.switchWorkspaceTab === 'function') {
-                    window.switchWorkspaceTab(requestedTab);
-                } else if (typeof switchTab === 'function') {
-                    switchTab(requestedTab);
-                }
-            }, 150);
+                window.switchWorkspaceTab(requestedTab);
+            }, 100);
+        } else {
+            updateSidebarActiveTab(1);
         }
     });
   </script>
