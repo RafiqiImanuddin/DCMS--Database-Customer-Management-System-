@@ -33,8 +33,15 @@ class WorkspaceSosmedIntegrationTest extends TestCase
 
         $response = $this->actingAs($user)->get(route('dashboard'));
         $response->assertStatus(200);
-        $response->assertSee(route('workspace-sosmed.index'));
+        $response->assertSee(route('workspace-sosmed.index', ['tab' => 1]));
         $response->assertSee('Workspace Sosmed');
+        $response->assertSee('Dashboard Sosmed');
+        $response->assertSee('Report Matrix');
+        $response->assertSee('Cek Status AR');
+        $response->assertSee('Format Keep');
+        $response->assertSee('Tracking AR');
+        $response->assertSee('Klaim AR');
+        $response->assertSee('Inbox Follow-Up');
     }
 
     public function test_database_status_api_endpoint(): void
@@ -64,3 +71,4 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $response->assertStatus(200);
     }
 }
+

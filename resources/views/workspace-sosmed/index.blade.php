@@ -22,15 +22,22 @@
     <script src="lib/chart.umd.min.js"></script>
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="stylesheet" href="style.css?v=7.1">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body>
-    <div class="app-layout" id="dropZone">
-        <!-- Top Horizontal Navigation Header Bar (Persis Sesuai Mockup Gambar User) -->
-        <!-- Workspace Dark Capsule Header Bar (Sesuai Mockup Gambar User) -->
-        <header class="workspace-header-wrapper">
-            <div class="workspace-header-pill">
-                <div class="header-pill-brand" onclick="switchTab(1)" title="Kembali ke Dashboard">
+<body class="min-h-screen bg-slate-950 text-slate-900">
+    <div class="flex min-h-screen">
+        @include('layouts.sidebar')
+        <div id="sidebar-overlay" class="fixed inset-0 z-30 hidden bg-slate-950/50 backdrop-blur-sm md:hidden"></div>
+        <div class="app-layout min-w-0 flex-1 bg-white overflow-x-hidden" id="dropZone">
+            <!-- Top Horizontal Navigation Header Bar (Persis Sesuai Mockup Gambar User) -->
+            <!-- Workspace Dark Capsule Header Bar (Sesuai Mockup Gambar User) -->
+            <header class="workspace-header-wrapper">
+                <div class="workspace-header-pill">
+                    <button id="sidebar-toggle" type="button" class="grid size-9 shrink-0 place-items-center rounded-xl border border-white/20 text-white md:hidden mr-2.5" aria-label="Buka menu">
+                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                    <div class="header-pill-brand" onclick="switchTab(1)" title="Kembali ke Dashboard">
                     <span class="brand-title-italic">Workspace Sosmed</span>
                 </div>
 
@@ -2271,6 +2278,38 @@
     </div>
 
   <script src="client.js?v=7.1"></script>
+  <script>
+    window.switchWorkspaceTab = function(tabIndex) {
+        if (typeof switchTab === 'function') {
+            switchTab(tabIndex);
+        }
+        document.querySelectorAll('.workspace-sidebar-link').forEach(link => {
+            const isTarget = link.getAttribute('data-tab') == tabIndex;
+            if (isTarget) {
+                link.className = 'workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2 font-medium transition bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/20 font-bold';
+            } else {
+                link.className = 'workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2 font-medium transition text-slate-300 hover:bg-white/10 hover:text-white';
+            }
+        });
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tabIndex);
+        window.history.pushState({}, '', url);
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const requestedTab = parseInt(urlParams.get('tab'));
+        if (requestedTab && [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(requestedTab)) {
+            setTimeout(() => {
+                if (typeof window.switchWorkspaceTab === 'function') {
+                    window.switchWorkspaceTab(requestedTab);
+                } else if (typeof switchTab === 'function') {
+                    switchTab(requestedTab);
+                }
+            }, 150);
+        }
+    });
+  </script>
 </body>
 
 </html>
