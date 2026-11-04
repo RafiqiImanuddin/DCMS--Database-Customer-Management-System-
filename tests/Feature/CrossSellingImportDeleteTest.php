@@ -87,6 +87,7 @@ class CrossSellingImportDeleteTest extends TestCase
                 'customer_vendor_code' => 'C001',
                 'customer_vendor_name' => 'Pelanggan Satu',
                 'name' => 'Nama Konsumen Satu',
+                'no_hp_customer' => '081234567890',
                 'item_code' => 'ITEM-1',
                 'dscription' => 'Laptop',
                 'posting_date' => Carbon::parse($date)->toDateString(),

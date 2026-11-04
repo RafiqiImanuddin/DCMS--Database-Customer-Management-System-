@@ -23,6 +23,8 @@ class RepeatOrderPredictor
             ->whereNotNull('customer_vendor_code')
             ->whereNotNull('posting_date')
             ->where('quantity', '>', 0)
+            ->whereNotNull('no_hp_customer')
+            ->whereRaw("TRIM(no_hp_customer) <> ''")
             ->orderBy('customer_vendor_code')
             ->orderBy('item_code')
             ->orderBy('posting_date')
@@ -31,7 +33,9 @@ class RepeatOrderPredictor
                 $key = $row->customer_vendor_code.'|'.($row->item_code ?? '');
 
                 if ($currentKey !== null && $currentKey !== $key) {
-                    $predictionBatch[] = $this->buildPrediction($group);
+                    if ($prediction = $this->buildPrediction($group)) {
+                        $predictionBatch[] = $prediction;
+                    }
                     if (count($predictionBatch) >= 500) {
                         $this->insertPredictionBatch($predictionBatch);
                         $predictionBatch = [];
@@ -74,15 +78,20 @@ class RepeatOrderPredictor
             });
 
         if ($group !== null) {
-            $predictionBatch[] = $this->buildPrediction($group);
+            if ($prediction = $this->buildPrediction($group)) {
+                $predictionBatch[] = $prediction;
+            }
         }
         if ($predictionBatch) {
             $this->insertPredictionBatch($predictionBatch);
         }
     }
 
-    private function buildPrediction(array $group): array
+    private function buildPrediction(array $group): ?array
     {
+        if (empty($group['no_hp_customer']) || trim($group['no_hp_customer']) === '') {
+            return null;
+        }
         $dates = array_keys($group['dates']);
         sort($dates);
         $carbonDates = array_map(fn (string $date) => Carbon::parse($date), $dates);

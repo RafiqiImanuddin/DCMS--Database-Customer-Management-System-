@@ -206,4 +206,36 @@ class WatzapIntegrationTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertEquals('200', $result['status']);
     }
+
+    public function test_watzap_service_validate_number(): void
+    {
+        Setting::set('watzap_api_key', 'my_api_key');
+        Setting::set('watzap_number_key', 'my_num_key');
+
+        Http::fake([
+            'https://api.watzap.id/v1/validate_number' => function ($request) {
+                $data = $request->data();
+                $isValid = ($data['api_key'] ?? '') === 'my_api_key'
+                    && ($data['number_key'] ?? '') === 'my_num_key'
+                    && ($data['phone_no'] ?? '') === '628123456789';
+
+                if ($isValid) {
+                    return Http::response([
+                        'status' => '200',
+                        'ack' => 'successfully',
+                        'message' => 'Number is registered on WhatsApp',
+                    ], 200);
+                }
+
+                return Http::response(['status' => '1004', 'message' => 'Invalid Phone'], 200);
+            },
+        ]);
+
+        $service = app(WatzapService::class);
+        $result = $service->validateNumber('08123456789');
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['is_valid']);
+        $this->assertEquals('200', $result['status']);
+    }
 }

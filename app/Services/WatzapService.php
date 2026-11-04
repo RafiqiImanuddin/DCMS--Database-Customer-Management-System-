@@ -238,6 +238,75 @@ class WatzapService
     }
 
     /**
+     * Validate whether a phone number is registered and active on WhatsApp via WatZap REST API.
+     *
+     * @return array{success: bool, is_valid: bool, message: string, status: string, data: array, raw: string}
+     */
+    public function validateNumber(string $rawPhone): array
+    {
+        if (! $this->isConfigured()) {
+            return [
+                'success' => false,
+                'is_valid' => false,
+                'message' => 'WatZap belum dikonfigurasi. Silakan isi API Key dan Number Key di halaman Setup WhatsApp.',
+                'status' => 'unconfigured',
+                'data' => [],
+                'raw' => '',
+            ];
+        }
+
+        $phone = $this->normalizePhone($rawPhone);
+        if (! $phone) {
+            return [
+                'success' => false,
+                'is_valid' => false,
+                'message' => 'Format nomor WhatsApp tidak valid (harus 10-15 digit, diawali 08/62).',
+                'status' => 'invalid_phone',
+                'data' => [],
+                'raw' => '',
+            ];
+        }
+
+        try {
+            $url = $this->getBaseUrl().'/validate_number';
+            $response = Http::timeout(15)
+                ->asJson()
+                ->acceptJson()
+                ->post($url, [
+                    'api_key' => $this->getApiKey(),
+                    'number_key' => $this->getNumberKey(),
+                    'phone_no' => $phone,
+                ]);
+
+            $json = $response->json();
+            $rawBody = $response->body();
+
+            $status = (string) ($json['status'] ?? $response->status());
+            $ack = strtolower((string) ($json['ack'] ?? ''));
+            $isSuccess = ($status === '200' || $ack === 'successfully');
+            $rawMsg = (string) ($json['message'] ?? '');
+
+            return [
+                'success' => $isSuccess,
+                'is_valid' => $isSuccess,
+                'message' => $rawMsg ?: ($isSuccess ? 'Nomor terdaftar aktif di WhatsApp.' : 'Nomor tidak terdaftar di WhatsApp.'),
+                'status' => $status,
+                'data' => is_array($json) ? $json : [],
+                'raw' => $rawBody,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'is_valid' => false,
+                'message' => 'Koneksi ke WatZap gagal: '.$e->getMessage(),
+                'status' => 'connection_error',
+                'data' => [],
+                'raw' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Check API Key and get connected account/sender info.
      *
      * @return array{success: bool, message: string, status: string, data: array, raw: string}
