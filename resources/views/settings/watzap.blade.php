@@ -457,6 +457,20 @@ async function autoRegisterWebhook() {
     const feedback = document.getElementById('webhook-register-feedback');
     if (!btn || !feedback) return;
 
+    // Ambil nilai yang sedang aktif di form jika ada
+    const dedicatedRadio = document.querySelector('input[name="watzap_inbox_same_as_broadcast"]:checked');
+    const isDedicated = dedicatedRadio ? dedicatedRadio.value === '0' : false;
+
+    let numberKey = '';
+    let apiKey = '';
+
+    if (isDedicated) {
+        const numInp = document.getElementById('watzap_inbox_number_key');
+        const apiInp = document.getElementById('watzap_inbox_api_key');
+        numberKey = numInp ? numInp.value.trim() : '';
+        apiKey = apiInp ? apiInp.value.trim() : '';
+    }
+
     btn.disabled = true;
     const oldHtml = btn.innerHTML;
     btn.innerHTML = '<span class="flex items-center gap-1.5"><span class="size-3 rounded-full border-2 border-white border-t-transparent animate-spin"></span> Menghubungkan...</span>';
@@ -472,7 +486,11 @@ async function autoRegisterWebhook() {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ channel: 'inbox' })
+            body: JSON.stringify({
+                channel: 'inbox',
+                api_key: apiKey,
+                number_key: numberKey
+            })
         });
 
         const data = await response.json();

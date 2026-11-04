@@ -155,7 +155,24 @@ class WatzapSettingController extends Controller
         $channel = $request->input('channel', 'inbox');
         $webhookUrl = url('/api/watzap-webhook');
 
-        $res = $watzap->setWebhook($webhookUrl, $channel);
+        $overrideApiKey = $request->string('api_key')->trim()->toString();
+        $overrideNumberKey = $request->string('number_key')->trim()->toString();
+
+        if ($overrideNumberKey !== '') {
+            if ($channel === 'inbox') {
+                Setting::set('watzap_inbox_number_key', $overrideNumberKey);
+                if ($overrideApiKey !== '') {
+                    Setting::set('watzap_inbox_api_key', $overrideApiKey);
+                }
+            } else {
+                Setting::set('watzap_number_key', $overrideNumberKey);
+                if ($overrideApiKey !== '') {
+                    Setting::set('watzap_api_key', $overrideApiKey);
+                }
+            }
+        }
+
+        $res = $watzap->setWebhook($webhookUrl, $channel, $overrideApiKey ?: null, $overrideNumberKey ?: null);
 
         return response()->json($res);
     }
@@ -165,7 +182,10 @@ class WatzapSettingController extends Controller
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
 
         $channel = $request->query('channel', 'inbox');
-        $res = $watzap->getWebhook($channel);
+        $overrideApiKey = $request->string('api_key')->trim()->toString();
+        $overrideNumberKey = $request->string('number_key')->trim()->toString();
+
+        $res = $watzap->getWebhook($channel, $overrideApiKey ?: null, $overrideNumberKey ?: null);
 
         return response()->json($res);
     }

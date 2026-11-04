@@ -525,10 +525,15 @@ class WatzapService
      *
      * @return array{success: bool, message: string, status: string, data: array}
      */
-    public function setWebhook(string $webhookUrl, ?string $channel = 'inbox'): array
+    public function setWebhook(string $webhookUrl, ?string $channel = 'inbox', ?string $overrideApiKey = null, ?string $overrideNumberKey = null): array
     {
-        $apiKey = $this->getApiKey($channel);
-        $numberKey = $this->getNumberKey($channel);
+        $apiKey = $overrideApiKey !== null && trim($overrideApiKey) !== ''
+            ? trim($overrideApiKey)
+            : $this->getApiKey($channel);
+
+        $numberKey = $overrideNumberKey !== null && trim($overrideNumberKey) !== ''
+            ? trim($overrideNumberKey)
+            : $this->getNumberKey($channel);
 
         if ($apiKey === '' || $numberKey === '') {
             return [
@@ -547,7 +552,7 @@ class WatzapService
                 ->post($url, [
                     'api_key' => $apiKey,
                     'number_key' => $numberKey,
-                    'url' => $webhookUrl,
+                    'webhook_url' => $webhookUrl,
                 ]);
 
             $json = $response->json();
@@ -561,6 +566,7 @@ class WatzapService
                 'message' => $msg,
                 'status' => $status,
                 'data' => is_array($json) ? $json : [],
+                'raw' => $response->body(),
             ];
         } catch (Throwable $e) {
             return [
@@ -577,10 +583,15 @@ class WatzapService
      *
      * @return array{success: bool, message: string, status: string, data: array}
      */
-    public function getWebhook(?string $channel = 'inbox'): array
+    public function getWebhook(?string $channel = 'inbox', ?string $overrideApiKey = null, ?string $overrideNumberKey = null): array
     {
-        $apiKey = $this->getApiKey($channel);
-        $numberKey = $this->getNumberKey($channel);
+        $apiKey = $overrideApiKey !== null && trim($overrideApiKey) !== ''
+            ? trim($overrideApiKey)
+            : $this->getApiKey($channel);
+
+        $numberKey = $overrideNumberKey !== null && trim($overrideNumberKey) !== ''
+            ? trim($overrideNumberKey)
+            : $this->getNumberKey($channel);
 
         if ($apiKey === '' || $numberKey === '') {
             return [

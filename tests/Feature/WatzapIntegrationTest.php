@@ -282,11 +282,18 @@ class WatzapIntegrationTest extends TestCase
         Setting::set('watzap_number_key', 'my_number_key');
 
         Http::fake([
-            'https://api.watzap.id/v1/set_webhook' => Http::response([
-                'status' => '200',
-                'ack' => 'successfully',
-                'message' => 'Webhook URL updated successfully',
-            ], 200),
+            'https://api.watzap.id/v1/set_webhook' => function ($request) {
+                $data = $request->data();
+                $this->assertEquals('my_api_key', $data['api_key']);
+                $this->assertEquals('my_number_key', $data['number_key']);
+                $this->assertNotEmpty($data['webhook_url']);
+
+                return Http::response([
+                    'status' => '200',
+                    'ack' => 'successfully',
+                    'message' => 'Webhook URL updated successfully',
+                ], 200);
+            },
         ]);
 
         $response = $this->actingAs($superadmin)->postJson(route('settings.watzap.register_webhook'), [
