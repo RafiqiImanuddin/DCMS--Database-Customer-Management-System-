@@ -329,7 +329,20 @@
 
 <script>
 function confirmDeleteSingleLead(leadId, customerName) {
-    if (confirm(`Hapus lead "${customerName}"?\n\nData akan dihapus dari Leads Customer dan kembali ke Master Customer.`)) {
+    if (typeof openConfirmModal === 'function') {
+        openConfirmModal({
+            title: 'Hapus Lead Customer',
+            message: 'Lead ini akan dihapus dari antrean follow up dan dikembalikan ke Master Customer.',
+            itemName: customerName,
+            confirmText: 'Ya, Hapus Lead',
+            type: 'danger',
+            onConfirm: () => {
+                const form = document.getElementById('single-delete-lead-form');
+                form.action = `{{ url('/leads') }}/${leadId}`;
+                form.submit();
+            }
+        });
+    } else {
         const form = document.getElementById('single-delete-lead-form');
         form.action = `{{ url('/leads') }}/${leadId}`;
         form.submit();
@@ -340,7 +353,8 @@ function confirmBulkDeleteLeads() {
     const checked = [...document.querySelectorAll('.lead-checkbox:checked')];
     if (checked.length === 0) return;
 
-    if (confirm(`Hapus ${checked.length} lead terpilih?\n\nData yang dihapus akan otomatis dikembalikan ke Master Customer.`)) {
+    const count = checked.length;
+    const executeBulkDelete = () => {
         const form = document.getElementById('bulk-delete-leads-form');
         const csrfToken = '{{ csrf_token() }}';
         form.innerHTML = `
@@ -360,6 +374,19 @@ function confirmBulkDeleteLeads() {
         });
 
         form.submit();
+    };
+
+    if (typeof openConfirmModal === 'function') {
+        openConfirmModal({
+            title: `Hapus ${count} Lead Terpilih`,
+            message: 'Data lead yang dipilih akan dihapus dari antrean follow up dan otomatis dikembalikan ke Master Customer.',
+            itemName: `${count} Pelanggan Terpilih`,
+            confirmText: 'Ya, Hapus Sekarang',
+            type: 'danger',
+            onConfirm: executeBulkDelete
+        });
+    } else {
+        executeBulkDelete();
     }
 }
 
