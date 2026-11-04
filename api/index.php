@@ -40,4 +40,5 @@ foreach ($storageDirectories as $directory) {
     }
 }
 
+$_SERVER['SCRIPT_NAME'] = '/index.php';
 $app->handleRequest(Request::capture());

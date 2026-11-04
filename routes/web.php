@@ -74,7 +74,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // Workspace Sosmed API Endpoints (REPORT Engine)
-Route::prefix('api')->group(function () {
+$registerSosmedApiRoutes = function () {
     Route::get('/database-status', [WorkspaceSosmedController::class, 'databaseStatus'])->name('api.sosmed.database_status');
     Route::match(['get', 'post'], '/monthly-targets', [WorkspaceSosmedController::class, 'monthlyTargets'])->name('api.sosmed.monthly_targets');
     Route::match(['get', 'post'], '/sales-photos', [WorkspaceSosmedController::class, 'salesPhotos'])->name('api.sosmed.sales_photos');
@@ -87,4 +87,7 @@ Route::prefix('api')->group(function () {
     Route::post('/watzap-webhook', [WorkspaceSosmedController::class, 'watzapWebhook'])->name('api.sosmed.watzap_webhook');
     Route::match(['get', 'delete'], '/get-excel', [WorkspaceSosmedController::class, 'getExcel'])->name('api.sosmed.get_excel');
     Route::post('/save-excel', [WorkspaceSosmedController::class, 'saveExcel'])->name('api.sosmed.save_excel');
-});
+};
+
+Route::prefix('api')->group($registerSosmedApiRoutes);
+$registerSosmedApiRoutes();
