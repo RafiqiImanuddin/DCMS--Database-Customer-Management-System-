@@ -1718,11 +1718,24 @@
                                         <div class="omni-chatlist-top-bar">
                                             <span class="omni-chatlist-main-title" id="omniChatListHeaderTitle">All
                                                 chats</span>
-                                            <div style="display:flex; align-items:center; gap:8px;">
-                                                <span class="omni-chatlist-total-count" id="omniChatListTotalCount">0
-                                                    chat</span>
+                                            <div style="display:flex; align-items:center; gap:6px;">
+                                                <span class="omni-chatlist-total-count" id="omniChatListTotalCount">0 chat</span>
+                                                <button type="button" class="omni-action-btn" onclick="syncOmniWatzapChats(this)"
+                                                    title="Sinkronkan seluruh chat masuk dari WhatsApp" style="padding:3px 7px; display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; cursor:pointer;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                                                    </svg>
+                                                    <span>Sinkron</span>
+                                                </button>
+                                                <button type="button" class="omni-action-btn" onclick="openSimulateChatModal()"
+                                                    title="Simulasi Pesan Masuk (Uji Coba Langsung)" style="padding:3px 7px; display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:700; color:#0369a1; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; cursor:pointer;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                                        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                                    </svg>
+                                                    <span>Tes Chat</span>
+                                                </button>
                                                 <button type="button" class="omni-action-btn" onclick="clearOmniTestChats()"
-                                                    title="Bersihkan riwayat chat uji coba" style="padding:2px 4px;">
+                                                    title="Bersihkan riwayat chat uji coba" style="padding:3px 5px; border-radius:6px;">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
                                                         stroke="currentColor" stroke-width="2">
                                                         <polyline points="3 6 5 6 21 6" />

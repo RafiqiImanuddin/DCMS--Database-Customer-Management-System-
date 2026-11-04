@@ -8180,14 +8180,16 @@ function matchPicFromMasterData(waNumber, fallbackName, fallbackCabang) {
   });
   if (found) {
     return {
-      wa: found.wa,
+      wa: cleanPhoneDigits(found.wa) || clean,
+      rawWa: found.wa,
       picName: found.picName,
       cabang: found.cabang || fallbackCabang || '-',
       matched: true
     };
   }
   return {
-    wa: waNumber,
+    wa: clean,
+    rawWa: waNumber,
     picName: fallbackName || ('PIC (' + clean + ')'),
     cabang: fallbackCabang || '-',
     matched: false
@@ -8595,7 +8597,9 @@ function getOmniPicChats() {
     const resolvedCount = keeps.filter(function(k) { return !k.isPending; }).length;
 
     let latestTimestamp = '';
+    let lastMsgTime = 0;
     if (lastMsg && lastMsg.timestamp) {
+      lastMsgTime = typeof lastMsg.timestamp === 'number' ? lastMsg.timestamp : (new Date(lastMsg.timestamp).getTime() || 0);
       const d = new Date(lastMsg.timestamp);
       latestTimestamp = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
@@ -8627,6 +8631,7 @@ function getOmniPicChats() {
       isResolved: isResolved,
       isUnresponded: isUnresponded,
       lastSender: lastSender,
+      lastMsgTime: lastMsgTime,
       latestTimestamp: latestTimestamp,
       latestSnippet: snippet
     });
@@ -8697,9 +8702,12 @@ function renderOmniInboxModule() {
   }
 
   filtered.sort(function(a, b) {
+    if ((b.lastMsgTime || 0) !== (a.lastMsgTime || 0)) {
+      return (b.lastMsgTime || 0) - (a.lastMsgTime || 0);
+    }
     if (b.isUnresponded !== a.isUnresponded) return b.isUnresponded ? 1 : -1;
     if (b.pendingCount !== a.pendingCount) return b.pendingCount - a.pendingCount;
-    return (b.latestTimestamp || '').localeCompare(a.latestTimestamp || '');
+    return a.picName.localeCompare(b.picName);
   });
 
   listContainer.innerHTML = filtered.map(function(pic) {
@@ -9125,19 +9133,22 @@ async function sendOmniReply() {
 let lastWatzapSyncTime = 0;
 let watzapPollInterval = null;
 
-async function pollWatzapIncomingMessages() {
+async function pollWatzapIncomingMessages(forceAll) {
   // OPTIMASI: HANYA poll jika user sedang berada di Tab 9 (Omnichannel)!
   if (typeof currentActiveTab !== 'undefined' && currentActiveTab !== 9) {
     return;
   }
 
   try {
-    const res = await fetch('/api/watzap-webhook?since=' + lastWatzapSyncTime);
+    const syncTime = forceAll ? 0 : lastWatzapSyncTime;
+    const res = await fetch('/api/watzap-webhook?since=' + syncTime + '&inbound_only=0');
     if (!res.ok) return;
     const data = await res.json();
     if (!data.success || !Array.isArray(data.messages) || data.messages.length === 0) return;
 
     let hasNew = false;
+    let latestIncomingPicKey = null;
+    let latestIncomingMsg = null;
     const threads = getOmniThreads();
 
     data.messages.forEach(function(msg) {
@@ -9149,7 +9160,7 @@ async function pollWatzapIncomingMessages() {
       if (msg.isGroup || cleanPhone.startsWith('120363') || cleanPhone.length > 14) return;
 
       const matched = matchPicFromMasterData(cleanPhone, msg.senderName || ('PIC ' + cleanPhone), '-');
-      const picKey = matched.wa || cleanPhone;
+      const picKey = cleanPhoneDigits(matched.wa || cleanPhone);
 
       if (!threads[picKey]) threads[picKey] = [];
       const alreadyExists = threads[picKey].some(function(t) {
@@ -9159,7 +9170,7 @@ async function pollWatzapIncomingMessages() {
       if (!alreadyExists) {
         threads[picKey].push({
           messageId: msg.messageId || ('in_' + Date.now()),
-          sender: msg.sender || 'PIC',
+          sender: msg.sender || (msg.direction === 'outbound' ? 'ADMIN' : 'PIC'),
           senderName: msg.senderName || matched.picName,
           text: msg.message,
           media_url: msg.media_url || null,
@@ -9168,7 +9179,11 @@ async function pollWatzapIncomingMessages() {
           file_size: msg.file_size || null,
           timestamp: msg.timestamp ? (new Date(msg.timestamp).getTime() || Date.now()) : Date.now()
         });
-        setOmniChatResolved(picKey, false);
+        if (msg.direction !== 'outbound' && msg.sender !== 'ADMIN') {
+          setOmniChatResolved(picKey, false);
+          latestIncomingPicKey = picKey;
+          latestIncomingMsg = msg;
+        }
         hasNew = true;
       }
     });
@@ -9176,19 +9191,79 @@ async function pollWatzapIncomingMessages() {
     if (hasNew) {
       saveOmniThreads(threads);
       if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
-        renderOmniInboxModule();
-        if (selectedOmniPicKey) {
-          const currentPic = getOmniPicChats().find(function(p) { return p.key === selectedOmniPicKey; });
-          if (currentPic) renderOmniActiveChat(currentPic);
+        if (latestIncomingPicKey) {
+          selectedOmniPicKey = latestIncomingPicKey;
+          renderOmniInboxModule();
+          const targetPic = getOmniPicChats().find(function(p) { return p.key === latestIncomingPicKey; });
+          if (targetPic) {
+            renderOmniActiveChat(targetPic);
+            renderOmniKeepPanel(targetPic);
+          }
+          if (typeof showSaveToast === 'function' && latestIncomingMsg) {
+            showSaveToast('💬 Chat Masuk dari ' + (latestIncomingMsg.senderName || 'PIC') + ': ' + (latestIncomingMsg.message ? (latestIncomingMsg.message.slice(0, 35) + '...') : 'Lampiran baru'));
+          }
+        } else {
+          renderOmniInboxModule();
+          if (selectedOmniPicKey) {
+            const currentPic = getOmniPicChats().find(function(p) { return p.key === selectedOmniPicKey; });
+            if (currentPic) renderOmniActiveChat(currentPic);
+          }
         }
       }
     }
   } catch (e) {}
 }
 
+async function syncOmniWatzapChats(btn) {
+  if (btn) {
+    btn.disabled = true;
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<span style="display:inline-flex; align-items:center; gap:3px;"><span style="display:inline-block; width:10px; height:10px; border:2px solid #047857; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></span> Menyinkronkan...</span>';
+    try {
+      lastWatzapSyncTime = 0;
+      await pollWatzapIncomingMessages(true);
+      if (typeof fetchOmniWaStatus === 'function') await fetchOmniWaStatus();
+      renderOmniInboxModule();
+      if (selectedOmniPicKey) {
+        const currentPic = getOmniPicChats().find(function(p) { return p.key === selectedOmniPicKey; });
+        if (currentPic) {
+          renderOmniActiveChat(currentPic);
+          renderOmniKeepPanel(currentPic);
+        }
+      }
+      if (typeof showSaveToast === 'function') {
+        showSaveToast('✓ Sinkronisasi selesai: Semua chat WhatsApp telah diselaraskan!');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = oldHtml;
+    }
+  }
+}
+
 function openSimulateChatModal(cleanWA, picName) {
   const existing = document.getElementById('omniSimulateModal');
   if (existing) existing.remove();
+
+  if (!cleanWA && selectedOmniPicKey) {
+    const currentPic = getOmniPicChats().find(function(p) { return p.key === selectedOmniPicKey; });
+    if (currentPic) {
+      cleanWA = currentPic.picWA;
+      picName = currentPic.picName;
+    }
+  }
+
+  const allPics = getMasterDataPICs() || [];
+  let picOptions = '<option value="">-- Pilih dari Kontak PIC FU --</option>';
+  picOptions += allPics.map(function(p) {
+    const cWa = cleanPhoneDigits(p.wa);
+    const isSel = (cleanWA && cleanPhoneDigits(cleanWA) === cWa);
+    return '<option value="' + cWa + '" data-name="' + escapeHtml(p.picName) + '" ' + (isSel ? 'selected' : '') + '>' +
+      escapeHtml(p.picName) + ' (' + cWa + ')' +
+    '</option>';
+  }).join('');
 
   const overlay = document.createElement('div');
   overlay.id = 'omniSimulateModal';
@@ -9203,7 +9278,13 @@ function openSimulateChatModal(cleanWA, picName) {
     '</div>' +
     '<div class="omni-sim-modal-body">' +
       '<div class="omni-sim-form-group">' +
-        '<label class="omni-sim-label">Pengirim (PIC / Kontak):</label>' +
+        '<label class="omni-sim-label">Pilih Kontak PIC FU:</label>' +
+        '<select class="omni-sim-select" onchange="handleSimulatePicChange(this)">' +
+          picOptions +
+        '</select>' +
+      '</div>' +
+      '<div class="omni-sim-form-group">' +
+        '<label class="omni-sim-label">Nama Pengirim (PIC / Kontak):</label>' +
         '<input type="text" id="simSenderName" class="omni-sim-input" value="' + escapeHtml(picName || 'PIC Follow Up') + '" />' +
       '</div>' +
       '<div class="omni-sim-form-group">' +
@@ -9235,6 +9316,18 @@ function openSimulateChatModal(cleanWA, picName) {
       '</button>' +
     '</div>' +
   '</div>';
+
+  document.body.appendChild(overlay);
+}
+
+function handleSimulatePicChange(selectEl) {
+  const opt = selectEl.options[selectEl.selectedIndex];
+  if (!opt || !opt.value) return;
+  const phoneInp = document.getElementById('simSenderPhone');
+  const nameInp = document.getElementById('simSenderName');
+  if (phoneInp) phoneInp.value = opt.value;
+  if (nameInp && opt.dataset.name) nameInp.value = opt.dataset.name;
+}
 
   document.body.appendChild(overlay);
 }
@@ -9297,16 +9390,21 @@ async function submitSimulateChat() {
     });
     const json = await res.json();
 
+    const cleanTarget = cleanPhoneDigits(phone);
     closeSimulateChatModal();
     if (typeof showSaveToast === 'function') {
-      showSaveToast('✅ Simulasi pesan masuk berhasil diterima!');
+      showSaveToast('✅ Simulasi pesan masuk dari ' + name + ' berhasil diterima!');
     }
 
-    // Trigger instant webhook poll
-    await pollWatzapIncomingMessages();
+    // Trigger instant webhook poll & switch roomchat to incoming sender
+    lastWatzapSyncTime = 0;
+    await pollWatzapIncomingMessages(true);
+    selectedOmniPicKey = cleanTarget;
     renderOmniInboxModule();
-    if (selectedOmniPicKey) {
-      selectOmniPic(selectedOmniPicKey);
+    const targetPic = getOmniPicChats().find(function(p) { return p.key === cleanTarget; });
+    if (targetPic) {
+      renderOmniActiveChat(targetPic);
+      renderOmniKeepPanel(targetPic);
     }
   } catch (err) {
     console.error('Gagal simulasi chat:', err);

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\BroadcastMedia;
+use App\Models\WhatsAppChat;
+use App\Models\WhatsAppMessage;
 use App\Services\WatzapService;
 use App\Support\WorkspaceUrlCipher;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -334,6 +337,39 @@ class WorkspaceSosmedController extends Controller
         ];
 
         try {
+            $digits = preg_replace('/\D/', '', (string) $rawPhone);
+            if ($digits) {
+                if (str_starts_with($digits, '08')) {
+                    $digits = '62' . substr($digits, 1);
+                } elseif (str_starts_with($digits, '8')) {
+                    $digits = '62' . $digits;
+                }
+                $chat = WhatsAppChat::firstOrCreate(
+                    ['phone_number' => $digits],
+                    [
+                        'customer_name' => 'PIC ' . $digits,
+                        'folder' => 'all',
+                        'unread_count' => 0,
+                    ]
+                );
+                $chat->update([
+                    'last_message' => $message ?: ($mediaType ? "[$mediaType]" : 'Pesan keluar'),
+                    'last_message_at' => now(),
+                ]);
+                WhatsAppMessage::create([
+                    'whatsapp_chat_id' => $chat->id,
+                    'sender_type' => 'admin',
+                    'user_id' => $request->user()?->id,
+                    'agent_name' => $request->user()?->name ?: 'Admin',
+                    'message' => $message ?: ($mediaType ? "[$mediaType]" : ''),
+                    'media_url' => $mediaUrl,
+                    'media_type' => $mediaType,
+                    'status' => $result['success'] ? 'sent' : 'failed',
+                ]);
+            }
+        } catch (\Throwable $e) {}
+
+        try {
             $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
             $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
             $messages[] = $entry;
@@ -361,13 +397,63 @@ class WorkspaceSosmedController extends Controller
         $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
         $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
 
-        // Mode GET: Polling dari frontend untuk mengambil chat masuk
+        // Mode GET: Polling dari frontend untuk mengambil chat masuk & riwayat sinkronisasi
         if ($request->isMethod('get')) {
             $since = $request->query('since');
             $phone = $request->query('phone');
-            $inboundOnly = $request->boolean('inbound_only', true);
+            $inboundOnly = $request->boolean('inbound_only', false);
 
-            $filtered = array_values(array_filter($messages, function ($m) use ($since, $phone, $inboundOnly) {
+            $dbMessages = [];
+            try {
+                $q = WhatsAppMessage::with('chat')->orderBy('created_at', 'asc');
+                if ($since) {
+                    $sTime = is_numeric($since) ? (int) ($since > 1e11 ? $since / 1000 : $since) : strtotime((string) $since);
+                    if ($sTime > 0) {
+                        $q->where('created_at', '>', Carbon::createFromTimestamp($sTime));
+                    }
+                }
+                if ($phone) {
+                    $pDigits = preg_replace('/\D/', '', (string) $phone);
+                    $q->whereHas('chat', function ($cq) use ($pDigits) {
+                        $cq->where('phone_number', 'like', "%{$pDigits}%");
+                    });
+                }
+                if ($inboundOnly) {
+                    $q->where('sender_type', 'customer');
+                }
+
+                $records = $q->limit(500)->get();
+                foreach ($records as $r) {
+                    $isOut = $r->sender_type === 'admin';
+                    $dbMessages[] = [
+                        'messageId' => 'db_msg_' . $r->id,
+                        'phone' => $r->chat?->phone_number ?: '',
+                        'message' => $r->message,
+                        'media_url' => $r->media_url,
+                        'media_type' => $r->media_type,
+                        'filename' => null,
+                        'file_size' => null,
+                        'timestamp' => $r->created_at->toIso8601String(),
+                        'status' => $r->status,
+                        'direction' => $isOut ? 'outbound' : 'inbound',
+                        'sender' => $isOut ? 'ADMIN' : 'PIC',
+                        'senderName' => $r->agent_name ?: ($r->chat?->customer_name ?? 'PIC'),
+                    ];
+                }
+            } catch (\Throwable $e) {}
+
+            $all = array_merge($messages, $dbMessages);
+            $unique = [];
+            foreach ($all as $m) {
+                $mPhone = preg_replace('/\D/', '', (string) ($m['phone'] ?? ''));
+                $mText = (string) ($m['message'] ?? '');
+                $key = $mPhone . '_' . md5($mText);
+                if (! isset($unique[$key])) {
+                    $unique[$key] = $m;
+                }
+            }
+
+            $filtered = array_values(array_filter($unique, function ($m) use ($since, $phone, $inboundOnly) {
                 if ($inboundOnly && ($m['direction'] ?? '') !== 'inbound') {
                     return false;
                 }
@@ -379,8 +465,8 @@ class WorkspaceSosmedController extends Controller
                     }
                 }
                 if ($since) {
-                    $mTime = isset($m['timestamp']) ? strtotime($m['timestamp']) : 0;
-                    $sTime = is_numeric($since) ? (int) ($since > 1e11 ? $since / 1000 : $since) : strtotime($since);
+                    $mTime = isset($m['timestamp']) ? strtotime((string) $m['timestamp']) : 0;
+                    $sTime = is_numeric($since) ? (int) ($since > 1e11 ? $since / 1000 : $since) : strtotime((string) $since);
                     if ($mTime <= $sTime) {
                         return false;
                     }
@@ -399,8 +485,33 @@ class WorkspaceSosmedController extends Controller
         $data = $request->all();
         $payload = (isset($data['data']) && is_array($data['data'])) ? $data['data'] : $data;
 
-        $phone = $payload['phone_no'] ?? $payload['sender_number'] ?? $payload['phone'] ?? $payload['from'] ?? $payload['wa_number'] ?? $data['phone_no'] ?? $data['sender_number'] ?? $data['phone'] ?? '';
-        $message = $payload['message'] ?? $payload['text'] ?? $payload['caption'] ?? $payload['body'] ?? $data['message'] ?? $data['text'] ?? '';
+        $phone = $payload['phone_no'] 
+            ?? $payload['sender_number'] 
+            ?? $payload['phone'] 
+            ?? $payload['from'] 
+            ?? $payload['wa_number'] 
+            ?? $payload['sender']
+            ?? $data['phone_no'] 
+            ?? $data['sender_number'] 
+            ?? $data['phone'] 
+            ?? '';
+
+        $message = $payload['message_body']
+            ?? $payload['message_text']
+            ?? $payload['message'] 
+            ?? $payload['text'] 
+            ?? $payload['caption'] 
+            ?? $payload['body'] 
+            ?? $data['message_body']
+            ?? $data['message_text']
+            ?? $data['message'] 
+            ?? $data['text'] 
+            ?? '';
+
+        $isFromMe = (bool) ($payload['is_from_me'] ?? $data['is_from_me'] ?? false);
+        $direction = $isFromMe ? 'outbound' : 'inbound';
+        $sender = $isFromMe ? 'ADMIN' : 'PIC';
+
         $mediaUrl = $payload['media_url'] ?? $payload['url'] ?? $payload['image_url'] ?? $payload['file_url'] ?? $data['media_url'] ?? $data['url'] ?? null;
         $mediaType = $payload['media_type'] ?? $payload['type'] ?? $data['media_type'] ?? null;
         $filename = $payload['filename'] ?? $payload['file_name'] ?? $data['filename'] ?? null;
@@ -445,11 +556,41 @@ class WorkspaceSosmedController extends Controller
             'file_size' => $fileSize,
             'timestamp' => now()->toIso8601String(),
             'status' => 'received',
-            'direction' => 'inbound',
-            'sender' => 'PIC',
+            'direction' => $direction,
+            'sender' => $sender,
             'senderName' => $senderName,
             'raw' => $data,
         ];
+
+        // Simpan ke database WhatsAppChat & WhatsAppMessage
+        try {
+            if ($phone) {
+                $chat = WhatsAppChat::firstOrCreate(
+                    ['phone_number' => $phone],
+                    [
+                        'customer_name' => $senderName ?: ('PIC ' . $phone),
+                        'folder' => 'all',
+                        'unread_count' => 0,
+                    ]
+                );
+
+                $chat->update([
+                    'last_message' => $message ?: ($mediaType ? "[$mediaType]" : 'Pesan baru'),
+                    'last_message_at' => now(),
+                    'unread_count' => $isFromMe ? $chat->unread_count : ($chat->unread_count + 1),
+                ]);
+
+                WhatsAppMessage::create([
+                    'whatsapp_chat_id' => $chat->id,
+                    'sender_type' => $isFromMe ? 'admin' : 'customer',
+                    'agent_name' => $isFromMe ? 'Admin' : ($senderName ?: $chat->customer_name),
+                    'message' => $message ?: ($mediaType ? "[$mediaType]" : ''),
+                    'media_url' => $mediaUrl,
+                    'media_type' => $mediaType,
+                    'status' => 'received',
+                ]);
+            }
+        } catch (\Throwable $e) {}
 
         try {
             $messages[] = $entry;
@@ -515,6 +656,35 @@ class WorkspaceSosmedController extends Controller
             'sender' => 'PIC',
             'senderName' => $senderName,
         ];
+
+        try {
+            if ($phone) {
+                $chat = WhatsAppChat::firstOrCreate(
+                    ['phone_number' => $phone],
+                    [
+                        'customer_name' => $senderName ?: ('PIC ' . $phone),
+                        'folder' => 'all',
+                        'unread_count' => 0,
+                    ]
+                );
+
+                $chat->update([
+                    'last_message' => $message ?: ($mediaType ? "[$mediaType]" : 'Pesan masuk simulasi'),
+                    'last_message_at' => now(),
+                    'unread_count' => $chat->unread_count + 1,
+                ]);
+
+                WhatsAppMessage::create([
+                    'whatsapp_chat_id' => $chat->id,
+                    'sender_type' => 'customer',
+                    'agent_name' => $senderName ?: $chat->customer_name,
+                    'message' => $message ?: ($mediaType ? "[$mediaType]" : ''),
+                    'media_url' => $mediaUrl,
+                    'media_type' => $mediaType,
+                    'status' => 'received',
+                ]);
+            }
+        } catch (\Throwable $e) {}
 
         try {
             $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
