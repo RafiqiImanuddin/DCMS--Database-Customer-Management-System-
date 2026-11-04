@@ -310,6 +310,10 @@
                             <svg class="size-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                             <span>⚡ Daftarkan Otomatis ke WatZap</span>
                         </button>
+                        <button type="button" onclick="checkWebhookStatus()" id="btn-check-webhook" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 shadow-sm">
+                            <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span>Cek Status Webhook</span>
+                        </button>
                         @endif
                     </div>
                     <div id="webhook-register-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
@@ -511,6 +515,43 @@ async function autoRegisterWebhook() {
         btn.innerHTML = oldHtml;
     }
 }
+
+async function checkWebhookStatus() {
+    const feedback = document.getElementById('webhook-register-feedback');
+    const btn = document.getElementById('btn-check-webhook');
+    if (!feedback) return;
+
+    if (btn) btn.disabled = true;
+    feedback.className = 'mt-2.5 text-xs font-semibold text-slate-600 flex items-center gap-2 p-2.5 bg-slate-100 rounded-lg';
+    feedback.innerHTML = '<span class="size-2 rounded-full bg-blue-500 animate-pulse"></span> Memeriksa status webhook di server WatZap...';
+    feedback.classList.remove('hidden');
+
+    try {
+        const res = await fetch('{{ route("settings.watzap.get_webhook") }}?channel=inbox');
+        const data = await res.json();
+
+        if (data.success && data.message) {
+            feedback.className = 'mt-2.5 text-xs font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-200 rounded-lg p-2.5 flex items-center gap-2';
+            feedback.innerHTML = '<svg class="size-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ' +
+                '<span>Webhook Terdaftar & Aktif di WatZap: <code class="bg-white/80 px-1.5 py-0.5 rounded text-[11px] font-mono">' + data.message + '</code></span>';
+        } else {
+            feedback.className = 'mt-2.5 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center gap-2';
+            feedback.innerHTML = '<svg class="size-4 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' +
+                '<span>' + (data.message || 'Belum ada webhook terdaftar di WatZap untuk nomor ini. Silakan klik tombol ⚡ Daftarkan Otomatis di atas.') + '</span>';
+        }
+    } catch (e) {
+        feedback.className = 'mt-2.5 text-xs font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg p-2.5';
+        feedback.innerHTML = 'Gagal memeriksa webhook: ' + e.message;
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if ('{{ $activeTab }}' === 'inbox') {
+        checkWebhookStatus();
+    }
+});
 
 async function checkApiConnection() {
     const btn = document.getElementById('btn-check-api') || document.getElementById('btn-check-api-inbox');

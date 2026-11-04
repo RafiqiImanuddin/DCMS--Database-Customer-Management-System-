@@ -286,7 +286,7 @@ class WatzapIntegrationTest extends TestCase
                 $data = $request->data();
                 $this->assertEquals('my_api_key', $data['api_key']);
                 $this->assertEquals('my_number_key', $data['number_key']);
-                $this->assertNotEmpty($data['webhook_url']);
+                $this->assertNotEmpty($data['endpoint_url']);
 
                 return Http::response([
                     'status' => '200',

@@ -41,12 +41,152 @@
         appearance: none;
         -webkit-appearance: none;
         -moz-appearance: none;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.75' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
         background-position: right 0.75rem center;
         background-repeat: no-repeat;
-        background-size: 1.25rem 1.25rem;
-        padding-right: 2.5rem;
+        background-size: 1.15rem 1.15rem;
+        padding-right: 2.25rem;
         cursor: pointer;
+        font-weight: 600;
+        border-radius: 0.75rem;
+        color: #0f172a;
+        background-color: #ffffff;
+        box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+
+    select.dcms-input:hover,
+    .dcms-select:hover,
+    .modern-filter-select:hover {
+        border-color: #cbd5e1;
+        background-color: #f8fafc;
+    }
+
+    select.dcms-input:focus,
+    .dcms-select:focus,
+    .modern-filter-select:focus {
+        border-color: #2563eb;
+        background-color: #ffffff;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    select.dcms-input option,
+    .dcms-select option,
+    .modern-filter-select option {
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #0f172a;
+        background-color: #ffffff;
+    }
+
+    /* Custom Modern Dropdown Component */
+    .dcms-custom-select-wrapper {
+        position: relative;
+        width: 100%;
+        user-select: none;
+    }
+
+    .dcms-custom-select-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #0f172a;
+        box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-align: left;
+    }
+
+    .dcms-custom-select-btn:hover {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+    }
+
+    .dcms-custom-select-btn.is-active,
+    .dcms-custom-select-btn:focus-visible {
+        border-color: #2563eb;
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        background: #ffffff;
+    }
+
+    .dcms-custom-select-chevron {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+        color: #64748b;
+        transition: transform 0.2s ease;
+    }
+
+    .dcms-custom-select-btn.is-active .dcms-custom-select-chevron {
+        transform: rotate(180deg);
+        color: #2563eb;
+    }
+
+    .dcms-custom-select-dropdown {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + 4px);
+        z-index: 50;
+        min-width: 100%;
+        max-height: 16rem;
+        overflow-y: auto;
+        border-radius: 0.875rem;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        padding: 0.375rem;
+        box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+        animation: dcmsDropdownFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+    }
+
+    @keyframes dcmsDropdownFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .dcms-custom-select-item {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.625rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: #334155;
+        cursor: pointer;
+        transition: background-color 0.1s ease, color 0.1s ease;
+        text-align: left;
+    }
+
+    .dcms-custom-select-item:hover {
+        background-color: #f1f5f9;
+        color: #0f172a;
+    }
+
+    .dcms-custom-select-item.is-selected {
+        background-color: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 700;
     }
 
     .dcms-dropdown-menu {

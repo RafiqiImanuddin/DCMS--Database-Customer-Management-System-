@@ -552,6 +552,7 @@ class WatzapService
                 ->post($url, [
                     'api_key' => $apiKey,
                     'number_key' => $numberKey,
+                    'endpoint_url' => $webhookUrl,
                     'webhook_url' => $webhookUrl,
                 ]);
 

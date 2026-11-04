@@ -391,12 +391,15 @@ class WorkspaceSosmedController extends Controller
 
         // Mode POST: Webhook masuk dari WatZap API atau gateway
         $data = $request->all();
-        $phone = $data['phone_no'] ?? $data['sender_number'] ?? $data['phone'] ?? $data['from'] ?? '';
-        $message = $data['message'] ?? $data['text'] ?? $data['caption'] ?? '';
-        $mediaUrl = $data['media_url'] ?? $data['url'] ?? $data['image_url'] ?? $data['file_url'] ?? null;
-        $mediaType = $data['media_type'] ?? $data['type'] ?? null;
-        $filename = $data['filename'] ?? $data['file_name'] ?? null;
-        $fileSize = $data['file_size'] ?? null;
+        $payload = (isset($data['data']) && is_array($data['data'])) ? $data['data'] : $data;
+
+        $phone = $payload['phone_no'] ?? $payload['sender_number'] ?? $payload['phone'] ?? $payload['from'] ?? $payload['wa_number'] ?? $data['phone_no'] ?? $data['sender_number'] ?? $data['phone'] ?? '';
+        $message = $payload['message'] ?? $payload['text'] ?? $payload['caption'] ?? $payload['body'] ?? $data['message'] ?? $data['text'] ?? '';
+        $mediaUrl = $payload['media_url'] ?? $payload['url'] ?? $payload['image_url'] ?? $payload['file_url'] ?? $data['media_url'] ?? $data['url'] ?? null;
+        $mediaType = $payload['media_type'] ?? $payload['type'] ?? $data['media_type'] ?? null;
+        $filename = $payload['filename'] ?? $payload['file_name'] ?? $data['filename'] ?? null;
+        $fileSize = $payload['file_size'] ?? $data['file_size'] ?? null;
+        $senderName = $payload['sender_name'] ?? $payload['name'] ?? $payload['pushname'] ?? $data['sender_name'] ?? $data['name'] ?? null;
 
         if ($request->hasFile('file')) {
             $file = $request->file('file');
@@ -438,7 +441,7 @@ class WorkspaceSosmedController extends Controller
             'status' => 'received',
             'direction' => 'inbound',
             'sender' => 'PIC',
-            'senderName' => $data['sender_name'] ?? $data['name'] ?? null,
+            'senderName' => $senderName,
             'raw' => $data,
         ];
 
