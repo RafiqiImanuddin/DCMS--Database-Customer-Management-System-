@@ -92,5 +92,31 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $response = $this->get(route('api.sosmed.sales_photos'));
         $response->assertStatus(200);
     }
+
+    public function test_top_navbar_is_removed_for_both_superadmin_and_staff_admin(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $superadmin = User::factory()->superadmin()->create();
+
+        // 1. Staff Admin
+        $resAdmin = $this->actingAs($admin)->get(route('workspace-sosmed.index'));
+        $resAdmin->assertOk();
+        $resAdmin->assertDontSee('header-pill-nav');
+        $resAdmin->assertDontSee('tabBtn1');
+        $resAdmin->assertDontSee('tabBtn9');
+        $resAdmin->assertSee('Workspace Sosmed');
+        $resAdmin->assertSee('Dashboard Sosmed');
+        $resAdmin->assertSee('Inbox Follow-Up');
+
+        // 2. Super Admin
+        $resSuper = $this->actingAs($superadmin)->get(route('workspace-sosmed.index'));
+        $resSuper->assertOk();
+        $resSuper->assertDontSee('header-pill-nav');
+        $resSuper->assertDontSee('tabBtn1');
+        $resSuper->assertDontSee('tabBtn9');
+        $resSuper->assertSee('Workspace Sosmed');
+        $resSuper->assertSee('Dashboard Sosmed');
+        $resSuper->assertSee('Inbox Follow-Up');
+    }
 }
 
