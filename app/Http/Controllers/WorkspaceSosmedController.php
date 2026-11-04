@@ -2,10 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CrossSellingImport;
-use App\Models\User;
-use App\Services\CrossSellingImporter;
-use App\Services\RepeatOrderPredictor;
 use App\Services\WatzapService;
 use App\Support\WorkspaceUrlCipher;
 use Illuminate\Http\JsonResponse;
@@ -13,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WorkspaceSosmedController extends Controller
@@ -353,53 +348,9 @@ class WorkspaceSosmedController extends Controller
 
         @File::put($targetPath, $content);
 
-        $unifiedSync = false;
-        $rowCount = 0;
-
-        // 1 GERBANG UNIFIED UPLOAD: Jika file crosselling diunggah dari Workspace Sosmed,
-        // otomatis proses ke database DCMS & jalankan engine Repeat Order Predictor
-        if ($fileType === 'croselling') {
-            try {
-                $isZip = str_starts_with($content, "PK\x03\x04");
-                $ext = $isZip ? 'xlsx' : 'csv';
-                $storedPath = 'cross-selling-imports/unified_' . date('Ymd_His') . '_' . uniqid() . '.' . $ext;
-                Storage::disk('local')->put($storedPath, $content);
-
-                $user = $request->user() 
-                    ?? User::where('role', 'superadmin')->first() 
-                    ?? User::first();
-
-                $import = CrossSellingImport::create([
-                    'user_id'       => $user?->id ?? 1,
-                    'original_name' => $targetFileName,
-                    'stored_path'   => $storedPath,
-                    'status'        => 'processing',
-                ]);
-
-                $importer = app(CrossSellingImporter::class);
-                $importer->import($import);
-                $import->refresh();
-
-                if ($import->status === 'completed') {
-                    $predictor = app(RepeatOrderPredictor::class);
-                    $predictor->rebuild();
-                    $unifiedSync = true;
-                    $rowCount = (int) $import->success_count;
-                }
-            } catch (\Throwable $e) {
-                Log::warning('1-Gerbang CrossSelling sync error: ' . $e->getMessage());
-            }
-        }
-
-        $message = ($fileType === 'croselling' && $unifiedSync)
-            ? "File {$targetFileName} berhasil disimpan & disinkronkan ke seluruh Dashboard DCMS ({$rowCount} data diproses)!"
-            : "File {$targetFileName} berhasil disimpan!";
-
         return response()->json([
             'success' => true,
-            'message' => $message,
-            'unified_sync' => $unifiedSync,
-            'row_count' => $rowCount,
+            'message' => "File {$targetFileName} berhasil disimpan!",
         ]);
     }
 }

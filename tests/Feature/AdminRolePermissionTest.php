@@ -15,38 +15,23 @@ class AdminRolePermissionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_both_superadmin_and_admin_can_access_import_page_and_upload(): void
+    public function test_admin_cannot_access_import_page_or_upload(): void
     {
         Storage::fake('local');
         $admin = User::factory()->admin()->create();
 
-        // Admin can access import page
+        // Admin cannot access import page
         $this->actingAs($admin)
             ->get(route('imports.index'))
-            ->assertOk();
+            ->assertStatus(403);
 
-        // Admin can download template
-        $this->actingAs($admin)
-            ->get(route('imports.template'))
-            ->assertOk();
-
-        // Admin can upload import file
-        $header = "Cabang,Posting Date,Document Number,Customer/Vendor Code,Customer/Vendor Name,ItemCode,Dscription,Brand,Quantity,Harga Jual,Nama Sales,No HP Konsumen\n";
-        $row = "Banjarmasin,2026-10-18,INV-001,CUST-001,Budi Santoso,ACC-001,Kabel Data Type-C Fast Charging,XIAOMI,1,50000,Sales Ahmad,081234567890\n";
-        $file = UploadedFile::fake()->createWithContent('sample.csv', $header . $row);
-
+        // Admin cannot upload import file
+        $file = UploadedFile::fake()->create('sample.csv', 10, 'text/csv');
         $this->actingAs($admin)
             ->post(route('imports.store'), ['file' => $file])
-            ->assertRedirect(route('imports.index'));
+            ->assertStatus(403);
 
-        $this->assertDatabaseCount('cross_selling_imports', 1);
-    }
-
-    public function test_guest_cannot_access_import_page_or_upload(): void
-    {
-        $this->get(route('imports.index'))->assertRedirect(route('login'));
-        $file = UploadedFile::fake()->create('sample.csv', 10, 'text/csv');
-        $this->post(route('imports.store'), ['file' => $file])->assertRedirect(route('login'));
+        $this->assertDatabaseCount('cross_selling_imports', 0);
     }
 
     public function test_superadmin_can_access_import_and_download_template(): void

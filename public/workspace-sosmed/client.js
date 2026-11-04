@@ -1139,7 +1139,7 @@ async function saveExcelToServer(arrayBuffer, type = 'turnover') {
     if (res.ok) {
       const data = await res.json();
       console.log('💾 File saved to server disk successfully:', data);
-      showSaveToast(data.message || `💾 Database ${type === 'croselling' ? 'Cross-selling & DCMS' : 'turnover.xlsx'} tersimpan di Server!`);
+      showSaveToast(`💾 Database ${type === 'croselling' ? 'Google Sheets' : 'turnover.xlsx'} tersimpan di Server! Tersedia untuk semua device di LAN & tetap tersimpan saat refresh.`);
       updateDatabaseBadge(true);
     }
   } catch (err) {
@@ -5790,7 +5790,7 @@ function handleCrosellingFileSelect(e) {
       if (typeof runARMissingSosmedAudit === 'function') {
         runARMissingSosmedAudit();
       }
-      alert(`✅ Berhasil mengunggah file Cross Selling (${jsonData.length.toLocaleString('id-ID')} baris data)!\n1 Gerbang Terpadu Aktif: Seluruh Dashboard DCMS (Repeat Order, Master Customer, Leads) & Workspace Sosmed (Cek AR, Audit) telah disinkronkan.`);
+      alert(`✅ Berhasil mengunggah file Cross Selling (${jsonData.length.toLocaleString('id-ID')} baris data)!\nDatabase Cek AR & Audit AR telah diperbarui dan tersimpan.`);
       if (document.getElementById('arInputSearch') && document.getElementById('arInputSearch').value.trim()) {
         executeARSearch();
       }
