@@ -121,6 +121,7 @@ class WorkspaceUrlCipher
      */
     public static function url(int $tab): string
     {
-        return route('workspace-sosmed.index', ['tab' => self::encode($tab)]);
+        return RouteCipher::url('workspace-sosmed.index', ['tab' => $tab]);
     }
 }
+

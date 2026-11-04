@@ -55,3 +55,4 @@ class WorkspaceUrlCipherTest extends TestCase
         $this->assertSame(1, WorkspaceUrlCipher::resolveTab($request));
     }
 }
+

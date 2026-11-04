@@ -6,6 +6,20 @@
     <title>@yield('title', 'Dashboard') - DCMS Gadgetmart</title>
     @yield('head')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @php
+        $encryptedCurrentUrl = \App\Support\RouteCipher::resolveCurrentEncryptedUrl(request());
+    @endphp
+    @if ($encryptedCurrentUrl)
+    <script>
+        (function() {
+            try {
+                if (!window.location.pathname.startsWith('/r/')) {
+                    window.history.replaceState({}, '', '{{ $encryptedCurrentUrl }}');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    @endif
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
     <div class="flex min-h-screen">

@@ -6,6 +6,7 @@ use App\Http\Controllers\BroadcastReportController;
 use App\Http\Controllers\BroadcastTemplateController;
 use App\Http\Controllers\CrossSellingImportController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EncryptedRouteController;
 use App\Http\Controllers\LeadCustomerController;
 use App\Http\Controllers\RepeatOrderPredictionController;
 use App\Http\Controllers\WatzapSettingController;
@@ -25,6 +26,10 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    // Gateway Routing Terenkripsi (Semua modul DCMS & Workspace)
+    Route::get('/r/{token}', EncryptedRouteController::class)->name('encrypted.route');
+    Route::get('/app/{token}', EncryptedRouteController::class);
+
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 

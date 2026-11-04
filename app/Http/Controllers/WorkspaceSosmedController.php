@@ -22,19 +22,23 @@ class WorkspaceSosmedController extends Controller
 
     public function index(Request $request)
     {
-        // Enkripsi routing: Jika diakses dengan angka raw ?tab=9, otomatis redirect ke URL terenkripsi
-        $rawTab = $request->query('tab');
-        if ($rawTab !== null && is_numeric($rawTab) && (int) $rawTab >= 1 && (int) $rawTab <= 9) {
-            return redirect()->route('workspace-sosmed.index', [
-                'tab' => WorkspaceUrlCipher::encode((int) $rawTab),
-            ]);
+        // Enkripsi routing: Jika diakses secara langsung bukan via gateway encrypted route dengan angka raw ?tab=9, otomatis redirect ke URL terenkripsi
+        if (! $request->routeIs('encrypted.route')) {
+            $rawTab = $request->query('tab');
+            if ($rawTab !== null && is_numeric($rawTab) && (int) $rawTab >= 1 && (int) $rawTab <= 9) {
+                return redirect()->to(\App\Support\RouteCipher::url('workspace-sosmed.index', [
+                    'tab' => (int) $rawTab,
+                ]));
+            }
         }
 
-        $activeTab = WorkspaceUrlCipher::resolveTab($request);
+        $activeTab = \App\Support\RouteCipher::resolveWorkspaceTab($request) 
+            ?? WorkspaceUrlCipher::resolveTab($request);
 
         return view('workspace-sosmed.index', [
             'activeTab' => $activeTab,
             'tabTokens' => WorkspaceUrlCipher::allTokens(),
+            'encryptedTabUrls' => \App\Support\RouteCipher::allWorkspaceUrls(),
         ]);
     }
 

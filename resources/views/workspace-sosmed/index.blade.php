@@ -100,7 +100,7 @@
 
                         <div class="header-action-separator"></div>
 
-                        <a href="{{ route('dashboard') }}" class="btn-pill-outline" title="Kembali ke Dashboard DCMS">
+                        <a href="{{ \App\Support\RouteCipher::url('dashboard') }}" class="btn-pill-outline" title="Kembali ke Dashboard DCMS">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5m5 5H3m11 9h4a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3h-4"/></svg>
                             <span class="hidden sm:inline">Kembali ke DCMS</span>
                         </a>
@@ -2283,6 +2283,7 @@
   <script src="client.js?v=7.1"></script>
   <script>
     window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
+    window.WORKSPACE_ENCRYPTED_URLS = @json($encryptedTabUrls ?? \App\Support\RouteCipher::allWorkspaceUrls());
     window.WORKSPACE_ACTIVE_TAB = {{ (int) ($activeTab ?? 1) }};
 
     function updateSidebarActiveTab(tabIndex) {
@@ -2296,7 +2297,7 @@
         });
     }
 
-    // Intercept switchTab so ANY tab switch updates the DCMS sidebar & sets the encrypted URL parameter
+    // Intercept switchTab so ANY tab switch updates the DCMS sidebar & sets the encrypted URL
     const origSwitchTab = window.switchTab;
     window.switchTab = function(tabIndex) {
         if (typeof origSwitchTab === 'function') {
@@ -2304,11 +2305,15 @@
         }
         updateSidebarActiveTab(tabIndex);
         try {
-            const token = (window.WORKSPACE_ROUTING_TOKENS && window.WORKSPACE_ROUTING_TOKENS[tabIndex]) ? window.WORKSPACE_ROUTING_TOKENS[tabIndex] : tabIndex;
-            const url = new URL(window.location);
-            url.searchParams.delete('v');
-            url.searchParams.set('tab', token);
-            window.history.replaceState({}, '', url);
+            if (window.WORKSPACE_ENCRYPTED_URLS && window.WORKSPACE_ENCRYPTED_URLS[tabIndex]) {
+                window.history.replaceState({}, '', window.WORKSPACE_ENCRYPTED_URLS[tabIndex]);
+            } else {
+                const token = (window.WORKSPACE_ROUTING_TOKENS && window.WORKSPACE_ROUTING_TOKENS[tabIndex]) ? window.WORKSPACE_ROUTING_TOKENS[tabIndex] : tabIndex;
+                const url = new URL(window.location);
+                url.searchParams.delete('v');
+                url.searchParams.set('tab', token);
+                window.history.replaceState({}, '', url);
+            }
         } catch(e) {}
     };
 
