@@ -35,6 +35,7 @@ class WatzapSettingController extends Controller
         $deviceStatusInbox = $isConfiguredInbox ? $watzap->getDeviceStatus('inbox') : null;
 
         $webhookUrl = url('/api/watzap-webhook');
+        $availableSenders = $isConfiguredBroadcast ? $watzap->getAvailableSenders($apiKey) : [];
 
         return view('settings.watzap', [
             'activeTab' => $activeTab,
@@ -50,12 +51,13 @@ class WatzapSettingController extends Controller
             'inboxNumberKey' => $inboxNumberKey,
             'isConfiguredInbox' => $isConfiguredInbox,
             'deviceStatusInbox' => $deviceStatusInbox,
+            'availableSenders' => $availableSenders,
             'webhookUrl' => $webhookUrl,
             'isSuperAdmin' => $isSuperAdmin,
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(Request $request, WatzapService $watzap): RedirectResponse
     {
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengubah pengaturan ini.');
 
@@ -73,11 +75,15 @@ class WatzapSettingController extends Controller
             'watzap_inbox_number_key' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $masterApiKey = trim($validated['watzap_api_key'] ?? Setting::get('watzap_api_key', ''));
+
         if ($request->has('watzap_api_key')) {
             Setting::set('watzap_api_key', trim($validated['watzap_api_key'] ?? ''));
         }
         if ($request->has('watzap_number_key')) {
-            Setting::set('watzap_number_key', trim($validated['watzap_number_key'] ?? ''));
+            $rawKey = trim($validated['watzap_number_key'] ?? '');
+            $resolved = $rawKey !== '' ? $watzap->resolveNumberKey($rawKey, $masterApiKey ?: null) : '';
+            Setting::set('watzap_number_key', $resolved);
         }
         if ($request->has('watzap_web_url')) {
             Setting::set('watzap_web_url', trim($validated['watzap_web_url'] ?? 'https://watzap.chat'));
@@ -90,7 +96,10 @@ class WatzapSettingController extends Controller
             Setting::set('watzap_inbox_api_key', trim($validated['watzap_inbox_api_key'] ?? ''));
         }
         if ($request->has('watzap_inbox_number_key')) {
-            Setting::set('watzap_inbox_number_key', trim($validated['watzap_inbox_number_key'] ?? ''));
+            $rawKey = trim($validated['watzap_inbox_number_key'] ?? '');
+            $inboxApi = trim($validated['watzap_inbox_api_key'] ?? '') ?: $masterApiKey;
+            $resolved = $rawKey !== '' ? $watzap->resolveNumberKey($rawKey, $inboxApi ?: null) : '';
+            Setting::set('watzap_inbox_number_key', $resolved);
         }
 
         $label = $targetTab === 'inbox' ? 'WA Inbox Follow Up' : 'WA Broadcast';
@@ -159,6 +168,7 @@ class WatzapSettingController extends Controller
         $overrideNumberKey = $request->string('number_key')->trim()->toString();
 
         if ($overrideNumberKey !== '') {
+            $overrideNumberKey = $watzap->resolveNumberKey($overrideNumberKey, $overrideApiKey ?: null);
             if ($channel === 'inbox') {
                 Setting::set('watzap_inbox_number_key', $overrideNumberKey);
                 if ($overrideApiKey !== '') {

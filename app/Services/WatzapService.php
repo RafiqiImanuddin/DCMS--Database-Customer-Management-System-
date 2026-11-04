@@ -520,6 +520,96 @@ class WatzapService
     }
 
     /**
+     * Get list of all available sender devices from WatZap account.
+     *
+     * @return array<int, array{key: string, phone: string, is_connected: bool|null, is_online: bool, status: string, plan: string, label: string}>
+     */
+    public function getAvailableSenders(?string $apiKey = null): array
+    {
+        $check = $this->checkingKey($apiKey);
+        if (! $check['success']) {
+            return [];
+        }
+
+        $data = $check['data']['data'] ?? $check['data'] ?? [];
+        $licenses = $data['licenses_key'] ?? $data['senders'] ?? [];
+        if (! is_array($licenses)) {
+            return [];
+        }
+
+        $results = [];
+        foreach ($licenses as $lic) {
+            $key = (string) ($lic['key'] ?? $lic['number_key'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            $isConnected = isset($lic['is_connected']) ? (bool) $lic['is_connected'] : null;
+            $status = (string) ($lic['status'] ?? ($isConnected ? 'Online' : 'Offline'));
+            $isOnline = $isConnected === true || strcasecmp($status, 'online') === 0;
+            $wa = (string) ($lic['wa_number'] ?? $lic['sender_number'] ?? $lic['phone'] ?? '');
+
+            $results[] = [
+                'key' => $key,
+                'phone' => $wa,
+                'is_connected' => $isConnected,
+                'is_online' => $isOnline,
+                'status' => $isOnline ? 'Online' : ($status ?: 'Offline'),
+                'plan' => (string) ($lic['plan'] ?? ''),
+                'label' => $wa !== '' ? "{$wa} (".($isOnline ? 'Online' : 'Offline').')' : $key,
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
+     * Intelligently resolve input number key against connected WatZap licenses,
+     * correcting font confusions (such as uppercase 'I' vs lowercase 'l' or digit '1'),
+     * or looking up license by phone number.
+     */
+    public function resolveNumberKey(string $input, ?string $apiKey = null): string
+    {
+        $clean = trim($input);
+        if ($clean === '') {
+            return '';
+        }
+
+        $senders = $this->getAvailableSenders($apiKey);
+        if (empty($senders)) {
+            return $clean;
+        }
+
+        // 1. Direct exact match
+        foreach ($senders as $s) {
+            if ($s['key'] === $clean) {
+                return $s['key'];
+            }
+        }
+
+        // 2. Match by phone digits
+        $phoneDigits = preg_replace('/[^0-9]/', '', $clean) ?? '';
+        if (strlen($phoneDigits) >= 9) {
+            foreach ($senders as $s) {
+                $licPhone = preg_replace('/[^0-9]/', '', $s['phone']) ?? '';
+                if ($licPhone === $phoneDigits || str_ends_with($licPhone, substr($phoneDigits, -9))) {
+                    return $s['key'];
+                }
+            }
+        }
+
+        // 3. Match fuzzy (e.g. font confusion between 'l', 'I', '1')
+        $cleanNormalized = strtolower(str_replace(['1', 'I', '|'], 'l', $clean));
+        foreach ($senders as $s) {
+            $keyNormalized = strtolower(str_replace(['1', 'I', '|'], 'l', $s['key']));
+            if ($keyNormalized === $cleanNormalized) {
+                return $s['key'];
+            }
+        }
+
+        return $clean;
+    }
+
+    /**
      * Register / Set Webhook URL to WatZap API.
      *
      * @return array{success: bool, message: string, status: string, data: array}
@@ -530,9 +620,11 @@ class WatzapService
             ? trim($overrideApiKey)
             : $this->getApiKey($channel);
 
-        $numberKey = $overrideNumberKey !== null && trim($overrideNumberKey) !== ''
+        $rawNumberKey = $overrideNumberKey !== null && trim($overrideNumberKey) !== ''
             ? trim($overrideNumberKey)
             : $this->getNumberKey($channel);
+
+        $numberKey = $this->resolveNumberKey($rawNumberKey, $apiKey);
 
         if ($apiKey === '' || $numberKey === '') {
             return [
@@ -589,9 +681,11 @@ class WatzapService
             ? trim($overrideApiKey)
             : $this->getApiKey($channel);
 
-        $numberKey = $overrideNumberKey !== null && trim($overrideNumberKey) !== ''
+        $rawNumberKey = $overrideNumberKey !== null && trim($overrideNumberKey) !== ''
             ? trim($overrideNumberKey)
             : $this->getNumberKey($channel);
+
+        $numberKey = $this->resolveNumberKey($rawNumberKey, $apiKey);
 
         if ($apiKey === '' || $numberKey === '') {
             return [

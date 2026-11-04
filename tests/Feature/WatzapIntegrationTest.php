@@ -305,4 +305,43 @@ class WatzapIntegrationTest extends TestCase
             'success' => true,
         ]);
     }
+
+    public function test_watzap_service_resolves_number_key_with_font_ambiguity_and_phone(): void
+    {
+        $service = app(WatzapService::class);
+
+        Http::fake([
+            'https://api.watzap.id/v1/checking_key' => Http::response([
+                'status' => true,
+                'data' => [
+                    'licenses_key' => [
+                        [
+                            'key' => 'gqLbEDAZ4lReCCME',
+                            'wa_number' => '6285111426699',
+                            'is_connected' => true,
+                            'status' => 'Online',
+                        ],
+                        [
+                            'key' => 'pL46HTdCO6vUgNfC',
+                            'wa_number' => '6289677027059',
+                            'is_connected' => true,
+                            'status' => 'Online',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // Character 10 is 'I' (capital i) instead of 'l' (lowercase L)
+        $resolvedTypo = $service->resolveNumberKey('gqLbEDAZ4IReCCME', 'test_api_key');
+        $this->assertEquals('gqLbEDAZ4lReCCME', $resolvedTypo);
+
+        // Phone number input
+        $resolvedPhone = $service->resolveNumberKey('085111426699', 'test_api_key');
+        $this->assertEquals('gqLbEDAZ4lReCCME', $resolvedPhone);
+
+        // Exact match
+        $resolvedExact = $service->resolveNumberKey('pL46HTdCO6vUgNfC', 'test_api_key');
+        $this->assertEquals('pL46HTdCO6vUgNfC', $resolvedExact);
+    }
 }

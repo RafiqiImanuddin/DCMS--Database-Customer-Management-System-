@@ -101,7 +101,7 @@
                         API Key (Secret Key) <span class="text-rose-500">*</span>
                     </label>
                     <div class="relative">
-                        <input id="watzap_api_key" name="watzap_api_key" type="password" value="{{ old('watzap_api_key', $apiKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: wt_sec_xxxxxxxxxxxx" class="dcms-input pr-10 font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
+                        <input id="watzap_api_key" name="watzap_api_key" type="password" autocomplete="new-password" data-lpignore="true" value="{{ old('watzap_api_key', $apiKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: wt_sec_xxxxxxxxxxxx" class="dcms-input pr-10 font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
                         <button type="button" onclick="togglePasswordVisibility('watzap_api_key')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">
                             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         </button>
@@ -115,6 +115,20 @@
                     </label>
                     <input id="watzap_number_key" name="watzap_number_key" type="text" value="{{ old('watzap_number_key', $numberKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: nk_xxxxxxxxxxxx" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
                     <p class="mt-1 text-[11px] text-slate-400">ID Number Key khusus untuk nomor WhatsApp pengirim broadcast promosi toko yang sudah terhubung (Online) di WatZap.</p>
+                    @if(!empty($availableSenders))
+                    <div class="mt-2 flex flex-wrap items-center gap-1.5 pt-1">
+                        <span class="text-[11px] font-semibold text-slate-500">Pilih cepat nomor terhubung:</span>
+                        @foreach($availableSenders as $s)
+                            <button type="button" 
+                                onclick="document.getElementById('watzap_number_key').value='{{ $s['key'] }}'"
+                                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700">
+                                <span class="size-2 rounded-full {{ $s['is_online'] ? 'bg-emerald-500' : 'bg-slate-400' }}"></span>
+                                <span>{{ $s['phone'] ?: $s['key'] }}</span>
+                                <span class="text-[10px] text-slate-400">({{ $s['status'] }})</span>
+                            </button>
+                        @endforeach
+                    </div>
+                    @endif
                 </div>
 
                 @if($isSuperAdmin)
@@ -274,7 +288,7 @@
                         <label for="watzap_inbox_api_key" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
                             API Key Khusus Inbox (Opsional)
                         </label>
-                        <input id="watzap_inbox_api_key" name="watzap_inbox_api_key" type="password" value="{{ old('watzap_inbox_api_key', $inboxApiKey) }}" @disabled(! $isSuperAdmin) placeholder="Kosongkan jika menggunakan API Key WatZap yang sama" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
+                        <input id="watzap_inbox_api_key" name="watzap_inbox_api_key" type="password" autocomplete="new-password" data-lpignore="true" value="{{ old('watzap_inbox_api_key', $inboxApiKey) }}" @disabled(! $isSuperAdmin) placeholder="Kosongkan jika menggunakan API Key WatZap yang sama" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
                         <p class="mt-1 text-[11px] text-slate-400">Jika akun WatZap sama, kosongkan kolom ini (otomatis menggunakan API Key utama).</p>
                     </div>
 
@@ -284,6 +298,23 @@
                         </label>
                         <input id="watzap_inbox_number_key" name="watzap_inbox_number_key" type="text" value="{{ old('watzap_inbox_number_key', $inboxNumberKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: nk_cs_xxxxxxxxxxxx" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
                         <p class="mt-1 text-[11px] text-slate-400">ID Number Key khusus nomor WhatsApp CS/Follow-Up yang sudah terhubung di WatZap.</p>
+                        @if(!empty($availableSenders))
+                        <div class="mt-2 flex flex-wrap items-center gap-1.5 pt-1">
+                            <span class="text-[11px] font-semibold text-slate-500">Pilih cepat nomor terhubung:</span>
+                            @foreach($availableSenders as $s)
+                                <button type="button" 
+                                    onclick="document.getElementById('watzap_inbox_number_key').value='{{ $s['key'] }}'"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700">
+                                    <span class="size-2 rounded-full {{ $s['is_online'] ? 'bg-emerald-500' : 'bg-slate-400' }}"></span>
+                                    <span>{{ $s['phone'] ?: $s['key'] }}</span>
+                                    <span class="text-[10px] text-slate-400">({{ $s['status'] }})</span>
+                                </button>
+                            @endforeach
+                        </div>
+                        @endif
+                        <p class="mt-1.5 text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-100 rounded-lg p-2">
+                            💡 <strong>Info:</strong> Pada font WatZap, karakter ke-10 nomor key seringkali berupa huruf <code>l</code> kecil (bukan huruf I kapital atau angka 1). Klik tombol pilihan cepat di atas agar key terisi secara 100% akurat tanpa salah ketik.
+                        </p>
                     </div>
                 </div>
 
@@ -471,6 +502,11 @@ async function autoRegisterWebhook() {
     if (isDedicated) {
         const numInp = document.getElementById('watzap_inbox_number_key');
         const apiInp = document.getElementById('watzap_inbox_api_key');
+        numberKey = numInp ? numInp.value.trim() : '';
+        apiKey = apiInp ? apiInp.value.trim() : '';
+    } else {
+        const numInp = document.getElementById('watzap_number_key');
+        const apiInp = document.getElementById('watzap_api_key');
         numberKey = numInp ? numInp.value.trim() : '';
         apiKey = apiInp ? apiInp.value.trim() : '';
     }

@@ -21,7 +21,7 @@
     <script src="lib/html2canvas.min.js"></script>
     <script src="lib/chart.umd.min.js"></script>
     <link rel="icon" type="image/png" href="logo.png">
-    <link rel="stylesheet" href="style.css?v=7.1">
+    <link rel="stylesheet" href="style.css?v={{ @filemtime(public_path('workspace-sosmed/style.css')) ?: '7.2' }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
@@ -2259,7 +2259,7 @@
     </main>
 </div>
 
-  <script src="client.js?v=7.1"></script>
+  <script src="client.js?v={{ @filemtime(public_path('workspace-sosmed/client.js')) ?: '7.2' }}"></script>
   <script>
     window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
     window.WORKSPACE_ENCRYPTED_URLS = @json($encryptedTabUrls ?? \App\Support\RouteCipher::allWorkspaceUrls());
