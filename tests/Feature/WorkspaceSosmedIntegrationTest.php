@@ -25,7 +25,7 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Workspace Sosmed');
         $response->assertSee('Dashboard');
-        $response->assertSee('Kembali ke DCMS');
+        $response->assertDontSee('Kembali ke DCMS');
     }
 
     public function test_sidebar_contains_workspace_sosmed_link(): void
@@ -63,7 +63,7 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $response = $this->actingAs($user)->get(WorkspaceUrlCipher::url(9));
         $response->assertStatus(200);
         $response->assertSee('Workspace Sosmed');
-        $response->assertSee('Kembali ke DCMS');
+        $response->assertDontSee('Kembali ke DCMS');
     }
 
     public function test_database_status_api_endpoint(): void
@@ -104,6 +104,7 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $resAdmin->assertDontSee('header-pill-nav');
         $resAdmin->assertDontSee('tabBtn1');
         $resAdmin->assertDontSee('tabBtn9');
+        $resAdmin->assertDontSee('Kembali ke DCMS');
         $resAdmin->assertSee('Workspace Sosmed');
         $resAdmin->assertSee('Dashboard Sosmed');
         $resAdmin->assertSee('Inbox Follow-Up');
@@ -114,6 +115,7 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $resSuper->assertDontSee('header-pill-nav');
         $resSuper->assertDontSee('tabBtn1');
         $resSuper->assertDontSee('tabBtn9');
+        $resSuper->assertDontSee('Kembali ke DCMS');
         $resSuper->assertSee('Workspace Sosmed');
         $resSuper->assertSee('Dashboard Sosmed');
         $resSuper->assertSee('Inbox Follow-Up');

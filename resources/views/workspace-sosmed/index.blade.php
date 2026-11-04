@@ -84,11 +84,6 @@
 
                         <div class="header-action-separator"></div>
 
-                        <a href="{{ \App\Support\RouteCipher::url('dashboard') }}" class="btn-pill-outline" title="Kembali ke Dashboard DCMS">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5m5 5H3m11 9h4a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3h-4"/></svg>
-                            <span class="hidden sm:inline">Kembali ke DCMS</span>
-                        </a>
-
                         <a href="https://wa.me/6289603864476?text=Halo%20Yahya,%20ada%20bug/ada%20trouble%20di%20Gadgetmart's%20Workspace.%20Tolong%20perbaiki%20segera."
                             target="_blank" class="btn-pill-outline hidden sm:inline-flex" title="Hubungi Yahya via WhatsApp" style="border-color: #a7f3d0; background: #ecfdf5; color: #047857 !important;">
                             WA Yahya
