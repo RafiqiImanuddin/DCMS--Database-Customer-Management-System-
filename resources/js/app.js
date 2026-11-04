@@ -372,6 +372,8 @@ const leadCheckboxes = document.querySelectorAll('.lead-checkbox');
 const selectAllLeads = document.getElementById('select-all-leads');
 const leadSelectedCount = document.getElementById('lead-selected-count');
 const leadBroadcastButton = document.getElementById('lead-broadcast-button');
+const leadBulkDeleteButton = document.getElementById('lead-bulk-delete-button');
+const leadBulkDeleteCount = document.getElementById('lead-bulk-delete-count');
 
 function updateLeadSelection() {
     const enabledCheckboxes = [...document.querySelectorAll('.lead-checkbox:not(:disabled)')];
@@ -379,8 +381,14 @@ function updateLeadSelection() {
     if (leadSelectedCount) {
         leadSelectedCount.textContent = `(${selected})`;
     }
+    if (leadBulkDeleteCount) {
+        leadBulkDeleteCount.textContent = `(${selected})`;
+    }
     if (leadBroadcastButton) {
         leadBroadcastButton.disabled = selected === 0;
+    }
+    if (leadBulkDeleteButton) {
+        leadBulkDeleteButton.disabled = selected === 0;
     }
     if (selectAllLeads) {
         selectAllLeads.checked = enabledCheckboxes.length > 0 && selected === enabledCheckboxes.length;

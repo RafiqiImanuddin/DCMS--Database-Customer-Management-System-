@@ -51,6 +51,8 @@ Route::middleware('auth')->group(function () {
     // Fitur Leads Customer & Download
     Route::get('/leads/download', [LeadCustomerController::class, 'download'])->name('leads.download');
     Route::get('/leads', [LeadCustomerController::class, 'index'])->name('leads.index');
+    Route::delete('/leads/bulk', [LeadCustomerController::class, 'bulkDestroy'])->name('leads.bulkDestroy');
+    Route::delete('/leads/{lead}', [LeadCustomerController::class, 'destroy'])->name('leads.destroy');
 
     // Fitur Broadcast, Template & Download
     Route::get('/broadcasts/templates', [BroadcastTemplateController::class, 'index'])->name('broadcasts.templates.index');

@@ -202,6 +202,19 @@
         </div>
     </section>
 
+    <!-- Bar Aksi Tabel Leads Customer -->
+    <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
+        <div class="text-xs text-slate-500">
+            Daftar lead siap follow up. Menghapus lead akan mengembalikannya ke Master Customer.
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="lead-bulk-delete-button" type="button" disabled onclick="confirmBulkDeleteLeads()" class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 shadow-xs transition hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-50">
+                <svg class="size-3.5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Hapus <span id="lead-bulk-delete-count">(0)</span> Lead Terpilih
+            </button>
+        </div>
+    </div>
+
     <!-- Tabel Data Leads Customer -->
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="overflow-x-auto">
@@ -214,7 +227,8 @@
                         <th class="px-3 py-3.5">Item</th>
                         <th class="px-3 py-3.5">Klasifikasi</th>
                         <th class="px-3 py-3.5">Ditetapkan</th>
-                        <th class="px-5 py-3.5">Status</th>
+                        <th class="px-4 py-3.5">Status</th>
+                        <th class="px-5 py-3.5 text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -227,6 +241,7 @@
                                     $leadPhoneValid = str_starts_with($leadPhoneDigits, '62') && strlen($leadPhoneDigits) >= 10 && strlen($leadPhoneDigits) <= 15;
                                 @endphp
                                 <input type="checkbox" name="prediction_ids[]" value="{{ $lead->prediction->id }}"
+                                    data-lead-id="{{ $lead->id }}"
                                     class="lead-checkbox size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                                     data-customer-name="{{ $lead->customer_vendor_name ?: 'Kaka' }}"
                                     data-item-name="{{ $lead->dscription ?: ($lead->item_code ?: 'produk') }}"
@@ -234,7 +249,13 @@
                                     aria-label="Pilih {{ $lead->customer_vendor_name ?: 'Kaka' }}"
                                     @disabled(! $leadPhoneValid)>
                             @else
-                                <span class="text-xs text-slate-400">-</span>
+                                <input type="checkbox"
+                                    data-lead-id="{{ $lead->id }}"
+                                    class="lead-checkbox size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                                    data-customer-name="{{ $lead->customer_vendor_name ?: 'Kaka' }}"
+                                    data-item-name="{{ $lead->dscription ?: ($lead->item_code ?: 'produk') }}"
+                                    data-customer-code="{{ $lead->customer_vendor_code }}"
+                                    aria-label="Pilih {{ $lead->customer_vendor_name ?: 'Kaka' }}">
                             @endif
                         </td>
                         <td class="px-5 py-4">
@@ -272,19 +293,76 @@
                         </td>
                         <td class="px-3 py-4"><span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold capitalize text-slate-700">{{ $lead->classification }}</span></td>
                         <td class="px-3 py-4 whitespace-nowrap text-slate-600">{{ $lead->assigned_at?->format('d M Y H:i') ?: '-' }}</td>
-                        <td class="px-5 py-4"><span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">Follow Up</span></td>
+                        <td class="px-4 py-4"><span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">Follow Up</span></td>
+                        <td class="px-5 py-4 text-center">
+                            <button type="button"
+                                onclick="confirmDeleteSingleLead('{{ $lead->id }}', '{{ addslashes($lead->customer_vendor_name ?: ($lead->customer_vendor_code ?: 'Lead')) }}')"
+                                class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50/70 px-2.5 py-1.5 text-xs font-bold text-rose-700 shadow-xs transition hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800"
+                                title="Hapus lead (kembali ke Master Customer)">
+                                <svg class="size-3.5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                                Hapus
+                            </button>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-5 py-12 text-center text-slate-500">Belum ada Leads Customer.</td></tr>
+                    <tr><td colspan="8" class="px-5 py-12 text-center text-slate-500">Belum ada Leads Customer.</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
     </section>
 </form>
+
+<form id="single-delete-lead-form" method="POST" action="" class="hidden">
+    @csrf
+    @method('DELETE')
+</form>
+
+<form id="bulk-delete-leads-form" method="POST" action="{{ route('leads.bulkDestroy') }}" class="hidden">
+    @csrf
+    @method('DELETE')
+</form>
+
 <div class="mt-4">{{ $leads->links() }}</div>
 
 <script>
+function confirmDeleteSingleLead(leadId, customerName) {
+    if (confirm(`Hapus lead "${customerName}"?\n\nData akan dihapus dari Leads Customer dan kembali ke Master Customer.`)) {
+        const form = document.getElementById('single-delete-lead-form');
+        form.action = `{{ url('/leads') }}/${leadId}`;
+        form.submit();
+    }
+}
+
+function confirmBulkDeleteLeads() {
+    const checked = [...document.querySelectorAll('.lead-checkbox:checked')];
+    if (checked.length === 0) return;
+
+    if (confirm(`Hapus ${checked.length} lead terpilih?\n\nData yang dihapus akan otomatis dikembalikan ke Master Customer.`)) {
+        const form = document.getElementById('bulk-delete-leads-form');
+        const csrfToken = '{{ csrf_token() }}';
+        form.innerHTML = `
+            <input type="hidden" name="_token" value="${csrfToken}">
+            <input type="hidden" name="_method" value="DELETE">
+        `;
+
+        checked.forEach(cb => {
+            const leadId = cb.getAttribute('data-lead-id');
+            if (leadId) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'lead_ids[]';
+                input.value = leadId;
+                form.appendChild(input);
+            }
+        });
+
+        form.submit();
+    }
+}
+
 function updateLeadMessagePreview() {
     const textarea = document.getElementById('lead-bulk-message');
     const bubbleText = document.getElementById('live-bubble-text');

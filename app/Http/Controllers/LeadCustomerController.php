@@ -152,4 +152,48 @@ class LeadCustomerController extends Controller
             $assigned.' pelanggan berhasil dipindahkan ke Leads Customer.',
         );
     }
+
+    public function destroy(Request $request, LeadCustomer $lead): RedirectResponse
+    {
+        if ((int) $lead->user_id !== (int) $request->user()->id && ! $request->user()->isSuperAdmin()) {
+            abort(403);
+        }
+
+        $customerName = $lead->customer_vendor_name ?: ($lead->customer_vendor_code ?: 'Lead');
+        $lead->delete();
+
+        return redirect()->route('leads.index')->with(
+            'success',
+            'Lead "'.$customerName.'" berhasil dihapus dan dikembalikan ke Master Customer.'
+        );
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'lead_ids' => ['required_without:prediction_ids', 'array'],
+            'lead_ids.*' => ['integer', 'exists:lead_customers,id'],
+            'prediction_ids' => ['required_without:lead_ids', 'array'],
+            'prediction_ids.*' => ['integer'],
+        ]);
+
+        $query = LeadCustomer::query();
+
+        if (! $request->user()->isSuperAdmin()) {
+            $query->where('user_id', $request->user()->id);
+        }
+
+        if (! empty($validated['lead_ids'])) {
+            $query->whereIn('id', $validated['lead_ids']);
+        } elseif (! empty($validated['prediction_ids'])) {
+            $query->whereIn('repeat_order_prediction_id', $validated['prediction_ids']);
+        }
+
+        $count = $query->delete();
+
+        return redirect()->route('leads.index')->with(
+            'success',
+            $count.' lead berhasil dihapus dan dikembalikan ke Master Customer.'
+        );
+    }
 }
