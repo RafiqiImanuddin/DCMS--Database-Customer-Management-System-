@@ -26,6 +26,10 @@
       "dest": "/favicon.ico"
     },
     {
+      "src": "/api/(.*)",
+      "dest": "/api/index.php"
+    },
+    {
       "src": "/(.*)",
       "dest": "/api/index.php"
     }
