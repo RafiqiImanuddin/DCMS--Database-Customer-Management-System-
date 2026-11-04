@@ -99,3 +99,4 @@
         <div class="truncate text-xs text-slate-400">{{ auth()->user()->email ?? '' }}</div>
     </div>
 </aside>
+

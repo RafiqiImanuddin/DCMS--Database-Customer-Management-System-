@@ -25,140 +25,141 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body class="min-h-screen bg-slate-950 text-slate-900">
+<body class="min-h-screen bg-slate-50 text-slate-900">
     <div class="flex min-h-screen">
         @include('layouts.sidebar')
         <div id="sidebar-overlay" class="fixed inset-0 z-30 hidden bg-slate-950/50 backdrop-blur-sm md:hidden"></div>
-        <div class="app-layout min-w-0 flex-1 bg-white overflow-x-hidden" id="dropZone">
-            <!-- Top Horizontal Navigation Header Bar (Persis Sesuai Mockup Gambar User) -->
-            <!-- Workspace Dark Capsule Header Bar (Sesuai Mockup Gambar User) -->
+        <div class="app-layout min-w-0 flex-1 bg-slate-50 overflow-x-hidden" id="dropZone">
+            <!-- Top Horizontal Navigation Header Bar (Harmonized with DCMS Tailwind Design) -->
             <header class="workspace-header-wrapper">
                 <div class="workspace-header-pill">
-                    <button id="sidebar-toggle" type="button" class="grid size-9 shrink-0 place-items-center rounded-xl border border-white/20 text-white md:hidden mr-2.5" aria-label="Buka menu">
-                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                    </button>
-                    <div class="header-pill-brand" onclick="switchTab(1)" title="Kembali ke Dashboard">
-                    <span class="brand-title-italic">Workspace Sosmed</span>
-                </div>
-
-                <nav class="header-pill-nav">
-                    <button type="button" class="nav-pill-btn active" id="tabBtn1"
-                        onclick="switchTab(1)">Dashboard</button>
-                    <button type="button" class="nav-pill-btn" id="tabBtn2" onclick="switchTab(2)">Report</button>
-                    <button type="button" class="nav-pill-btn" id="tabBtn3" onclick="switchTab(3)">Cek AR</button>
-                    <button type="button" class="nav-pill-btn" id="tabBtn4" onclick="switchTab(4)">Format Keep</button>
-                    <button type="button" class="nav-pill-btn" id="tabBtn5" onclick="switchTab(5)">Tracking AR</button>
-                    <button type="button" class="nav-pill-btn" id="tabBtn6" onclick="switchTab(6)">Klaim AR</button>
-                    <button type="button" class="nav-pill-btn nav-pill-preview" id="tabBtn9" onclick="switchTab(9)"
-                        title="Modul Baru: Omnichannel Chat & Follow-Up PIC (Preview)">
-                        <span class="preview-badge-dot"></span>
-                        <span>Inbox FU</span>
-                        <span class="preview-tag-pill">PREVIEW</span>
-                    </button>
-                </nav>
-
-                <div class="header-pill-actions">
-                    <!-- Quick Action Buttons: Turnover, Crosselling, Sync Sheets (Sesuai Permintaan User) -->
-                    <div class="header-pill-quick-actions">
-                        <button type="button" class="btn-header-quick"
-                            onclick="document.getElementById('fileInput').click()"
-                            title="Unggah / Update file Excel turnover.xlsx">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                            <span>Turnover</span>
+                    <div class="flex items-center gap-3">
+                        <button id="sidebar-toggle" type="button" class="grid size-9 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 md:hidden transition shadow-2xs" aria-label="Buka menu">
+                            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
-
-                        <button type="button" class="btn-header-quick"
-                            onclick="document.getElementById('crosellingFileInput').click()"
-                            title="Unggah / Update file Excel CROSSELLING-12102026.xlsx">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="16" y1="13" x2="8" y2="13"></line>
-                                <line x1="16" y1="17" x2="8" y2="17"></line>
-                            </svg>
-                            <span>Crosselling</span>
-                        </button>
-
-                        <button type="button" class="btn-header-quick btn-header-sync" id="headerBtnSyncSheets"
-                            onclick="syncLiveKeepData()" title="Sinkronkan data live terbaru dari Google Sheets">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="23 4 23 10 17 10"></polyline>
-                                <polyline points="1 20 1 14 7 14"></polyline>
-                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                            </svg>
-                            <span>Sync Sheets</span>
-                        </button>
+                        <div class="header-pill-brand" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(1)}else{switchTab(1)}" title="Kembali ke Dashboard">
+                            <span class="brand-title-italic">Workspace Sosmed</span>
+                        </div>
                     </div>
 
-                    <div class="header-action-separator"></div>
-
-                    <a href="{{ route('dashboard') }}" class="btn-pill-outline" style="background: rgba(225, 29, 72, 0.25); border-color: rgba(244, 63, 94, 0.6); color: #fff; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="Kembali ke Dashboard DCMS">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                        <span>Kembali ke DCMS</span>
-                    </a>
-
-                    <a href="https://wa.me/6289603864476?text=Halo%20Yahya,%20ada%20bug/ada%20trouble%20di%20Gadgetmart's%20Workspace.%20Tolong%20perbaiki%20segera."
-                        target="_blank" class="btn-pill-outline" title="Hubungi Yahya via WhatsApp">
-                        Hubungi Yahya
-                    </a>
-
-                    <div class="header-gear-dropdown-wrap">
-                        <button type="button" class="btn-pill-icon" id="headerGearBtn"
-                            onclick="toggleSettingsDropdown(event)" title="Pengaturan & Menu Tambahan">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="3"></circle>
-                                <path
-                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                                </path>
-                            </svg>
+                    <nav class="header-pill-nav">
+                        <button type="button" class="nav-pill-btn active" id="tabBtn1"
+                            onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(1)}else{switchTab(1)}">Dashboard</button>
+                        <button type="button" class="nav-pill-btn" id="tabBtn2" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2)}else{switchTab(2)}">Report</button>
+                        <button type="button" class="nav-pill-btn" id="tabBtn3" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(3)}else{switchTab(3)}">Cek AR</button>
+                        <button type="button" class="nav-pill-btn" id="tabBtn4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4)}else{switchTab(4)}">Format Keep</button>
+                        <button type="button" class="nav-pill-btn" id="tabBtn5" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(5)}else{switchTab(5)}">Tracking AR</button>
+                        <button type="button" class="nav-pill-btn" id="tabBtn6" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(6)}else{switchTab(6)}">Klaim AR</button>
+                        <button type="button" class="nav-pill-btn nav-pill-preview" id="tabBtn9" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(9)}else{switchTab(9)}"
+                            title="Modul Baru: Omnichannel Chat & Follow-Up PIC (Preview)">
+                            <span class="preview-badge-dot"></span>
+                            <span>Inbox FU</span>
+                            <span class="preview-tag-pill">PREVIEW</span>
                         </button>
-                        <div class="header-gear-dropdown" id="headerGearDropdown">
-                            <div class="dropdown-group-title">ADMINISTRASI & TOOLS</div>
-                            <button type="button" class="gear-dropdown-item" id="tabBtn8"
-                                onclick="switchTab(8); closeSettingsDropdown();">
-                                <span class="dropdown-icon">⚙️</span>
-                                <span class="dropdown-text">Pengaturan Admin</span>
+                    </nav>
+
+                    <div class="header-pill-actions">
+                        <!-- Quick Action Buttons: Turnover, Crosselling, Sync Sheets -->
+                        <div class="header-pill-quick-actions">
+                            <button type="button" class="btn-header-quick"
+                                onclick="document.getElementById('fileInput').click()"
+                                title="Unggah / Update file Excel turnover.xlsx">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <span>Turnover</span>
                             </button>
-                            <button type="button" class="gear-dropdown-item" id="tabBtn7"
-                                onclick="switchTab(7); closeSettingsDropdown();">
-                                <span class="dropdown-icon">📁</span>
-                                <span class="dropdown-text">Arsip Pencapaian Bulanan</span>
+
+                            <button type="button" class="btn-header-quick"
+                                onclick="document.getElementById('crosellingFileInput').click()"
+                                title="Unggah / Update file Excel CROSSELLING-12102026.xlsx">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                </svg>
+                                <span>Crosselling</span>
                             </button>
-                            <div class="dropdown-separator"></div>
-                            <button type="button" class="gear-dropdown-item"
-                                onclick="document.getElementById('fileInput').click(); closeSettingsDropdown();">
-                                <span class="dropdown-icon">📂</span>
-                                <span class="dropdown-text">Unggah File Turnover (.xlsx)</span>
+
+                            <button type="button" class="btn-header-quick btn-header-sync" id="headerBtnSyncSheets"
+                                onclick="syncLiveKeepData()" title="Sinkronkan data live terbaru dari Google Sheets">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="23 4 23 10 17 10"></polyline>
+                                    <polyline points="1 20 1 14 7 14"></polyline>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                </svg>
+                                <span>Sync Sheets</span>
                             </button>
-                            <button type="button" class="gear-dropdown-item" id="headerLoginBtn"
-                                onclick="openLoginModal(); closeSettingsDropdown();">
-                                <span class="dropdown-icon">🔐</span>
-                                <span class="dropdown-text">Login Akun Workspace</span>
+                        </div>
+
+                        <div class="header-action-separator"></div>
+
+                        <a href="{{ route('dashboard') }}" class="btn-pill-outline" title="Kembali ke Dashboard DCMS">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5m5 5H3m11 9h4a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3h-4"/></svg>
+                            <span class="hidden sm:inline">Kembali ke DCMS</span>
+                        </a>
+
+                        <a href="https://wa.me/6289603864476?text=Halo%20Yahya,%20ada%20bug/ada%20trouble%20di%20Gadgetmart's%20Workspace.%20Tolong%20perbaiki%20segera."
+                            target="_blank" class="btn-pill-outline hidden sm:inline-flex" title="Hubungi Yahya via WhatsApp" style="border-color: #a7f3d0; background: #ecfdf5; color: #047857 !important;">
+                            WA Yahya
+                        </a>
+
+                        <div class="header-gear-dropdown-wrap">
+                            <button type="button" class="btn-pill-icon" id="headerGearBtn"
+                                onclick="toggleSettingsDropdown(event)" title="Pengaturan & Menu Tambahan">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path
+                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                    </path>
+                                </svg>
                             </button>
-                            <a href="https://kandidatgadgetmart.my.id" target="_blank" class="gear-dropdown-item"
-                                style="text-decoration:none;">
-                                <span class="dropdown-icon">🚀</span>
-                                <span class="dropdown-text">Kandidat Gadgetmart</span>
-                                <span class="dropdown-ext-arrow">↗</span>
-                            </a>
+                            <div class="header-gear-dropdown" id="headerGearDropdown">
+                                <div class="dropdown-group-title">ADMINISTRASI & TOOLS</div>
+                                <button type="button" class="gear-dropdown-item" id="tabBtn8"
+                                    onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(8)}else{switchTab(8)}; closeSettingsDropdown();">
+                                    <span class="dropdown-icon">⚙️</span>
+                                    <span class="dropdown-text">Pengaturan Admin</span>
+                                </button>
+                                <button type="button" class="gear-dropdown-item" id="tabBtn7"
+                                    onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(7)}else{switchTab(7)}; closeSettingsDropdown();">
+                                    <span class="dropdown-icon">📁</span>
+                                    <span class="dropdown-text">Arsip Pencapaian Bulanan</span>
+                                </button>
+                                <div class="dropdown-separator"></div>
+                                <button type="button" class="gear-dropdown-item"
+                                    onclick="document.getElementById('fileInput').click(); closeSettingsDropdown();">
+                                    <span class="dropdown-icon">📂</span>
+                                    <span class="dropdown-text">Unggah File Turnover (.xlsx)</span>
+                                </button>
+                                <button type="button" class="gear-dropdown-item" id="headerLoginBtn"
+                                    onclick="openLoginModal(); closeSettingsDropdown();">
+                                    <span class="dropdown-icon">🔐</span>
+                                    <span class="dropdown-text">Login Akun Workspace</span>
+                                </button>
+                                <a href="https://kandidatgadgetmart.my.id" target="_blank" class="gear-dropdown-item"
+                                    style="text-decoration:none;">
+                                    <span class="dropdown-icon">🚀</span>
+                                    <span class="dropdown-text">Kandidat Gadgetmart</span>
+                                    <span class="dropdown-ext-arrow">↗</span>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="workspace-subbar">
-                <span class="subbar-label">Modul aktif:</span>
-                <span class="subbar-active-title" id="activeModuleName">Dashboard</span>
-            </div>
-        </header>
+                <div class="workspace-subbar">
+                    <span class="subbar-label">Modul aktif:</span>
+                    <span class="subbar-active-title" id="activeModuleName">Dashboard</span>
+                </div>
+            </header>
 
         <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none"
             onchange="handleTurnoverFileSelect(event)">
