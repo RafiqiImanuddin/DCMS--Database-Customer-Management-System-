@@ -70,7 +70,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/watzap/test-send', [WatzapSettingController::class, 'testSend'])->name('settings.watzap.test_send');
 
     // Modul Terintegrasi: Workspace Sosmed (Sosmed KPI, Report, Cek AR, Keep & Follow-Up)
-    Route::get('/workspace-sosmed', [WorkspaceSosmedController::class, 'index'])->name('workspace-sosmed.index');
+    Route::get('/workspace-sosmed/{token?}', [WorkspaceSosmedController::class, 'index'])->name('workspace-sosmed.index');
 });
 
 // Workspace Sosmed API Endpoints (REPORT Engine)

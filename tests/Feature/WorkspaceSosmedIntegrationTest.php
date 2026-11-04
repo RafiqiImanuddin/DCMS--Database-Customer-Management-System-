@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\WorkspaceUrlCipher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -33,7 +34,8 @@ class WorkspaceSosmedIntegrationTest extends TestCase
 
         $response = $this->actingAs($user)->get(route('dashboard'));
         $response->assertStatus(200);
-        $response->assertSee(route('workspace-sosmed.index', ['tab' => 1]));
+        $response->assertSee(WorkspaceUrlCipher::url(1));
+        $response->assertSee(WorkspaceUrlCipher::url(9));
         $response->assertSee('Workspace Sosmed');
         $response->assertSee('Dashboard Sosmed');
         $response->assertSee('Report Matrix');
@@ -42,6 +44,26 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $response->assertSee('Tracking AR');
         $response->assertSee('Klaim AR');
         $response->assertSee('Inbox Follow-Up');
+    }
+
+    public function test_raw_numeric_tab_redirects_to_encrypted_routing(): void
+    {
+        $user = User::factory()->create();
+
+        // /workspace-sosmed?tab=9 harus otomatis diredirect ke URL terenkripsi
+        $response = $this->actingAs($user)->get('/workspace-sosmed?tab=9');
+        $response->assertRedirect(WorkspaceUrlCipher::url(9));
+    }
+
+    public function test_encrypted_routing_renders_target_tab(): void
+    {
+        $user = User::factory()->create();
+
+        // Mengakses dengan URL terenkripsi
+        $response = $this->actingAs($user)->get(WorkspaceUrlCipher::url(9));
+        $response->assertStatus(200);
+        $response->assertSee('Workspace Sosmed');
+        $response->assertSee('Kembali ke DCMS');
     }
 
     public function test_database_status_api_endpoint(): void

@@ -2282,6 +2282,9 @@
 
   <script src="client.js?v=7.1"></script>
   <script>
+    window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
+    window.WORKSPACE_ACTIVE_TAB = {{ (int) ($activeTab ?? 1) }};
+
     function updateSidebarActiveTab(tabIndex) {
         document.querySelectorAll('.workspace-sidebar-link').forEach(link => {
             const isTarget = link.getAttribute('data-tab') == tabIndex;
@@ -2293,7 +2296,7 @@
         });
     }
 
-    // Intercept switchTab so ANY tab switch updates the DCMS sidebar instantly
+    // Intercept switchTab so ANY tab switch updates the DCMS sidebar & sets the encrypted URL parameter
     const origSwitchTab = window.switchTab;
     window.switchTab = function(tabIndex) {
         if (typeof origSwitchTab === 'function') {
@@ -2301,8 +2304,10 @@
         }
         updateSidebarActiveTab(tabIndex);
         try {
+            const token = (window.WORKSPACE_ROUTING_TOKENS && window.WORKSPACE_ROUTING_TOKENS[tabIndex]) ? window.WORKSPACE_ROUTING_TOKENS[tabIndex] : tabIndex;
             const url = new URL(window.location);
-            url.searchParams.set('tab', tabIndex);
+            url.searchParams.delete('v');
+            url.searchParams.set('tab', token);
             window.history.replaceState({}, '', url);
         } catch(e) {}
     };
@@ -2315,15 +2320,14 @@
     };
 
     window.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const requestedTab = parseInt(urlParams.get('tab'));
-        if (requestedTab && [1, 2, 3, 4, 5, 6, 7, 8, 9].includes(requestedTab)) {
-            setTimeout(() => {
-                window.switchWorkspaceTab(requestedTab);
-            }, 100);
-        } else {
-            updateSidebarActiveTab(1);
-        }
+        const initTab = window.WORKSPACE_ACTIVE_TAB || 1;
+        setTimeout(() => {
+            if (typeof window.switchWorkspaceTab === 'function') {
+                window.switchWorkspaceTab(initTab);
+            } else if (typeof window.switchTab === 'function') {
+                window.switchTab(initTab);
+            }
+        }, 100);
     });
   </script>
 </body>

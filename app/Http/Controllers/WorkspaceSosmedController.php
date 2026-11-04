@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\WatzapService;
+use App\Support\WorkspaceUrlCipher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -19,9 +20,22 @@ class WorkspaceSosmedController extends Controller
         $this->storagePath = public_path('workspace-sosmed');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        return view('workspace-sosmed.index');
+        // Enkripsi routing: Jika diakses dengan angka raw ?tab=9, otomatis redirect ke URL terenkripsi
+        $rawTab = $request->query('tab');
+        if ($rawTab !== null && is_numeric($rawTab) && (int) $rawTab >= 1 && (int) $rawTab <= 9) {
+            return redirect()->route('workspace-sosmed.index', [
+                'tab' => WorkspaceUrlCipher::encode((int) $rawTab),
+            ]);
+        }
+
+        $activeTab = WorkspaceUrlCipher::resolveTab($request);
+
+        return view('workspace-sosmed.index', [
+            'activeTab' => $activeTab,
+            'tabTokens' => WorkspaceUrlCipher::allTokens(),
+        ]);
     }
 
     public function databaseStatus(): JsonResponse
