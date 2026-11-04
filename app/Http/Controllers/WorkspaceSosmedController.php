@@ -350,6 +350,12 @@ class WorkspaceSosmedController extends Controller
         ]);
     }
 
+    public function watzapStatus(WatzapService $watzapService): JsonResponse
+    {
+        $status = $watzapService->getDeviceStatus('inbox');
+        return response()->json($status);
+    }
+
     public function watzapWebhook(Request $request): JsonResponse
     {
         $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';

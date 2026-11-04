@@ -45,6 +45,14 @@ class OmniInboxChatMediaTest extends TestCase
             'data' => [],
             'raw' => '',
         ]);
+        $mockWatzap->method('getDeviceStatus')->willReturn([
+            'configured' => true,
+            'status' => 'Online',
+            'online' => true,
+            'phone' => '6285111426699',
+            'account_name' => 'PIC CRM',
+            'package' => 'WatZap Premium',
+        ]);
 
         $this->app->instance(WatzapService::class, $mockWatzap);
     }
@@ -146,6 +154,16 @@ class OmniInboxChatMediaTest extends TestCase
         $this->assertEquals('document', $data['entry']['media_type']);
         $this->assertEquals('bukti_transfer.pdf', $data['entry']['filename']);
         $this->assertEquals('inbound', $data['entry']['direction']);
+    }
+
+    public function test_can_get_watzap_gateway_status(): void
+    {
+        $response = $this->actingAs($this->user)->getJson('/api/watzap-status');
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertArrayHasKey('configured', $data);
+        $this->assertArrayHasKey('online', $data);
+        $this->assertArrayHasKey('status', $data);
     }
 }
 

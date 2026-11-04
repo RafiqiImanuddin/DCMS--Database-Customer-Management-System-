@@ -8759,9 +8759,36 @@ function selectOmniPic(key) {
   }
 }
 
+let omniWaIsOnline = true;
+let omniWaStatusLastFetch = 0;
+
+async function fetchOmniWaStatus() {
+  const now = Date.now();
+  if (now - omniWaStatusLastFetch < 20000) return;
+  omniWaStatusLastFetch = now;
+  try {
+    const res = await fetch('/api/watzap-status');
+    if (res.ok) {
+      const data = await res.json();
+      omniWaIsOnline = !!(data.online || (data.status && data.status.toLowerCase() === 'online'));
+      const pill = document.getElementById('omniWaGatewayStatusPill');
+      if (pill) {
+        pill.className = 'omni-wa-status-pill ' + (omniWaIsOnline ? 'online' : 'offline');
+        pill.title = omniWaIsOnline ? 'WhatsApp Gateway Terhubung (Online)' : 'WhatsApp Gateway Terputus (Offline)';
+        pill.innerHTML = '<span class="omni-wa-status-dot ' + (omniWaIsOnline ? 'online' : 'offline') + '"></span>' +
+          '<span class="omni-wa-status-label">' + (omniWaIsOnline ? 'Online' : 'Offline') + '</span>';
+      }
+    }
+  } catch (e) {
+    console.debug('Gagal mengambil status watzap:', e);
+  }
+}
+
 function renderOmniActiveChat(pic) {
   const container = document.getElementById('omniChatViewContainer');
   if (!container) return;
+
+  fetchOmniWaStatus();
 
   const initial = (pic.picName || 'P').charAt(0).toUpperCase();
   const cleanWA = pic.picWA;
@@ -8858,18 +8885,10 @@ function renderOmniActiveChat(pic) {
       '</div>' +
     '</div>' +
     '<div class="omni-header-actions">' +
-      '<button type="button" class="omni-btn-simulate" onclick="openSimulateChatModal(\'' + cleanWA + '\', \'' + escapeHtml(pic.picName) + '\')" title="Simulasi Uji Coba Chat Masuk (Teks / Gambar / File)">' +
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
-        '<span>Simulasi Chat</span>' +
-      '</button>' +
-      '<button type="button" class="omni-btn-wa-direct" onclick="openWhatsAppChat(\'' + cleanWA + '\', \'' + escapeHtml(pic.picName) + '\')" title="Buka WhatsApp Web Langsung">' +
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
-        '<span>Buka WA Web</span>' +
-      '</button>' +
-      '<button type="button" class="omni-btn-resolve ' + (pic.isResolved ? 'is-resolved' : '') + '" onclick="handleOmniResolveClick(\'' + pic.key + '\')" title="Selesaikan chat jika semua format keep tgl 3 ke atas sudah diisi">' +
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
-        '<span>' + (pic.isResolved ? '✓ Resolved' : 'Resolve Chat') + '</span>' +
-      '</button>' +
+      '<div id="omniWaGatewayStatusPill" class="omni-wa-status-pill ' + (omniWaIsOnline ? 'online' : 'offline') + '" title="' + (omniWaIsOnline ? 'WhatsApp Gateway Terhubung (Online)' : 'WhatsApp Gateway Terputus (Offline)') + '">' +
+        '<span class="omni-wa-status-dot ' + (omniWaIsOnline ? 'online' : 'offline') + '"></span>' +
+        '<span class="omni-wa-status-label">' + (omniWaIsOnline ? 'Online' : 'Offline') + '</span>' +
+      '</div>' +
     '</div>' +
   '</div>' +
   '<div class="omni-messages-stream" id="omniMessagesStream">' +
@@ -9420,6 +9439,16 @@ function renderOmniKeepPanel(pic) {
       '</button>' +
       '<button type="button" class="omni-subtab-btn ' + (selectedOmniKeepSubTab === 'RESOLVED' ? 'active' : '') + '" onclick="setOmniKeepSubTab(\'RESOLVED\')">' +
         'Selesai (' + resolvedKeeps.length + ')' +
+      '</button>' +
+    '</div>' +
+    '<div style="display:flex; gap:6px; margin-top:8px;">' +
+      '<button type="button" class="omni-btn-wa-direct" style="flex:1; justify-content:center; height:28px; font-size:11px;" onclick="openWhatsAppChat(\'' + cleanPhoneDigits(pic.picWA) + '\', \'' + escapeHtml(pic.picName) + '\')" title="Buka WhatsApp Web">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
+        '<span>Buka WA Web</span>' +
+      '</button>' +
+      '<button type="button" class="omni-btn-resolve ' + (pic.isResolved ? 'is-resolved' : '') + '" style="flex:1; justify-content:center; height:28px; font-size:11px;" onclick="handleOmniResolveClick(\'' + pic.key + '\')" title="Selesaikan chat jika format keep selesai">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+        '<span>' + (pic.isResolved ? '✓ Resolved' : 'Resolve') + '</span>' +
       '</button>' +
     '</div>' +
   '</div>' +

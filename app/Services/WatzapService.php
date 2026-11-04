@@ -428,7 +428,8 @@ class WatzapService
             $json = $response->json();
             $status = (string) ($json['status'] ?? $response->status());
             $ack = strtolower((string) ($json['ack'] ?? ''));
-            $isSuccess = ($status === '200' || $ack === 'successfully');
+            $rawMsg = strtolower((string) ($json['message'] ?? ''));
+            $isSuccess = ($status === '200' || $status === '1' || ($json['status'] ?? null) === true || $ack === 'successfully' || $rawMsg === 'successfully');
             $msg = (string) ($json['message'] ?? ($isSuccess ? 'API Key valid' : 'API Key tidak valid'));
 
             return [
@@ -481,22 +482,19 @@ class WatzapService
         $data = $check['data']['data'] ?? $check['data'] ?? [];
 
         $accountData = $data['account'] ?? [];
-        $accountName = is_array($accountData)
-            ? ($accountData['name'] ?? $accountData['email'] ?? '-')
-            : ($data['account_name'] ?? $data['name'] ?? '-');
+        $accountName = $data['name'] ?? ($accountData['name'] ?? $accountData['email'] ?? $data['account_name'] ?? '-');
 
         $packageData = $data['package'] ?? [];
-        $packageName = is_array($packageData)
-            ? ($packageData['name'] ?? $packageData['status'] ?? '-')
-            : ($data['package_name'] ?? $data['package'] ?? '-');
+        $packageName = $data['plan'] ?? ($packageData['name'] ?? $packageData['status'] ?? $data['package_name'] ?? '-');
 
-        $senders = $data['senders'] ?? [];
+        $senders = $data['licenses_key'] ?? $data['senders'] ?? [];
         $currentNumberKey = $this->getNumberKey($channel);
 
         $senderMatch = null;
         if (is_array($senders)) {
             foreach ($senders as $s) {
-                if (($s['number_key'] ?? '') === $currentNumberKey) {
+                $key = (string) ($s['key'] ?? $s['number_key'] ?? '');
+                if ($key !== '' && $key === $currentNumberKey) {
                     $senderMatch = $s;
                     break;
                 }
@@ -506,9 +504,10 @@ class WatzapService
             }
         }
 
-        $senderStatus = (string) ($senderMatch['status'] ?? 'Belum Terhubung');
-        $isOnline = strcasecmp($senderStatus, 'online') === 0;
-        $phone = (string) ($senderMatch['sender_number'] ?? $senderMatch['phone_number'] ?? $senderMatch['phone'] ?? '-');
+        $isConnected = isset($senderMatch['is_connected']) ? (bool) $senderMatch['is_connected'] : null;
+        $senderStatus = (string) ($senderMatch['status'] ?? ($isConnected ? 'Online' : 'Offline'));
+        $isOnline = $isConnected === true || strcasecmp($senderStatus, 'online') === 0;
+        $phone = (string) ($senderMatch['wa_number'] ?? $senderMatch['sender_number'] ?? $senderMatch['phone_number'] ?? $senderMatch['phone'] ?? '-');
 
         return [
             'configured' => true,
