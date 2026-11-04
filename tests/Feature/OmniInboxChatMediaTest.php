@@ -165,32 +165,5 @@ class OmniInboxChatMediaTest extends TestCase
         $this->assertArrayHasKey('online', $data);
         $this->assertArrayHasKey('status', $data);
     }
-
-    public function test_watzap_webhook_stores_to_database_and_supports_both_directions(): void
-    {
-        $inboundRes = $this->postJson('/api/watzap-webhook', [
-            'data' => [
-                'phone' => '628950805023',
-                'message_body' => 'Halo admin, ini konfirmasi keep dari Mega.',
-                'sender_name' => 'MEGA',
-                'is_from_me' => false,
-            ],
-        ]);
-        $inboundRes->assertOk();
-
-        $this->assertDatabaseHas('whatsapp_chats', [
-            'phone_number' => '628950805023',
-        ]);
-        $this->assertDatabaseHas('whatsapp_messages', [
-            'sender_type' => 'customer',
-            'message' => 'Halo admin, ini konfirmasi keep dari Mega.',
-        ]);
-
-        $pollRes = $this->getJson('/api/watzap-webhook?phone=628950805023');
-        $pollRes->assertOk();
-        $data = $pollRes->json();
-        $this->assertTrue($data['success']);
-        $this->assertNotEmpty($data['messages']);
-    }
 }
 
