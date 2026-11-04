@@ -28,13 +28,13 @@
 <body class="min-h-screen bg-slate-50 text-slate-900">
     <div class="flex min-h-screen">
         @include('layouts.sidebar')
-        <div id="sidebar-overlay" class="fixed inset-0 z-30 hidden bg-slate-950/50 backdrop-blur-sm md:hidden"></div>
+        <div id="sidebar-overlay" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar(false)}" class="fixed inset-0 z-30 hidden bg-slate-950/50 backdrop-blur-sm md:hidden"></div>
         <div class="app-layout min-w-0 flex-1 bg-slate-50 overflow-x-hidden" id="dropZone">
             <!-- Top Horizontal Navigation Header Bar (Harmonized with DCMS Tailwind Design) -->
             <header class="workspace-header-wrapper">
                 <div class="workspace-header-pill">
                     <div class="flex items-center gap-3">
-                        <button id="sidebar-toggle" type="button" class="grid size-9 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 md:hidden transition shadow-2xs" aria-label="Buka menu">
+                        <button id="sidebar-toggle" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar()}" type="button" class="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 md:hidden transition shadow-2xs" aria-label="Buka menu">
                             <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
                         <div class="header-pill-brand" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(1)}else{switchTab(1)}" title="Kembali ke Dashboard">
@@ -2287,11 +2287,14 @@
         document.querySelectorAll('.workspace-sidebar-link').forEach(link => {
             const isTarget = link.getAttribute('data-tab') == tabIndex;
             if (isTarget) {
-                link.className = 'workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2 font-medium transition bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/20 font-bold';
+                link.className = 'workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition bg-brand-600 text-white shadow-lg shadow-brand-600/20';
             } else {
-                link.className = 'workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2 font-medium transition text-slate-300 hover:bg-white/10 hover:text-white';
+                link.className = 'workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition text-slate-300 hover:bg-white/10 hover:text-white';
             }
         });
+        if (window.innerWidth < 768 && typeof window.toggleDcmsSidebar === 'function') {
+            window.toggleDcmsSidebar(false);
+        }
         const url = new URL(window.location);
         url.searchParams.set('tab', tabIndex);
         window.history.pushState({}, '', url);
