@@ -307,15 +307,15 @@ class WorkspaceSosmedController extends Controller
             $mediaType = in_array($pathExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : 'document';
         }
 
-        // Kirim via WatzapService
+        // Kirim via WatzapService (channel inbox follow-up)
         if ($mediaUrl) {
             if ($mediaType === 'image') {
-                $result = $watzapService->sendImage($rawPhone, $mediaUrl, $message ?: null);
+                $result = $watzapService->sendImage($rawPhone, $mediaUrl, $message ?: null, 'inbox');
             } else {
-                $result = $watzapService->sendFile($rawPhone, $mediaUrl, $message ?: null);
+                $result = $watzapService->sendFile($rawPhone, $mediaUrl, $message ?: null, 'inbox');
             }
         } else {
-            $result = $watzapService->sendMessage($rawPhone, $message);
+            $result = $watzapService->sendMessage($rawPhone, $message, 'inbox');
         }
 
         // Catat ke pesan keluar lokal

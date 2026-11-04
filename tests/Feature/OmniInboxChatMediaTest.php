@@ -148,3 +148,4 @@ class OmniInboxChatMediaTest extends TestCase
         $this->assertEquals('inbound', $data['entry']['direction']);
     }
 }
+

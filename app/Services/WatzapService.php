@@ -8,13 +8,33 @@ use Throwable;
 
 class WatzapService
 {
-    public function getApiKey(): string
+    public function getApiKey(?string $channel = null): string
     {
+        if ($channel === 'inbox' || $channel === 'inbox_fu') {
+            $same = Setting::get('watzap_inbox_same_as_broadcast', '1');
+            if ($same !== '1') {
+                $inboxKey = trim((string) Setting::get('watzap_inbox_api_key', ''));
+                if ($inboxKey !== '') {
+                    return $inboxKey;
+                }
+            }
+        }
+
         return trim((string) Setting::get('watzap_api_key', (string) config('services.watzap.api_key', '')));
     }
 
-    public function getNumberKey(): string
+    public function getNumberKey(?string $channel = null): string
     {
+        if ($channel === 'inbox' || $channel === 'inbox_fu') {
+            $same = Setting::get('watzap_inbox_same_as_broadcast', '1');
+            if ($same !== '1') {
+                $inboxNum = trim((string) Setting::get('watzap_inbox_number_key', ''));
+                if ($inboxNum !== '') {
+                    return $inboxNum;
+                }
+            }
+        }
+
         return trim((string) Setting::get('watzap_number_key', (string) config('services.watzap.number_key', '')));
     }
 
@@ -30,9 +50,9 @@ class WatzapService
         return $custom !== '' ? $custom : (string) config('services.watzap.web_url', 'https://watzap.chat');
     }
 
-    public function isConfigured(): bool
+    public function isConfigured(?string $channel = null): bool
     {
-        return $this->getApiKey() !== '' && $this->getNumberKey() !== '';
+        return $this->getApiKey($channel) !== '' && $this->getNumberKey($channel) !== '';
     }
 
     public function normalizePhone(?string $phone): ?string
@@ -64,9 +84,9 @@ class WatzapService
      *
      * @return array{success: bool, message: string, status: string, data: array, raw: string}
      */
-    public function sendMessage(string $rawPhone, string $message): array
+    public function sendMessage(string $rawPhone, string $message, ?string $channel = null): array
     {
-        if (! $this->isConfigured()) {
+        if (! $this->isConfigured($channel)) {
             return [
                 'success' => false,
                 'message' => 'WatZap belum dikonfigurasi. Silakan lengkapi API Key dan Number Key di halaman Setup WhatsApp.',
@@ -93,8 +113,8 @@ class WatzapService
                 ->asJson()
                 ->acceptJson()
                 ->post($url, [
-                    'api_key' => $this->getApiKey(),
-                    'number_key' => $this->getNumberKey(),
+                    'api_key' => $this->getApiKey($channel),
+                    'number_key' => $this->getNumberKey($channel),
                     'phone_no' => $phone,
                     'message' => $message,
                 ]);
@@ -150,9 +170,9 @@ class WatzapService
      *
      * @return array{success: bool, message: string, status: string, data: array, raw: string}
      */
-    public function sendFile(string $rawPhone, string $fileUrl, ?string $caption = null): array
+    public function sendFile(string $rawPhone, string $fileUrl, ?string $caption = null, ?string $channel = null): array
     {
-        if (! $this->isConfigured()) {
+        if (! $this->isConfigured($channel)) {
             return [
                 'success' => false,
                 'message' => 'WatZap belum dikonfigurasi. Silakan lengkapi API Key dan Number Key di halaman Setup WhatsApp.',
@@ -176,8 +196,8 @@ class WatzapService
         try {
             $url = $this->getBaseUrl().'/send_file_url';
             $payload = [
-                'api_key' => $this->getApiKey(),
-                'number_key' => $this->getNumberKey(),
+                'api_key' => $this->getApiKey($channel),
+                'number_key' => $this->getNumberKey($channel),
                 'phone_no' => $phone,
                 'url' => $fileUrl,
             ];
@@ -222,9 +242,9 @@ class WatzapService
      *
      * @return array{success: bool, message: string, status: string, data: array, raw: string}
      */
-    public function sendImage(string $rawPhone, string $imageUrl, ?string $caption = null): array
+    public function sendImage(string $rawPhone, string $imageUrl, ?string $caption = null, ?string $channel = null): array
     {
-        if (! $this->isConfigured()) {
+        if (! $this->isConfigured($channel)) {
             return [
                 'success' => false,
                 'message' => 'WatZap belum dikonfigurasi. Silakan lengkapi API Key dan Number Key di halaman Setup WhatsApp.',
@@ -248,8 +268,8 @@ class WatzapService
         try {
             $url = $this->getBaseUrl().'/send_image_url';
             $payload = [
-                'api_key' => $this->getApiKey(),
-                'number_key' => $this->getNumberKey(),
+                'api_key' => $this->getApiKey($channel),
+                'number_key' => $this->getNumberKey($channel),
                 'phone_no' => $phone,
                 'url' => $imageUrl,
             ];
@@ -432,9 +452,9 @@ class WatzapService
     /**
      * Get summary status of the current sender device.
      */
-    public function getDeviceStatus(): array
+    public function getDeviceStatus(?string $channel = null): array
     {
-        if (! $this->isConfigured()) {
+        if (! $this->isConfigured($channel)) {
             return [
                 'configured' => false,
                 'status' => 'Belum Dikonfigurasi',
@@ -445,7 +465,7 @@ class WatzapService
             ];
         }
 
-        $check = $this->checkingKey();
+        $check = $this->checkingKey($this->getApiKey($channel));
         if (! $check['success']) {
             return [
                 'configured' => true,
@@ -471,7 +491,7 @@ class WatzapService
             : ($data['package_name'] ?? $data['package'] ?? '-');
 
         $senders = $data['senders'] ?? [];
-        $currentNumberKey = $this->getNumberKey();
+        $currentNumberKey = $this->getNumberKey($channel);
 
         $senderMatch = null;
         if (is_array($senders)) {

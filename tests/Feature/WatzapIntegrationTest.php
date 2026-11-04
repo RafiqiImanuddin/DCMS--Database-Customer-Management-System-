@@ -238,4 +238,39 @@ class WatzapIntegrationTest extends TestCase
         $this->assertTrue($result['is_valid']);
         $this->assertEquals('200', $result['status']);
     }
+
+    public function test_superadmin_can_update_inbox_follow_up_settings(): void
+    {
+        $superadmin = User::factory()->create(['role' => 'superadmin']);
+
+        $response = $this->actingAs($superadmin)->post(route('settings.watzap.update'), [
+            'target_tab' => 'inbox',
+            'watzap_inbox_same_as_broadcast' => '0',
+            'watzap_inbox_api_key' => 'inbox_api_secret_789',
+            'watzap_inbox_number_key' => 'inbox_num_device_999',
+        ]);
+
+        $response->assertRedirect(route('settings.watzap.index', ['tab' => 'inbox']));
+        $response->assertSessionHas('success');
+
+        $this->assertEquals('0', Setting::get('watzap_inbox_same_as_broadcast'));
+        $this->assertEquals('inbox_api_secret_789', Setting::get('watzap_inbox_api_key'));
+        $this->assertEquals('inbox_num_device_999', Setting::get('watzap_inbox_number_key'));
+
+        $service = app(WatzapService::class);
+        $this->assertEquals('inbox_api_secret_789', $service->getApiKey('inbox'));
+        $this->assertEquals('inbox_num_device_999', $service->getNumberKey('inbox'));
+    }
+
+    public function test_sidebar_displays_setting_category_with_setup_whatsapp(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+        $response->assertOk();
+        $response->assertSee('Customer & Outreach', false);
+        $response->assertSee('Workspace Sosmed');
+        $response->assertSee('Setting');
+        $response->assertSee('Setup WhatsApp');
+    }
 }
