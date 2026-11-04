@@ -42,22 +42,6 @@
                         </div>
                     </div>
 
-                    <nav class="header-pill-nav">
-                        <button type="button" class="nav-pill-btn active" id="tabBtn1"
-                            onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(1)}else{switchTab(1)}">Dashboard</button>
-                        <button type="button" class="nav-pill-btn" id="tabBtn2" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2)}else{switchTab(2)}">Report</button>
-                        <button type="button" class="nav-pill-btn" id="tabBtn3" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(3)}else{switchTab(3)}">Cek AR</button>
-                        <button type="button" class="nav-pill-btn" id="tabBtn4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4)}else{switchTab(4)}">Format Keep</button>
-                        <button type="button" class="nav-pill-btn" id="tabBtn5" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(5)}else{switchTab(5)}">Tracking AR</button>
-                        <button type="button" class="nav-pill-btn" id="tabBtn6" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(6)}else{switchTab(6)}">Klaim AR</button>
-                        <button type="button" class="nav-pill-btn nav-pill-preview" id="tabBtn9" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(9)}else{switchTab(9)}"
-                            title="Modul Baru: Omnichannel Chat & Follow-Up PIC (Preview)">
-                            <span class="preview-badge-dot"></span>
-                            <span>Inbox FU</span>
-                            <span class="preview-tag-pill">PREVIEW</span>
-                        </button>
-                    </nav>
-
                     <div class="header-pill-actions">
                         <!-- Quick Action Buttons: Turnover, Crosselling, Sync Sheets -->
                         <div class="header-pill-quick-actions">
