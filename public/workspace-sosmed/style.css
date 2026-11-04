@@ -453,8 +453,8 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .subbar-active-title {
-  color: #ffffff;
-  font-weight: 700;
+  color: #0f172a;
+  font-weight: 800;
   letter-spacing: -0.01em;
 }
 
@@ -5498,8 +5498,12 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .omni-chat-card.active {
-  background: #f1f5f9;
-  border-left: 3px solid #0f172a;
+  background: #eff6ff;
+  border-left: 3px solid #2563eb;
+}
+
+.omni-chat-card.active .omni-card-name {
+  color: #1d4ed8;
 }
 
 .omni-card-check {
@@ -5664,20 +5668,24 @@ h1, h2, h3, h4, h5, h6,
 
 /* WhatsApp Roomchat Header */
 .omni-chatview-header {
-  height: 54px;
-  min-height: 54px;
+  height: 56px;
+  min-height: 56px;
   padding: 0 16px;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   background: #ffffff;
+  box-sizing: border-box;
 }
 
 .omni-header-contact {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  flex: 1;
 }
 
 .omni-header-avatar {
@@ -5693,11 +5701,13 @@ h1, h2, h3, h4, h5, h6,
   font-weight: 800;
   border: 1px solid #e2e8f0;
   position: relative;
+  flex-shrink: 0;
 }
 
 .omni-header-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .omni-header-name {
@@ -5707,6 +5717,10 @@ h1, h2, h3, h4, h5, h6,
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
 }
 
 .omni-badge-fu-tag {
@@ -5717,6 +5731,7 @@ h1, h2, h3, h4, h5, h6,
   border-radius: 4px;
   font-size: 0.60rem;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .omni-header-meta {
@@ -5725,6 +5740,9 @@ h1, h2, h3, h4, h5, h6,
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .omni-dot-online {
@@ -5733,31 +5751,38 @@ h1, h2, h3, h4, h5, h6,
   border-radius: 50%;
   background: #22c55e;
   display: inline-block;
+  flex-shrink: 0;
 }
 
 .omni-header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .omni-btn-wa-direct {
   background: #00a884;
   color: #ffffff;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.74rem;
+  border: 1px solid #00a884;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
 }
 
 .omni-btn-wa-direct:hover {
   background: #008f6f;
+  border-color: #008f6f;
 }
 
 /* WhatsApp Messages Stream */
@@ -5984,14 +6009,15 @@ h1, h2, h3, h4, h5, h6,
 
 /* 4. DEDICATED PANEL: FORMAT KEEP & UPDATE FEEDBACK */
 .omni-col-details {
-  width: 320px;
-  min-width: 300px;
+  width: 330px;
+  min-width: 310px;
+  max-width: 380px;
   background: #ffffff;
   border-left: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
-  padding: 14px;
-  overflow-y: auto;
+  padding: 0;
+  overflow: hidden;
 }
 
 .omni-keep-panel-header {
@@ -6429,16 +6455,20 @@ h1, h2, h3, h4, h5, h6,
    ========================================================================== */
 .omni-btn-resolve {
   background: #ffffff;
-  border: 1px solid #10b981;
+  border: 1.5px solid #10b981;
   color: #059669;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
   transition: all 0.15s ease;
 }
 
@@ -6590,11 +6620,126 @@ h1, h2, h3, h4, h5, h6,
 /* ==========================================================================
    MODERN FORMAT KEEP PANEL (PURPLE BOX OVERHAUL)
    ========================================================================== */
+.omni-details-top {
+  padding: 14px 16px 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.omni-details-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.omni-details-heading {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.omni-keep-counter-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.omni-keep-counter-badge.zero {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.omni-keep-subtabs {
+  display: flex;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.omni-subtab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.omni-subtab-btn:hover {
+  color: #0f172a;
+}
+
+.omni-subtab-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
 .omni-details-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-bottom: 24px;
+  background: #f8fafc;
+}
+
+.omni-keep-empty-box {
+  padding: 36px 16px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  margin-top: 10px;
+}
+
+.omni-keep-empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.omni-keep-empty-title {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.omni-keep-empty-desc {
+  font-size: 0.74rem;
+  color: #64748b;
+  line-height: 1.45;
+  max-width: 240px;
 }
 
 .omni-keep-card-modern {
@@ -6937,22 +7082,26 @@ h1, h2, h3, h4, h5, h6,
 
 /* Simulate Button in Header */
 .omni-btn-simulate {
-  background: #f1f5f9;
+  background: #f8fafc;
   border: 1px solid #cbd5e1;
   color: #334155;
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .omni-btn-simulate:hover {
-  background: #e2e8f0;
+  background: #f1f5f9;
   color: #0f172a;
   border-color: #94a3b8;
 }

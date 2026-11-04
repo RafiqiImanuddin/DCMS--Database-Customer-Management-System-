@@ -8847,8 +8847,8 @@ function renderOmniActiveChat(pic) {
         '<span class="omni-badge-wa-dot"></span>' +
       '</div>' +
       '<div class="omni-header-info">' +
-        '<div class="omni-header-name">' +
-          '<span>' + escapeHtml(pic.picName) + '</span>' +
+        '<div class="omni-header-name" title="' + escapeHtml(pic.picName) + '">' +
+          '<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;">' + escapeHtml(pic.picName) + '</span>' +
           '<span class="omni-badge-fu-tag">' + escapeHtml(pic.cabang) + '</span>' +
         '</div>' +
         '<div class="omni-header-meta">' +
@@ -8857,14 +8857,14 @@ function renderOmniActiveChat(pic) {
         '</div>' +
       '</div>' +
     '</div>' +
-    '<div class="omni-header-actions" style="display: flex; align-items: center; gap: 8px;">' +
+    '<div class="omni-header-actions">' +
       '<button type="button" class="omni-btn-simulate" onclick="openSimulateChatModal(\'' + cleanWA + '\', \'' + escapeHtml(pic.picName) + '\')" title="Simulasi Uji Coba Chat Masuk (Teks / Gambar / File)">' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
-        '<span>Simulasi Terima Chat</span>' +
+        '<span>Simulasi Chat</span>' +
       '</button>' +
       '<button type="button" class="omni-btn-wa-direct" onclick="openWhatsAppChat(\'' + cleanWA + '\', \'' + escapeHtml(pic.picName) + '\')" title="Buka WhatsApp Web Langsung">' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
-        '<span>Buka WhatsApp Web</span>' +
+        '<span>Buka WA Web</span>' +
       '</button>' +
       '<button type="button" class="omni-btn-resolve ' + (pic.isResolved ? 'is-resolved' : '') + '" onclick="handleOmniResolveClick(\'' + pic.key + '\')" title="Selesaikan chat jika semua format keep tgl 3 ke atas sudah diisi">' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
@@ -9342,10 +9342,20 @@ function renderOmniKeepPanel(pic) {
   ];
 
   const cardsMarkup = displayKeeps.length === 0 ? (
-    '<div style="padding: 36px 14px; text-align: center; color: #64748b; font-size: 0.78rem; line-height: 1.5;">' +
-      (selectedOmniKeepSubTab === 'PENDING'
-        ? '✨ Semua format keep tanggal 3 ke atas untuk PIC ini sudah diisi feedback & statusnya!'
-        : 'Belum ada format keep yang selesai.') +
+    '<div class="omni-keep-empty-box">' +
+      '<div class="omni-keep-empty-icon">' +
+        (selectedOmniKeepSubTab === 'PENDING'
+          ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+          : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>') +
+      '</div>' +
+      '<div class="omni-keep-empty-title">' +
+        (selectedOmniKeepSubTab === 'PENDING' ? 'Semua Format Keep Selesai' : 'Belum Ada yang Selesai') +
+      '</div>' +
+      '<div class="omni-keep-empty-desc">' +
+        (selectedOmniKeepSubTab === 'PENDING'
+          ? 'Semua format keep tanggal 3 ke atas untuk PIC ini sudah diisi feedback & statusnya.'
+          : 'Format keep yang sudah disimpan feedbacknya akan muncul di sini.') +
+      '</div>' +
     '</div>'
   ) : displayKeeps.map(function(k) {
     const curStatus = k.status || 'BELUM DIINPUT';
