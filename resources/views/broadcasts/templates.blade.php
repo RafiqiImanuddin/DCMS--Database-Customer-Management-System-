@@ -121,10 +121,10 @@
                 <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
                     <span>Diperbarui: {{ $template->updated_at->format('d M Y H:i') }}</span>
                     <div class="flex items-center gap-2">
-                        <form method="POST" action="{{ route('broadcasts.templates.destroy', $template) }}" onsubmit="return confirm('Hapus template ini?')">
+                        <form method="POST" action="{{ route('broadcasts.templates.destroy', $template) }}">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition">
+                            <button type="button" onclick="confirmForm(this, { title: 'Hapus Template Pesan?', message: 'Template pesan ini akan dihapus secara permanen dari sistem.', itemName: '{{ addslashes($template->title) }}' })" class="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition">
                                 Hapus
                             </button>
                         </form>

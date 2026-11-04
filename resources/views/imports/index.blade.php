@@ -77,10 +77,10 @@
                     <td class="px-3 py-4 text-right font-semibold text-red-600">{{ number_format($import->failed_count) }}</td>
                     <td class="px-3 py-4 whitespace-nowrap text-slate-600">{{ $import->created_at?->format('d M Y H:i') }}</td>
                     <td class="px-5 py-4 text-center">
-                        <form method="POST" action="{{ route('imports.destroy', ['import' => $import->id]) }}" onsubmit="return confirm('Hapus import dan semua data terkait?')">
+                        <form method="POST" action="{{ route('imports.destroy', ['import' => $import->id]) }}">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Hapus</button>
+                            <button type="button" onclick="confirmForm(this, { title: 'Hapus Import Data?', message: 'Data riwayat import ini beserta seluruh catatan terkait akan dihapus secara permanen.', itemName: 'Import #{{ $import->id }} ({{ $import->file_name }})' })" class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 transition">Hapus</button>
                         </form>
                     </td>
                 </tr>

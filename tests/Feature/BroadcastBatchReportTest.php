@@ -212,3 +212,4 @@ class BroadcastBatchReportTest extends TestCase
         $this->assertDatabaseMissing('broadcast_reports', ['id' => $report->id]);
     }
 }
+

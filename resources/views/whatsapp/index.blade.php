@@ -434,7 +434,7 @@
             <!-- Block Customer Button -->
             <form method="POST" action="{{ route('whatsapp.block', $activeChat->id) }}">
                 @csrf
-                <button type="submit" onclick="return confirm('Apakah Anda yakin ingin memblokir customer ini?')" class="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50/60 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition">
+                <button type="button" onclick="confirmForm(this, { title: 'Blokir Customer Ini?', message: 'Customer ini akan diblokir dari antrean interaksi percakapan.', confirmText: 'Ya, Blokir Customer', type: 'warning' })" class="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50/60 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition">
                     <svg class="size-3.5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
                     Block Customer
                 </button>

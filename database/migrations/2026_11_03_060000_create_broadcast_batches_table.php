@@ -82,3 +82,4 @@ return new class extends Migration
         Schema::dropIfExists('broadcast_batches');
     }
 };
+

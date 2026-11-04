@@ -36,10 +36,10 @@
             Download Excel Batch (.xlsx)
         </a>
 
-        <form method="POST" action="{{ route('broadcasts.batches.destroy', $batch) }}" onsubmit="return confirm('Hapus seluruh riwayat batch broadcast ini?')">
+        <form method="POST" action="{{ route('broadcasts.batches.destroy', $batch) }}">
             @csrf
             @method('DELETE')
-            <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3.5 py-2.5 text-xs font-bold text-red-600 shadow-xs transition hover:bg-red-50 hover:border-red-300">
+            <button type="button" onclick="confirmForm(this, { title: 'Hapus Seluruh Batch?', message: 'Seluruh riwayat pengiriman pesan pada batch ini akan dihapus permanen dari laporan.', itemName: '{{ addslashes($batch->title) }} ({{ $batch->total_recipients }} pesan)' })" class="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3.5 py-2.5 text-xs font-bold text-red-600 shadow-xs transition hover:bg-red-50 hover:border-red-300">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 Hapus Batch
             </button>
@@ -161,10 +161,10 @@
                         <div class="line-clamp-2 text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{{ $report->message }}</div>
                     </td>
                     <td class="px-5 py-4 text-right">
-                        <form method="POST" action="{{ route('broadcasts.destroy', $report) }}" onsubmit="return confirm('Hapus pesan pelanggan ini dari laporan?')">
+                        <form method="POST" action="{{ route('broadcasts.destroy', $report) }}">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="rounded p-1 text-slate-400 hover:text-red-600 transition" title="Hapus">
+                            <button type="button" onclick="confirmForm(this, { title: 'Hapus Penerima?', message: 'Hapus pesan pelanggan ini dari laporan batch.', itemName: '{{ addslashes($report->customer_vendor_code) }} ({{ $report->phone_number }})' })" class="rounded p-1 text-slate-400 hover:text-red-600 transition" title="Hapus">
                                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
                         </form>
@@ -180,3 +180,4 @@
 <div class="mt-4">{{ $reports->links() }}</div>
 
 @endsection
+

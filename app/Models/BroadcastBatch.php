@@ -42,3 +42,4 @@ class BroadcastBatch extends Model
         return $this->hasMany(BroadcastReport::class, 'broadcast_batch_id');
     }
 }
+
