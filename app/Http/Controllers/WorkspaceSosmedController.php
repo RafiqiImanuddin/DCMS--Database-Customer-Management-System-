@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BroadcastMedia;
 use App\Services\WatzapService;
 use App\Support\WorkspaceUrlCipher;
 use Illuminate\Http\JsonResponse;
@@ -262,26 +263,80 @@ class WorkspaceSosmedController extends Controller
     public function watzapSend(Request $request, WatzapService $watzapService): JsonResponse
     {
         $rawPhone = $request->input('phone') ?: $request->input('phone_no');
-        $message = trim($request->input('message', ''));
+        $message = trim((string) $request->input('message', ''));
 
-        if (!$rawPhone || !$message) {
-            return response()->json(['success' => false, 'message' => 'Nomor telepon dan pesan wajib diisi!'], 400);
+        $uploadedFile = $request->file('file') ?: $request->file('media');
+        $mediaUrl = $request->input('media_url') ?: $request->input('file_url');
+        $mediaType = $request->input('media_type');
+        $originalName = null;
+        $fileSize = null;
+
+        if (! $rawPhone) {
+            return response()->json(['success' => false, 'message' => 'Nomor telepon tujuan wajib diisi!'], 400);
         }
 
-        $result = $watzapService->sendMessage($rawPhone, $message);
+        if (! $message && ! $uploadedFile && ! $mediaUrl) {
+            return response()->json(['success' => false, 'message' => 'Pesan atau file lampiran wajib diisi!'], 400);
+        }
+
+        if ($uploadedFile) {
+            $originalName = $uploadedFile->getClientOriginalName() ?: ('file_' . time());
+            $mimeType = $uploadedFile->getMimeType() ?: 'application/octet-stream';
+            $fileSize = $uploadedFile->getSize();
+            $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+            $isImage = str_starts_with($mimeType, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+            $mediaType = $isImage ? 'image' : 'document';
+
+            $media = BroadcastMedia::create([
+                'user_id' => $request->user()?->id,
+                'filename' => $originalName,
+                'mime_type' => $mimeType,
+                'file_size' => $fileSize,
+                'data' => base64_encode($uploadedFile->getContent()),
+            ]);
+
+            $mediaUrl = route('broadcasts.media.show', [
+                'media' => $media->id,
+                'filename' => $originalName,
+            ], true);
+        }
+
+        if (! $mediaType && $mediaUrl) {
+            $pathExt = strtolower(pathinfo(parse_url($mediaUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+            $mediaType = in_array($pathExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : 'document';
+        }
+
+        // Kirim via WatzapService
+        if ($mediaUrl) {
+            if ($mediaType === 'image') {
+                $result = $watzapService->sendImage($rawPhone, $mediaUrl, $message ?: null);
+            } else {
+                $result = $watzapService->sendFile($rawPhone, $mediaUrl, $message ?: null);
+            }
+        } else {
+            $result = $watzapService->sendMessage($rawPhone, $message);
+        }
 
         // Catat ke pesan keluar lokal
+        $entry = [
+            'messageId' => 'out_' . uniqid(),
+            'phone' => $rawPhone,
+            'message' => $message,
+            'media_url' => $mediaUrl,
+            'media_type' => $mediaType,
+            'filename' => $originalName,
+            'file_size' => $fileSize,
+            'timestamp' => now()->toIso8601String(),
+            'status' => $result['success'] ? 'sent' : 'failed',
+            'direction' => 'outbound',
+            'sender' => 'ADMIN',
+        ];
+
         try {
             $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
             $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
-            $messages[] = [
-                'messageId' => 'out_' . uniqid(),
-                'phone' => $rawPhone,
-                'message' => $message,
-                'timestamp' => now()->toIso8601String(),
-                'status' => $result['success'] ? 'sent' : 'failed',
-                'direction' => 'outbound',
-            ];
+            $messages[] = $entry;
             $trimmed = array_slice($messages, -1000);
             @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
         } catch (\Throwable $e) {}
@@ -290,30 +345,181 @@ class WorkspaceSosmedController extends Controller
             'success' => $result['success'],
             'status' => $result['status'] ?? '500',
             'message' => $result['message'] ?? 'Proses kirim selesai',
+            'entry' => $entry,
             'raw' => $result['raw'] ?? [],
         ]);
     }
 
     public function watzapWebhook(Request $request): JsonResponse
     {
+        $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
+        $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
+
+        // Mode GET: Polling dari frontend untuk mengambil chat masuk
+        if ($request->isMethod('get')) {
+            $since = $request->query('since');
+            $phone = $request->query('phone');
+            $inboundOnly = $request->boolean('inbound_only', true);
+
+            $filtered = array_values(array_filter($messages, function ($m) use ($since, $phone, $inboundOnly) {
+                if ($inboundOnly && ($m['direction'] ?? '') !== 'inbound') {
+                    return false;
+                }
+                if ($phone && isset($m['phone'])) {
+                    $p1 = preg_replace('/\D/', '', (string) $m['phone']);
+                    $p2 = preg_replace('/\D/', '', (string) $phone);
+                    if ($p1 && $p2 && ! str_contains($p1, $p2) && ! str_contains($p2, $p1)) {
+                        return false;
+                    }
+                }
+                if ($since) {
+                    $mTime = isset($m['timestamp']) ? strtotime($m['timestamp']) : 0;
+                    $sTime = is_numeric($since) ? (int) ($since > 1e11 ? $since / 1000 : $since) : strtotime($since);
+                    if ($mTime <= $sTime) {
+                        return false;
+                    }
+                }
+                return true;
+            }));
+
+            return response()->json([
+                'success' => true,
+                'messages' => $filtered,
+                'total' => count($filtered),
+            ]);
+        }
+
+        // Mode POST: Webhook masuk dari WatZap API atau gateway
         $data = $request->all();
+        $phone = $data['phone_no'] ?? $data['sender_number'] ?? $data['phone'] ?? $data['from'] ?? '';
+        $message = $data['message'] ?? $data['text'] ?? $data['caption'] ?? '';
+        $mediaUrl = $data['media_url'] ?? $data['url'] ?? $data['image_url'] ?? $data['file_url'] ?? null;
+        $mediaType = $data['media_type'] ?? $data['type'] ?? null;
+        $filename = $data['filename'] ?? $data['file_name'] ?? null;
+        $fileSize = $data['file_size'] ?? null;
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $filename = $file->getClientOriginalName() ?: ('file_' . time());
+            $mimeType = $file->getMimeType() ?: 'application/octet-stream';
+            $fileSize = $file->getSize();
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            $isImage = str_starts_with($mimeType, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+            $mediaType = $isImage ? 'image' : 'document';
+
+            $media = BroadcastMedia::create([
+                'user_id' => $request->user()?->id,
+                'filename' => $filename,
+                'mime_type' => $mimeType,
+                'file_size' => $fileSize,
+                'data' => base64_encode($file->getContent()),
+            ]);
+
+            $mediaUrl = route('broadcasts.media.show', [
+                'media' => $media->id,
+                'filename' => $filename,
+            ], true);
+        }
+
+        if (! $mediaType && $mediaUrl) {
+            $pathExt = strtolower(pathinfo(parse_url($mediaUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+            $mediaType = in_array($pathExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : 'document';
+        }
+
+        $entry = [
+            'messageId' => $data['message_id'] ?? ('in_' . uniqid()),
+            'phone' => $phone,
+            'message' => $message,
+            'media_url' => $mediaUrl,
+            'media_type' => $mediaType,
+            'filename' => $filename,
+            'file_size' => $fileSize,
+            'timestamp' => now()->toIso8601String(),
+            'status' => 'received',
+            'direction' => 'inbound',
+            'sender' => 'PIC',
+            'senderName' => $data['sender_name'] ?? $data['name'] ?? null,
+            'raw' => $data,
+        ];
+
         try {
-            $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
-            $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
-            $messages[] = [
-                'messageId' => $data['message_id'] ?? ('in_' . uniqid()),
-                'phone' => $data['phone_no'] ?? $data['sender_number'] ?? '',
-                'message' => $data['message'] ?? '',
-                'timestamp' => now()->toIso8601String(),
-                'status' => 'received',
-                'direction' => 'inbound',
-                'raw' => $data,
-            ];
+            $messages[] = $entry;
             $trimmed = array_slice($messages, -1000);
             @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
         } catch (\Throwable $e) {}
 
-        return response()->json(['status' => '200', 'message' => 'Webhook received']);
+        return response()->json([
+            'status' => '200',
+            'message' => 'Webhook received',
+            'entry' => $entry,
+        ]);
+    }
+
+    public function watzapSimulateReceive(Request $request): JsonResponse
+    {
+        $phone = $request->input('phone') ?: '6281234567890';
+        $message = trim((string) $request->input('message', ''));
+        $senderName = $request->input('sender_name') ?: 'PIC FU Gadgetmart';
+        $mediaType = $request->input('media_type');
+        $mediaUrl = $request->input('media_url');
+        $filename = $request->input('filename');
+        $fileSize = null;
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $filename = $file->getClientOriginalName() ?: ('sim_' . time());
+            $mimeType = $file->getMimeType() ?: 'application/octet-stream';
+            $fileSize = $file->getSize();
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            $isImage = str_starts_with($mimeType, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+            $mediaType = $isImage ? 'image' : 'document';
+
+            $media = BroadcastMedia::create([
+                'user_id' => $request->user()?->id,
+                'filename' => $filename,
+                'mime_type' => $mimeType,
+                'file_size' => $fileSize,
+                'data' => base64_encode($file->getContent()),
+            ]);
+
+            $mediaUrl = route('broadcasts.media.show', [
+                'media' => $media->id,
+                'filename' => $filename,
+            ], true);
+        }
+
+        if (! $message && ! $mediaUrl) {
+            $message = 'Halo Admin, ini chat simulasi konfirmasi follow-up customer.';
+        }
+
+        $entry = [
+            'messageId' => 'sim_in_' . uniqid(),
+            'phone' => $phone,
+            'message' => $message,
+            'media_url' => $mediaUrl,
+            'media_type' => $mediaType,
+            'filename' => $filename,
+            'file_size' => $fileSize,
+            'timestamp' => now()->toIso8601String(),
+            'status' => 'received',
+            'direction' => 'inbound',
+            'sender' => 'PIC',
+            'senderName' => $senderName,
+        ];
+
+        try {
+            $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
+            $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
+            $messages[] = $entry;
+            $trimmed = array_slice($messages, -1000);
+            @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
+        } catch (\Throwable $e) {}
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Simulasi pesan WhatsApp masuk berhasil dibuat!',
+            'entry' => $entry,
+        ]);
     }
 
     public function getExcel(Request $request): BinaryFileResponse|JsonResponse

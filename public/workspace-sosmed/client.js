@@ -8076,6 +8076,14 @@ function cleanPhoneDigits(raw) {
 // --------------------------------------------------------------------------
 // MASTER DATA PIC FU MANAGEMENT
 // --------------------------------------------------------------------------
+const DEFAULT_FALLBACK_PICS = [
+  { wa: '081250123456', picName: 'PIC FU Gadgetmart Banjarmasin', cabang: 'Banjarmasin' },
+  { wa: '085248123456', picName: 'PIC FU Gadgetmart Banjarbaru', cabang: 'Banjarbaru' },
+  { wa: '082154123456', picName: 'PIC FU Gadgetmart Belitung', cabang: 'Belitung' },
+  { wa: '081347123456', picName: 'PIC FU Gadgetmart Duta Mall', cabang: 'Duta Mall' },
+  { wa: '085386123456', picName: 'PIC FU Gadgetmart Pal 7', cabang: 'Pal 7' }
+];
+
 function getMasterDataPICs() {
   try {
     const raw = localStorage.getItem(OMNI_MASTER_STORAGE_KEY);
@@ -8084,7 +8092,10 @@ function getMasterDataPICs() {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
-  return seedMasterDataFromKeepRows();
+  const seeded = seedMasterDataFromKeepRows();
+  if (seeded && seeded.length > 0) return seeded;
+  saveMasterDataPICs(DEFAULT_FALLBACK_PICS);
+  return DEFAULT_FALLBACK_PICS;
 }
 
 function saveMasterDataPICs(list) {
@@ -8551,9 +8562,17 @@ function getIndexedOmniKeeps() {
 function getOmniPicChats() {
   const threads = getOmniThreads();
   // Filter ketat: HANYA chat personal, TOLAK grup WhatsApp
-  const activeKeys = Object.keys(threads).filter(function(k) {
+  const threadKeys = Object.keys(threads).filter(function(k) {
     return !k.includes('@g.us') && !k.startsWith('120363') && k.length <= 14 && Array.isArray(threads[k]) && threads[k].length > 0;
   });
+
+  const masterPics = getMasterDataPICs() || [];
+  const keySet = new Set(threadKeys);
+  masterPics.forEach(function(p) {
+    const clean = cleanPhoneDigits(p.wa);
+    if (clean) keySet.add(clean);
+  });
+  const activeKeys = Array.from(keySet);
 
   if (activeKeys.length === 0) return [];
 
@@ -8586,6 +8605,17 @@ function getOmniPicChats() {
     const isUnreplied = lastSender !== 'ADMIN';
     const isUnresponded = !isResolved && (isUnreplied || pendingCount > 0);
 
+    let snippet = 'Mulai percakapan baru';
+    if (lastMsg) {
+      if (lastMsg.media_type === 'image') {
+        snippet = (lastMsg.sender === 'ADMIN' ? 'Anda: ' : '') + '📷 [Gambar]' + (lastMsg.text ? ' ' + lastMsg.text : '');
+      } else if (lastMsg.media_type === 'document') {
+        snippet = (lastMsg.sender === 'ADMIN' ? 'Anda: ' : '') + '📄 [Dokumen] ' + (lastMsg.filename || lastMsg.text || 'File');
+      } else {
+        snippet = lastMsg.sender === 'ADMIN' ? 'Anda: ' + lastMsg.text : (lastMsg.text || 'Percakapan baru');
+      }
+    }
+
     result.push({
       key: key,
       picName: picName,
@@ -8598,7 +8628,7 @@ function getOmniPicChats() {
       isUnresponded: isUnresponded,
       lastSender: lastSender,
       latestTimestamp: latestTimestamp,
-      latestSnippet: lastMsg ? (lastMsg.sender === 'ADMIN' ? 'Anda: ' + lastMsg.text : lastMsg.text) : 'Percakapan baru'
+      latestSnippet: snippet
     });
   });
 
@@ -8767,10 +8797,44 @@ function renderOmniActiveChat(pic) {
     const isOutgoing = msg.sender === 'ADMIN';
     const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    let mediaHtml = '';
+    const mUrl = msg.media_url || msg.mediaUrl;
+    if (mUrl) {
+      const isImg = (msg.media_type === 'image') || /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(mUrl);
+      const fName = msg.filename || (isImg ? 'Foto Lampiran' : 'Dokumen');
+      const sizeStr = msg.file_size ? formatOmniFileSize(msg.file_size) : '';
+
+      if (isImg) {
+        mediaHtml = '<div class="omni-bubble-image-wrap">' +
+          '<a href="' + mUrl + '" target="_blank" rel="noopener noreferrer" title="Klik untuk melihat gambar">' +
+            '<img src="' + mUrl + '" alt="' + escapeHtml(fName) + '" class="omni-bubble-img" />' +
+          '</a>' +
+        '</div>';
+      } else {
+        mediaHtml = '<div class="omni-bubble-doc-wrap">' +
+          '<a href="' + mUrl + '" target="_blank" rel="noopener noreferrer" download="' + escapeHtml(fName) + '" class="omni-bubble-doc-card">' +
+            '<div class="omni-bubble-doc-icon">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' +
+            '</div>' +
+            '<div class="omni-bubble-doc-info">' +
+              '<div class="omni-bubble-doc-title" title="' + escapeHtml(fName) + '">' + escapeHtml(fName) + '</div>' +
+              '<div class="omni-bubble-doc-sub">' + (sizeStr ? sizeStr + ' &middot; ' : '') + 'Klik untuk unduh dokumen</div>' +
+            '</div>' +
+            '<div class="omni-bubble-doc-action">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+            '</div>' +
+          '</a>' +
+        '</div>';
+      }
+    }
+
+    const captionHtml = msg.text ? ('<div class="omni-bubble-caption">' + escapeHtml(msg.text) + '</div>') : '';
+
     return '<div class="omni-msg-row ' + (isOutgoing ? 'omni-msg-outgoing' : 'omni-msg-incoming') + '">' +
       '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
         '<div class="omni-bubble-sender">' + (isOutgoing ? 'Admin (Anda)' : escapeHtml(pic.picName)) + '</div>' +
-        '<div style="white-space:pre-wrap; word-break:break-word;">' + escapeHtml(msg.text) + '</div>' +
+        mediaHtml +
+        captionHtml +
         '<span class="omni-bubble-time">' + timeStr + '</span>' +
       '</div>' +
     '</div>';
@@ -8794,6 +8858,10 @@ function renderOmniActiveChat(pic) {
       '</div>' +
     '</div>' +
     '<div class="omni-header-actions" style="display: flex; align-items: center; gap: 8px;">' +
+      '<button type="button" class="omni-btn-simulate" onclick="openSimulateChatModal(\'' + cleanWA + '\', \'' + escapeHtml(pic.picName) + '\')" title="Simulasi Uji Coba Chat Masuk (Teks / Gambar / File)">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+        '<span>Simulasi Terima Chat</span>' +
+      '</button>' +
       '<button type="button" class="omni-btn-wa-direct" onclick="openWhatsAppChat(\'' + cleanWA + '\', \'' + escapeHtml(pic.picName) + '\')" title="Buka WhatsApp Web Langsung">' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
         '<span>Buka WhatsApp Web</span>' +
@@ -8812,12 +8880,14 @@ function renderOmniActiveChat(pic) {
     customMessagesMarkup +
   '</div>' +
   '<div class="omni-chatview-footer-modern">' +
+    '<input type="file" id="omniFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" onchange="handleOmniFileSelected(this)" />' +
+    '<div id="omniAttachmentPreviewBar" class="omni-attachment-preview-bar" style="display:none;"></div>' +
     '<div class="omni-input-box-wrapper">' +
       '<textarea id="omniReplyInput" class="omni-textarea-modern" rows="2" placeholder="Type &quot;shift + enter&quot; to add a new line. Type &quot;/&quot; to use quick reply" onkeydown="handleOmniInputKey(event)" oninput="handleOmniInputTyping(this)"></textarea>' +
     '</div>' +
     '<div class="omni-input-bottom-bar">' +
       '<div class="omni-bottom-left-actions">' +
-        '<button type="button" class="omni-btn-attachment-modern" title="Kirim Lampiran / Screenshot" onclick="handleOmniAttachmentClick()">' +
+        '<button type="button" class="omni-btn-attachment-modern" title="Kirim Lampiran (Gambar / Dokumen)" onclick="handleOmniAttachmentClick()">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>' +
         '</button>' +
         '<button type="button" class="omni-quick-pill primary" onclick="insertQuickReply(\'promo\')">' +
@@ -8845,34 +8915,80 @@ function renderOmniActiveChat(pic) {
     '</div>' +
   '</div>';
 
+  if (omniPendingFile) {
+    renderOmniAttachmentPreview();
+  }
+
   const stream = document.getElementById('omniMessagesStream');
   if (stream) stream.scrollTop = stream.scrollHeight;
 }
 
-function insertQuickReply(type) {
+let omniPendingFile = null;
+
+function formatOmniFileSize(bytes) {
+  if (!bytes || isNaN(bytes)) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function handleOmniAttachmentClick() {
+  const fileInput = document.getElementById('omniFileInput');
+  if (fileInput) fileInput.click();
+}
+
+function handleOmniFileSelected(input) {
+  if (!input || !input.files || input.files.length === 0) return;
+  const file = input.files[0];
+  omniPendingFile = file;
+  renderOmniAttachmentPreview();
+}
+
+function removeOmniAttachment() {
+  omniPendingFile = null;
+  const fileInput = document.getElementById('omniFileInput');
+  if (fileInput) fileInput.value = '';
+  renderOmniAttachmentPreview();
+}
+
+function renderOmniAttachmentPreview() {
+  const bar = document.getElementById('omniAttachmentPreviewBar');
+  const sendBtn = document.getElementById('omniBtnSend');
   const inp = document.getElementById('omniReplyInput');
-  if (!inp) return;
-  let text = '';
-  if (type === 'promo') {
-    text = 'Halo Kak! Berikut update promo menarik hari ini:\n- Diskon cashback spesial\n- Free aksesoris original\n- Garansi resmi & bisa COD\nBisa kami bantu proseskan pesanannya sekarang kak? 🙏';
-  } else if (type === 'katalog') {
-    text = 'Halo Kak, untuk daftar harga dan katalog tipe gadget terbaru kami, silakan akses link resmi:\nhttps://gadgetmart.id/katalog\nAda seri yang paling diminati kak?';
-  } else if (type === 'cicilan') {
-    text = 'Halo Kak, untuk simulasi cicilan tanpa kartu kredit (Home Credit / Kredivo / Akulaku / Spaylater):\n- DP mulai 0%\n- Bunga promo ringan\n- Cukup KTP proses 15 menit langsung bawa pulang unit!\nMau kami bantu hitungkan rinciannya?';
-  } else if (type === 'shopee') {
-    text = 'Halo Kak, jika ingin transaksi lebih praktis dengan voucher gratis ongkir ekstra, kakak bisa checkout langsung di Shopee Official Store kami:\nhttps://shopee.co.id/gadgetmart_official\nKabari kami jika sudah checkout ya kak!';
-  }
-  if (text) {
-    if (inp.value && inp.value.trim().length > 0) {
-      inp.value += '\n\n' + text;
-    } else {
-      inp.value = text;
+  if (!bar) return;
+
+  if (!omniPendingFile) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    if (sendBtn && (!inp || inp.value.trim().length === 0)) {
+      sendBtn.classList.remove('active');
     }
-    inp.focus();
-    inp.style.height = 'auto';
-    inp.style.height = Math.min(inp.scrollHeight, 140) + 'px';
-    const sendBtn = document.getElementById('omniBtnSend');
-    if (sendBtn) sendBtn.classList.add('active');
+    return;
+  }
+
+  const isImg = omniPendingFile.type.startsWith('image/');
+  const sizeFormatted = formatOmniFileSize(omniPendingFile.size);
+  let thumbHtml = '';
+  if (isImg) {
+    const objectUrl = URL.createObjectURL(omniPendingFile);
+    thumbHtml = '<img src="' + objectUrl + '" class="omni-preview-thumb-img" alt="Preview" />';
+  } else {
+    thumbHtml = '<div class="omni-preview-thumb-file"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
+  }
+
+  bar.style.display = 'flex';
+  bar.innerHTML = '<div class="omni-preview-thumb-wrap">' + thumbHtml + '</div>' +
+    '<div class="omni-preview-info">' +
+      '<div class="omni-preview-name" title="' + escapeHtml(omniPendingFile.name) + '">' + escapeHtml(omniPendingFile.name) + '</div>' +
+      '<div class="omni-preview-size">' + sizeFormatted + ' &middot; ' + (isImg ? 'Gambar' : 'Dokumen/File') + '</div>' +
+    '</div>' +
+    '<button type="button" class="omni-preview-btn-remove" onclick="removeOmniAttachment()" title="Batal Lampirkan">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+    '</button>';
+
+  if (sendBtn) sendBtn.classList.add('active');
+  if (inp && !inp.placeholder.includes('keterangan')) {
+    inp.placeholder = 'Tulis pesan / keterangan untuk lampiran (opsional)...';
   }
 }
 
@@ -8882,7 +8998,7 @@ function handleOmniInputTyping(el) {
   el.style.height = Math.min(el.scrollHeight, 140) + 'px';
   const sendBtn = document.getElementById('omniBtnSend');
   if (sendBtn) {
-    if (el.value.trim().length > 0) {
+    if (el.value.trim().length > 0 || omniPendingFile) {
       sendBtn.classList.add('active');
     } else {
       sendBtn.classList.remove('active');
@@ -8890,74 +9006,13 @@ function handleOmniInputTyping(el) {
   }
 }
 
-function handleOmniAttachmentClick() {
-  alert('📎 Fitur Kirim Lampiran: Anda dapat melampirkan screenshot chat atau dokumen pendukung.');
-}
-
-function handleOmniResolveClick(picKey) {
-  const allChats = getOmniPicChats();
-  const pic = allChats.find(function(p) { return p.key === picKey; });
-  if (!pic) return;
-
-  if (pic.isResolved) {
-    if (confirm('Percakapan ini sudah berstatus Resolved. Apakah Anda ingin membuka kembali (Unresolve) percakapan ini?')) {
-      setOmniChatResolved(picKey, false);
-      const threads = getOmniThreads();
-      if (!threads[picKey]) threads[picKey] = [];
-      threads[picKey].push({
-        sender: 'SYSTEM',
-        text: 'ℹ️ Percakapan dibuka kembali oleh Admin.',
-        timestamp: Date.now()
-      });
-      saveOmniThreads(threads);
-      if (typeof showSaveToast === 'function') {
-        showSaveToast('Percakapan dibuka kembali.');
-      }
-      renderOmniInboxModule();
-    }
-    return;
-  }
-
-  // ATURAN USER: Hanya bisa diresolve jika format keep tanggal 3 ke atas sudah diinput status dan feedbacknya
-  const keeps = pic.keeps || [];
-  const eligibleKeeps = keeps.filter(function(k) { return isEligibleKeep(k.timestamp); });
-
-  const uncompleted = eligibleKeeps.filter(function(k) {
-    const st = (k.status || '').trim();
-    const fb = (k.feedback || '').trim();
-    return !st || st === 'BELUM DIINPUT' || !fb || fb === '-' || fb === '""';
-  });
-
-  if (uncompleted.length > 0) {
-    alert('⚠️ PERCAKAPAN BELUM BISA DI-RESOLVE!\n\n' +
-      'Masih ada ' + uncompleted.length + ' format keep (tanggal 3 ke atas) yang belum diinput Status atau Feedback-nya:\n\n' +
-      uncompleted.slice(0, 3).map(function(u) { return '• ' + u.customerName + ' (' + u.customerWA + ') - Status: ' + (u.status || 'Belum diinput'); }).join('\n') +
-      (uncompleted.length > 3 ? '\n...dan ' + (uncompleted.length - 3) + ' lainnya' : '') +
-      '\n\nHarap isi Status (Kolom V) dan Feedback Tim FU (Kolom W) pada panel sebelah kanan terlebih dahulu!');
-    return;
-  }
-
-  setOmniChatResolved(picKey, true);
-  const threads = getOmniThreads();
-  if (!threads[picKey]) threads[picKey] = [];
-  threads[picKey].push({
-    sender: 'SYSTEM',
-    text: '✅ Percakapan telah di-resolve oleh Admin (Status & Feedback format keep lengkap).',
-    timestamp: Date.now()
-  });
-  saveOmniThreads(threads);
-
-  if (typeof showSaveToast === 'function') {
-    showSaveToast('✅ Percakapan berhasil di-resolve!');
-  }
-  renderOmniInboxModule();
-}
-
 async function sendOmniReply() {
   const inp = document.getElementById('omniReplyInput');
-  if (!inp || !selectedOmniPicKey) return;
-  const text = inp.value.trim();
-  if (!text) return;
+  if (!selectedOmniPicKey) return;
+  const text = inp ? inp.value.trim() : '';
+  const fileToSend = omniPendingFile;
+
+  if (!text && !fileToSend) return;
 
   const allPics = getOmniPicChats();
   const currentPic = allPics.find(function(p) { return p.key === selectedOmniPicKey; });
@@ -8966,14 +9021,41 @@ async function sendOmniReply() {
 
   const threads = getOmniThreads();
   if (!threads[selectedOmniPicKey]) threads[selectedOmniPicKey] = [];
-  threads[selectedOmniPicKey].push({
+
+  let localMediaUrl = null;
+  let mediaType = null;
+  let fileName = null;
+  let fileSize = null;
+
+  if (fileToSend) {
+    localMediaUrl = URL.createObjectURL(fileToSend);
+    mediaType = fileToSend.type.startsWith('image/') ? 'image' : 'document';
+    fileName = fileToSend.name;
+    fileSize = fileToSend.size;
+  }
+
+  const newMsg = {
+    messageId: 'out_' + Date.now(),
     sender: 'ADMIN',
     text: text,
-    timestamp: Date.now()
-  });
+    timestamp: Date.now(),
+    media_url: localMediaUrl,
+    media_type: mediaType,
+    filename: fileName,
+    file_size: fileSize
+  };
+
+  threads[selectedOmniPicKey].push(newMsg);
   saveOmniThreads(threads);
-  inp.value = '';
-  inp.style.height = 'auto';
+
+  // Reset inputs
+  if (inp) {
+    inp.value = '';
+    inp.style.height = 'auto';
+    inp.placeholder = 'Type "shift + enter" to add a new line. Type "/" to use quick reply';
+  }
+  removeOmniAttachment();
+
   const sendBtn = document.getElementById('omniBtnSend');
   if (sendBtn) sendBtn.classList.remove('active');
 
@@ -8983,18 +9065,38 @@ async function sendOmniReply() {
 
   // Kirim langsung ke WhatsApp PIC via API WatZap
   try {
-    const res = await fetch('/api/watzap-send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: picWA, message: text })
-    });
+    let res;
+    if (fileToSend) {
+      const formData = new FormData();
+      formData.append('phone', picWA);
+      if (text) formData.append('message', text);
+      formData.append('file', fileToSend);
+      res = await fetch('/api/watzap-send', {
+        method: 'POST',
+        body: formData
+      });
+    } else {
+      res = await fetch('/api/watzap-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: picWA, message: text })
+      });
+    }
+
     const json = await res.json();
     if (json.success) {
+      if (json.entry && json.entry.media_url) {
+        newMsg.media_url = json.entry.media_url;
+        saveOmniThreads(threads);
+      }
       if (typeof showSaveToast === 'function') {
-        showSaveToast('Pesan terkirim ke WhatsApp ' + picName + '!');
+        showSaveToast('Pesan ' + (fileToSend ? (fileToSend.type.startsWith('image/') ? 'gambar' : 'dokumen') : 'teks') + ' terkirim ke WhatsApp ' + picName + '!');
       }
     } else {
       console.warn('WatZap API response:', json);
+      if (typeof showSaveToast === 'function') {
+        showSaveToast('Pesan tersimpan lokal. WatZap info: ' + (json.message || 'Gagal terkirim'));
+      }
     }
   } catch (err) {
     console.error('Gagal kirim via WatZap:', err);
@@ -9032,14 +9134,20 @@ async function pollWatzapIncomingMessages() {
 
       if (!threads[picKey]) threads[picKey] = [];
       const alreadyExists = threads[picKey].some(function(t) {
-        return t.timestamp === msg.timestamp && t.text === msg.message;
+        return (t.messageId && msg.messageId && t.messageId === msg.messageId) ||
+          (t.timestamp === msg.timestamp && t.text === msg.message && t.media_url === msg.media_url);
       });
       if (!alreadyExists) {
         threads[picKey].push({
+          messageId: msg.messageId || ('in_' + Date.now()),
           sender: msg.sender || 'PIC',
           senderName: msg.senderName || matched.picName,
           text: msg.message,
-          timestamp: msg.timestamp
+          media_url: msg.media_url || null,
+          media_type: msg.media_type || null,
+          filename: msg.filename || null,
+          file_size: msg.file_size || null,
+          timestamp: msg.timestamp ? (new Date(msg.timestamp).getTime() || Date.now()) : Date.now()
         });
         setOmniChatResolved(picKey, false);
         hasNew = true;
@@ -9050,9 +9158,146 @@ async function pollWatzapIncomingMessages() {
       saveOmniThreads(threads);
       if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
         renderOmniInboxModule();
+        if (selectedOmniPicKey) {
+          const currentPic = getOmniPicChats().find(function(p) { return p.key === selectedOmniPicKey; });
+          if (currentPic) renderOmniActiveChat(currentPic);
+        }
       }
     }
   } catch (e) {}
+}
+
+function openSimulateChatModal(cleanWA, picName) {
+  const existing = document.getElementById('omniSimulateModal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'omniSimulateModal';
+  overlay.className = 'omni-sim-modal-overlay';
+  overlay.innerHTML = '<div class="omni-sim-modal-card">' +
+    '<div class="omni-sim-modal-header">' +
+      '<div class="omni-sim-modal-title">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+        '<span>Simulasi Chat Masuk dari WhatsApp</span>' +
+      '</div>' +
+      '<button type="button" class="omni-sim-modal-close" onclick="closeSimulateChatModal()">&times;</button>' +
+    '</div>' +
+    '<div class="omni-sim-modal-body">' +
+      '<div class="omni-sim-form-group">' +
+        '<label class="omni-sim-label">Pengirim (PIC / Kontak):</label>' +
+        '<input type="text" id="simSenderName" class="omni-sim-input" value="' + escapeHtml(picName || 'PIC Follow Up') + '" />' +
+      '</div>' +
+      '<div class="omni-sim-form-group">' +
+        '<label class="omni-sim-label">Nomor WhatsApp Pengirim:</label>' +
+        '<input type="text" id="simSenderPhone" class="omni-sim-input" value="' + escapeHtml(cleanWA || '081234567890') + '" />' +
+      '</div>' +
+      '<div class="omni-sim-form-group">' +
+        '<label class="omni-sim-label">Tipe Pesan Masuk:</label>' +
+        '<select id="simMessageType" class="omni-sim-select" onchange="toggleSimMediaInputs(this.value)">' +
+          '<option value="text">💬 Pesan Teks Saja</option>' +
+          '<option value="image">📷 Pesan Gambar / Foto</option>' +
+          '<option value="document">📄 Pesan File / Dokumen (PDF, Excel, dll)</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="omni-sim-form-group" id="simFileGroup" style="display:none;">' +
+        '<label class="omni-sim-label" id="simFileLabel">Unggah File Lampiran:</label>' +
+        '<input type="file" id="simFileInput" class="omni-sim-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" />' +
+      '</div>' +
+      '<div class="omni-sim-form-group">' +
+        '<label class="omni-sim-label">Isi Pesan / Keterangan (Caption):</label>' +
+        '<textarea id="simMessageText" class="omni-sim-textarea" rows="3" placeholder="Tulis isi pesan chat yang seolah-olah dikirim oleh PIC/Customer...">Halo Admin, ini chat balasan konfirmasi dari tim lapangan.</textarea>' +
+      '</div>' +
+    '</div>' +
+    '<div class="omni-sim-modal-footer">' +
+      '<button type="button" class="omni-quick-pill" onclick="closeSimulateChatModal()">Batal</button>' +
+      '<button type="button" id="btnSubmitSimulate" class="omni-btn-save-modern" style="width:auto; padding:8px 18px;" onclick="submitSimulateChat()">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>' +
+        '<span>Kirim Chat Masuk</span>' +
+      '</button>' +
+    '</div>' +
+  '</div>';
+
+  document.body.appendChild(overlay);
+}
+
+function closeSimulateChatModal() {
+  const el = document.getElementById('omniSimulateModal');
+  if (el) el.remove();
+}
+
+function toggleSimMediaInputs(val) {
+  const grp = document.getElementById('simFileGroup');
+  const lbl = document.getElementById('simFileLabel');
+  const inp = document.getElementById('simFileInput');
+  const txt = document.getElementById('simMessageText');
+  if (!grp) return;
+
+  if (val === 'text') {
+    grp.style.display = 'none';
+    if (txt) txt.value = 'Halo Admin, ini chat balasan konfirmasi dari tim lapangan.';
+  } else if (val === 'image') {
+    grp.style.display = 'flex';
+    if (lbl) lbl.innerText = 'Unggah Gambar (JPG/PNG/WebP):';
+    if (inp) inp.accept = 'image/*';
+    if (txt) txt.value = 'Halo Admin, ini bukti foto nota / kondisi unit fisik.';
+  } else {
+    grp.style.display = 'flex';
+    if (lbl) lbl.innerText = 'Unggah Dokumen (PDF, XLSX, DOCX):';
+    if (inp) inp.accept = '.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv';
+    if (txt) txt.value = 'Halo Admin, berikut terlampir berkas data rekapitulasi.';
+  }
+}
+
+async function submitSimulateChat() {
+  const phone = document.getElementById('simSenderPhone')?.value.trim() || '081234567890';
+  const name = document.getElementById('simSenderName')?.value.trim() || 'PIC Follow Up';
+  const type = document.getElementById('simMessageType')?.value || 'text';
+  const text = document.getElementById('simMessageText')?.value.trim() || '';
+  const fileInp = document.getElementById('simFileInput');
+  const file = fileInp && fileInp.files && fileInp.files[0] ? fileInp.files[0] : null;
+
+  const btn = document.getElementById('btnSubmitSimulate');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>Mengirim simulasi...</span>';
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('phone', phone);
+    formData.append('sender_name', name);
+    formData.append('message', text);
+    formData.append('media_type', type);
+    if (file) {
+      formData.append('file', file);
+    }
+
+    const res = await fetch('/api/watzap-simulate-receive', {
+      method: 'POST',
+      body: formData
+    });
+    const json = await res.json();
+
+    closeSimulateChatModal();
+    if (typeof showSaveToast === 'function') {
+      showSaveToast('✅ Simulasi pesan masuk berhasil diterima!');
+    }
+
+    // Trigger instant webhook poll
+    await pollWatzapIncomingMessages();
+    renderOmniInboxModule();
+    if (selectedOmniPicKey) {
+      selectOmniPic(selectedOmniPicKey);
+    }
+  } catch (err) {
+    console.error('Gagal simulasi chat:', err);
+    alert('Gagal mengirim simulasi: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Kirim Chat Masuk</span>';
+    }
+  }
 }
 
 function startWatzapPolling() {
@@ -9268,3 +9513,9 @@ window.handleOmniAttachmentClick = handleOmniAttachmentClick;
 window.handleOmniResolveClick = handleOmniResolveClick;
 window.openWhatsAppChat = openWhatsAppChat;
 window.clearOmniTestChats = clearOmniTestChats;
+window.handleOmniFileSelected = handleOmniFileSelected;
+window.removeOmniAttachment = removeOmniAttachment;
+window.openSimulateChatModal = openSimulateChatModal;
+window.closeSimulateChatModal = closeSimulateChatModal;
+window.toggleSimMediaInputs = toggleSimMediaInputs;
+window.submitSimulateChat = submitSimulateChat;

@@ -146,6 +146,78 @@ class WatzapService
     }
 
     /**
+     * Send a document/file with optional caption via WatZap REST API (/send_file_url).
+     *
+     * @return array{success: bool, message: string, status: string, data: array, raw: string}
+     */
+    public function sendFile(string $rawPhone, string $fileUrl, ?string $caption = null): array
+    {
+        if (! $this->isConfigured()) {
+            return [
+                'success' => false,
+                'message' => 'WatZap belum dikonfigurasi. Silakan lengkapi API Key dan Number Key di halaman Setup WhatsApp.',
+                'status' => 'unconfigured',
+                'data' => [],
+                'raw' => '',
+            ];
+        }
+
+        $phone = $this->normalizePhone($rawPhone);
+        if (! $phone) {
+            return [
+                'success' => false,
+                'message' => 'Nomor WhatsApp tidak valid (harus 10-15 digit, diawali 08/62).',
+                'status' => 'invalid_phone',
+                'data' => [],
+                'raw' => '',
+            ];
+        }
+
+        try {
+            $url = $this->getBaseUrl().'/send_file_url';
+            $payload = [
+                'api_key' => $this->getApiKey(),
+                'number_key' => $this->getNumberKey(),
+                'phone_no' => $phone,
+                'url' => $fileUrl,
+            ];
+
+            if ($caption !== null && trim($caption) !== '') {
+                $payload['message'] = $caption;
+            }
+
+            $response = Http::timeout(30)
+                ->asJson()
+                ->acceptJson()
+                ->post($url, $payload);
+
+            $json = $response->json();
+            $rawBody = $response->body();
+
+            $status = (string) ($json['status'] ?? $response->status());
+            $ack = strtolower((string) ($json['ack'] ?? ''));
+            $isSuccess = ($status === '200' || $ack === 'successfully');
+            $rawMsg = (string) ($json['message'] ?? '');
+
+            return [
+                'success' => $isSuccess,
+                'message' => $rawMsg ?: ($isSuccess ? 'File berhasil dikirim via WatZap.' : 'Gagal mengirim file via WatZap.'),
+                'status' => $status,
+                'data' => is_array($json) ? $json : [],
+                'raw' => $rawBody,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Koneksi ke WatZap gagal: '.$e->getMessage(),
+                'status' => 'connection_error',
+                'data' => [],
+                'raw' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Send an image with optional caption via WatZap REST API (/send_image_url).
      *
      * @return array{success: bool, message: string, status: string, data: array, raw: string}
