@@ -6,6 +6,7 @@ use App\Models\BroadcastBatch;
 use App\Models\BroadcastMedia;
 use App\Models\BroadcastReport;
 use App\Models\BroadcastTemplate;
+use App\Models\LeadCustomer;
 use App\Models\RepeatOrderPrediction;
 use App\Services\BroadcastService;
 use App\Services\FastXlsxWriter;
@@ -175,6 +176,8 @@ class BroadcastReportController extends Controller
             'status' => $isSent ? 'completed' : 'failed',
         ]);
 
+        LeadCustomer::where('repeat_order_prediction_id', $prediction->id)->delete();
+
         return redirect()->route('broadcasts.index')->with(
             'success',
             'Pesan broadcast "'.$title.'" ditambahkan dengan status '.$report->status.'.',
@@ -232,16 +235,19 @@ class BroadcastReportController extends Controller
             'status' => $batchStatus,
         ]);
 
+        LeadCustomer::whereIn('repeat_order_prediction_id', $validated['prediction_ids'])->delete();
+
         $redirectRoute = $request->input('redirect_to', 'predictions.index');
         $validRoutes = ['leads.index', 'predictions.index', 'broadcasts.index'];
         if (! in_array($redirectRoute, $validRoutes, true)) {
             $redirectRoute = 'predictions.index';
         }
 
-        return redirect()->route($redirectRoute)->with(
-            'success',
-            count($predictions).' pelanggan ditambahkan ke antrean/laporan broadcast.'.($imageUrl ? ' (dengan lampiran gambar)' : ''),
-        );
+        $successMessage = $redirectRoute === 'leads.index'
+            ? count($predictions).' pelanggan berhasil dibroadcast, dihapus dari list Leads, dan tersimpan di Laporan Broadcast.'
+            : count($predictions).' pelanggan ditambahkan ke antrean/laporan broadcast.'.($imageUrl ? ' (dengan lampiran gambar)' : '');
+
+        return redirect()->route($redirectRoute)->with('success', $successMessage);
     }
 
     public function download(Request $request): BinaryFileResponse
