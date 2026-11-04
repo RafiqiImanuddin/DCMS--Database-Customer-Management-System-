@@ -18,6 +18,10 @@
       "dest": "/images/$1"
     },
     {
+      "src": "/workspace-sosmed/(.+)",
+      "dest": "/workspace-sosmed/$1"
+    },
+    {
       "src": "/favicon.ico",
       "dest": "/favicon.ico"
     },

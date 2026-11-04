@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeadCustomerController;
 use App\Http\Controllers\RepeatOrderPredictionController;
 use App\Http\Controllers\WatzapSettingController;
+use App\Http\Controllers\WorkspaceSosmedController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -67,4 +68,23 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/watzap', [WatzapSettingController::class, 'update'])->name('settings.watzap.update');
     Route::post('/settings/watzap/check', [WatzapSettingController::class, 'check'])->name('settings.watzap.check');
     Route::post('/settings/watzap/test-send', [WatzapSettingController::class, 'testSend'])->name('settings.watzap.test_send');
+
+    // Modul Terintegrasi: Workspace Sosmed (Sosmed KPI, Report, Cek AR, Keep & Follow-Up)
+    Route::get('/workspace-sosmed', [WorkspaceSosmedController::class, 'index'])->name('workspace-sosmed.index');
+});
+
+// Workspace Sosmed API Endpoints (REPORT Engine)
+Route::prefix('api')->group(function () {
+    Route::get('/database-status', [WorkspaceSosmedController::class, 'databaseStatus'])->name('api.sosmed.database_status');
+    Route::match(['get', 'post'], '/monthly-targets', [WorkspaceSosmedController::class, 'monthlyTargets'])->name('api.sosmed.monthly_targets');
+    Route::match(['get', 'post'], '/sales-photos', [WorkspaceSosmedController::class, 'salesPhotos'])->name('api.sosmed.sales_photos');
+    Route::match(['get', 'post'], '/monthly-archives', [WorkspaceSosmedController::class, 'monthlyArchives'])->name('api.sosmed.monthly_archives');
+    Route::get('/sync-keep', [WorkspaceSosmedController::class, 'syncKeep'])->name('api.sosmed.sync_keep');
+    Route::match(['get', 'post'], '/update-keep-status', [WorkspaceSosmedController::class, 'updateKeepStatus'])->name('api.sosmed.update_keep_status');
+    Route::match(['get', 'post'], '/update-report-ar', [WorkspaceSosmedController::class, 'updateReportAr'])->name('api.sosmed.update_report_ar');
+    Route::post('/chat-ai', [WorkspaceSosmedController::class, 'chatAi'])->name('api.sosmed.chat_ai');
+    Route::post('/watzap-send', [WorkspaceSosmedController::class, 'watzapSend'])->name('api.sosmed.watzap_send');
+    Route::post('/watzap-webhook', [WorkspaceSosmedController::class, 'watzapWebhook'])->name('api.sosmed.watzap_webhook');
+    Route::match(['get', 'delete'], '/get-excel', [WorkspaceSosmedController::class, 'getExcel'])->name('api.sosmed.get_excel');
+    Route::post('/save-excel', [WorkspaceSosmedController::class, 'saveExcel'])->name('api.sosmed.save_excel');
 });
