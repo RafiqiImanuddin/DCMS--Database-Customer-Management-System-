@@ -12,6 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -21,7 +23,7 @@ class CrossSellingImportController extends Controller
 {
     public function index(Request $request): View
     {
-        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengelola import data.');
+        abort_unless($request->user() !== null, 403, 'Silakan login terlebih dahulu.');
 
         return view('imports.index', [
             'imports' => CrossSellingImport::with('user')->latest()->paginate(15),
@@ -81,7 +83,7 @@ class CrossSellingImportController extends Controller
 
     public function store(Request $request, CrossSellingImporter $importer, RepeatOrderPredictor $predictor): JsonResponse|RedirectResponse
     {
-        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengimpor data.');
+        abort_unless($request->user() !== null, 403, 'Silakan login terlebih dahulu.');
 
         try {
             $validated = $request->validate([
@@ -108,6 +110,17 @@ class CrossSellingImportController extends Controller
             $import->refresh();
             if ($import->status === 'completed') {
                 $predictor->rebuild();
+
+                // Sinkronisasi 1 gerbang ke Workspace Sosmed
+                try {
+                    $sourcePath = Storage::disk('local')->path($import->stored_path);
+                    $sosmedTargetPath = public_path('workspace-sosmed/CROSSELLING-12102026.xlsx');
+                    if (File::exists($sourcePath) && strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION)) === 'xlsx') {
+                        @File::copy($sourcePath, $sosmedTargetPath);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('Gagal menyinkronkan file cross-selling ke Workspace Sosmed: ' . $e->getMessage());
+                }
             }
         } catch (\Throwable $e) {
             // Error already recorded inside importer; continue to redirect.
