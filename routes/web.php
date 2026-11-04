@@ -54,6 +54,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/broadcasts', [BroadcastReportController::class, 'index'])->name('broadcasts.index');
     Route::get('/broadcasts/download', [BroadcastReportController::class, 'download'])->name('broadcasts.download');
+    Route::get('/broadcasts/batches/{batch}', [BroadcastReportController::class, 'showBatch'])->name('broadcasts.batches.show');
+    Route::get('/broadcasts/batches/{batch}/download', [BroadcastReportController::class, 'downloadBatch'])->name('broadcasts.batches.download');
+    Route::delete('/broadcasts/batches/{batch}', [BroadcastReportController::class, 'destroyBatch'])->name('broadcasts.batches.destroy');
     Route::post('/broadcasts/bulk', [BroadcastReportController::class, 'bulkStore'])->name('broadcasts.bulk');
     Route::delete('/broadcasts/{report}', [BroadcastReportController::class, 'destroy'])->name('broadcasts.destroy');
     Route::post('/predictions/{prediction}/broadcast', [BroadcastReportController::class, 'store'])->name('broadcasts.store');

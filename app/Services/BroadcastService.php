@@ -12,7 +12,7 @@ class BroadcastService
         protected WatzapService $watzap
     ) {}
 
-    public function send(RepeatOrderPrediction $prediction, string $message, int $userId, ?string $imageUrl = null): BroadcastReport
+    public function send(RepeatOrderPrediction $prediction, string $message, int $userId, ?string $imageUrl = null, ?int $batchId = null): BroadcastReport
     {
         // Personalize message placeholders
         $customerName = trim((string) ($prediction->customer_vendor_name ?: 'Kaka'));
@@ -28,6 +28,7 @@ class BroadcastService
         $report = BroadcastReport::create([
             'user_id' => $userId,
             'repeat_order_prediction_id' => $prediction->id,
+            'broadcast_batch_id' => $batchId,
             'customer_vendor_code' => $prediction->customer_vendor_code,
             'phone_number' => $prediction->no_hp_customer,
             'channel' => 'whatsapp',

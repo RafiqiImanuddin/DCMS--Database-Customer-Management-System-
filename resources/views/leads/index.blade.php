@@ -100,6 +100,11 @@
         <div class="mt-4 grid gap-5 lg:grid-cols-12">
             <!-- Kolom Editor Pesan & Lampiran (7 Kolom) -->
             <div class="lg:col-span-7 flex flex-col justify-between space-y-4">
+                <div>
+                    <label for="lead-broadcast-title" class="text-xs font-bold uppercase tracking-wide text-slate-700">Judul Broadcast / Batch <span class="text-slate-400 font-normal lowercase">(opsional)</span></label>
+                    <input type="text" id="lead-broadcast-title" name="title" maxlength="150" class="dcms-input text-xs font-medium mt-1" placeholder="Contoh: PROMO 10.10 / REMINDER H-1">
+                </div>
+
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
                         <label for="lead-bulk-message" class="text-xs font-bold uppercase tracking-wide text-slate-700">Isi Pesan Broadcast <span class="text-rose-500">*</span></label>
@@ -331,6 +336,13 @@ function applyLeadTemplate(select) {
     const selectedOption = select.options[select.selectedIndex];
     const message = selectedOption.getAttribute('data-message') || '';
     const image = selectedOption.getAttribute('data-image') || '';
+
+    if (selectedOption.value) {
+        const titleInput = document.getElementById('lead-broadcast-title');
+        if (titleInput && (!titleInput.value || titleInput.value.startsWith('Broadcast -'))) {
+            titleInput.value = selectedOption.text.trim();
+        }
+    }
 
     const textarea = document.getElementById('lead-bulk-message');
     if (textarea && message) {

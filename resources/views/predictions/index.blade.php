@@ -584,6 +584,12 @@
             <input type="hidden" name="redirect_to" value="predictions.index">
             <div id="modal-prediction-ids-container"></div>
 
+            <!-- Judul Batch Broadcast -->
+            <div>
+                <label for="modal-broadcast-title" class="block text-xs font-bold text-slate-700 mb-1">Judul Broadcast / Batch <span class="text-slate-400 font-normal lowercase">(opsional)</span></label>
+                <input type="text" id="modal-broadcast-title" name="title" maxlength="150" class="dcms-input text-xs font-medium" placeholder="Contoh: PROMO 10.10 / REMINDER H-1">
+            </div>
+
             <!-- Pilih Template -->
             <div>
                 <div class="flex items-center justify-between mb-1">
@@ -713,6 +719,13 @@ function applyModalTemplate(select) {
     const selectedOption = select.options[select.selectedIndex];
     const message = selectedOption.getAttribute('data-message') || '';
     const image = selectedOption.getAttribute('data-image') || '';
+
+    if (selectedOption.value) {
+        const titleInput = document.getElementById('modal-broadcast-title');
+        if (titleInput && (!titleInput.value || titleInput.value.startsWith('Broadcast -'))) {
+            titleInput.value = selectedOption.text.trim();
+        }
+    }
 
     const textarea = document.getElementById('modal-message-input');
     if (textarea && message) {
