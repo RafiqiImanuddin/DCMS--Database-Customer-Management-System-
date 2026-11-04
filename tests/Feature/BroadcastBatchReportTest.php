@@ -6,7 +6,9 @@ use App\Models\BroadcastBatch;
 use App\Models\BroadcastReport;
 use App\Models\LeadCustomer;
 use App\Models\RepeatOrderPrediction;
+use App\Models\Setting;
 use App\Models\User;
+use App\Services\BroadcastService;
 use App\Services\WatzapService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
@@ -383,6 +385,43 @@ class BroadcastBatchReportTest extends TestCase
             'customer_vendor_code' => 'C112233',
             'status' => 'sent',
         ]);
+    }
+
+    public function test_user_can_update_broadcast_safety_and_delay_settings(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post(route('broadcasts.settings.update'), [
+            'delay_min' => 8,
+            'delay_max' => 18,
+            'batch_size' => 25,
+            'batch_cooldown' => 45,
+            'spintax_enabled' => '1',
+            'daily_limit' => 300,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertEquals('8', Setting::get('broadcast_delay_min'));
+        $this->assertEquals('18', Setting::get('broadcast_delay_max'));
+        $this->assertEquals('25', Setting::get('broadcast_batch_size'));
+        $this->assertEquals('45', Setting::get('broadcast_batch_cooldown'));
+        $this->assertEquals('1', Setting::get('broadcast_spintax_enabled'));
+        $this->assertEquals('300', Setting::get('broadcast_daily_limit'));
+    }
+
+    public function test_broadcast_service_processes_spintax_properly(): void
+    {
+        $service = app(BroadcastService::class);
+        $text = '{Halo|Hai} Kak {nama}, {kami punya promo|ada penawaran khusus} untuk {item}!';
+
+        $result = $service->processSpintax($text);
+
+        $this->assertTrue(str_starts_with($result, 'Halo') || str_starts_with($result, 'Hai'));
+        $this->assertStringContainsString('{nama}', $result);
+        $this->assertStringContainsString('{item}', $result);
+        $this->assertTrue(str_contains($result, 'kami punya promo') || str_contains($result, 'ada penawaran khusus'));
     }
 }
 

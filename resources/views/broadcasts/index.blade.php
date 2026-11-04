@@ -16,6 +16,11 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
+        <button type="button" onclick="openAntiBlockSettingsModal()" class="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/90 px-3.5 py-2.5 text-xs font-bold text-amber-900 shadow-2xs transition hover:bg-amber-100 hover:border-amber-300">
+            <svg class="size-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286zm0 13.036h.008v.008H12v-.008z"/></svg>
+            <span>⚡ Setting Delay & Anti-Banned</span>
+        </button>
+
         <a href="{{ route('broadcasts.templates.index') }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50">
             <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
             Kelola Template
@@ -57,6 +62,33 @@
         <p class="mt-1 text-2xl font-black text-purple-600">{{ $avgDeliveryRate }}%</p>
         <p class="mt-0.5 text-[10px] text-slate-400">Tingkat keberhasilan</p>
     </div>
+</div>
+
+<!-- Banner Status Proteksi Anti-Banned & Delay -->
+<div class="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-2xs">
+    <div class="flex items-start sm:items-center gap-3">
+        <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286zm0 13.036h.008v.008H12v-.008z"/></svg>
+        </div>
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-black text-emerald-950">Proteksi Anti-Banned & Delay WhatsApp: Aktif</span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-emerald-200/60 px-2 py-0.5 text-[10px] font-extrabold text-emerald-800">
+                    <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Safe Mode
+                </span>
+            </div>
+            <p class="mt-0.5 text-xs text-emerald-800 leading-relaxed">
+                Jeda acak antar pesan: <strong>{{ $safetySettings['delay_min'] }} - {{ $safetySettings['delay_max'] }} detik</strong> &middot; 
+                Istirahat tiap <strong>{{ $safetySettings['batch_size'] }} pesan ({{ $safetySettings['batch_cooldown'] }}s)</strong> &middot; 
+                Spintax Acak: <strong>{{ $safetySettings['spintax_enabled'] ? 'ON' : 'OFF' }}</strong> &middot; 
+                Terkirim hari ini: <strong>{{ $todaySentCount }} / {{ $safetySettings['daily_limit'] }}</strong>
+            </p>
+        </div>
+    </div>
+    <button type="button" onclick="openAntiBlockSettingsModal()" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-2xs transition hover:bg-emerald-50 hover:border-emerald-400 self-start sm:self-center">
+        <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/></svg>
+        <span>Atur Delay & Proteksi</span>
+    </button>
 </div>
 
 <!-- Tabs & Filter Bar -->
@@ -369,6 +401,221 @@ function closeNewBroadcastModal() {
         modal.classList.remove('flex');
     }
 }
+
+function openAntiBlockSettingsModal() {
+    const modal = document.getElementById('anti-block-settings-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        testSpintaxPreview();
+    }
+}
+
+function closeAntiBlockSettingsModal() {
+    const modal = document.getElementById('anti-block-settings-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+function testSpintaxPreview() {
+    const input = document.getElementById('spintax-test-input');
+    const output = document.getElementById('spintax-test-output');
+    if (!input || !output) return;
+
+    let text = input.value;
+    text = text.replace(/\{([^{}]+)\}/g, function(match, content) {
+        if (['nama', 'nama_pelanggan', 'item', 'kode'].includes(content.toLowerCase())) {
+            return content.toLowerCase() === 'nama' ? 'Budi Santoso' : (content.toLowerCase() === 'item' ? 'Samsung Galaxy A55 5G' : match);
+        }
+        if (content.includes('|')) {
+            const parts = content.split('|').map(s => s.trim()).filter(Boolean);
+            return parts[Math.floor(Math.random() * parts.length)] || match;
+        }
+        return match;
+    });
+
+    output.textContent = text;
+}
 </script>
+
+<!-- Modal: ⚙️ Pengaturan Delay & Anti-Banned Broadcast WhatsApp -->
+<div id="anti-block-settings-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm sm:p-6 md:p-10 flex items-center justify-center">
+    <div class="relative w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="flex size-10 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 shadow-xs">
+                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286zm0 13.036h.008v.008H12v-.008z"/></svg>
+                </div>
+                <div>
+                    <h3 class="font-black text-slate-900 text-base">Setting Delay & Proteksi Anti-Banned</h3>
+                    <p class="text-xs text-slate-500">Konfigurasi jeda waktu dan algoritma acak untuk mencegah nomor WhatsApp Anda terblokir/suspend.</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeAntiBlockSettingsModal()" class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition">
+                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form method="POST" action="{{ route('broadcasts.settings.update') }}" class="mt-5 space-y-6">
+            @csrf
+
+            <!-- Section 1: Pengaturan Delay Antar Pesan -->
+            <div class="rounded-xl border border-slate-200/90 bg-slate-50/70 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                        <svg class="size-4 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        1. Delay Waktu Antar Pesan (Jeda Acak / Random Jitter)
+                    </span>
+                    <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Rekomendasi Aman: 5 - 15 Detik</span>
+                </div>
+                <p class="text-xs text-slate-600 mb-3.5 leading-relaxed">
+                    Sistem akan mengirim pesan dengan jeda acak di antara nilai minimum dan maksimum (bukan interval konstan yang kaku) untuk meniru ritme ketikan manusia normal agar tidak terdeteksi bot oleh WhatsApp.
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label for="delay_min" class="mb-1 block text-xs font-bold text-slate-700">Jeda Minimum (Detik)</label>
+                        <div class="relative">
+                            <input type="number" id="delay_min" name="delay_min" min="1" max="120" value="{{ $safetySettings['delay_min'] }}" class="dcms-input text-xs font-bold font-mono pl-3 pr-10" required>
+                            <span class="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">detik</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">Minimal 3-5 detik untuk keamanan optimal.</p>
+                    </div>
+
+                    <div>
+                        <label for="delay_max" class="mb-1 block text-xs font-bold text-slate-700">Jeda Maksimum (Detik)</label>
+                        <div class="relative">
+                            <input type="number" id="delay_max" name="delay_max" min="1" max="300" value="{{ $safetySettings['delay_max'] }}" class="dcms-input text-xs font-bold font-mono pl-3 pr-10" required>
+                            <span class="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">detik</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">Maksimal jeda acak sebelum pesan berikutnya dikirim.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Jeda Istirahat Batch (Cooldown) -->
+            <div class="rounded-xl border border-slate-200/90 bg-slate-50/70 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                        <svg class="size-4 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+                        2. Istirahat Berkala (Batch Cooldown)
+                    </span>
+                    <span class="rounded bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">Cegah Burst Flood</span>
+                </div>
+                <p class="text-xs text-slate-600 mb-3.5 leading-relaxed">
+                    Setelah mengirim sejumlah pesan secara berturut-turut, sistem akan berhenti sejenak (cooldown) sebelum melanjutkan sisa antrean. Ini efektif mematahkan pola lonjakan pesan yang dipantau filter anti-spam Meta.
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label for="batch_size" class="mb-1 block text-xs font-bold text-slate-700">Istirahat Setiap (Jumlah Pesan)</label>
+                        <div class="relative">
+                            <input type="number" id="batch_size" name="batch_size" min="5" max="500" value="{{ $safetySettings['batch_size'] }}" class="dcms-input text-xs font-bold font-mono pl-3 pr-10" required>
+                            <span class="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">pesan</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">Disarankan setiap 15-25 pesan.</p>
+                    </div>
+
+                    <div>
+                        <label for="batch_cooldown" class="mb-1 block text-xs font-bold text-slate-700">Durasi Istirahat Cooldown</label>
+                        <div class="relative">
+                            <input type="number" id="batch_cooldown" name="batch_cooldown" min="0" max="600" value="{{ $safetySettings['batch_cooldown'] }}" class="dcms-input text-xs font-bold font-mono pl-3 pr-10" required>
+                            <span class="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">detik</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">Disarankan 20-45 detik rehat sejenak.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Fitur Spintax & Personalisasi Acak -->
+            <div class="rounded-xl border border-blue-200/90 bg-blue-50/50 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
+                        <svg class="size-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"/></svg>
+                        3. Variasi Pesan Otomatis (Spintax Engine)
+                    </span>
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="spintax_enabled" value="1" {{ $safetySettings['spintax_enabled'] ? 'checked' : '' }} class="size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-xs font-bold text-blue-900">Aktifkan Spintax</span>
+                    </label>
+                </div>
+                <p class="text-xs text-blue-900 leading-relaxed mb-3">
+                    Spintax memungkinkan satu template menghasilkan ribuan kombinasi kalimat unik. Gunakan kurung kurawal dan tanda pipa, contoh: <code>{Halo|Hai|Selamat Siang} Kak {nama}, {ada penawaran khusus|kami punya promo menarik}</code>.
+                </p>
+
+                <!-- Live Spintax Tester -->
+                <div class="rounded-lg border border-blue-200 bg-white p-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold text-slate-700">Simulasi / Tes Spintax:</span>
+                        <button type="button" onclick="testSpintaxPreview()" class="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800 hover:bg-blue-200 transition">
+                            🎲 Uji Acak Variasi
+                        </button>
+                    </div>
+                    <textarea id="spintax-test-input" rows="2" class="dcms-input text-xs font-mono mb-2" placeholder="Ketik kalimat spintax...">Halo {Kak|Bunda|Bapak/Ibu} {nama}, {kami punya promo spesial|ada penawaran eksklusif|spesial untuk Kakak} hari ini untuk {item}!</textarea>
+                    <div class="rounded border border-slate-100 bg-slate-50 p-2 text-xs text-slate-800">
+                        <span class="text-[10px] font-bold text-slate-400 block mb-0.5">Hasil Variasi Acak:</span>
+                        <span id="spintax-test-output" class="font-medium text-emerald-800">Klik "Uji Acak Variasi" untuk melihat hasil putaran pesan.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Batas Aman Harian -->
+            <div class="rounded-xl border border-slate-200/90 bg-slate-50/70 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                        <svg class="size-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+                        4. Batas Maksimal Broadcast Harian (Daily Cap)
+                    </span>
+                    <span class="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Batas Aman Akun</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-center">
+                    <div>
+                        <div class="relative">
+                            <input type="number" id="daily_limit" name="daily_limit" min="10" max="5000" value="{{ $safetySettings['daily_limit'] }}" class="dcms-input text-xs font-bold font-mono pl-3 pr-14" required>
+                            <span class="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">pesan/hari</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">Rekomendasi nomor berumur: maks 250 - 500 pesan/hari.</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs">
+                        <div class="text-slate-500 text-[11px]">Pesan Terkirim Hari Ini:</div>
+                        <div class="text-base font-black text-slate-900 mt-0.5">
+                            {{ $todaySentCount }} <span class="text-xs font-medium text-slate-400">/ {{ $safetySettings['daily_limit'] }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5: 7 Panduan Emas Anti-Suspend WhatsApp -->
+            <div class="rounded-xl border border-slate-200 bg-slate-100/60 p-4">
+                <div class="flex items-center gap-1.5 mb-2.5 text-xs font-black uppercase tracking-wider text-slate-800">
+                    <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286zm0 13.036h.008v.008H12v-.008z"/></svg>
+                    7 Panduan Praktis Menghindari Suspend WhatsApp:
+                </div>
+                <ul class="space-y-1.5 text-xs text-slate-600 list-disc pl-4 leading-relaxed">
+                    <li><strong>Warming Up Nomor:</strong> Pastikan nomor pengirim sudah berumur &ge; 1 bulan dan aktif menerima chat masuk setiap hari.</li>
+                    <li><strong>Sapaan Personal:</strong> Selalu sertakan variabel nama <code>{nama}</code> agar penerima merasa pesan ditujukan langsung untuknya.</li>
+                    <li><strong>Gunakan Variasi Spintax:</strong> Jangan mengirim teks 100% kembar ke ratusan orang sekaligus.</li>
+                    <li><strong>Beri Opsi Unsubscribe:</strong> Tambahkan catatan ramah seperti <em>"Ketik STOP bila tidak berkenan menerima promo"</em> agar konsumen tidak menekan tombol <strong>Laporkan / Report Spam</strong> ke WhatsApp.</li>
+                    <li><strong>Kirim di Jam Wajar:</strong> Broadcast antara pukul 09:00 - 19:00 WIB saat konsumen aktif dan tidak merasa terganggu.</li>
+                    <li><strong>Jangan Langsung Kirim Ribuan:</strong> Mulai dari 50 pesan/hari, lalu naikkan secara bertahap (50 &rarr; 100 &rarr; 200).</li>
+                    <li><strong>Filter Nomor Valid:</strong> Gunakan filter "WhatsApp Valid" di DCMS untuk memastikan tidak mengirim ke nomor yang mati/hangus.</li>
+                </ul>
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeAntiBlockSettingsModal()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition">
+                    Batal
+                </button>
+                <button type="submit" class="dcms-primary-button px-6 py-2.5 text-xs font-bold shadow-md shadow-brand-500/20">
+                    Simpan Pengaturan Proteksi
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 @endsection

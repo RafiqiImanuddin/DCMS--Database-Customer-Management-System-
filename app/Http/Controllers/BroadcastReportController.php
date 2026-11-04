@@ -8,6 +8,7 @@ use App\Models\BroadcastReport;
 use App\Models\BroadcastTemplate;
 use App\Models\LeadCustomer;
 use App\Models\RepeatOrderPrediction;
+use App\Models\Setting;
 use App\Services\BroadcastService;
 use App\Services\FastXlsxWriter;
 use Illuminate\Http\RedirectResponse;
@@ -67,6 +68,19 @@ class BroadcastReportController extends Controller
 
         $templates = BroadcastTemplate::orderBy('id')->get();
 
+        $safetySettings = [
+            'delay_min' => (int) Setting::get('broadcast_delay_min', '5'),
+            'delay_max' => (int) Setting::get('broadcast_delay_max', '15'),
+            'batch_size' => (int) Setting::get('broadcast_batch_size', '20'),
+            'batch_cooldown' => (int) Setting::get('broadcast_batch_cooldown', '30'),
+            'spintax_enabled' => Setting::get('broadcast_spintax_enabled', '1') === '1',
+            'daily_limit' => (int) Setting::get('broadcast_daily_limit', '250'),
+        ];
+
+        $todaySentCount = BroadcastReport::where('status', 'sent')
+            ->whereDate('sent_at', today())
+            ->count();
+
         return view('broadcasts.index', [
             'tab' => $tab,
             'batches' => $batches,
@@ -76,6 +90,8 @@ class BroadcastReportController extends Controller
             'totalRecipients' => $totalRecipients,
             'totalSent' => $totalSent,
             'avgDeliveryRate' => $avgDeliveryRate,
+            'safetySettings' => $safetySettings,
+            'todaySentCount' => $todaySentCount,
         ]);
     }
 
@@ -213,14 +229,44 @@ class BroadcastReportController extends Controller
             'sent_at' => now(),
         ]);
 
+        @set_time_limit(0);
+
+        $delayMin = (int) Setting::get('broadcast_delay_min', '5');
+        $delayMax = (int) Setting::get('broadcast_delay_max', '15');
+        $batchSize = (int) Setting::get('broadcast_batch_size', '20');
+        $batchCooldown = (int) Setting::get('broadcast_batch_cooldown', '30');
+
+        if ($delayMin < 1) $delayMin = 1;
+        if ($delayMax < $delayMin) $delayMax = $delayMin;
+
         $sentCount = 0;
         $failedCount = 0;
-        foreach ($predictions as $prediction) {
+        $processedInBatch = 0;
+        $totalItems = count($predictions);
+
+        foreach ($predictions as $index => $prediction) {
             $report = $service->send($prediction, $validated['message'], $request->user()->id, $imageUrl, $batch->id);
             if ($report->status === 'sent') {
                 $sentCount++;
             } else {
                 $failedCount++;
+            }
+
+            $processedInBatch++;
+
+            // Proteksi Anti-Banned & Anti-Suspend: Jeda acak antar pesan dan jeda batch
+            if ($index < $totalItems - 1) {
+                if ($batchSize > 0 && $processedInBatch >= $batchSize && $batchCooldown > 0) {
+                    $processedInBatch = 0;
+                    if (! app()->runningUnitTests()) {
+                        sleep($batchCooldown);
+                    }
+                } else {
+                    $jitter = rand($delayMin, $delayMax);
+                    if (! app()->runningUnitTests()) {
+                        sleep($jitter);
+                    }
+                }
             }
         }
 
@@ -287,6 +333,33 @@ class BroadcastReportController extends Controller
         $report->delete();
 
         return redirect()->route('broadcasts.index')->with('success', 'Laporan broadcast berhasil dihapus.');
+    }
+
+    public function updateSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'delay_min' => ['required', 'integer', 'min:1', 'max:120'],
+            'delay_max' => ['required', 'integer', 'min:1', 'max:300'],
+            'batch_size' => ['required', 'integer', 'min:5', 'max:500'],
+            'batch_cooldown' => ['required', 'integer', 'min:0', 'max:600'],
+            'spintax_enabled' => ['nullable'],
+            'daily_limit' => ['required', 'integer', 'min:10', 'max:5000'],
+        ]);
+
+        $min = (int) $validated['delay_min'];
+        $max = (int) $validated['delay_max'];
+        if ($min > $max) {
+            $max = $min;
+        }
+
+        Setting::set('broadcast_delay_min', (string) $min);
+        Setting::set('broadcast_delay_max', (string) $max);
+        Setting::set('broadcast_batch_size', (string) $validated['batch_size']);
+        Setting::set('broadcast_batch_cooldown', (string) $validated['batch_cooldown']);
+        Setting::set('broadcast_spintax_enabled', $request->has('spintax_enabled') ? '1' : '0');
+        Setting::set('broadcast_daily_limit', (string) $validated['daily_limit']);
+
+        return redirect()->back()->with('success', 'Pengaturan Delay & Anti-Banned WhatsApp Broadcast berhasil disimpan!');
     }
 
     private function resolveImageUrl(Request $request, ?string $fallbackUrl): ?string
