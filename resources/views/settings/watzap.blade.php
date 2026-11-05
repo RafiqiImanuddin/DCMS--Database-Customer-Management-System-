@@ -271,11 +271,13 @@
                 <div class="rounded-2xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 p-5 shadow-xs space-y-4">
                     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-100 pb-3">
                         <div class="flex items-center gap-2.5">
-                            <span class="grid size-8 place-items-center rounded-xl bg-emerald-600 text-white shadow-sm font-bold text-xs">1</span>
+                            <span class="grid size-8 place-items-center rounded-xl bg-emerald-600 text-white shadow-sm font-bold text-xs">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            </span>
                             <div>
                                 <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
-                                    <span>Gateway Utama: WAHA VPS (High Performance & Quoted Reply)</span>
-                                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-800">Prioritas</span>
+                                    <span>Gateway WhatsApp: WAHA VPS (High Performance & Quoted Reply)</span>
+                                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-800">Aktif</span>
                                 </h3>
                                 <p class="text-[11px] text-slate-500">Mendukung koneksi langsung super cepat, Native Quoted Reply WhatsApp, dan media resolusi tinggi tanpa batas pihak ketiga.</p>
                             </div>
@@ -325,78 +327,14 @@
                                 <span>Buka Web Console WAHA (Scan QR)</span>
                             </a>
                         </div>
-                        <span class="text-[11px] text-slate-500">Auto-Failover: Otomatis dialihkan ke WatZap jika WAHA VPS offline.</span>
                     </div>
                     <div id="waha-check-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
                 </div>
 
-                <!-- 2. GATEWAY CADANGAN (FALLBACK): WATZAP CLOUD API -->
-                <div class="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 shadow-xs space-y-4">
-                    <div class="flex items-center gap-2.5 border-b border-slate-200 pb-3">
-                        <span class="grid size-8 place-items-center rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">2</span>
-                        <div>
-                            <h3 class="font-extrabold text-sm text-slate-900">Gateway Cadangan: WatZap Cloud API (Auto-Failover)</h3>
-                            <p class="text-[11px] text-slate-500">Digunakan secara otomatis jika server WAHA VPS tidak dapat dihubungi atau sedang offline.</p>
-                        </div>
-                    </div>
-
-                    <!-- Opsi Mode Nomor Gateway Inbox WatZap -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-4">
-                        <span class="block text-xs font-bold uppercase tracking-wide text-slate-700 mb-2">Pilihan Nomor Pengirim WatZap:</span>
-                        <div class="space-y-2">
-                            <label class="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
-                                <input type="radio" name="watzap_inbox_same_as_broadcast" value="1" {{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '1' ? 'checked' : '' }} onchange="toggleInboxDedicatedFields(this.value)" class="text-emerald-600 focus:ring-emerald-500">
-                                <span>Gunakan Nomor yang Sama dengan WA Broadcast (Single Gateway)</span>
-                            </label>
-                            <label class="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
-                                <input type="radio" name="watzap_inbox_same_as_broadcast" value="0" {{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '0' ? 'checked' : '' }} onchange="toggleInboxDedicatedFields(this.value)" class="text-emerald-600 focus:ring-emerald-500">
-                                <span>Gunakan Nomor Khusus untuk CS / Tim Follow-Up (Dedicated Number)</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Input Khusus jika Nomor Terpisah -->
-                    <div id="inbox-dedicated-fields" class="{{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '0' ? '' : 'hidden' }} space-y-4 pt-1">
-                        <div>
-                            <label for="watzap_inbox_api_key" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                                API Key Khusus Inbox (Opsional)
-                            </label>
-                            <input id="watzap_inbox_api_key" name="watzap_inbox_api_key" type="password" autocomplete="new-password" data-lpignore="true" value="{{ old('watzap_inbox_api_key', $inboxApiKey) }}" @disabled(! $isSuperAdmin) placeholder="Kosongkan jika menggunakan API Key WatZap yang sama" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
-                            <p class="mt-1 text-[11px] text-slate-400">Jika akun WatZap sama, kosongkan kolom ini (otomatis menggunakan API Key utama).</p>
-                        </div>
-
-                        <div>
-                            <label for="watzap_inbox_number_key" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                                Number Key Khusus Inbox FU (Device Key) <span class="text-rose-500">*</span>
-                            </label>
-                            <input id="watzap_inbox_number_key" name="watzap_inbox_number_key" type="text" value="{{ old('watzap_inbox_number_key', $inboxNumberKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: nk_cs_xxxxxxxxxxxx" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
-                            <p class="mt-1 text-[11px] text-slate-400">ID Number Key khusus nomor WhatsApp CS/Follow-Up yang sudah terhubung di WatZap.</p>
-                            @if(!empty($availableSenders))
-                            <div class="mt-2 flex flex-wrap items-center gap-1.5 pt-1">
-                                <span class="text-[11px] font-semibold text-slate-500">Pilih cepat nomor terhubung:</span>
-                                @foreach($availableSenders as $s)
-                                    <button type="button" 
-                                        onclick="document.getElementById('watzap_inbox_number_key').value='{{ $s['key'] }}'"
-                                        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700">
-                                        <span class="size-2 rounded-full {{ $s['is_online'] ? 'bg-emerald-500' : 'bg-slate-400' }}"></span>
-                                        <span>{{ $s['phone'] ?: $s['key'] }}</span>
-                                        <span class="text-[10px] text-slate-400">({{ $s['status'] }})</span>
-                                    </button>
-                                @endforeach
-                            </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
                 @if($isSuperAdmin)
-                <div class="flex items-center justify-between pt-3 border-t border-slate-100">
-                    <button type="button" id="btn-check-api-inbox" onclick="checkApiConnection()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50">
-                        <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                        Tes Koneksi WatZap
-                    </button>
+                <div class="flex items-center justify-end pt-3 border-t border-slate-100">
                     <button type="submit" class="dcms-primary-button px-6 py-2.5 text-xs font-bold">
-                        Simpan Pengaturan Inbox
+                        Simpan Pengaturan WAHA VPS
                     </button>
                 </div>
                 @endif
@@ -435,36 +373,6 @@
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
                     <span class="text-xs text-slate-500">Quoted Reply</span>
                     <span class="text-xs font-bold text-emerald-700">Native WhatsApp Aktif</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Status Gateway Cadangan: WatZap -->
-        <section class="dcms-card p-6">
-            <h2 class="font-black text-slate-900">Status Gateway Cadangan (WatZap)</h2>
-            <p class="mt-1 text-xs text-slate-500">Nomor cadangan jika server WAHA VPS offline.</p>
-
-            <div class="mt-4 space-y-3">
-                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Status Pengirim</span>
-                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold {{ ($deviceStatusInbox['online'] ?? false) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700' }}">
-                        <span class="size-2 rounded-full {{ ($deviceStatusInbox['online'] ?? false) ? 'bg-emerald-500' : 'bg-slate-400' }}"></span>
-                        {{ $deviceStatusInbox['status'] ?? ($isConfiguredInbox ? 'Cek Koneksi' : 'Belum Terhubung') }}
-                    </span>
-                </div>
-                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Nomor CS Follow-Up</span>
-                    <span class="font-mono text-xs font-bold text-slate-900">{{ $deviceStatusInbox['phone'] ?? '-' }}</span>
-                </div>
-                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Mode Nomor</span>
-                    <span class="text-xs font-semibold text-slate-900">
-                        {{ $inboxSame === '1' ? 'Sama dg WA Broadcast' : 'Nomor Khusus Terpisah' }}
-                    </span>
-                </div>
-                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Dukungan Media</span>
-                    <span class="text-xs font-bold text-emerald-700">Teks, Foto & File PDF/Doc</span>
                 </div>
             </div>
 

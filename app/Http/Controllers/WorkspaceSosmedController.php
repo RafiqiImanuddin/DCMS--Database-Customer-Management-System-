@@ -372,6 +372,7 @@ class WorkspaceSosmedController extends Controller
             return response()->json(['success' => false, 'message' => 'Pesan atau file lampiran wajib diisi!'], 400);
         }
 
+        $fileData = null;
         if ($uploadedFile) {
             $originalName = $uploadedFile->getClientOriginalName() ?: ('file_'.time());
             $mimeType = $uploadedFile->getMimeType() ?: 'application/octet-stream';
@@ -380,19 +381,26 @@ class WorkspaceSosmedController extends Controller
 
             $isImage = str_starts_with($mimeType, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
             $mediaType = $isImage ? 'image' : 'document';
+            $rawBase64 = base64_encode($uploadedFile->getContent());
 
             $media = BroadcastMedia::create([
                 'user_id' => $request->user()?->id,
                 'filename' => $originalName,
                 'mime_type' => $mimeType,
                 'file_size' => $fileSize,
-                'data' => base64_encode($uploadedFile->getContent()),
+                'data' => $rawBase64,
             ]);
 
             $mediaUrl = route('broadcasts.media.show', [
                 'media' => $media->id,
                 'filename' => $originalName,
             ], true);
+
+            $fileData = [
+                'base64' => $rawBase64,
+                'mimetype' => $mimeType,
+                'filename' => $originalName,
+            ];
         }
 
         if (! $mediaType && $mediaUrl) {
@@ -401,7 +409,7 @@ class WorkspaceSosmedController extends Controller
         }
 
         // Kirim via Dual-Gateway Omnichannel (WAHA VPS primary + WatZap fallback)
-        $result = $watzapService->sendOmnichannel($rawPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null);
+        $result = $watzapService->sendOmnichannel($rawPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null, $fileData);
         $cleanPhone = $watzapService->resolvePhoneOrLid($rawPhone);
         $msgId = $result['message_id'] ?? ('out_'.uniqid());
         $isSuccess = ! empty($result['success']);
@@ -889,16 +897,28 @@ class WorkspaceSosmedController extends Controller
         }
 
         try {
-            $wahaUrl = $watzapService->getWahaUrl().'/api/files/'.$file;
+            $session = $watzapService->getWahaSession();
+            $path = (str_starts_with($file, 'default/') || str_starts_with($file, "{$session}/"))
+                ? $file
+                : "{$session}/{$file}";
+
+            $wahaUrl = $watzapService->getWahaUrl().'/api/files/'.$path;
             $res = Http::timeout(10)
                 ->withHeaders(['X-Api-Key' => $watzapService->getWahaApiKey()])
                 ->get($wahaUrl);
 
             if (! $res->successful()) {
+                $fallbackUrl = $watzapService->getWahaUrl().'/api/files/'.$file;
+                $res = Http::timeout(10)
+                    ->withHeaders(['X-Api-Key' => $watzapService->getWahaApiKey()])
+                    ->get($fallbackUrl);
+            }
+
+            if (! $res->successful()) {
                 return response('Failed to fetch file from WAHA: '.$res->status(), $res->status());
             }
 
-            $contentType = $res->header('Content-Type') ?: 'image/jpeg';
+            $contentType = $res->header('Content-Type') ?: 'application/octet-stream';
 
             return response($res->body(), 200, [
                 'Content-Type' => $contentType,

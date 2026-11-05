@@ -196,7 +196,15 @@
             itemName: options.item || options.itemName || '',
             confirmText: options.confirmText || 'Ya, Hapus Sekarang',
             type: options.type || 'danger',
-            onConfirm: () => form.submit()
+            onConfirm: () => {
+                const btn = form.querySelector('button[type="button"], button[type="submit"]') || (buttonOrForm.tagName === 'BUTTON' ? buttonOrForm : null);
+                if (btn) {
+                    btn.disabled = true;
+                    btn.classList.add('opacity-60', 'cursor-not-allowed');
+                    btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><svg class="animate-spin size-3.5" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Menghapus...</span>';
+                }
+                form.submit();
+            }
         });
     }
     </script>

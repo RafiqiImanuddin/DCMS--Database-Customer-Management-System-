@@ -298,26 +298,42 @@ class CrossSellingImportController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, CrossSellingImport $import, RepeatOrderPredictor $predictor): RedirectResponse
+    public function destroy(Request $request, CrossSellingImport $import, ?RepeatOrderPredictor $predictor = null): RedirectResponse
     {
         abort_unless($import->user_id === $request->user()->id || $request->user()->isSuperAdmin(), 404);
 
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
+
         $storedPath = $import->stored_path;
+        $isMySql = str_contains(DB::getDriverName(), 'mysql');
 
-        DB::transaction(function () use ($import): void {
-            RepeatOrderPrediction::where('cross_selling_import_id', $import->id)->delete();
-            CrossSelling::where('cross_selling_import_id', $import->id)->delete();
-            $import->delete();
-        });
-
-        if ($storedPath) {
-            Storage::disk('local')->delete($storedPath);
+        if ($isMySql) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         }
 
         try {
-            $predictor->rebuild();
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Predictor rebuild warning during import deletion: ' . $e->getMessage());
+            // Hapus data prediksi terkait batch import ini terlebih dahulu
+            RepeatOrderPrediction::where('cross_selling_import_id', $import->id)->delete();
+
+            // Hapus data transaksi cross_selling secara chunked untuk kecepatan maksimal tanpa lock tabel
+            if ($isMySql) {
+                do {
+                    $deleted = DB::delete('DELETE FROM cross_sellings WHERE cross_selling_import_id = ? LIMIT 25000', [$import->id]);
+                } while ($deleted > 0);
+            } else {
+                CrossSelling::where('cross_selling_import_id', $import->id)->delete();
+            }
+
+            $import->delete();
+        } finally {
+            if ($isMySql) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            }
+        }
+
+        if ($storedPath) {
+            Storage::disk('local')->delete($storedPath);
         }
 
         return redirect()->route('imports.index')->with('success', 'Data import berhasil dihapus.');
@@ -327,12 +343,32 @@ class CrossSellingImportController extends Controller
     {
         abort_unless($import->user_id === $request->user()->id || $request->user()->isSuperAdmin(), 404);
 
-        $storedPath = $import->stored_path;
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
 
-        DB::transaction(function () use ($import): void {
-            Turnover::where('turnover_import_id', $import->id)->delete();
+        $storedPath = $import->stored_path;
+        $isMySql = str_contains(DB::getDriverName(), 'mysql');
+
+        if ($isMySql) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
+
+        try {
+            // Hapus baris turnover secara chunked untuk kecepatan maksimal
+            if ($isMySql) {
+                do {
+                    $deleted = DB::delete('DELETE FROM turnovers WHERE turnover_import_id = ? LIMIT 25000', [$import->id]);
+                } while ($deleted > 0);
+            } else {
+                Turnover::where('turnover_import_id', $import->id)->delete();
+            }
+
             $import->delete();
-        });
+        } finally {
+            if ($isMySql) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            }
+        }
 
         if ($storedPath) {
             Storage::disk('local')->delete($storedPath);

@@ -220,14 +220,25 @@ class WatzapService
                                 $hasMedia = ! empty($m['hasMedia']) || ! empty($m['media']);
                                 $mediaUrl = null;
                                 $mediaType = null;
+                                $filename = null;
                                 if ($hasMedia) {
-                                    $mediaType = 'image';
-                                    if (is_array($m['media']) && ! empty($m['media']['url'])) {
-                                        $mediaUrl = (string) $m['media']['url'];
-                                    } elseif (is_array($m['media']) && ! empty($m['media']['filename'])) {
-                                        $mediaUrl = '/api/watzap-media?file='.urlencode($m['media']['filename']);
+                                    $mime = is_array($m['media'] ?? null) ? ($m['media']['mimetype'] ?? '') : ($m['_data']['mimetype'] ?? '');
+                                    $filename = is_array($m['media'] ?? null) ? ($m['media']['filename'] ?? null) : ($m['_data']['filename'] ?? null);
+                                    $isImage = str_starts_with($mime, 'image/') || (! $mime && str_ends_with(strtolower((string) $filename), '.jpeg')) || (($m['type'] ?? '') === 'image');
+                                    $mediaType = $isImage ? 'image' : 'document';
+
+                                    if (is_array($m['media'] ?? null) && ! empty($m['media']['url'])) {
+                                        $parsedPath = parse_url((string) $m['media']['url'], PHP_URL_PATH);
+                                        if ($parsedPath && str_contains($parsedPath, '/api/files/')) {
+                                            $subPath = substr($parsedPath, strpos($parsedPath, '/api/files/') + 11);
+                                            $mediaUrl = '/api/watzap-media?file='.urlencode($subPath);
+                                        } else {
+                                            $mediaUrl = (string) $m['media']['url'];
+                                        }
+                                    } elseif (is_array($m['media'] ?? null) && ! empty($m['media']['filename'])) {
+                                        $mediaUrl = '/api/watzap-media?file='.urlencode("{$session}/".$m['media']['filename']);
                                     } else {
-                                        $mediaUrl = '/api/watzap-media?file='.urlencode($msgId.'.jpeg');
+                                        $mediaUrl = '/api/watzap-media?file='.urlencode("{$session}/{$msgId}".($isImage ? '.jpeg' : ''));
                                     }
                                 }
 
@@ -237,6 +248,7 @@ class WatzapService
                                     'message' => $rawBody,
                                     'media_url' => $mediaUrl,
                                     'media_type' => $mediaType,
+                                    'filename' => $filename,
                                     'reply_to' => $replyTo,
                                     'timestamp' => $epochMs,
                                     'status' => 'received',
@@ -356,7 +368,7 @@ class WatzapService
      * @param  array{id?: string, messageId?: string, senderName?: string, text?: string}|null  $replyTo
      * @return array{success: bool, message: string, status: string, source: string, message_id: string, data: array, raw: string}
      */
-    public function sendOmnichannel(string $rawPhone, string $message, ?string $mediaUrl = null, ?string $mediaType = null, ?array $replyTo = null): array
+    public function sendOmnichannel(string $rawPhone, string $message, ?string $mediaUrl = null, ?string $mediaType = null, ?array $replyTo = null, ?array $fileData = null): array
     {
         $cleanPhone = $this->resolvePhoneOrLid($rawPhone);
         if (! $cleanPhone) {
@@ -374,7 +386,8 @@ class WatzapService
         // 1. Prioritaskan Pengiriman via WAHA VPS (Super Cepat & Native Quoted Reply)
         if ($this->isWahaEnabled()) {
             try {
-                $endpoint = $mediaUrl
+                $hasFile = ($fileData && ! empty($fileData['base64'])) || ! empty($mediaUrl);
+                $endpoint = $hasFile
                     ? ($mediaType === 'image' ? '/api/sendImage' : '/api/sendFile')
                     : '/api/sendText';
 
@@ -384,7 +397,16 @@ class WatzapService
                     'chatId' => "{$cleanPhone}@c.us",
                 ];
 
-                if ($mediaUrl) {
+                if ($fileData && ! empty($fileData['base64'])) {
+                    $payload['file'] = [
+                        'mimetype' => $fileData['mimetype'] ?? ($mediaType === 'image' ? 'image/jpeg' : 'application/octet-stream'),
+                        'filename' => $fileData['filename'] ?? ('file_'.time()),
+                        'data' => (string) $fileData['base64'],
+                    ];
+                    if ($message !== '') {
+                        $payload['caption'] = $message;
+                    }
+                } elseif ($mediaUrl) {
                     $payload['file'] = ['url' => $mediaUrl];
                     if ($message !== '') {
                         $payload['caption'] = $message;
@@ -404,6 +426,17 @@ class WatzapService
                         'X-Api-Key' => $this->getWahaApiKey(),
                     ])
                     ->post($wahaUrl, $payload);
+
+                if (! $response->successful() && isset($payload['reply_to'])) {
+                    // Fallback retry tanpa reply_to jika ID pesan yang dibalas tidak ditemukan di memory WhatsApp
+                    unset($payload['reply_to']);
+                    $response = Http::timeout(6)
+                        ->withHeaders([
+                            'Content-Type' => 'application/json',
+                            'X-Api-Key' => $this->getWahaApiKey(),
+                        ])
+                        ->post($wahaUrl, $payload);
+                }
 
                 if ($response->successful()) {
                     $json = $response->json();

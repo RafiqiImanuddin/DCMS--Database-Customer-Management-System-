@@ -9725,17 +9725,38 @@ function renderOmniActiveChat(pic) {
       '</div>'
     ) : '';
 
-    const hasImage = Boolean(msg.mediaUrl || msg.image);
-    const mediaImg = hasImage ? (
-      '<div class="omni-bubble-media" onclick="openOmniImageModal(\'' + escapeHtml(msg.mediaUrl || msg.image) + '\')">' +
-        '<img src="' + escapeHtml(msg.mediaUrl || msg.image) + '" alt="WhatsApp Image" class="omni-chat-image" loading="lazy">' +
-      '</div>'
-    ) : (msg.messageType === 'image' ? (
-      '<div class="omni-bubble-media-placeholder">' +
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
-        '<span>📷 Foto / Gambar WhatsApp</span>' +
-      '</div>'
-    ) : '');
+    const mediaRawUrl = msg.mediaUrl || msg.image || '';
+    const isDoc = (msg.mediaType === 'document' || msg.messageType === 'document' || (mediaRawUrl && !mediaRawUrl.match(/\.(jpe?g|png|webp|gif)/i) && (msg.filename || mediaRawUrl.includes('.txt') || mediaRawUrl.includes('.pdf') || mediaRawUrl.includes('.doc') || mediaRawUrl.includes('.xls'))));
+    const hasImage = Boolean(mediaRawUrl && !isDoc);
+    let mediaMarkup = '';
+    if (hasImage) {
+      mediaMarkup = (
+        '<div class="omni-bubble-media" onclick="openOmniImageModal(\'' + escapeHtml(mediaRawUrl) + '\')">' +
+          '<img src="' + escapeHtml(mediaRawUrl) + '" alt="WhatsApp Image" class="omni-chat-image" loading="lazy">' +
+        '</div>'
+      );
+    } else if (isDoc) {
+      const docName = msg.filename || 'Dokumen WhatsApp';
+      mediaMarkup = (
+        '<div class="omni-bubble-document" style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(0,0,0,0.05); border:1px solid rgba(0,0,0,0.06); border-radius:6px; margin:4px 0; max-width:260px;">' +
+          '<span style="font-size:1.4rem; line-height:1;">📄</span>' +
+          '<div style="flex:1; min-width:0;">' +
+            '<div style="font-weight:600; font-size:0.75rem; color:#0f172a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' + escapeHtml(docName) + '">' + escapeHtml(docName) + '</div>' +
+            '<div style="font-size:0.65rem; color:#64748b;">Dokumen WhatsApp</div>' +
+          '</div>' +
+          '<a href="' + escapeHtml(mediaRawUrl) + '" target="_blank" download="' + escapeHtml(docName) + '" style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:6px; background:#0284c7; color:#fff; text-decoration:none;" title="Unduh / Buka Dokumen">' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+          '</a>' +
+        '</div>'
+      );
+    } else if (msg.messageType === 'image') {
+      mediaMarkup = (
+        '<div class="omni-bubble-media-placeholder">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+          '<span>📷 Foto / Gambar WhatsApp</span>' +
+        '</div>'
+      );
+    }
 
     const senderDisplayName = isOutgoing ? 'Admin (Anda)' : escapeHtml(pic.picName || 'PIC');
     const safeText = escapeHtml(displayText || msg.text || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -9754,7 +9775,7 @@ function renderOmniActiveChat(pic) {
         '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
           '<div class="omni-bubble-sender">' + senderDisplayName + '</div>' +
           quotedBlock +
-          mediaImg +
+          mediaMarkup +
           textHtml +
           '<span class="omni-bubble-time">' + timeStr + tickMarkup + '</span>' +
         '</div>' +
@@ -9815,11 +9836,17 @@ function renderOmniActiveChat(pic) {
     '<div class="omni-input-box-wrapper">' +
       '<textarea id="omniReplyInput" class="omni-textarea-modern" rows="2" placeholder="Ketik pesan balasan... (Tekan Enter untuk kirim, Shift + Enter untuk baris baru)" onkeydown="handleOmniInputKey(event)" oninput="handleOmniInputTyping(this)"></textarea>' +
     '</div>' +
+    '<div id="omniAttachmentPreview" class="omni-attachment-preview-bar" style="display:none; align-items:center; gap:8px; padding:6px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:8px; font-size:0.75rem;">' +
+      '<span id="omniAttachmentIcon" style="font-size:1.1rem;">📎</span>' +
+      '<span id="omniAttachmentName" class="omni-attachment-filename" style="font-weight:600; color:#1e293b; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>' +
+      '<button type="button" class="omni-attachment-remove-btn" onclick="removeOmniAttachment()" style="border:none; background:transparent; cursor:pointer; color:#ef4444; font-weight:700; font-size:1.1rem; line-height:1;" title="Hapus lampiran">&times;</button>' +
+    '</div>' +
     '<div class="omni-input-bottom-bar">' +
       '<div class="omni-bottom-left-actions">' +
-        '<button type="button" class="omni-btn-attachment-modern" title="Kirim Lampiran / Screenshot" onclick="handleOmniAttachmentClick()">' +
+        '<button type="button" class="omni-btn-attachment-modern" title="Kirim Foto / Dokumen / File" onclick="handleOmniAttachmentClick()">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>' +
         '</button>' +
+        '<input type="file" id="omniFileInput" style="display:none;" onchange="handleOmniFileSelected(this)" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">' +
       '</div>' +
       '<div class="omni-bottom-right-actions">' +
         '<button type="button" id="omniBtnSend" class="omni-btn-send-modern" onclick="sendOmniReply()" title="Kirim Balasan (Enter)">' +
@@ -9906,8 +9933,13 @@ function handleOmniFileSelected(input) {
   omniPendingFile = input.files[0];
   const previewWrap = document.getElementById('omniAttachmentPreview');
   const previewName = document.getElementById('omniAttachmentName');
+  const previewIcon = document.getElementById('omniAttachmentIcon');
+  const isImg = omniPendingFile.type && omniPendingFile.type.startsWith('image/');
   if (previewWrap) previewWrap.style.display = 'flex';
-  if (previewName) previewName.innerText = omniPendingFile.name;
+  if (previewName) previewName.innerText = omniPendingFile.name + ' (' + Math.round(omniPendingFile.size / 1024) + ' KB)';
+  if (previewIcon) previewIcon.innerText = isImg ? '🖼️' : '📄';
+  const sendBtn = document.getElementById('omniBtnSend');
+  if (sendBtn) sendBtn.classList.add('active');
 }
 
 function removeOmniAttachment() {
@@ -10042,17 +10074,38 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
     '</div>'
   ) : '';
 
-  const hasImage = Boolean(msg.mediaUrl || msg.image);
-  const mediaImg = hasImage ? (
-    '<div class="omni-bubble-media" onclick="openOmniImageModal(\'' + escapeHtml(msg.mediaUrl || msg.image) + '\')">' +
-      '<img src="' + escapeHtml(msg.mediaUrl || msg.image) + '" alt="WhatsApp Image" class="omni-chat-image" loading="lazy">' +
-    '</div>'
-  ) : (msg.messageType === 'image' ? (
-    '<div class="omni-bubble-media-placeholder">' +
-      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
-      '<span>📷 Foto / Gambar WhatsApp</span>' +
-    '</div>'
-  ) : '');
+  const mediaRawUrl = msg.mediaUrl || msg.image || '';
+  const isDoc = (msg.mediaType === 'document' || msg.messageType === 'document' || (mediaRawUrl && !mediaRawUrl.match(/\.(jpe?g|png|webp|gif)/i) && (msg.filename || mediaRawUrl.includes('.txt') || mediaRawUrl.includes('.pdf') || mediaRawUrl.includes('.doc') || mediaRawUrl.includes('.xls'))));
+  const hasImage = Boolean(mediaRawUrl && !isDoc);
+  let mediaMarkupStream = '';
+  if (hasImage) {
+    mediaMarkupStream = (
+      '<div class="omni-bubble-media" onclick="openOmniImageModal(\'' + escapeHtml(mediaRawUrl) + '\')">' +
+        '<img src="' + escapeHtml(mediaRawUrl) + '" alt="WhatsApp Image" class="omni-chat-image" loading="lazy">' +
+      '</div>'
+    );
+  } else if (isDoc) {
+    const docName = msg.filename || 'Dokumen WhatsApp';
+    mediaMarkupStream = (
+      '<div class="omni-bubble-document" style="display:flex; align-items:center; gap:8px; padding:7px 10px; background:rgba(0,0,0,0.05); border:1px solid rgba(0,0,0,0.06); border-radius:6px; margin:4px 0; max-width:260px;">' +
+        '<span style="font-size:1.4rem; line-height:1;">📄</span>' +
+        '<div style="flex:1; min-width:0;">' +
+          '<div style="font-weight:600; font-size:0.75rem; color:#0f172a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' + escapeHtml(docName) + '">' + escapeHtml(docName) + '</div>' +
+          '<div style="font-size:0.65rem; color:#64748b;">Dokumen WhatsApp</div>' +
+        '</div>' +
+        '<a href="' + escapeHtml(mediaRawUrl) + '" target="_blank" download="' + escapeHtml(docName) + '" style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:6px; background:#0284c7; color:#fff; text-decoration:none;" title="Unduh / Buka Dokumen">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+        '</a>' +
+      '</div>'
+    );
+  } else if (msg.messageType === 'image') {
+    mediaMarkupStream = (
+      '<div class="omni-bubble-media-placeholder">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+        '<span>📷 Foto / Gambar WhatsApp</span>' +
+      '</div>'
+    );
+  }
 
   const senderNameText = isOutgoing ? 'Admin (Anda)' : (senderDisplayName || 'PIC');
   const safeText = escapeHtml(displayText || msg.text || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -10069,7 +10122,7 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
     '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
       '<div class="omni-bubble-sender">' + escapeHtml(senderNameText) + '</div>' +
       quotedBlock +
-      mediaImg +
+      mediaMarkupStream +
       textHtmlStream +
       '<span class="omni-bubble-time">' + timeStr + tickSvg + '</span>' +
     '</div>';
@@ -10225,7 +10278,19 @@ async function sendOmniReply() {
         outgoingMsg.mediaUrl = json.entry.media_url || json.entry.mediaUrl;
         outgoingMsg.media_url = outgoingMsg.mediaUrl;
       }
-      saveOmniThreads(threads);
+      const currentThreads = getOmniThreads();
+      if (currentThreads[selectedOmniPicKey]) {
+        const found = currentThreads[selectedOmniPicKey].find(function(m) {
+          return m.id === msgId || m.messageId === msgId;
+        });
+        if (found) {
+          found.status = 'sent';
+          if (outgoingMsg.mediaUrl) found.mediaUrl = outgoingMsg.mediaUrl;
+        }
+        saveOmniThreads(currentThreads);
+      } else {
+        saveOmniThreads(threads);
+      }
       const tick = document.getElementById('tick_' + msgId);
       if (tick) {
         tick.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>';
