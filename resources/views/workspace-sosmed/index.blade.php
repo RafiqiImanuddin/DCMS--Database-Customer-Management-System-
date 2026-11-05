@@ -2370,6 +2370,9 @@
         }, 100);
     });
   </script>
+
+  {{-- Live WhatsApp Floating Chat Widget --}}
+  @include('layouts.live-chat-widget')
 </body>
 
 </html>

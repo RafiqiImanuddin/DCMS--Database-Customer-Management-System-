@@ -212,5 +212,8 @@
         @include('guidance._login_modal')
     @endif
 
+    {{-- Live WhatsApp Floating Chat Widget --}}
+    @include('layouts.live-chat-widget')
+
 </body>
 </html>

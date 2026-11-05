@@ -74,12 +74,12 @@
             $activeWorkspaceTab = \App\Support\RouteCipher::resolveWorkspaceTab(request());
 
             $isCustomerActive = in_array($activeTarget, [
-                'dashboard', 'imports.index', 'predictions.index', 'leads.index', 'broadcasts.index'
+                'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index'
             ]);
             $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index');
             $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index']);
             $isGuidanceActive = ($activeTarget === 'guidance.index');
-            $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index']);
+            $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index']);
         @endphp
 
         <!-- GROUP 1: CUSTOMER & OUTREACH CRM -->
@@ -107,13 +107,6 @@
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 13h6V4H4v9Zm10 7h6v-9h-6v9ZM4 20h6v-3H4v3Zm10-13h6V4h-6v3Z"/></svg>
                     <span>Dashboard</span>
                 </a>
-
-                @if (auth()->check() && auth()->user()->isSuperAdmin())
-                <a href="{{ \App\Support\RouteCipher::url('imports.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'imports.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg>
-                    <span>Pusat Unggah Data</span>
-                </a>
-                @endif
 
                 <a href="{{ \App\Support\RouteCipher::url('predictions.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'predictions.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 2v6m3-3h-6"/></svg>
@@ -287,6 +280,14 @@
             </button>
 
             <div id="sidebar-group-setting" class="sidebar-group-content space-y-1 pt-1 is-expanded">
+                @if (auth()->check() && auth()->user()->isSuperAdmin())
+                <a href="{{ \App\Support\RouteCipher::url('imports.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'imports.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg>
+                    <span>Pusat Unggah Data</span>
+                    <span class="ml-auto rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-bold text-blue-300">SAP</span>
+                </a>
+                @endif
+
                 <a href="{{ \App\Support\RouteCipher::url('settings.watzap.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index']) ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
                     <span>Setup WhatsApp</span>
