@@ -6,6 +6,7 @@ use App\Models\CrossSelling;
 use App\Models\RepeatOrderPrediction;
 use App\Support\PhoneNumberSql;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class RepeatOrderDashboardController extends Controller
@@ -130,7 +131,11 @@ class RepeatOrderDashboardController extends Controller
         }
 
         // Order by priority: due date earliest first, then highest transaction count
-        $priorityCustomers = $query->orderByRaw('predicted_repeat_date ASC NULLS LAST')
+        $orderClause = DB::connection()->getDriverName() === 'pgsql'
+            ? 'predicted_repeat_date ASC NULLS LAST'
+            : 'CASE WHEN predicted_repeat_date IS NULL THEN 1 ELSE 0 END, predicted_repeat_date ASC';
+
+        $priorityCustomers = $query->orderByRaw($orderClause)
             ->orderByDesc('transaction_count')
             ->orderByDesc('confidence')
             ->paginate(15)

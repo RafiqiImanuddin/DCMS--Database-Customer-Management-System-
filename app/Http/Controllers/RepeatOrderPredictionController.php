@@ -10,6 +10,7 @@ use App\Support\BrandCategory;
 use App\Support\PhoneNumberSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -116,8 +117,12 @@ class RepeatOrderPredictionController extends Controller
             $perPage = 20;
         }
 
+        $orderClause = DB::connection()->getDriverName() === 'pgsql'
+            ? 'predicted_repeat_date ASC NULLS LAST'
+            : 'CASE WHEN predicted_repeat_date IS NULL THEN 1 ELSE 0 END, predicted_repeat_date ASC';
+
         return view('predictions.index', [
-            'predictions' => $query->orderByRaw('predicted_repeat_date ASC NULLS LAST')->orderByDesc('transaction_count')->paginate($perPage)->withQueryString(),
+            'predictions' => $query->with('crossSellingImport')->orderByRaw($orderClause)->orderByDesc('transaction_count')->paginate($perPage)->withQueryString(),
             'periods' => RepeatOrderPrediction::whereNotNull('period_label')->distinct()->orderByDesc('period_label')->pluck('period_label'),
             'branches' => $branches,
             'selectedCabang' => $selectedCabang,
@@ -171,7 +176,11 @@ class RepeatOrderPredictionController extends Controller
         $offset = ($batch - 1) * $perBatch;
 
         $totalFiltered = (clone $query)->count();
-        $query->orderByRaw('predicted_repeat_date ASC NULLS LAST')->orderByDesc('transaction_count')->skip($offset)->take($perBatch);
+        $orderClause = DB::connection()->getDriverName() === 'pgsql'
+            ? 'predicted_repeat_date ASC NULLS LAST'
+            : 'CASE WHEN predicted_repeat_date IS NULL THEN 1 ELSE 0 END, predicted_repeat_date ASC';
+
+        $query->with('crossSellingImport')->orderByRaw($orderClause)->orderByDesc('transaction_count')->skip($offset)->take($perBatch);
 
         $selectedCabang = $request->string('cabang')->trim()->toString();
         $filename = 'master-customer-repeat-order';
@@ -198,10 +207,15 @@ class RepeatOrderPredictionController extends Controller
             'Total Nominal',
             'Prediksi Repeat Date',
             'Periode',
+            'Tanggal Dispatch',
+            'Sumber File',
         ];
 
         $rowsGenerator = function () use ($query) {
             foreach ($query->cursor() as $row) {
+                $dispatch = $row->crossSellingImport?->created_at ?? $row->created_at;
+                $sourceFile = $row->crossSellingImport?->original_name ?? ($row->cross_selling_import_id ? 'Batch #' . $row->cross_selling_import_id : '-');
+
                 yield [
                     $row->customer_vendor_code,
                     $row->customer_vendor_name,
@@ -217,6 +231,8 @@ class RepeatOrderPredictionController extends Controller
                     $row->total_value ?? $row->total_nominal ?? 0,
                     $row->predicted_repeat_date?->format('d-m-Y') ?? '-',
                     $row->period_label ?? '-',
+                    $dispatch?->format('d-m-Y H:i') ?? '-',
+                    $sourceFile,
                 ];
             }
         };
@@ -373,5 +389,20 @@ class RepeatOrderPredictionController extends Controller
             $builder->whereNotNull('no_hp_customer')
                 ->whereRaw("TRIM(no_hp_customer) <> ''");
         };
+    }
+
+    public function rebuild(Request $request, \App\Services\RepeatOrderPredictor $predictor): \Illuminate\Http\RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Hanya Superadmin yang dapat memperbarui prediksi AI.');
+
+        $predictor->rebuild();
+        $count = RepeatOrderPrediction::count();
+        $msg = "Analisis Prediksi Repeat Order AI berhasil diperbarui! Total {$count} data pelanggan.";
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => $msg, 'count' => $count]);
+        }
+
+        return redirect()->route('predictions.index')->with('success', $msg);
     }
 }

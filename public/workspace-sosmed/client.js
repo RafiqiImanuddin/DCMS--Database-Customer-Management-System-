@@ -1124,12 +1124,12 @@ async function saveExcelToServer(arrayBuffer, type = 'turnover') {
   try {
     // Vercel serverless functions memiliki batas payload maksimal 4.5 MB.
     // Jika file berukuran besar (> 4MB seperti KPI SOSMED 53MB), simpan lokal di browser (IndexedDB)
-    // dan lewati upload serverless untuk mencegah error 413 Payload Too Large.
-    if (arrayBuffer.byteLength > 4 * 1024 * 1024) {
+    // dan lewati upload serverless untuk mencegah error 413 Payload Too Large pada cloud Vercel.
+    const isVercel = window.location.hostname.endsWith('vercel.app') || window.location.hostname.includes('vercel');
+    if (arrayBuffer.byteLength > 4 * 1024 * 1024 && isVercel) {
       console.log(`File ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)} MB disimpan di IndexedDB browser (melebihi limit 4.5MB serverless Vercel).`);
-      if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        return;
-      }
+      showSaveToast(`⚠️ File (${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)} MB) disimpan di browser PC ini (IndexedDB). Di Cloud Vercel, serverless membatasi upload maks 4.5 MB.`);
+      return;
     }
     const res = await fetch(`/api/save-excel?type=${encodeURIComponent(type)}`, {
       method: 'POST',
@@ -1401,9 +1401,54 @@ function performSearch(query) {
   } else if (matchedByPhone.length > 0) {
     renderWhatsAppCustomerView(cleanQ, matchedByPhone);
   } else {
-    alert(`Data untuk AR atau Nomor WhatsApp "${query}" tidak ditemukan dalam database.`);
-    document.getElementById('arResultContainer').style.display = 'none';
+    // Coba pencarian langsung ke Database Pusat jika data memori belum sinkron
+    searchArFromDatabase(cleanQ, query);
   }
+}
+
+// PENCARIAN DATABASE PUSAT (POSTGRESQL DCMS FALLBACK)
+async function searchArFromDatabase(cleanQ, query) {
+  showSaveToast(`🔍 Mencari data "${query}" di Database Pusat...`);
+  try {
+    const res = await fetch(`/api/search-ar?query=${encodeURIComponent(cleanQ)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rows && data.rows.length > 0) {
+        const mappedRows = data.rows.map(r => ({
+          'Document Number': r.document_number,
+          'No HP Customer': r.no_hp_customer,
+          'Name': r.name || r.customer_vendor_name,
+          'Customer/Vendor Name': r.customer_vendor_name || r.name,
+          'Customer/Vendor Code': r.customer_vendor_code,
+          'Dscription': r.dscription,
+          'ItemCode': r.item_code,
+          'Brand': r.brand,
+          'Quantity': r.quantity,
+          'Harga Jual': r.harga_jual,
+          'SC/HL Code': r.sc_hl_code,
+          'SlpName': r.slp_name,
+          'Remarks': r.remarks,
+          'Posting Date': r.posting_date,
+          'Cabang': r.cabang
+        }));
+
+        const digitsOnly = cleanQ.replace(/\D/g, '');
+        if (cleanQ.startsWith('08') || cleanQ.startsWith('628') || cleanQ.startsWith('+62') || (digitsOnly.length >= 10 && !cleanQ.startsWith('26'))) {
+          renderWhatsAppCustomerView(cleanQ, mappedRows);
+        } else {
+          renderARDocumentView(cleanQ, mappedRows, 'DATABASE');
+        }
+        showSaveToast(`✅ Data ditemukan dari Database Pusat (${data.rows.length} item)!`);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal search AR dari database:', err);
+  }
+
+  alert(`Data untuk AR atau Nomor WhatsApp "${query}" tidak ditemukan dalam database.`);
+  const container = document.getElementById('arResultContainer');
+  if (container) container.style.display = 'none';
 }
 
 // 8A. VIEW PENCARIAN NOMOR WHATSAPP: MENAMPILKAN SEMUA PRODUK YANG DIBELI CUSTOMER
@@ -5785,12 +5830,12 @@ function handleCrosellingFileSelect(e) {
       const updateTs = getFormattedTimestamp();
       await saveFileToIndexedDB('croselling_file', buffer);
       localStorage.setItem('gadgetmart_croselling_timestamp', updateTs);
-      updateCrosellingIndicator(`File Cross Selling terupdate per ${updateTs}`);
-      saveExcelToServer(buffer, 'croselling');
+      updateCrosellingIndicator(`File Cross Selling terupdate per ${updateTs} (Superadmin Upload)`);
+      uploadCrosellingFileToServer(buffer, file.name);
       if (typeof runARMissingSosmedAudit === 'function') {
         runARMissingSosmedAudit();
       }
-      alert(`✅ Berhasil mengunggah file Cross Selling (${jsonData.length.toLocaleString('id-ID')} baris data)!\nDatabase Cek AR & Audit AR telah diperbarui dan tersimpan.`);
+      alert(`✅ Berhasil membaca file Cross Selling (${jsonData.length.toLocaleString('id-ID')} baris data)!\nProses sinkronisasi ke server sedang berjalan di latar belakang...`);
       if (document.getElementById('arInputSearch') && document.getElementById('arInputSearch').value.trim()) {
         executeARSearch();
       }
@@ -5801,6 +5846,104 @@ function handleCrosellingFileSelect(e) {
   };
   reader.readAsArrayBuffer(file);
 }
+
+// UPLOAD & CHUNKED SYNC ENGINE FOR CROSS SELLING (SUPERADMIN TO ALL PCS)
+async function uploadCrosellingFileToServer(buffer, originalName = 'CROSSELLING-12102026.xlsx') {
+  const chunkSize = 2.5 * 1024 * 1024; // 2.5 MB per chunk (aman dari batas 4.5MB Vercel)
+  const totalSize = buffer.byteLength;
+
+  if (totalSize <= chunkSize) {
+    try {
+      showSaveToast(`⏳ Menyinkronkan file Cross Selling ke server pusat...`);
+      const res = await fetch('/api/save-excel?type=croselling', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: buffer
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showSaveToast(`✅ Database Cross Selling tersimpan di server & otomatis tersinkron ke seluruh PC!`);
+        if (data.mtimeMs) lastKnownSyncStatus.crosellingMtime = data.mtimeMs;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showSaveToast(`⚠️ ${err.error || 'Gagal sinkron ke server'}`);
+      }
+    } catch (e) {
+      console.warn('Gagal upload single request:', e);
+    }
+    return;
+  }
+
+  // Chunked upload untuk file besar (> 2.5 MB)
+  const totalChunks = Math.ceil(totalSize / chunkSize);
+  const uploadId = 'cross_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+  showSaveToast(`⏳ Memulai sinkronisasi file (${(totalSize / 1024 / 1024).toFixed(1)} MB) ke server...`);
+
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * chunkSize;
+    const end = Math.min(start + chunkSize, totalSize);
+    const chunkBlob = buffer.slice(start, end);
+    const percent = Math.round(((i + 1) / totalChunks) * 100);
+    showSaveToast(`⏳ Menyinkronkan data ke server: ${percent}% (bagian ${i + 1}/${totalChunks})...`);
+
+    try {
+      const res = await fetch('/api/upload-excel-chunk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-Upload-Id': uploadId,
+          'X-Chunk-Index': String(i),
+          'X-Total-Chunks': String(totalChunks),
+          'X-File-Type': 'croselling',
+          'X-Original-Filename': originalName
+        },
+        body: chunkBlob
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showSaveToast(`⚠️ Gagal pada bagian ${i + 1}: ${err.error || 'Server error'}`);
+        return;
+      }
+
+      const resData = await res.json();
+      if (resData.completed) {
+        showSaveToast(`✅ Berhasil! File Cross Selling telah tersimpan di Server & otomatis tersinkron ke semua PC staf.`);
+        if (resData.mtimeMs) lastKnownSyncStatus.crosellingMtime = resData.mtimeMs;
+      }
+    } catch (e) {
+      console.error('Error uploading chunk:', e);
+      showSaveToast(`⚠️ Gangguan jaringan saat menyinkronkan file.`);
+      return;
+    }
+  }
+}
+
+// FORCE SYNC DARI SERVER (UNTUK AKUN STAF / MANUAL CHECK)
+async function forceSyncCrosellingFromServer() {
+  showSaveToast('⏳ Memeriksa pembaruan database Cross Selling dari Superadmin...');
+  try {
+    const resStatus = await fetch(`/api/database-status?t=${Date.now()}`, { cache: 'no-store' });
+    if (!resStatus.ok) throw new Error('Gagal terhubung ke server');
+    const s = await resStatus.json();
+    
+    const res = await fetch(`/api/get-excel?type=croselling&t=${Date.now()}`);
+    if (!res.ok) throw new Error('File belum tersedia di server');
+    
+    const buf = await res.arrayBuffer();
+    parseCrosellingBuffer(buf);
+    await saveFileToIndexedDB('croselling_file', buf);
+    const uploader = (s.croselling && s.croselling.uploader) || 'Superadmin';
+    const ts = getFormattedTimestamp();
+    localStorage.setItem('gadgetmart_croselling_timestamp', ts);
+    updateCrosellingIndicator(`File Cross Selling terupdate per ${ts} (Sinkron dari ${uploader})`);
+    showSaveToast(`✅ Sukses! Database Cross Selling telah tersinkronisasi terbaru dari ${uploader}.`);
+  } catch (err) {
+    console.error('Gagal force sync:', err);
+    showSaveToast(`⚠️ Gagal sinkronisasi: ${err.message || 'Server belum memiliki data custom'}`);
+  }
+}
+window.forceSyncCrosellingFromServer = forceSyncCrosellingFromServer;
 
 function updateCrosellingIndicator(text) {
   const el = document.getElementById('crosellingUpdateText');
@@ -5926,7 +6069,7 @@ async function loadAllDefaultFiles() {
   // C. Fallback ke file statis jika server belum punya custom upload
   if (!turnoverLoaded) {
     try {
-      const resTurnover = await fetch(`turnover.xlsx?t=${Date.now()}`);
+      const resTurnover = await fetch(`/workspace-sosmed/turnover.xlsx?t=${Date.now()}`);
       if (resTurnover.ok) {
         const buf1 = await resTurnover.arrayBuffer();
         parseTurnoverBuffer(buf1);
@@ -5943,14 +6086,15 @@ async function loadAllDefaultFiles() {
     const resCroselling = await fetch(`/api/get-excel?type=croselling&t=${Date.now()}`);
     if (resCroselling.ok) {
       const isDbCustom = resCroselling.headers.get('X-Custom-File') === 'true';
+      const uploader = resCroselling.headers.get('X-File-Uploader') || 'Superadmin';
+      const serverTs = resCroselling.headers.get('X-File-Timestamp');
       const buf2 = await resCroselling.arrayBuffer();
       parseCrosellingBuffer(buf2);
       crosellingLoaded = true;
-      if (isDbCustom) {
-        await saveFileToIndexedDB('croselling_file', buf2);
-      }
-      const ts = localStorage.getItem('gadgetmart_croselling_timestamp') || 'Default Sistem (12/10/2026)';
-      updateCrosellingIndicator(`File Cross Selling terupdate per ${ts}`);
+      await saveFileToIndexedDB('croselling_file', buf2);
+      const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : (localStorage.getItem('gadgetmart_croselling_timestamp') || 'Default Sistem');
+      localStorage.setItem('gadgetmart_croselling_timestamp', ts);
+      updateCrosellingIndicator(`File Cross Selling terupdate per ${ts} (Sinkron dari ${uploader})`);
     }
   } catch(e) {}
 
@@ -5968,7 +6112,7 @@ async function loadAllDefaultFiles() {
 
   if (!crosellingLoaded) {
     try {
-      const resCroselling = await fetch(`CROSSELLING-12102026.xlsx?t=${Date.now()}`);
+      const resCroselling = await fetch(`/workspace-sosmed/CROSSELLING-12102026.xlsx?t=${Date.now()}`);
       if (resCroselling.ok) {
         const buf2 = await resCroselling.arrayBuffer();
         parseCrosellingBuffer(buf2);
@@ -5977,6 +6121,10 @@ async function loadAllDefaultFiles() {
         updateCrosellingIndicator(`File Cross Selling terupdate per ${ts}`);
       }
     } catch (e) {}
+  }
+
+  if (!crosellingLoaded) {
+    updateCrosellingIndicator('Belum diunggah di browser ini');
   }
 
   // Inisialisasi status sync server baseline
@@ -6007,7 +6155,7 @@ async function pollServerSyncStatus() {
       if (lastKnownSyncStatus.turnoverMtime && status.turnover.mtimeMs > lastKnownSyncStatus.turnoverMtime) {
         console.log('🔄 [Sync Engine] File turnover.xlsx baru terdeteksi dari laptop lain!');
         lastKnownSyncStatus.turnoverMtime = status.turnover.mtimeMs;
-        const resTurnover = await fetch(`turnover.xlsx?t=${Date.now()}`);
+        const resTurnover = await fetch(`/workspace-sosmed/turnover.xlsx?t=${Date.now()}`);
         if (resTurnover.ok) {
           const buf = await resTurnover.arrayBuffer();
           parseTurnoverBuffer(buf);
@@ -6038,17 +6186,24 @@ async function pollServerSyncStatus() {
       }
     }
 
-    // C. Deteksi jika File Cross Selling diperbarui dari laptop lain
+    // C. Deteksi jika File Cross Selling diperbarui dari laptop lain / Superadmin
     if (status.croselling && status.croselling.exists && status.croselling.mtimeMs) {
       if (lastKnownSyncStatus.crosellingMtime && status.croselling.mtimeMs > lastKnownSyncStatus.crosellingMtime) {
-        console.log('🔄 [Sync Engine] File Cross Selling baru terdeteksi dari laptop lain!');
+        console.log('🔄 [Sync Engine] File Cross Selling baru terdeteksi dari Superadmin!');
         lastKnownSyncStatus.crosellingMtime = status.croselling.mtimeMs;
-        const resCross = await fetch(`CROSSELLING-12102026.xlsx?t=${Date.now()}`);
+        let resCross = await fetch(`/api/get-excel?type=croselling&t=${Date.now()}`);
+        if (!resCross.ok) {
+          resCross = await fetch(`/workspace-sosmed/CROSSELLING-12102026.xlsx?t=${Date.now()}`);
+        }
         if (resCross.ok) {
           const buf = await resCross.arrayBuffer();
           parseCrosellingBuffer(buf);
           await saveFileToIndexedDB('croselling_file', buf);
-          showSaveToast('🔄 File Cross Selling telah diperbarui otomatis dari laptop lain!');
+          const uploader = status.croselling.uploader || 'Superadmin';
+          const ts = getFormattedTimestamp();
+          localStorage.setItem('gadgetmart_croselling_timestamp', ts);
+          updateCrosellingIndicator(`File Cross Selling terupdate per ${ts} (Sinkron dari ${uploader})`);
+          showSaveToast(`🔄 Database Cross Selling telah diperbarui otomatis dari ${uploader}!`);
         }
       } else if (!lastKnownSyncStatus.crosellingMtime) {
         lastKnownSyncStatus.crosellingMtime = status.croselling.mtimeMs;

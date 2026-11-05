@@ -30,6 +30,7 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->put('show_login_guidance', true);
 
         return redirect()->intended(route('dashboard'));
     }

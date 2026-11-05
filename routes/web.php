@@ -8,6 +8,7 @@ use App\Http\Controllers\CrossSellingImportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeSettingController;
 use App\Http\Controllers\EncryptedRouteController;
+use App\Http\Controllers\GuidanceController;
 use App\Http\Controllers\LeadCustomerController;
 use App\Http\Controllers\RepeatOrderPredictionController;
 use App\Http\Controllers\SalesMonitoringController;
@@ -40,13 +41,17 @@ Route::middleware('auth')->group(function () {
 
     // Fitur Import Data (Khusus Superadmin)
     Route::get('/imports/template', [CrossSellingImportController::class, 'template'])->name('imports.template');
+    Route::get('/imports/template-turnover', [CrossSellingImportController::class, 'templateTurnover'])->name('imports.template_turnover');
     Route::get('/imports', [CrossSellingImportController::class, 'index'])->name('imports.index');
     Route::post('/imports', [CrossSellingImportController::class, 'store'])->name('imports.store');
     Route::get('/imports/{import}/status', [CrossSellingImportController::class, 'status'])->name('imports.status');
     Route::delete('/imports/{import}', [CrossSellingImportController::class, 'destroy'])->name('imports.destroy');
+    Route::delete('/imports/turnover/{import}', [CrossSellingImportController::class, 'destroyTurnover'])->name('imports.destroy_turnover');
+    Route::get('/imports/{import}', fn () => redirect()->route('imports.index'));
 
     // Fitur Data Master Customer & Download (Sudah Terpadu dengan Repeat Order Dashboard)
     Route::get('/predictions/download', [RepeatOrderPredictionController::class, 'download'])->name('predictions.download');
+    Route::post('/predictions/rebuild', [RepeatOrderPredictionController::class, 'rebuild'])->name('predictions.rebuild');
     Route::get('/predictions', RepeatOrderPredictionController::class)->name('predictions.index');
     Route::post('/predictions/assign', [LeadCustomerController::class, 'assign'])->name('predictions.assign');
 
@@ -98,6 +103,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/kpi-criteria', [EmployeeSettingController::class, 'storeKpiCriterion'])->name('settings.kpi_criteria.store');
     Route::delete('/settings/kpi-criteria/{criterion}', [EmployeeSettingController::class, 'destroyKpiCriterion'])->name('settings.kpi_criteria.destroy');
 
+    // Guidance & SOP (Rumus Potensi & Penilaian untuk Superadmin, Guidance Umum untuk Staff)
+    Route::get('/guidance', [GuidanceController::class, 'index'])->name('guidance.index');
+    Route::post('/guidance/dismiss', [GuidanceController::class, 'dismissLoginPrompt'])->name('guidance.dismiss');
+
     // Modul Terintegrasi: Workspace Sosmed (Sosmed KPI, Report, Cek AR, Keep & Follow-Up)
     Route::get('/workspace-sosmed/{token?}', [WorkspaceSosmedController::class, 'index'])->name('workspace-sosmed.index');
 });
@@ -118,6 +127,9 @@ $registerSosmedApiRoutes = function () {
     Route::post('/watzap-simulate-receive', [WorkspaceSosmedController::class, 'watzapSimulateReceive'])->name('api.sosmed.watzap_simulate_receive');
     Route::match(['get', 'delete'], '/get-excel', [WorkspaceSosmedController::class, 'getExcel'])->name('api.sosmed.get_excel');
     Route::post('/save-excel', [WorkspaceSosmedController::class, 'saveExcel'])->name('api.sosmed.save_excel');
+    Route::post('/upload-excel-chunk', [WorkspaceSosmedController::class, 'uploadExcelChunk'])->name('api.sosmed.upload_excel_chunk');
+    Route::get('/search-ar', [WorkspaceSosmedController::class, 'searchAr'])->name('api.sosmed.search_ar');
+    Route::get('/turnover-records', [WorkspaceSosmedController::class, 'turnoverRecords'])->name('api.sosmed.turnover_records');
 };
 
 Route::prefix('api')->group($registerSosmedApiRoutes);

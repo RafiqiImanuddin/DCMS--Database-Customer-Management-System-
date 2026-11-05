@@ -132,5 +132,131 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $resSuper->assertSee('Dashboard Sosmed');
         $resSuper->assertSee('Inbox Follow-Up');
     }
+
+    public function test_superadmin_can_upload_cross_selling_chunks_and_sync(): void
+    {
+        $superadmin = User::factory()->superadmin()->create(['name' => 'Pak Bos Superadmin']);
+
+        $chunk1 = 'DummyChunkContentPart1';
+        $chunk2 = 'DummyChunkContentPart2';
+
+        // Upload chunk 0 of 2
+        $res1 = $this->actingAs($superadmin)->post(
+            route('api.sosmed.upload_excel_chunk'),
+            ['chunk' => $chunk1],
+            [
+                'X-Upload-Id' => 'test_sync_123',
+                'X-Chunk-Index' => '0',
+                'X-Total-Chunks' => '2',
+                'X-File-Type' => 'croselling',
+                'X-Original-Filename' => 'CROSSELLING-NEW.xlsx',
+            ]
+        );
+        $res1->assertOk();
+        $res1->assertJson(['completed' => false]);
+
+        // Upload chunk 1 of 2 (finishing chunk)
+        $res2 = $this->actingAs($superadmin)->post(
+            route('api.sosmed.upload_excel_chunk'),
+            ['chunk' => $chunk2],
+            [
+                'X-Upload-Id' => 'test_sync_123',
+                'X-Chunk-Index' => '1',
+                'X-Total-Chunks' => '2',
+                'X-File-Type' => 'croselling',
+                'X-Original-Filename' => 'CROSSELLING-NEW.xlsx',
+            ]
+        );
+        $res2->assertOk();
+        $res2->assertJson(['completed' => true, 'uploader' => 'Pak Bos Superadmin']);
+
+        // Check database status reflects new mtime and uploader
+        $statusRes = $this->get(route('api.sosmed.database_status'));
+        $statusRes->assertOk();
+        $status = $statusRes->json();
+        $this->assertTrue($status['croselling']['exists']);
+        $this->assertEquals('Pak Bos Superadmin', $status['croselling']['uploader']);
+
+        // Get excel returns custom file
+        $getRes = $this->get(route('api.sosmed.get_excel', ['type' => 'croselling']));
+        $getRes->assertOk();
+        $this->assertEquals('true', $getRes->headers->get('X-Custom-File'));
+        $this->assertEquals('Pak Bos Superadmin', $getRes->headers->get('X-File-Uploader'));
+    }
+
+    public function test_staff_cannot_upload_cross_selling(): void
+    {
+        $staff = User::factory()->admin()->create(['name' => 'Staf Biasa']);
+
+        $resChunk = $this->actingAs($staff)->post(
+            route('api.sosmed.upload_excel_chunk'),
+            ['chunk' => 'dummy'],
+            [
+                'X-Upload-Id' => 'staff_try',
+                'X-Chunk-Index' => '0',
+                'X-Total-Chunks' => '1',
+            ]
+        );
+        $resChunk->assertStatus(403);
+
+        $resSave = $this->actingAs($staff)->post(
+            route('api.sosmed.save_excel', ['type' => 'croselling']),
+            [],
+            [],
+            'fake binary content'
+        );
+        $resSave->assertStatus(403);
+    }
+
+    public function test_cek_ar_ui_role_adaptation(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+        $staff = User::factory()->admin()->create();
+
+        // Superadmin sees upload button
+        $superRes = $this->actingAs($superadmin)->get(WorkspaceUrlCipher::url(3));
+        $superRes->assertOk();
+        $superRes->assertSee('Akses Superadmin');
+        $superRes->assertSee('Unggah File Cross Selling (.xlsx)');
+
+        // Staff sees auto-sync indicator, not the upload button
+        $staffRes = $this->actingAs($staff)->get(WorkspaceUrlCipher::url(3));
+        $staffRes->assertOk();
+        $staffRes->assertSee('Staf (Auto-Sync)');
+        $staffRes->assertSee('Cek Sinkronisasi Server');
+        $staffRes->assertDontSee('id="crosellingFileInput"', false);
+    }
+
+    public function test_workspace_targets_photos_archives_sync_to_settings(): void
+    {
+        $user = User::factory()->superadmin()->create();
+
+        // 1. Monthly targets
+        $targetPayload = ['Banjarmasin' => ['target' => 50000000]];
+        $resTarget = $this->actingAs($user)->postJson(route('api.sosmed.monthly_targets'), $targetPayload);
+        $resTarget->assertOk()->assertJson(['success' => true]);
+        $this->assertDatabaseHas('settings', ['key' => 'workspace_monthly_targets']);
+
+        $resGetTarget = $this->actingAs($user)->getJson(route('api.sosmed.monthly_targets'));
+        $resGetTarget->assertOk()->assertJson($targetPayload);
+
+        // 2. Sales photos
+        $photosPayload = ['Sales Ahmad' => 'data:image/png;base64,samplephoto'];
+        $resPhoto = $this->actingAs($user)->postJson(route('api.sosmed.sales_photos'), $photosPayload);
+        $resPhoto->assertOk()->assertJson(['success' => true]);
+        $this->assertDatabaseHas('settings', ['key' => 'workspace_sales_photos']);
+
+        $resGetPhoto = $this->actingAs($user)->getJson(route('api.sosmed.sales_photos'));
+        $resGetPhoto->assertOk()->assertJson($photosPayload);
+
+        // 3. Monthly archives
+        $archivesPayload = ['2026-10' => ['total' => 150000000]];
+        $resArchive = $this->actingAs($user)->postJson(route('api.sosmed.monthly_archives'), $archivesPayload);
+        $resArchive->assertOk()->assertJson(['success' => true]);
+        $this->assertDatabaseHas('settings', ['key' => 'workspace_monthly_archives']);
+
+        $resGetArchive = $this->actingAs($user)->getJson(route('api.sosmed.monthly_archives'));
+        $resGetArchive->assertOk()->assertJson($archivesPayload);
+    }
 }
 

@@ -85,6 +85,21 @@ class CrossSellingImporter
                         : null,
                     'error_log' => $errors ? implode("\n", $errors) : null,
                 ]);
+
+                // Sync binary to Supabase settings table & local workspace for Cek AR & Format Keep
+                $fileBinary = @file_get_contents($path);
+                if ($fileBinary) {
+                    $nowMs = (string) round(microtime(true) * 1000);
+                    $uploader = $import->user?->name ?? 'Superadmin';
+                    \App\Models\Setting::updateOrCreate(['key' => 'workspace_croselling_mtime'], ['value' => $nowMs]);
+                    \App\Models\Setting::updateOrCreate(['key' => 'workspace_croselling_uploader'], ['value' => $uploader]);
+                    \App\Models\Setting::updateOrCreate(['key' => 'workspace_croselling_filename'], ['value' => $import->original_name]);
+                    \App\Models\Setting::updateOrCreate(['key' => 'workspace_croselling_filesize'], ['value' => (string) strlen($fileBinary)]);
+                    \App\Models\Setting::updateOrCreate(['key' => 'workspace_croselling_file_base64'], ['value' => base64_encode($fileBinary)]);
+
+                    $workspaceTarget = public_path('workspace-sosmed/CROSSELLING-12102026.xlsx');
+                    @\Illuminate\Support\Facades\File::put($workspaceTarget, $fileBinary);
+                }
             });
         } catch (Throwable $exception) {
             $import->update([

@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
 use App\Models\RepeatOrderPrediction;
+use App\Models\Turnover;
+use App\Models\TurnoverImport;
 use App\Services\CrossSellingImporter;
 use App\Services\FastXlsxWriter;
 use App\Services\RepeatOrderPredictor;
+use App\Services\TurnoverImporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +27,8 @@ class CrossSellingImportController extends Controller
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengelola import data.');
 
         return view('imports.index', [
-            'imports' => CrossSellingImport::with('user')->latest()->paginate(15),
+            'imports' => CrossSellingImport::with('user')->latest()->paginate(10, ['*'], 'cross_page'),
+            'turnoverImports' => TurnoverImport::with('user')->latest()->paginate(10, ['*'], 'turnover_page'),
         ]);
     }
 
@@ -79,14 +83,76 @@ class CrossSellingImportController extends Controller
         return FastXlsxWriter::download('template-cross-selling.xlsx', $headers, $sampleRows);
     }
 
-    public function store(Request $request, CrossSellingImporter $importer, RepeatOrderPredictor $predictor): JsonResponse|RedirectResponse
+    public function templateTurnover(): BinaryFileResponse
     {
+        $headers = [
+            'Cabang',
+            'Posting Date',
+            'Document Number',
+            'Sales Employee Name',
+            'Remarks',
+            'SalesCabang',
+            'DPP',
+            'GrossProfit',
+            'Total',
+        ];
+
+        $sampleRows = [
+            [
+                'Banjarmasin',
+                '2026-10-18',
+                '260274906',
+                'bjm.sos.01',
+                'Order Online WA',
+                'Banjarmasin',
+                5000000,
+                250000,
+                5550000,
+            ],
+            [
+                'Banjarmasin',
+                '2026-10-19',
+                '260274907',
+                'bjm.sos.02',
+                'Order Online IG',
+                'Banjarmasin',
+                3500000,
+                175000,
+                3885000,
+            ],
+        ];
+
+        return FastXlsxWriter::download('template-turnover.xlsx', $headers, $sampleRows);
+    }
+
+    public function store(
+        Request $request,
+        CrossSellingImporter $crossSellingImporter,
+        TurnoverImporter $turnoverImporter,
+        RepeatOrderPredictor $predictor
+    ): JsonResponse|RedirectResponse {
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengimpor data.');
 
+        $hasCross = $request->hasFile('file');
+        $hasTurnover = $request->hasFile('turnover_file');
+
+        if (! $hasCross && ! $hasTurnover) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Pilih minimal satu file (Cross-Selling atau Turnover) untuk diunggah.'], 422);
+            }
+            return back()->withErrors(['file' => 'Pilih minimal satu file (Cross-Selling atau Turnover) untuk diunggah.']);
+        }
+
+        $rules = [];
+        if ($hasCross) {
+            $rules['file'] = ['file', 'mimes:xlsx,xls,csv', 'max:3584'];
+        }
+        if ($hasTurnover) {
+            $rules['turnover_file'] = ['file', 'mimes:xlsx,xls,csv', 'max:3584'];
+        }
+
         try {
-            $validated = $request->validate([
-                'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:3584'],
-            ]);
+            $validated = $request->validate($rules);
         } catch (ValidationException $e) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $e->getMessage(), 'errors' => $e->errors()], 422);
@@ -94,40 +160,86 @@ class CrossSellingImportController extends Controller
             throw $e;
         }
 
-        $storedPath = $validated['file']->store('cross-selling-imports', 'local');
-        $import = CrossSellingImport::create([
-            'user_id'       => $request->user()->id,
-            'original_name' => $validated['file']->getClientOriginalName(),
-            'stored_path'   => $storedPath,
-            'status'        => 'processing',
-        ]);
+        $results = [];
 
-        // Process synchronously so data appears immediately (no queue worker on Vercel).
-        try {
-            $importer->import($import);
-            $import->refresh();
-            if ($import->status === 'completed') {
-                $predictor->rebuild();
-            }
-        } catch (\Throwable $e) {
-            // Error already recorded inside importer; continue to redirect.
+        // 1. Process Cross-Selling
+        if ($hasCross && isset($validated['file'])) {
+            $storedPath = $validated['file']->store('cross-selling-imports', 'local');
+            $cImport = CrossSellingImport::create([
+                'user_id'       => $request->user()->id,
+                'original_name' => $validated['file']->getClientOriginalName(),
+                'stored_path'   => $storedPath,
+                'status'        => 'processing',
+            ]);
+
+            try {
+                $crossSellingImporter->import($cImport);
+                $cImport->refresh();
+                if ($cImport->status === 'completed') {
+                    if ($request->boolean('sync_rebuild', false)) {
+                        $predictor->rebuild();
+                    } else {
+                        try {
+                            \App\Jobs\ImportCrossSellingJob::dispatch($cImport);
+                        } catch (\Throwable $e) {}
+                    }
+                }
+            } catch (\Throwable $e) {}
+
+            $results['cross_selling'] = [
+                'id' => $cImport->id,
+                'original_name' => $cImport->original_name,
+                'status' => $cImport->status,
+                'row_count' => $cImport->row_count,
+                'success_count' => $cImport->success_count,
+                'failed_count' => $cImport->failed_count,
+            ];
         }
 
+        // 2. Process Turnover
+        if ($hasTurnover && isset($validated['turnover_file'])) {
+            $storedTurnoverPath = $validated['turnover_file']->store('turnover-imports', 'local');
+            $tImport = TurnoverImport::create([
+                'user_id'       => $request->user()->id,
+                'original_name' => $validated['turnover_file']->getClientOriginalName(),
+                'stored_path'   => $storedTurnoverPath,
+                'status'        => 'processing',
+            ]);
+
+            try {
+                $turnoverImporter->import($tImport);
+                $tImport->refresh();
+            } catch (\Throwable $e) {}
+
+            $results['turnover'] = [
+                'id' => $tImport->id,
+                'original_name' => $tImport->original_name,
+                'status' => $tImport->status,
+                'row_count' => $tImport->row_count,
+                'success_count' => $tImport->success_count,
+                'failed_count' => $tImport->failed_count,
+            ];
+        }
+
+        $messageParts = [];
+        if (isset($results['cross_selling'])) {
+            $c = $results['cross_selling'];
+            $messageParts[] = "Cross-Selling ({$c['success_count']} baris)";
+        }
+        if (isset($results['turnover'])) {
+            $t = $results['turnover'];
+            $messageParts[] = "Turnover ({$t['success_count']} baris)";
+        }
+        $summaryMessage = 'File ' . implode(' & ', $messageParts) . ' berhasil diproses dan disinkronkan ke seluruh sistem!';
+
         if ($request->expectsJson()) {
-            $import->refresh();
             return response()->json([
-                'message'       => 'Import selesai.',
-                'status'        => $import->status,
-                'row_count'     => $import->row_count,
-                'success_count' => $import->success_count,
-                'failed_count'  => $import->failed_count,
+                'message' => $summaryMessage,
+                'results' => $results,
             ]);
         }
 
-        return redirect()->route('imports.index')->with(
-            'success',
-            'File berhasil diimport.',
-        );
+        return redirect()->route('imports.index')->with('success', $summaryMessage);
     }
 
     public function status(Request $request, CrossSellingImport $import): JsonResponse
@@ -161,5 +273,23 @@ class CrossSellingImportController extends Controller
         $predictor->rebuild();
 
         return redirect()->route('imports.index')->with('success', 'Data import berhasil dihapus.');
+    }
+
+    public function destroyTurnover(Request $request, TurnoverImport $import): RedirectResponse
+    {
+        abort_unless($import->user_id === $request->user()->id || $request->user()->isSuperAdmin(), 404);
+
+        $storedPath = $import->stored_path;
+
+        DB::transaction(function () use ($import): void {
+            Turnover::where('turnover_import_id', $import->id)->delete();
+            $import->delete();
+        });
+
+        if ($storedPath) {
+            Storage::disk('local')->delete($storedPath);
+        }
+
+        return redirect()->route('imports.index')->with('success', 'Data import turnover berhasil dihapus.');
     }
 }

@@ -72,6 +72,10 @@ class RouteCipher
             'controller' => \App\Http\Controllers\SalesMonitoringController::class,
             'method' => 'index',
         ],
+        'guidance.index' => [
+            'controller' => \App\Http\Controllers\GuidanceController::class,
+            'method' => 'index',
+        ],
         'whatsapp.index' => [
             'controller' => \App\Http\Controllers\WatzapSettingController::class,
             'method' => 'index',

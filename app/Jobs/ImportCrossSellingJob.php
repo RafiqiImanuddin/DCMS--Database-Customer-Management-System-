@@ -19,7 +19,10 @@ class ImportCrossSellingJob implements ShouldQueue
 
     public function handle(CrossSellingImporter $importer, RepeatOrderPredictor $predictor): void
     {
-        $importer->import($this->import);
+        if ($this->import->status !== 'completed') {
+            $importer->import($this->import);
+        }
+
         if (! $this->import->exists) {
             return;
         }

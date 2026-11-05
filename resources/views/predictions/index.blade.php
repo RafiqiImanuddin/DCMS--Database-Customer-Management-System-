@@ -16,6 +16,15 @@
         <p class="mt-1 text-xs text-slate-500">Analisis menyeluruh loyalitas konsumen repeat order, prediksi jadwal beli kembali, dan follow up berkala.</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+        @if(auth()->user()->isSuperAdmin())
+            <form method="POST" action="{{ route('predictions.rebuild') }}" class="inline-block" onsubmit="return confirm('Mulai sinkronisasi & analisis AI repeat order dari seluruh data cross-selling?');">
+                @csrf
+                <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-100 hover:border-indigo-300">
+                    <svg class="size-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Perbarui Analisis AI
+                </button>
+            </form>
+        @endif
         <a href="{{ route('broadcasts.templates.index') }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
             <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
             Template Pesan
@@ -494,6 +503,7 @@
                         <th class="px-3 py-3.5">Order Terakhir</th>
                         <th class="px-3 py-3.5">Siklus</th>
                         <th class="px-3 py-3.5">Potensi</th>
+                        <th class="px-3 py-3.5 whitespace-nowrap">Dispatch / Sumber File</th>
                         <th class="px-5 py-3.5 text-right">Aksi</th>
                     </tr>
                 </thead>
@@ -502,12 +512,23 @@
                     <tr class="border-b border-slate-100 align-middle transition hover:bg-brand-50/40">
                         @php
                             $custName = trim((string) $prediction->customer_vendor_name) ?: 'No Name';
+                            $dispatchDate = $prediction->crossSellingImport?->created_at ?? $prediction->created_at;
+                            $isToday = $dispatchDate?->isToday() ?? false;
+                            $fileName = $prediction->crossSellingImport?->original_name ?? ($prediction->cross_selling_import_id ? 'Batch #' . $prediction->cross_selling_import_id : '-');
                         @endphp
                         <td class="px-5 py-4">
                             <input type="checkbox" name="prediction_ids[]" value="{{ $prediction->id }}" class="prediction-checkbox size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" aria-label="Pilih {{ $custName }}">
                         </td>
                         <td class="px-5 py-4">
-                            <div class="max-w-48 truncate font-bold {{ $custName === 'No Name' ? 'text-slate-400 font-medium italic' : 'text-slate-900' }}">{{ $custName }}</div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="max-w-44 truncate font-bold {{ $custName === 'No Name' ? 'text-slate-400 font-medium italic' : 'text-slate-900' }}">{{ $custName }}</span>
+                                @if($isToday)
+                                    <span class="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black text-emerald-700 border border-emerald-200" title="Data diunggah hari ini">
+                                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        BARU
+                                    </span>
+                                @endif
+                            </div>
                             <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                                 <span class="text-xs text-slate-500 font-mono">{{ $prediction->customer_vendor_code }}</span>
                                 @if($prediction->cabang)
@@ -568,6 +589,20 @@
                                 {{ $prediction->classification }} · {{ $prediction->confidence }}%
                             </span>
                         </td>
+                        <td class="px-3 py-4 whitespace-nowrap">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-bold text-slate-800 font-mono">{{ $dispatchDate?->format('d M Y H:i') ?: '-' }}</span>
+                                @if($isToday)
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800 border border-emerald-200">
+                                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        Hari Ini
+                                    </span>
+                                @endif
+                            </div>
+                            <div class="mt-0.5 max-w-44 truncate text-[11px] text-slate-500 font-medium" title="{{ $fileName }}">
+                                📁 {{ $fileName }}
+                            </div>
+                        </td>
                         <td class="px-5 py-4 text-right whitespace-nowrap">
                             <button type="button" onclick="singleQuickBroadcast({{ $prediction->id }}, '{{ addslashes($custName) }}', '{{ addslashes($prediction->dscription ?: ($prediction->item_code ?: 'produk')) }}', '{{ $prediction->no_hp_customer }}')" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-emerald-700 shadow-sm hover:border-emerald-300 hover:bg-emerald-50 transition">
                                 <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
@@ -576,7 +611,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="px-5 py-12 text-center text-slate-500">Belum ada data pelanggan yang sesuai dengan filter.</td></tr>
+                    <tr><td colspan="10" class="px-5 py-12 text-center text-slate-500">Belum ada data pelanggan yang sesuai dengan filter.</td></tr>
                 @endforelse
                 </tbody>
             </table>

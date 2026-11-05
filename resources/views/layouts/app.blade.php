@@ -205,5 +205,9 @@
         });
     }
     </script>
+    @if (session('show_login_guidance') && auth()->check())
+        @include('guidance._login_modal')
+    @endif
+
 </body>
 </html>

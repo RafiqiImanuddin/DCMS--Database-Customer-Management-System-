@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\BroadcastMedia;
+use App\Models\Setting;
 use App\Services\WatzapService;
 use App\Support\WorkspaceUrlCipher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class WorkspaceSosmedController extends Controller
 {
@@ -58,9 +61,39 @@ class WorkspaceSosmedController extends Controller
             return ['exists' => false, 'mtimeMs' => 0];
         };
 
+        $turnoverStatus = $check('turnover.xlsx');
+        $dbTurnoverMtime = (int) (Setting::where('key', 'workspace_turnover_mtime')->value('value') ?? 0);
+        $dbTurnoverUploader = Setting::where('key', 'workspace_turnover_uploader')->value('value') ?? 'Superadmin';
+        $dbTurnoverFilesize = (int) (Setting::where('key', 'workspace_turnover_filesize')->value('value') ?? 0);
+
+        if ($dbTurnoverMtime > ($turnoverStatus['mtimeMs'] ?? 0)) {
+            $turnoverStatus['exists'] = true;
+            $turnoverStatus['mtimeMs'] = $dbTurnoverMtime;
+            $turnoverStatus['mtime'] = date('c', (int) ($dbTurnoverMtime / 1000));
+            if ($dbTurnoverFilesize > 0) {
+                $turnoverStatus['size'] = $dbTurnoverFilesize;
+            }
+        }
+        $turnoverStatus['uploader'] = $dbTurnoverUploader;
+
+        $crossStatus = $check('CROSSELLING-12102026.xlsx');
+        $dbCrossMtime = (int) (Setting::where('key', 'workspace_croselling_mtime')->value('value') ?? 0);
+        $dbCrossUploader = Setting::where('key', 'workspace_croselling_uploader')->value('value') ?? 'Superadmin';
+        $dbCrossFilesize = (int) (Setting::where('key', 'workspace_croselling_filesize')->value('value') ?? 0);
+
+        if ($dbCrossMtime > ($crossStatus['mtimeMs'] ?? 0)) {
+            $crossStatus['exists'] = true;
+            $crossStatus['mtimeMs'] = $dbCrossMtime;
+            $crossStatus['mtime'] = date('c', (int) ($dbCrossMtime / 1000));
+            if ($dbCrossFilesize > 0) {
+                $crossStatus['size'] = $dbCrossFilesize;
+            }
+        }
+        $crossStatus['uploader'] = $dbCrossUploader;
+
         return response()->json([
-            'turnover' => $check('turnover.xlsx'),
-            'croselling' => $check('CROSSELLING-12102026.xlsx'),
+            'turnover' => $turnoverStatus,
+            'croselling' => $crossStatus,
             'keep' => $check('keep-data.csv'),
             'archives' => $check('monthly_archives.json'),
             'targets' => $check('monthly_targets.json'),
@@ -74,15 +107,29 @@ class WorkspaceSosmedController extends Controller
         $file = $this->storagePath . DIRECTORY_SEPARATOR . 'monthly_targets.json';
 
         if ($request->isMethod('get')) {
+            $dbVal = Setting::where('key', 'workspace_monthly_targets')->value('value');
+            if (!empty($dbVal)) {
+                $decoded = json_decode($dbVal, true);
+                if (is_array($decoded)) {
+                    return response()->json($decoded);
+                }
+            }
             if (File::exists($file)) {
-                return response()->json(json_decode(File::get($file), true) ?? []);
+                $content = File::get($file);
+                $decoded = json_decode($content, true) ?? [];
+                if (!empty($decoded)) {
+                    Setting::updateOrCreate(['key' => 'workspace_monthly_targets'], ['value' => $content]);
+                }
+                return response()->json($decoded);
             }
             return response()->json([]);
         }
 
         $payload = $request->all();
         if (!empty($payload)) {
-            @File::put($file, json_encode($payload, JSON_PRETTY_PRINT));
+            $json = json_encode($payload, JSON_PRETTY_PRINT);
+            @File::put($file, $json);
+            Setting::updateOrCreate(['key' => 'workspace_monthly_targets'], ['value' => $json]);
             return response()->json(['success' => true, 'message' => 'Monthly targets berhasil disimpan!']);
         }
 
@@ -94,15 +141,29 @@ class WorkspaceSosmedController extends Controller
         $file = $this->storagePath . DIRECTORY_SEPARATOR . 'sales_photos.json';
 
         if ($request->isMethod('get')) {
+            $dbVal = Setting::where('key', 'workspace_sales_photos')->value('value');
+            if (!empty($dbVal)) {
+                $decoded = json_decode($dbVal, true);
+                if (is_array($decoded)) {
+                    return response()->json($decoded);
+                }
+            }
             if (File::exists($file)) {
-                return response()->json(json_decode(File::get($file), true) ?? []);
+                $content = File::get($file);
+                $decoded = json_decode($content, true) ?? [];
+                if (!empty($decoded)) {
+                    Setting::updateOrCreate(['key' => 'workspace_sales_photos'], ['value' => $content]);
+                }
+                return response()->json($decoded);
             }
             return response()->json([]);
         }
 
         $payload = $request->all();
         if (is_array($payload)) {
-            @File::put($file, json_encode($payload, JSON_PRETTY_PRINT));
+            $json = json_encode($payload, JSON_PRETTY_PRINT);
+            @File::put($file, $json);
+            Setting::updateOrCreate(['key' => 'workspace_sales_photos'], ['value' => $json]);
             return response()->json(['success' => true, 'message' => 'Foto sales berhasil disimpan!']);
         }
 
@@ -114,15 +175,29 @@ class WorkspaceSosmedController extends Controller
         $file = $this->storagePath . DIRECTORY_SEPARATOR . 'monthly_archives.json';
 
         if ($request->isMethod('get')) {
+            $dbVal = Setting::where('key', 'workspace_monthly_archives')->value('value');
+            if (!empty($dbVal)) {
+                $decoded = json_decode($dbVal, true);
+                if (is_array($decoded)) {
+                    return response()->json($decoded);
+                }
+            }
             if (File::exists($file)) {
-                return response()->json(json_decode(File::get($file), true) ?? []);
+                $content = File::get($file);
+                $decoded = json_decode($content, true) ?? [];
+                if (!empty($decoded)) {
+                    Setting::updateOrCreate(['key' => 'workspace_monthly_archives'], ['value' => $content]);
+                }
+                return response()->json($decoded);
             }
             return response()->json([]);
         }
 
         $payload = $request->all();
         if (is_array($payload)) {
-            @File::put($file, json_encode($payload, JSON_PRETTY_PRINT));
+            $json = json_encode($payload, JSON_PRETTY_PRINT);
+            @File::put($file, $json);
+            Setting::updateOrCreate(['key' => 'workspace_monthly_archives'], ['value' => $json]);
             return response()->json(['success' => true, 'message' => 'Arsip bulanan berhasil disimpan!']);
         }
 
@@ -531,19 +606,54 @@ class WorkspaceSosmedController extends Controller
         ]);
     }
 
-    public function getExcel(Request $request): BinaryFileResponse|JsonResponse
+    public function getExcel(Request $request): BinaryFileResponse|Response|JsonResponse
     {
         $fileType = $request->query('type', 'turnover');
         $targetFileName = $fileType === 'croselling' ? 'CROSSELLING-12102026.xlsx' : 'turnover.xlsx';
         $path = $this->storagePath . DIRECTORY_SEPARATOR . $targetFileName;
 
+        $prefix = $fileType === 'croselling' ? 'workspace_croselling' : 'workspace_turnover';
+
         if ($request->isMethod('delete')) {
+            $user = $request->user();
+            if (! $user || ! $user->isSuperAdmin()) {
+                return response()->json(['error' => 'Akses ditolak: Hanya Superadmin yang dapat mereset data.'], 403);
+            }
+            Setting::whereIn('key', [
+                "{$prefix}_mtime",
+                "{$prefix}_uploader",
+                "{$prefix}_file_base64",
+                "{$prefix}_filesize",
+                "{$prefix}_filename",
+            ])->delete();
             return response()->json(['success' => true, 'message' => "File {$fileType} di-reset ke default."]);
+        }
+
+        // Check if database has newer custom file
+        $dbMtime = (int) (Setting::where('key', "{$prefix}_mtime")->value('value') ?? 0);
+        $diskMtime = File::exists($path) ? File::lastModified($path) * 1000 : 0;
+        $uploader = Setting::where('key', "{$prefix}_uploader")->value('value') ?? 'Superadmin';
+
+        if ($dbMtime > $diskMtime) {
+            $base64 = Setting::where('key', "{$prefix}_file_base64")->value('value');
+            if (! empty($base64)) {
+                $binary = base64_decode($base64);
+                return response($binary, 200, [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'Content-Disposition' => "attachment; filename=\"{$targetFileName}\"",
+                    'X-Custom-File' => 'true',
+                    'X-File-Timestamp' => date('c', (int) ($dbMtime / 1000)),
+                    'X-File-Uploader' => $uploader,
+                ]);
+            }
         }
 
         if (File::exists($path)) {
             return response()->download($path, $targetFileName, [
                 'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'X-Custom-File' => 'true',
+                'X-File-Timestamp' => date('c', File::lastModified($path)),
+                'X-File-Uploader' => $uploader,
             ]);
         }
 
@@ -552,6 +662,13 @@ class WorkspaceSosmedController extends Controller
 
     public function saveExcel(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            return response()->json([
+                'error' => 'Akses ditolak: Hanya pengguna dengan akses Superadmin yang dapat memperbarui database Cross Selling.',
+            ], 403);
+        }
+
         $fileType = $request->query('type', 'turnover');
         $targetFileName = $fileType === 'croselling' ? 'CROSSELLING-12102026.xlsx' : 'turnover.xlsx';
         $targetPath = $this->storagePath . DIRECTORY_SEPARATOR . $targetFileName;
@@ -563,9 +680,180 @@ class WorkspaceSosmedController extends Controller
 
         @File::put($targetPath, $content);
 
+        $nowMs = (string) round(microtime(true) * 1000);
+        $prefix = $fileType === 'croselling' ? 'workspace_croselling' : 'workspace_turnover';
+        Setting::updateOrCreate(['key' => "{$prefix}_mtime"], ['value' => $nowMs]);
+        Setting::updateOrCreate(['key' => "{$prefix}_uploader"], ['value' => $user->name]);
+        Setting::updateOrCreate(['key' => "{$prefix}_filesize"], ['value' => (string) strlen($content)]);
+        Setting::updateOrCreate(['key' => "{$prefix}_file_base64"], ['value' => base64_encode($content)]);
+
         return response()->json([
             'success' => true,
-            'message' => "File {$targetFileName} berhasil disimpan!",
+            'message' => "File {$targetFileName} berhasil disimpan dan disinkronkan ke seluruh perangkat!",
+            'mtimeMs' => (int) $nowMs,
+            'uploader' => $user->name,
+        ]);
+    }
+
+    public function uploadExcelChunk(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            return response()->json([
+                'error' => 'Akses ditolak: Hanya pengguna dengan akses Superadmin yang dapat memperbarui database Cross Selling.',
+            ], 403);
+        }
+
+        $uploadId = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) ($request->input('upload_id') ?: $request->header('X-Upload-Id', '')));
+        $chunkIndex = (int) ($request->input('chunk_index') ?? $request->header('X-Chunk-Index', -1));
+        $totalChunks = (int) ($request->input('total_chunks') ?? $request->header('X-Total-Chunks', 0));
+        $fileType = (string) ($request->input('file_type') ?: $request->header('X-File-Type', 'croselling'));
+        $originalName = (string) ($request->input('original_name') ?: $request->header('X-Original-Filename', 'CROSSELLING-12102026.xlsx'));
+
+        if (empty($uploadId) || $chunkIndex < 0 || $totalChunks <= 0) {
+            return response()->json(['error' => 'Parameter chunk upload tidak valid.'], 400);
+        }
+
+        if ($request->hasFile('chunk')) {
+            $content = File::get($request->file('chunk')->getRealPath());
+        } elseif ($request->filled('chunk')) {
+            $content = (string) $request->input('chunk');
+        } else {
+            $content = $request->getContent();
+        }
+
+        if (empty($content)) {
+            return response()->json(['error' => 'Isi chunk data kosong.'], 400);
+        }
+
+        $tempDir = storage_path("app/tmp_chunks/{$uploadId}");
+        File::ensureDirectoryExists($tempDir);
+        File::put("{$tempDir}/chunk_{$chunkIndex}", $content);
+
+        // Check if all chunks have been received
+        $receivedAll = true;
+        for ($i = 0; $i < $totalChunks; $i++) {
+            if (! File::exists("{$tempDir}/chunk_{$i}")) {
+                $receivedAll = false;
+                break;
+            }
+        }
+
+        if (! $receivedAll) {
+            return response()->json([
+                'success' => true,
+                'chunk_index' => $chunkIndex,
+                'completed' => false,
+                'message' => "Chunk {$chunkIndex} berhasil diunggah.",
+            ]);
+        }
+
+        // Reassemble full file
+        $fullBuffer = '';
+        for ($i = 0; $i < $totalChunks; $i++) {
+            $fullBuffer .= File::get("{$tempDir}/chunk_{$i}");
+        }
+
+        // Save to public workspace folder
+        $targetFileName = $fileType === 'croselling' ? 'CROSSELLING-12102026.xlsx' : 'turnover.xlsx';
+        $targetPath = $this->storagePath . DIRECTORY_SEPARATOR . $targetFileName;
+        @File::put($targetPath, $fullBuffer);
+
+        $nowMs = (string) round(microtime(true) * 1000);
+        $prefix = $fileType === 'croselling' ? 'workspace_croselling' : 'workspace_turnover';
+        Setting::updateOrCreate(['key' => "{$prefix}_mtime"], ['value' => $nowMs]);
+        Setting::updateOrCreate(['key' => "{$prefix}_uploader"], ['value' => $user->name]);
+        Setting::updateOrCreate(['key' => "{$prefix}_filename"], ['value' => $originalName]);
+        Setting::updateOrCreate(['key' => "{$prefix}_filesize"], ['value' => (string) strlen($fullBuffer)]);
+        Setting::updateOrCreate(['key' => "{$prefix}_file_base64"], ['value' => base64_encode($fullBuffer)]);
+
+        // Clean up temporary chunks
+        File::deleteDirectory($tempDir);
+
+        return response()->json([
+            'success' => true,
+            'completed' => true,
+            'message' => "File {$originalName} berhasil diunggah dan disinkronkan ke seluruh perangkat!",
+            'mtimeMs' => (int) $nowMs,
+            'uploader' => $user->name,
+        ]);
+    }
+
+    public function searchAr(Request $request): JsonResponse
+    {
+        $query = trim((string) $request->query('query', ''));
+        if ($query === '') {
+            return response()->json(['rows' => []]);
+        }
+
+        $digits = preg_replace('/\D/', '', $query);
+
+        $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
+        $results = DB::table('cross_sellings')
+            ->where(function ($q) use ($query, $digits, $likeOp) {
+                if ($digits !== '') {
+                    $q->where('document_number', $digits)
+                      ->orWhere('no_hp_customer', 'like', "%{$digits}%");
+                }
+                $q->orWhere('document_number', $query)
+                  ->orWhere('name', $likeOp, "%{$query}%")
+                  ->orWhere('customer_vendor_name', $likeOp, "%{$query}%");
+            })
+            ->limit(100)
+            ->get();
+
+        return response()->json([
+            'query' => $query,
+            'count' => $results->count(),
+            'rows' => $results,
+        ]);
+    }
+
+    public function turnoverRecords(Request $request): JsonResponse
+    {
+        $month = $request->query('month');
+        $date = $request->query('date');
+        $sales = $request->query('sales');
+        $limit = min((int) ($request->query('limit', 100)), 500);
+
+        $query = DB::table('turnovers');
+
+        if ($date) {
+            $query->whereDate('posting_date', $date);
+        } elseif ($month) {
+            if (is_numeric($month) && strlen((string) $month) <= 2) {
+                $query->whereMonth('posting_date', (int) $month);
+            } else {
+                $query->where('period_label', (string) $month);
+            }
+        }
+
+        if ($sales && $sales !== 'all') {
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where('slp_name', $likeOp, "%{$sales}%");
+        }
+
+        $totalCount = (clone $query)->count();
+        $totalDpp = (float) ((clone $query)->sum('dpp') ?? 0);
+        $totalGp = (float) ((clone $query)->sum('gross_profit') ?? 0);
+
+        $rows = $query->orderBy('posting_date', 'desc')->limit($limit)->get();
+
+        $availablePeriods = DB::table('turnovers')
+            ->select('period_label', DB::raw('count(*) as count'), DB::raw('sum(dpp) as dpp_sum'))
+            ->whereNotNull('period_label')
+            ->groupBy('period_label')
+            ->orderBy('period_label', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'total_count' => $totalCount,
+            'total_dpp' => $totalDpp,
+            'total_gp' => $totalGp,
+            'available_periods' => $availablePeriods,
+            'rows' => $rows,
         ]);
     }
 }

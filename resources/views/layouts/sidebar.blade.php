@@ -56,6 +56,7 @@
             ]);
             $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index');
             $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index']);
+            $isGuidanceActive = ($activeTarget === 'guidance.index');
             $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index']);
         @endphp
 
@@ -88,7 +89,7 @@
                 @if (auth()->check() && auth()->user()->isSuperAdmin())
                 <a href="{{ \App\Support\RouteCipher::url('imports.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'imports.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg>
-                    <span>Import Cross-selling</span>
+                    <span>Pusat Unggah Data</span>
                 </a>
                 @endif
 
@@ -205,7 +206,45 @@
             </div>
         </div>
 
-        <!-- GROUP 4: SETTING -->
+        <!-- GROUP 4: PANDUAN & SOP -->
+        <div class="pt-2">
+            <button type="button" 
+                    id="btn-sidebar-group-guidance"
+                    onclick="toggleSidebarGroup('guidance')" 
+                    class="group flex w-full items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors select-none cursor-pointer focus:outline-none"
+                    aria-expanded="true"
+                    aria-controls="sidebar-group-guidance"
+                    title="Klik untuk collapse / expand">
+                <span class="flex items-center gap-1.5">
+                    <span>Panduan & SOP</span>
+                    @if (auth()->check() && auth()->user()->isSuperAdmin())
+                        <span class="rounded-full bg-purple-500/20 px-1.5 py-0.2 text-[8px] font-bold text-purple-300">Rumus</span>
+                    @else
+                        <span class="rounded-full bg-sky-500/20 px-1.5 py-0.2 text-[8px] font-bold text-sky-300">SOP</span>
+                    @endif
+                    @if ($isGuidanceActive)
+                        <span id="dot-active-guidance" class="size-1.5 rounded-full bg-brand-400 ring-2 ring-brand-400/20" style="display: none;" title="Menu aktif di grup ini"></span>
+                    @endif
+                </span>
+                <svg id="chevron-guidance" class="sidebar-group-chevron size-3 text-slate-500 group-hover:text-slate-300 is-expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+
+            <div id="sidebar-group-guidance" class="sidebar-group-content space-y-1 pt-1 is-expanded">
+                <a href="{{ \App\Support\RouteCipher::url('guidance.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'guidance.index' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
+                    </svg>
+                    <span>{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Rumus & Panduan' : 'Panduan & SOP Sales' }}</span>
+                    <span class="ml-auto rounded-full {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'bg-purple-500/20 text-purple-300' : 'bg-sky-500/20 text-sky-300' }} px-1.5 py-0.5 text-[9px] font-bold">
+                        {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Rumus' : 'SOP' }}
+                    </span>
+                </a>
+            </div>
+        </div>
+
+        <!-- GROUP 5: SETTING -->
         <div class="pt-2">
             <button type="button" 
                     id="btn-sidebar-group-setting"
@@ -301,6 +340,7 @@ window.toggleSidebarGroup = function(groupId) {
         { id: 'customer', isActive: {{ $isCustomerActive ? 'true' : 'false' }} },
         { id: 'workspace', isActive: {{ $isWorkspaceActive ? 'true' : 'false' }} },
         { id: 'monitoring', isActive: {{ $isMonitoringActive ? 'true' : 'false' }} },
+        { id: 'guidance', isActive: {{ $isGuidanceActive ? 'true' : 'false' }} },
         { id: 'setting', isActive: {{ $isSettingActive ? 'true' : 'false' }} }
     ];
 

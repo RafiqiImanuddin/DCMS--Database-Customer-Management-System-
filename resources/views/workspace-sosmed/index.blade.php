@@ -688,27 +688,47 @@
 
                 <!-- ================= TAB 3: CEK AR & PENCARIAN PELANGGAN VIA WHATSAPP (GOOGLE SHEETS) ================= -->
                 <section id="tabContent3" class="tab-content">
-                    <!-- Dedicated Cross Selling File Upload for Cek AR (Permintaan User: File Cek AR Berbeda dengan Turnover) -->
+                    @php
+                        $isSuperAdmin = auth()->check() && auth()->user()->isSuperAdmin();
+                    @endphp
+                    <!-- Dedicated Cross Selling File Upload for Cek AR (Sinkronisasi Antar Perangkat & Hak Akses Superadmin) -->
                     <div class="croselling-upload-card mb-20" id="crosellingDropZone">
                         <div class="croselling-upload-main">
                             <div class="croselling-upload-icon-wrap">
                                 <span class="croselling-badge-icon">📑</span>
                             </div>
                             <div class="croselling-upload-info">
-                                <h4 class="croselling-upload-title">Database Cross Selling & No. WhatsApp (Khusus Menu
-                                    Cek AR)</h4>
-                                <p class="croselling-upload-sub">Unggah file Excel
-                                    <strong>CROSSELLING-12102026.xlsx</strong> atau unduhan Google Sheets untuk
-                                    pencarian faktur AR dan WhatsApp customer.</p>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <h4 class="croselling-upload-title" style="margin:0;">Database Cross Selling & No. WhatsApp (Khusus Menu Cek AR)</h4>
+                                    @if ($isSuperAdmin)
+                                        <span style="background:#fef3c7; color:#92400e; font-size:10px; font-weight:800; padding:2px 8px; border-radius:6px; border:1px solid #fde68a;">Akses Superadmin</span>
+                                    @else
+                                        <span style="background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:800; padding:2px 8px; border-radius:6px; border:1px solid #bae6fd;">Staf (Auto-Sync)</span>
+                                    @endif
+                                </div>
+                                <p class="croselling-upload-sub" style="margin-top:4px;">
+                                    @if ($isSuperAdmin)
+                                        Unggah file Excel <strong>CROSSELLING-12102026.xlsx</strong> baru. Data otomatis disinkronkan ke seluruh PC staf secara realtime.
+                                    @else
+                                        Database Cross Selling tersinkronisasi otomatis dari unggahan Superadmin untuk pencarian faktur AR dan WhatsApp customer.
+                                    @endif
+                                </p>
                             </div>
                         </div>
                         <div class="croselling-upload-action-row">
-                            <input type="file" id="crosellingFileInput" accept=".xlsx, .xls" style="display:none"
-                                onchange="handleCrosellingFileSelect(event)">
-                            <button class="btn-croselling-upload-pill"
-                                onclick="document.getElementById('crosellingFileInput').click()">
-                                📁 Unggah File Cross Selling (.xlsx)
-                            </button>
+                            @if ($isSuperAdmin)
+                                <input type="file" id="crosellingFileInput" accept=".xlsx, .xls" style="display:none"
+                                    onchange="handleCrosellingFileSelect(event)">
+                                <button class="btn-croselling-upload-pill"
+                                    onclick="document.getElementById('crosellingFileInput').click()">
+                                    📁 Unggah File Cross Selling (.xlsx)
+                                </button>
+                            @else
+                                <button class="btn-croselling-upload-pill" style="opacity: 0.9; background: #0f172a; cursor: pointer;"
+                                    onclick="forceSyncCrosellingFromServer()" title="Klik untuk sinkronisasi ulang data terbaru dari Superadmin">
+                                    🔄 Cek Sinkronisasi Server
+                                </button>
+                            @endif
                             <div class="turnover-status-badge croselling-status-badge" id="crosellingStatusBadge"
                                 title="Indikator Pembaruan File Cross Selling">
                                 <span class="turnover-status-dot dot-green"></span>

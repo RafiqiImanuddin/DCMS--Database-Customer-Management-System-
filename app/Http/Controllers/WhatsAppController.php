@@ -41,11 +41,12 @@ class WhatsAppController extends Controller
         }
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('customer_name', 'ilike', "%{$search}%")
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where(function ($q) use ($search, $likeOp) {
+                $q->where('customer_name', $likeOp, "%{$search}%")
                     ->orWhere('phone_number', 'like', "%{$search}%")
-                    ->orWhere('last_message', 'ilike', "%{$search}%")
-                    ->orWhere('barang_keep', 'ilike', "%{$search}%");
+                    ->orWhere('last_message', $likeOp, "%{$search}%")
+                    ->orWhere('barang_keep', $likeOp, "%{$search}%");
             });
         }
 
