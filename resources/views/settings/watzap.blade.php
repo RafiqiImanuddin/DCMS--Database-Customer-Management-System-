@@ -389,43 +389,11 @@
                     </div>
                 </div>
 
-                <!-- Webhook URL Inbound Setting -->
-                <div class="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 pt-3">
-                    <div class="flex items-center justify-between mb-1.5">
-                        <label class="text-xs font-extrabold uppercase tracking-wide text-emerald-950 flex items-center gap-1.5">
-                            <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                            Webhook Penerima Chat Masuk (Inbound Webhook)
-                        </label>
-                        <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Auto Sync API</span>
-                    </div>
-                    <p class="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
-                        Di dashboard WatZap tidak ada kolom input webhook manual karena WatZap menggunakan sistem registrasi via API. Cukup klik tombol <strong>⚡ Daftarkan Otomatis ke WatZap</strong> di bawah untuk menghubungkan nomor WhatsApp Anda secara instan ke Inbox DCMS.
-                    </p>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <input id="webhook_url_display" type="text" readonly value="{{ $webhookUrl }}" class="dcms-input font-mono text-xs bg-white select-all flex-1 min-w-[240px]">
-                        <button type="button" onclick="copyWebhookUrl()" id="btn-copy-webhook" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 shadow-sm">
-                            <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                            <span>Salin URL</span>
-                        </button>
-                        @if($isSuperAdmin)
-                        <button type="button" onclick="autoRegisterWebhook()" id="btn-register-webhook" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 shadow-sm">
-                            <svg class="size-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                            <span>⚡ Daftarkan Otomatis ke WatZap</span>
-                        </button>
-                        <button type="button" onclick="checkWebhookStatus()" id="btn-check-webhook" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 shadow-sm">
-                            <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                            <span>Cek Status Webhook</span>
-                        </button>
-                        @endif
-                    </div>
-                    <div id="webhook-register-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
-                </div>
-
                 @if($isSuperAdmin)
-                <div class="flex items-center justify-between pt-3">
+                <div class="flex items-center justify-between pt-3 border-t border-slate-100">
                     <button type="button" id="btn-check-api-inbox" onclick="checkApiConnection()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50">
                         <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                        Tes Koneksi Gateway
+                        Tes Koneksi WatZap
                     </button>
                     <button type="submit" class="dcms-primary-button px-6 py-2.5 text-xs font-bold">
                         Simpan Pengaturan Inbox
@@ -434,35 +402,6 @@
                 @endif
             </form>
         </section>
-
-        <!-- Uji Coba Kirim Chat Inbox Follow-Up -->
-        @if($isSuperAdmin)
-        <section class="dcms-card p-6">
-            <div class="mb-4 border-b border-slate-100 pb-3">
-                <h2 class="font-black text-slate-900">Uji Coba Kirim Chat Inbox Follow-Up</h2>
-                <p class="mt-1 text-xs text-slate-500">Kirim pesan WhatsApp percobaan menggunakan nomor CS/Inbox Follow-Up untuk memverifikasi pengiriman 2-arah.</p>
-            </div>
-            <form method="POST" action="{{ route('settings.watzap.test_send') }}" class="space-y-4">
-                @csrf
-                <input type="hidden" name="channel" value="inbox">
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <label for="test_phone_inbox" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">Nomor WhatsApp Tujuan</label>
-                        <input id="test_phone_inbox" name="phone" type="text" required placeholder="08xxxxxxxxxx atau 628xxxxxxxxxx" value="{{ old('phone') }}" class="dcms-input text-xs">
-                    </div>
-                    <div>
-                        <label for="test_message_inbox" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">Isi Pesan Uji Coba</label>
-                        <input id="test_message_inbox" name="message" type="text" required placeholder="Halo, ini tes pesan CS Inbox FU!" value="{{ old('message', 'Halo! Ini adalah pesan uji coba CS dari modul Inbox Follow-Up DCMS Gadgetmart.') }}" class="dcms-input text-xs">
-                    </div>
-                </div>
-                <div class="text-right">
-                    <button type="submit" @disabled(! $isConfiguredInbox) class="dcms-primary-button px-5 py-2.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">
-                        Kirim Pesan Uji Coba Inbox
-                    </button>
-                </div>
-            </form>
-        </section>
-        @endif
     </div>
 
     <!-- Kolom Kanan: Status Device & Panduan Inbox -->
