@@ -8,17 +8,28 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'whatsapp_chat_id',
+    'message_id',
     'sender_type',
     'user_id',
     'agent_name',
     'message',
     'media_url',
     'media_type',
+    'reply_to',
+    'raw_payload',
     'status',
 ])]
 class WhatsAppMessage extends Model
 {
     protected $table = 'whatsapp_messages';
+
+    protected function casts(): array
+    {
+        return [
+            'reply_to' => 'array',
+            'raw_payload' => 'array',
+        ];
+    }
 
     public function chat(): BelongsTo
     {
@@ -30,4 +41,3 @@ class WhatsAppMessage extends Model
         return $this->belongsTo(User::class);
     }
 }
-

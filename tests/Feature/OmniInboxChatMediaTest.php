@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Services\WatzapService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class OmniInboxChatMediaTest extends TestCase
@@ -45,6 +44,16 @@ class OmniInboxChatMediaTest extends TestCase
             'data' => [],
             'raw' => '',
         ]);
+        $mockWatzap->method('sendOmnichannel')->willReturn([
+            'success' => true,
+            'message' => 'Message sent',
+            'status' => '200',
+            'source' => 'WAHA',
+            'message_id' => 'msg_mock_123',
+            'data' => [],
+            'raw' => '',
+        ]);
+        $mockWatzap->method('resolvePhoneOrLid')->willReturnArgument(0);
         $mockWatzap->method('getDeviceStatus')->willReturn([
             'configured' => true,
             'status' => 'Online',
@@ -165,5 +174,73 @@ class OmniInboxChatMediaTest extends TestCase
         $this->assertArrayHasKey('online', $data);
         $this->assertArrayHasKey('status', $data);
     }
-}
 
+    public function test_can_send_chat_with_quoted_reply(): void
+    {
+        $response = $this->actingAs($this->user)->postJson('/api/watzap-send', [
+            'phone' => '081234567890',
+            'message' => 'Ini jawaban konfirmasi pesan sebelumnya.',
+            'replyTo' => [
+                'id' => 'msg_inbound_999',
+                'senderName' => 'Budi Santoso',
+                'text' => 'Berapa harga promonya kak?',
+            ],
+        ]);
+
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertTrue($data['success']);
+        $this->assertNotNull($data['entry']['reply_to']);
+        $this->assertEquals('msg_inbound_999', $data['entry']['reply_to']['id']);
+    }
+
+    public function test_can_resolve_and_fetch_omni_chat_status(): void
+    {
+        // 1. Mark as resolved
+        $postRes = $this->actingAs($this->user)->postJson('/api/omni-resolve', [
+            'phone' => '6281234567890',
+            'is_resolved' => true,
+        ]);
+        $postRes->assertOk();
+        $this->assertTrue($postRes->json('success'));
+        $this->assertTrue($postRes->json('is_resolved'));
+
+        // 2. Fetch resolved statuses
+        $getRes = $this->actingAs($this->user)->getJson('/api/omni-resolve');
+        $getRes->assertOk();
+        $this->assertTrue($getRes->json('success'));
+        $resolvedMap = $getRes->json('resolvedChats');
+        $this->assertArrayHasKey('6281234567890', $resolvedMap);
+        $this->assertTrue($resolvedMap['6281234567890']['isResolved']);
+    }
+
+    public function test_can_receive_waha_webhook_payload(): void
+    {
+        $payload = [
+            'event' => 'message',
+            'session' => 'default',
+            'payload' => [
+                'id' => 'false_6281234567890@c.us_3EB0123456789',
+                'from' => '6281234567890@c.us',
+                'body' => 'Halo dari WhatsApp via WAHA VPS',
+                'timestamp' => time(),
+                '_data' => [
+                    'notifyName' => 'Pelanggan Setia',
+                ],
+            ],
+        ];
+
+        $res = $this->postJson('/api/watzap-webhook', $payload);
+        $res->assertOk();
+        $this->assertEquals('200', $res->json('status'));
+
+        // Poll messages to verify entry
+        $poll = $this->getJson('/api/watzap-webhook');
+        $poll->assertOk();
+        $messages = $poll->json('messages');
+        $this->assertNotEmpty($messages);
+        $found = collect($messages)->firstWhere('phone', '6281234567890');
+        $this->assertNotNull($found);
+        $this->assertEquals('Halo dari WhatsApp via WAHA VPS', $found['message']);
+    }
+}

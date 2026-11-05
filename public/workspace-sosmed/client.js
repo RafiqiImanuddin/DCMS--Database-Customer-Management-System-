@@ -8420,8 +8420,302 @@ document.addEventListener('keydown', (e) => {
 // ==========================================================================
 // 17. OMNICHANNEL INBOX FU CONSOLE (LIGHT CRM ENGINE - CLEAN MONOCHROME)
 // ==========================================================================
+
+// GEOMETRIC BOT AVATAR GENERATOR (Ringan, Unik per Pengirim Sesuai Referensi)
+function generateBotAvatarSvg(identifier, size) {
+  size = size || 36;
+  let hash = 0;
+  const str = String(identifier || 'PIC');
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const absHash = Math.abs(hash);
+  const colors = [
+    '#f97316', '#ef4444', '#10b981', '#3b82f6',
+    '#8b5cf6', '#ec4899', '#d97706', '#06b6d4',
+    '#64748b', '#14b8a6', '#f43f5e', '#84cc16'
+  ];
+  const color = colors[absHash % colors.length];
+  const shapeIndex = Math.floor(absHash / colors.length) % 7;
+
+  let shapePath = '';
+  let eyes = '<circle cx="16" cy="19" r="2.6" fill="#0f172a"/><circle cx="24" cy="19" r="2.6" fill="#0f172a"/>';
+
+  if (shapeIndex === 0) {
+    // Circle
+    shapePath = '<circle cx="20" cy="20" r="18" fill="' + color + '"/>';
+  } else if (shapeIndex === 1) {
+    // Squircle (Rounded Square)
+    shapePath = '<rect x="3" y="3" width="34" height="34" rx="10" fill="' + color + '"/>';
+  } else if (shapeIndex === 2) {
+    // Pill / Stadium
+    shapePath = '<rect x="2" y="8" width="36" height="24" rx="12" fill="' + color + '"/>';
+    eyes = '<circle cx="16" cy="20" r="2.6" fill="#0f172a"/><circle cx="24" cy="20" r="2.6" fill="#0f172a"/>';
+  } else if (shapeIndex === 3) {
+    // Rounded Triangle
+    shapePath = '<path d="M 18 5.5 C 19 3.5 21 3.5 22 5.5 L 36.5 30 C 37.5 32 36.5 35 34 35 L 6 35 C 3.5 35 2.5 32 3.5 30 Z" fill="' + color + '"/>';
+    eyes = '<circle cx="16" cy="24" r="2.5" fill="#0f172a"/><circle cx="24" cy="24" r="2.5" fill="#0f172a"/>';
+  } else if (shapeIndex === 4) {
+    // Hexagon
+    shapePath = '<path d="M 20 3 L 34.5 11 C 36 12 37 14 37 16 L 37 24 C 37 26 36 28 34.5 29 L 20 37 C 19 37.5 17 37.5 16 37 L 5.5 29 C 4 28 3 26 3 24 L 3 16 C 3 14 4 12 5.5 11 Z" fill="' + color + '"/>';
+    eyes = '<circle cx="16" cy="20" r="2.6" fill="#0f172a"/><circle cx="24" cy="20" r="2.6" fill="#0f172a"/>';
+  } else if (shapeIndex === 5) {
+    // Cloud
+    shapePath = '<path d="M 10 32 L 30 32 A 6 6 0 0 0 36 26 A 5 5 0 0 0 33 18 A 8 8 0 0 0 18 13 A 6 6 0 0 0 8 19 A 5 5 0 0 0 4 25 A 6 6 0 0 0 10 32 Z" fill="' + color + '"/>';
+    eyes = '<circle cx="17" cy="23" r="2.4" fill="#0f172a"/><circle cx="23" cy="23" r="2.4" fill="#0f172a"/>';
+  } else {
+    // Droplet / Teardrop
+    shapePath = '<path d="M 20 3 C 20 3 35 18 35 26 C 35 33.5 28.5 37 20 37 C 11.5 37 5 33.5 5 26 C 5 18 20 3 20 3 Z" fill="' + color + '"/>';
+    eyes = '<circle cx="16" cy="25" r="2.5" fill="#0f172a"/><circle cx="24" cy="25" r="2.5" fill="#0f172a"/>';
+  }
+
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 40 40" style="display:block;">' + shapePath + eyes + '</svg>';
+}
+
+// QUOTED REPLY & IMAGE LIGHTBOX STATE
+let activeQuotedMsg = null; // { text: '...', senderName: '...' }
+
+function parseQuotedFromText(rawText) {
+  if (!rawText || typeof rawText !== 'string') return { cleanText: rawText || '', replyTo: null };
+  const trimmed = rawText.trim();
+  if (!trimmed.startsWith('>')) return { cleanText: rawText, replyTo: null };
+
+  const m1 = trimmed.match(/^>(?: \*(.*?)\*:?)?\s*([\s\S]*?)\n\n([\s\S]*)$/);
+  if (m1) {
+    const sender = (m1[1] || 'Pesan').trim();
+    const quoted = m1[2].replace(/^>\s?/gm, '').trim();
+    const actual = m1[3].trim();
+    return {
+      cleanText: actual,
+      replyTo: { senderName: sender, text: quoted }
+    };
+  }
+
+  const m2 = trimmed.match(/^> \[(.*?)\]\s*([\s\S]*?)\n\n([\s\S]*)$/);
+  if (m2) {
+    const sender = (m2[1] || 'Pesan').trim();
+    const quoted = m2[2].replace(/^>\s?/gm, '').trim();
+    const actual = m2[3].trim();
+    return {
+      cleanText: actual,
+      replyTo: { senderName: sender, text: quoted }
+    };
+  }
+
+  const m3 = trimmed.match(/^> ([\s\S]*?)\n\n([\s\S]*)$/);
+  if (m3) {
+    const quoted = m3[1].replace(/^>\s?/gm, '').trim();
+    const actual = m3[2].trim();
+    return {
+      cleanText: actual,
+      replyTo: { senderName: 'Pesan', text: quoted }
+    };
+  }
+
+  return { cleanText: rawText, replyTo: null };
+}
+
+function startOmniQuotedReply(msgId, text, senderName) {
+  if (arguments.length === 2) {
+    senderName = text;
+    text = msgId;
+    msgId = '';
+  }
+  activeQuotedMsg = { id: msgId || '', text: text || '', senderName: senderName || 'Pesan' };
+  const bar = document.getElementById('omniQuotedReplyBar');
+  const titleSpan = document.getElementById('omniQuotedSenderName');
+  const snippetDiv = document.getElementById('omniQuotedSnippet');
+  if (bar && titleSpan && snippetDiv) {
+    titleSpan.innerText = activeQuotedMsg.senderName;
+    snippetDiv.innerText = activeQuotedMsg.text;
+    bar.style.display = 'flex';
+  }
+  const inp = document.getElementById('omniReplyInput');
+  if (inp) {
+    inp.focus();
+    inp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function cancelOmniQuotedReply() {
+  activeQuotedMsg = null;
+  const bar = document.getElementById('omniQuotedReplyBar');
+  if (bar) bar.style.display = 'none';
+}
+
+function findTargetQuotedRow(replyTo) {
+  if (!replyTo) return null;
+  const stream = document.getElementById('omniMessagesStream');
+  if (!stream) return null;
+
+  const allRows = Array.from(stream.querySelectorAll('.omni-msg-row'));
+  if (allRows.length === 0) return null;
+
+  // 1. Jika ada ID spesifik pesan
+  if (replyTo.id) {
+    const byId = document.getElementById('omniMsg_' + replyTo.id) || stream.querySelector('[data-msg-id="' + replyTo.id + '"]');
+    if (byId) return byId;
+  }
+
+  const rawQuotedText = String(replyTo.text || '').trim();
+  if (!rawQuotedText) return null;
+
+  function getBubbleCleanText(row) {
+    const bubble = row.querySelector('.omni-bubble');
+    if (!bubble) return '';
+    const clone = bubble.cloneNode(true);
+    const rb = clone.querySelector('.omni-bubble-reply-block');
+    if (rb) rb.remove();
+    const timeEl = clone.querySelector('.omni-bubble-time');
+    if (timeEl) timeEl.remove();
+    const senderEl = clone.querySelector('.omni-bubble-sender');
+    if (senderEl) senderEl.remove();
+    return clone.innerText.trim();
+  }
+
+  // 2. Ekstraksi spesifik jika merupakan Format Keep follow-up
+  const waMatch = rawQuotedText.match(/nomor\s+whatsapp\s*:\s*([0-9+]+)/i);
+  const custMatch = rawQuotedText.match(/nama\s+customer\s*:\s*([^\n\r]+)/i);
+  const tglMatch = rawQuotedText.match(/tanggal\s+keep\s*:\s*([^\n\r]+)/i);
+  const barangMatch = rawQuotedText.match(/barang\s*:\s*([^\n\r]+)/i);
+
+  const targetWA = waMatch ? waMatch[1].replace(/\D/g, '') : '';
+  const targetCust = custMatch ? custMatch[1].trim().toLowerCase() : '';
+  const targetTgl = tglMatch ? tglMatch[1].trim().toLowerCase() : '';
+  const targetBarang = barangMatch ? barangMatch[1].trim().toLowerCase() : '';
+
+  if (targetWA || targetCust || targetTgl) {
+    let bestRow = null;
+    let highestScore = 0;
+
+    for (const row of allRows) {
+      const bubbleText = getBubbleCleanText(row).toLowerCase();
+      const bubbleDigits = bubbleText.replace(/\D/g, '');
+      let score = 0;
+
+      if (targetWA && (bubbleText.includes(targetWA) || (targetWA.length >= 9 && bubbleDigits.includes(targetWA.slice(-9))))) {
+        score += 10;
+      }
+      if (targetCust && targetCust.length > 2 && bubbleText.includes(targetCust)) {
+        score += 8;
+      }
+      if (targetTgl && bubbleText.includes(targetTgl)) {
+        score += 5;
+      }
+      if (targetBarang && targetBarang.length > 3 && bubbleText.includes(targetBarang)) {
+        score += 4;
+      }
+
+      if (score > highestScore) {
+        highestScore = score;
+        bestRow = row;
+      }
+    }
+
+    if (bestRow && highestScore >= 5) {
+      return bestRow;
+    }
+  }
+
+  // 3. Pencarian berbasis baris-baris unik dari teks kutipan
+  const lines = rawQuotedText.split('\n')
+    .map(function(l) { return l.trim().toLowerCase(); })
+    .filter(function(l) { return l.length >= 8 && !l.startsWith('halo kak') && !l.startsWith('mimin mau') && !l.startsWith('silakan bantu'); });
+
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const row of allRows) {
+    const bubbleText = getBubbleCleanText(row).toLowerCase();
+    if (!bubbleText) continue;
+
+    let score = 0;
+    for (const line of lines) {
+      if (bubbleText.includes(line)) {
+        score += line.length;
+      }
+    }
+
+    if (bubbleText === rawQuotedText.toLowerCase() || bubbleText.includes(rawQuotedText.toLowerCase())) {
+      score += 100;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = row;
+    }
+  }
+
+  if (bestMatch && bestScore > 0) {
+    return bestMatch;
+  }
+
+  // 4. Fallback: pencarian substring umum
+  const normalizedQuoted = rawQuotedText.toLowerCase().replace(/\s+/g, ' ');
+  const fallbackShort = normalizedQuoted.slice(0, 30);
+  for (let i = allRows.length - 1; i >= 0; i--) {
+    const bubbleText = getBubbleCleanText(allRows[i]).toLowerCase();
+    if (bubbleText.includes(fallbackShort)) {
+      return allRows[i];
+    }
+  }
+
+  return null;
+}
+
+function handleOmniQuotedClick(idx) {
+  const msgs = window.currentOmniChatMessages || [];
+  const msg = msgs[idx];
+  if (!msg || !msg.replyTo) return;
+
+  const targetEl = findTargetQuotedRow(msg.replyTo);
+  if (targetEl) {
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targetEl.classList.remove('omni-msg-focused');
+    void targetEl.offsetWidth; // trigger reflow
+    targetEl.classList.add('omni-msg-focused');
+
+    setTimeout(function() {
+      if (targetEl) targetEl.classList.remove('omni-msg-focused');
+    }, 2000);
+  }
+}
+window.handleOmniQuotedClick = handleOmniQuotedClick;
+
+function scrollToOmniQuotedMessage(quotedId, quotedText) {
+  const targetEl = findTargetQuotedRow({ id: quotedId, text: quotedText });
+  if (targetEl) {
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targetEl.classList.remove('omni-msg-focused');
+    void targetEl.offsetWidth;
+    targetEl.classList.add('omni-msg-focused');
+
+    setTimeout(function() {
+      if (targetEl) targetEl.classList.remove('omni-msg-focused');
+    }, 2000);
+  }
+}
+window.scrollToOmniQuotedMessage = scrollToOmniQuotedMessage;
+
+function openOmniImageModal(src) {
+  const modal = document.getElementById('omniImageModal');
+  const img = document.getElementById('omniImageModalImg');
+  const dl = document.getElementById('omniImageModalDownload');
+  if (modal && img) {
+    img.src = src;
+    if (dl) dl.href = src;
+    modal.style.display = 'flex';
+  }
+}
+
+function closeOmniImageModal() {
+  const modal = document.getElementById('omniImageModal');
+  if (modal) modal.style.display = 'none';
+}
+
 let currentOmniView = 'CHATS'; // 'CHATS' or 'MASTER'
-let currentOmniFolder = 'ALL'; // 'ALL', 'ASSIGNED', 'UNRESPONDED', 'RESOLVED'
+let currentOmniFolder = 'ASSIGNED'; // 'ASSIGNED', 'UNRESPONDED', 'RESOLVED' (All chats dibuang)
 let selectedOmniPicKey = null; // Key (clean WA or picKey) of active PIC FU
 let selectedOmniKeepSubTab = 'PENDING'; // 'PENDING' (Belum Diisi) | 'RESOLVED' (Sudah Selesai)
 
@@ -8449,21 +8743,32 @@ function escapeHtml(str) {
 }
 
 function cleanPhoneDigits(raw) {
+  return normalizeWhatsAppPhone(raw);
+}
+
+function normalizeWhatsAppPhone(raw) {
   if (!raw) return '';
-  return String(raw).replace(/\D/g, '');
+  let digits = String(raw).replace(/@.*$/, '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('08')) {
+    digits = '62' + digits.slice(1);
+  } else if (digits.startsWith('8') && digits.length >= 9 && digits.length <= 13) {
+    digits = '62' + digits;
+  }
+  return digits;
+}
+
+function isGroupWhatsApp(raw) {
+  if (!raw) return false;
+  const s = String(raw);
+  if (s.includes('@g.us')) return true;
+  const d = s.replace(/\D/g, '');
+  return d.startsWith('120363') || d.length > 14;
 }
 
 // --------------------------------------------------------------------------
 // MASTER DATA PIC FU MANAGEMENT
 // --------------------------------------------------------------------------
-const DEFAULT_FALLBACK_PICS = [
-  { wa: '081250123456', picName: 'PIC FU Gadgetmart Banjarmasin', cabang: 'Banjarmasin' },
-  { wa: '085248123456', picName: 'PIC FU Gadgetmart Banjarbaru', cabang: 'Banjarbaru' },
-  { wa: '082154123456', picName: 'PIC FU Gadgetmart Belitung', cabang: 'Belitung' },
-  { wa: '081347123456', picName: 'PIC FU Gadgetmart Duta Mall', cabang: 'Duta Mall' },
-  { wa: '085386123456', picName: 'PIC FU Gadgetmart Pal 7', cabang: 'Pal 7' }
-];
-
 function getMasterDataPICs() {
   try {
     const raw = localStorage.getItem(OMNI_MASTER_STORAGE_KEY);
@@ -8472,10 +8777,7 @@ function getMasterDataPICs() {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
-  const seeded = seedMasterDataFromKeepRows();
-  if (seeded && seeded.length > 0) return seeded;
-  saveMasterDataPICs(DEFAULT_FALLBACK_PICS);
-  return DEFAULT_FALLBACK_PICS;
+  return seedMasterDataFromKeepRows();
 }
 
 function saveMasterDataPICs(list) {
@@ -8735,12 +9037,36 @@ function getOmniThreads() {
     let modified = false;
     Object.keys(raw).forEach(function(k) {
       // Hapus data grup WhatsApp agar tidak mengotori chat inbox
-      if (k.includes('@g.us') || k.startsWith('120363') || k.length > 14) {
+      if (isGroupWhatsApp(k)) {
         modified = true;
-      } else {
-        cleaned[k] = raw[k];
+        return;
       }
+      let targetKey = normalizeWhatsAppPhone(k);
+      if (!targetKey || targetKey.length < 8) {
+        if (k.toLowerCase().includes('yahya')) {
+          targetKey = '6289603864476';
+          modified = true;
+        } else {
+          return;
+        }
+      }
+      if (targetKey !== k) modified = true;
+
+      if (!cleaned[targetKey]) cleaned[targetKey] = [];
+      (raw[k] || []).forEach(function(msg) {
+        const msgTs = Number(msg.timestamp || 0);
+        const msgText = (msg.text || msg.message || '').trim();
+        const exists = cleaned[targetKey].some(function(m) {
+          return (m.id && msg.id && m.id === msg.id) ||
+            (Number(m.timestamp || 0) === msgTs && (m.text || '').trim() === msgText);
+        });
+        if (!exists) cleaned[targetKey].push(msg);
+      });
+      cleaned[targetKey].sort(function(a, b) {
+        return (Number(a.timestamp || 0)) - (Number(b.timestamp || 0));
+      });
     });
+
     if (modified) {
       localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
     }
@@ -8754,22 +9080,34 @@ function saveOmniThreads(threads) {
   try {
     const cleaned = {};
     Object.keys(threads || {}).forEach(function(k) {
-      if (!k.includes('@g.us') && !k.startsWith('120363') && k.length <= 14) {
-        cleaned[k] = threads[k];
+      if (isGroupWhatsApp(k)) return;
+      let targetKey = normalizeWhatsAppPhone(k);
+      if (!targetKey || targetKey.length < 8) {
+        if (k.toLowerCase().includes('yahya')) targetKey = '6289603864476';
+        else return;
       }
+      cleaned[targetKey] = (threads[k] || []).map(function(m) {
+        if (m.mediaUrl && m.mediaUrl.length > 500 && m.mediaUrl.startsWith('data:')) {
+          const copy = Object.assign({}, m);
+          copy.mediaUrl = '';
+          return copy;
+        }
+        return m;
+      });
     });
     localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
-  } catch (e) {}
+  } catch (e) {
+    console.warn('saveOmniThreads warning:', e);
+  }
 }
 
 function setOmniFolder(folder) {
-  currentOmniFolder = folder;
-  ['All', 'Assigned', 'Unresponded', 'Resolved'].forEach(function(f) {
+  currentOmniFolder = folder || 'ASSIGNED';
+  ['Assigned', 'Unresponded', 'Resolved'].forEach(function(f) {
     const el = document.getElementById('omniFilter' + f);
     if (el) el.classList.remove('active');
   });
   const map = {
-    'ALL': 'omniFilterAll',
     'ASSIGNED': 'omniFilterAssigned',
     'UNRESPONDED': 'omniFilterUnresponded',
     'RESOLVED': 'omniFilterResolved'
@@ -8779,12 +9117,11 @@ function setOmniFolder(folder) {
   const titleEl = document.getElementById('omniChatListHeaderTitle');
   if (titleEl) {
     const titleMap = {
-      'ALL': 'All chats',
       'ASSIGNED': 'Assigned chats',
       'UNRESPONDED': 'Unresponded',
       'RESOLVED': 'Resolved'
     };
-    titleEl.innerText = titleMap[folder] || 'All chats';
+    titleEl.innerText = titleMap[folder] || 'Assigned chats';
   }
   renderOmniInboxModule();
 }
@@ -8814,46 +9151,81 @@ function isEligibleKeep(ts) {
   const y = parseInt(parts[2], 10);
   if (isNaN(m) || isNaN(d) || isNaN(y)) return false;
 
-  // Batas bawah: Format keep tanggal 3 November 2026 (11/3/2026) ke atas!
-  // Format keep yang lalu sebelum tanggal 3 tidak perlu diingat sama sekali.
-  if (y < 2026 || (y === 2026 && m < 11) || (y === 2026 && m === 11 && d < 3)) {
-    return false;
-  }
-
+  const keepMidnight = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
   const now = new Date();
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
-  const keepTime = new Date(y, m - 1, d).getTime();
-
-  // Kemarin & sebelumnya, TIDAK tampilkan hari ini!
-  return keepTime < todayMidnight;
+  // 2 HARI TERAKHIR: Mulai dari kemarin jam 00:00:00 hingga hari ini
+  const yesterdayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0).getTime();
+  return keepMidnight >= yesterdayMidnight;
 }
 
+window.omniResolvedDbMap = null;
+
 function getOmniResolvedChats() {
+  if (window.omniResolvedDbMap && typeof window.omniResolvedDbMap === 'object') {
+    return window.omniResolvedDbMap;
+  }
   try {
-    return JSON.parse(localStorage.getItem('omni_resolved_chats_v1') || '{}');
+    const local = JSON.parse(localStorage.getItem('omni_resolved_chats_v1') || '{}');
+    window.omniResolvedDbMap = local;
+    return local;
   } catch (e) {
     return {};
   }
 }
 
 function setOmniChatResolved(key, isResolved) {
+  const normKey = normalizeWhatsAppPhone(key) || key;
   const map = getOmniResolvedChats();
   if (isResolved) {
-    map[key] = true;
+    map[normKey] = true;
   } else {
-    delete map[key];
+    delete map[normKey];
   }
+  window.omniResolvedDbMap = map;
   try {
     localStorage.setItem('omni_resolved_chats_v1', JSON.stringify(map));
   } catch (e) {}
+
+  // SINKRONISASI PERMANEN KE NEON POSTGRESQL (Tidak akan hilang saat redeploy / beda device)
+  try {
+    fetch('/api/omni-resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: normKey,
+        isResolved: Boolean(isResolved),
+        resolvedBy: 'Admin'
+      })
+    }).catch(function(err) {
+      console.warn('Gagal sinkron status resolve ke PostgreSQL:', err);
+    });
+  } catch (e) {}
 }
 
-function handleOmniResolveClick(key) {
-  const map = getOmniResolvedChats();
-  const willBeResolved = !map[key];
-  setOmniChatResolved(key, willBeResolved);
-  renderOmniChatList();
-  renderOmniDetailsPanel();
+async function fetchOmniResolvedStatuses() {
+  try {
+    const res = await fetch('/api/omni-resolve');
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json && json.success && json.resolvedChats) {
+      const dbMap = {};
+      Object.keys(json.resolvedChats).forEach(function(phone) {
+        if (json.resolvedChats[phone] && json.resolvedChats[phone].isResolved) {
+          const norm = normalizeWhatsAppPhone(phone) || phone;
+          dbMap[norm] = true;
+        }
+      });
+      window.omniResolvedDbMap = Object.assign({}, getOmniResolvedChats(), dbMap);
+      try {
+        localStorage.setItem('omni_resolved_chats_v1', JSON.stringify(window.omniResolvedDbMap));
+      } catch (e) {}
+      if (typeof renderOmniInboxSidebar === 'function') {
+        renderOmniInboxSidebar();
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal memuat status resolve dari Neon DB:', err);
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -8861,6 +9233,7 @@ function handleOmniResolveClick(key) {
 // --------------------------------------------------------------------------
 let cachedOmniKeepsMap = null;
 let lastIndexedKeepRowsLength = -1;
+window.omni2DayKeepsMap = {};
 
 function getIndexedOmniKeeps() {
   if (!Array.isArray(rawKeepRows)) return {};
@@ -8872,20 +9245,20 @@ function getIndexedOmniKeeps() {
   const master = getMasterDataPICs();
   const masterMap = {};
   master.forEach(function(m) {
-    const c = cleanPhoneDigits(m.wa);
+    const c = normalizeWhatsAppPhone(m.wa);
     if (c) masterMap[c] = m;
   });
 
-  // Iterasi baris keep-data (hanya data tanggal 3 ke atas & kemarin)
+  // Iterasi baris keep-data (hanya data 2 hari terakhir: kemarin & hari ini)
   for (let i = rawKeepRows.length - 1; i >= 0; i--) {
     const r = rawKeepRows[i];
     const ts = r['Timestamp'];
     if (!ts || !isEligibleKeep(ts)) continue;
 
-    const customerWA = cleanPhoneDigits(r['Nomor WA'] || '');
+    const customerWA = normalizeWhatsAppPhone(r['Nomor WA'] || '');
     if (!customerWA || customerWA.length < 8) continue;
 
-    const rawPicWA = cleanPhoneDigits(r['Nomor Follow Up'] || r['Nomor FU'] || '');
+    const rawPicWA = normalizeWhatsAppPhone(r['Nomor Follow Up'] || r['Nomor FU'] || '');
     const rawPicName = (r['Nama Tim Follow Up'] || r['Nama Tim FU'] || '').trim();
     const rawCabang = (r['Cabang'] || '-').trim();
     const sender = (r['Sender'] || '-').trim();
@@ -8895,7 +9268,7 @@ function getIndexedOmniKeeps() {
       const last9 = (rawPicWA || customerWA).slice(-9);
       if (last9 && last9.length >= 9) {
         matched = master.find(function(m) {
-          const mc = cleanPhoneDigits(m.wa);
+          const mc = normalizeWhatsAppPhone(m.wa);
           return mc && mc.endsWith(last9);
         });
       }
@@ -8904,10 +9277,12 @@ function getIndexedOmniKeeps() {
     const picWA = (matched ? matched.wa : '') || rawPicWA || customerWA;
     const picName = matched ? matched.picName : (rawPicName || ('PIC ' + (rawPicWA || customerWA)));
     const cabang = (matched ? matched.cabang : '') || rawCabang;
-    const picKey = picWA || picName.toLowerCase().replace(/\s+/g, '_');
+    
+    // STANDARISASI: Key percakapan SELALU menggunakan nomor HP E.164 (628...)
+    const picKey = normalizeWhatsAppPhone(picWA) || picWA;
 
     // Abaikan jika terdeteksi ID grup
-    if (picKey.includes('@g.us') || picKey.startsWith('120363') || picKey.length > 14) continue;
+    if (isGroupWhatsApp(picKey)) continue;
 
     const customerName = (r['Nama'] || 'Customer').trim();
     const barang = (r['Barang Keep'] || '-').trim();
@@ -8915,6 +9290,7 @@ function getIndexedOmniKeeps() {
     const status = (r['Status'] || 'BELUM DIINPUT').trim() || 'BELUM DIINPUT';
     const feedback = (r['Feedback Tim FU'] || '').trim();
     const remarks = (r['Remarks'] || r['Kode Sosmed'] || sender || '-').trim();
+    const reportAR = (r['REPORT AR'] || r['Report AR'] || r['AR'] || '').trim();
     const isPending = (!feedback || feedback === '-' || feedback === '""') || status === 'BELUM DIINPUT' || !status;
 
     const keepItem = {
@@ -8925,6 +9301,7 @@ function getIndexedOmniKeeps() {
       cabang: cabang,
       sender: sender,
       remarks: remarks,
+      reportAR: reportAR,
       status: status,
       feedback: feedback,
       timestamp: ts,
@@ -8943,6 +9320,7 @@ function getIndexedOmniKeeps() {
   }
 
   cachedOmniKeepsMap = picKeepsMap;
+  window.omni2DayKeepsMap = picKeepsMap;
   lastIndexedKeepRowsLength = rawKeepRows.length;
   return cachedOmniKeepsMap;
 }
@@ -8950,17 +9328,9 @@ function getIndexedOmniKeeps() {
 function getOmniPicChats() {
   const threads = getOmniThreads();
   // Filter ketat: HANYA chat personal, TOLAK grup WhatsApp
-  const threadKeys = Object.keys(threads).filter(function(k) {
+  const activeKeys = Object.keys(threads).filter(function(k) {
     return !k.includes('@g.us') && !k.startsWith('120363') && k.length <= 14 && Array.isArray(threads[k]) && threads[k].length > 0;
   });
-
-  const masterPics = getMasterDataPICs() || [];
-  const keySet = new Set(threadKeys);
-  masterPics.forEach(function(p) {
-    const clean = cleanPhoneDigits(p.wa);
-    if (clean) keySet.add(clean);
-  });
-  const activeKeys = Array.from(keySet);
 
   if (activeKeys.length === 0) return [];
 
@@ -8969,43 +9339,35 @@ function getOmniPicChats() {
 
   const result = [];
   activeKeys.forEach(function(key) {
+    const cleanKey = normalizeWhatsAppPhone(key) || key;
     const chatMsgs = threads[key] || [];
     const lastMsg = chatMsgs[chatMsgs.length - 1];
 
-    const matched = matchPicFromMasterData(key, 'PIC ' + key, '-');
-    const picWA = matched.wa || key;
+    const matched = matchPicFromMasterData(cleanKey, 'PIC ' + cleanKey, '-');
+    const picWA = matched.wa || cleanKey;
     const picName = matched.picName;
     const cabang = matched.cabang || '-';
 
     const last9 = picWA.slice(-9);
-    const keeps = picKeepsMap[key] || picKeepsMap[picWA] || (last9.length >= 9 ? picKeepsMap[last9] : []) || [];
+    const keeps = picKeepsMap[cleanKey] || picKeepsMap[picWA] || (last9.length >= 9 ? picKeepsMap[last9] : []) || [];
     const pendingCount = keeps.filter(function(k) { return k.isPending; }).length;
     const resolvedCount = keeps.filter(function(k) { return !k.isPending; }).length;
 
     let latestTimestamp = '';
+    let latestEpochMs = 0;
     if (lastMsg && lastMsg.timestamp) {
-      const d = new Date(lastMsg.timestamp);
+      latestEpochMs = Number(lastMsg.timestamp);
+      const d = new Date(latestEpochMs);
       latestTimestamp = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    const isResolved = !!resolvedMap[key] || !!resolvedMap[picWA];
+    const isResolved = !!resolvedMap[cleanKey] || !!resolvedMap[picWA];
     const lastSender = lastMsg ? (lastMsg.sender || 'PIC') : '';
     const isUnreplied = lastSender !== 'ADMIN';
     const isUnresponded = !isResolved && (isUnreplied || pendingCount > 0);
 
-    let snippet = 'Mulai percakapan baru';
-    if (lastMsg) {
-      if (lastMsg.media_type === 'image') {
-        snippet = (lastMsg.sender === 'ADMIN' ? 'Anda: ' : '') + '📷 [Gambar]' + (lastMsg.text ? ' ' + lastMsg.text : '');
-      } else if (lastMsg.media_type === 'document') {
-        snippet = (lastMsg.sender === 'ADMIN' ? 'Anda: ' : '') + '📄 [Dokumen] ' + (lastMsg.filename || lastMsg.text || 'File');
-      } else {
-        snippet = lastMsg.sender === 'ADMIN' ? 'Anda: ' + lastMsg.text : (lastMsg.text || 'Percakapan baru');
-      }
-    }
-
     result.push({
-      key: key,
+      key: cleanKey,
       picName: picName,
       picWA: picWA,
       cabang: cabang,
@@ -9015,8 +9377,9 @@ function getOmniPicChats() {
       isResolved: isResolved,
       isUnresponded: isUnresponded,
       lastSender: lastSender,
+      latestEpochMs: latestEpochMs,
       latestTimestamp: latestTimestamp,
-      latestSnippet: snippet
+      latestSnippet: lastMsg ? (lastMsg.sender === 'ADMIN' ? 'Anda: ' + lastMsg.text : lastMsg.text) : 'Percakapan baru'
     });
   });
 
@@ -9024,6 +9387,7 @@ function getOmniPicChats() {
 }
 
 function renderOmniInboxModule() {
+  fetchOmniResolvedStatuses();
   startWatzapPolling();
   const allChats = getOmniPicChats();
   const bAll = document.getElementById('omniBadgeAll');
@@ -9031,21 +9395,47 @@ function renderOmniInboxModule() {
   const bUnresponded = document.getElementById('omniBadgeUnresponded');
   const bResolved = document.getElementById('omniBadgeResolved');
 
-  const unrespCount = allChats.filter(function(p) { return p.isUnresponded; }).length;
+  const unrespCount = allChats.filter(function(p) { return p.isUnresponded && !p.isResolved; }).length;
+  const assignedCount = allChats.filter(function(p) { return !p.isResolved; }).length;
   const resCount = allChats.filter(function(p) { return p.isResolved; }).length;
 
-  if (bAll) bAll.innerText = allChats.length;
-  if (bAssigned) bAssigned.innerText = allChats.length;
+  if (bAssigned) bAssigned.innerText = assignedCount;
   if (bUnresponded) bUnresponded.innerText = unrespCount;
   if (bResolved) bResolved.innerText = resCount;
 
   let filtered = allChats;
   if (currentOmniFolder === 'ASSIGNED') {
-    filtered = allChats;
+    filtered = allChats.filter(function(p) { return !p.isResolved; });
   } else if (currentOmniFolder === 'UNRESPONDED') {
-    filtered = allChats.filter(function(p) { return p.isUnresponded; });
+    filtered = allChats.filter(function(p) { return p.isUnresponded && !p.isResolved; });
   } else if (currentOmniFolder === 'RESOLVED') {
     filtered = allChats.filter(function(p) { return p.isResolved; });
+  }
+
+  // POPULATE DROPDOWN FILTER CABANG (Sesuai Permintaan)
+  const branchSelect = document.getElementById('omniBranchFilterSelect');
+  if (branchSelect) {
+    const existingVal = branchSelect.value || 'ALL';
+    const branchesSet = new Set();
+    allChats.forEach(function(c) {
+      if (c.cabang && c.cabang !== '-' && c.cabang !== 'undefined') {
+        branchesSet.add(c.cabang.toUpperCase().trim());
+      }
+    });
+    const sortedBranches = Array.from(branchesSet).sort();
+    let branchOptionsMarkup = '<option value="ALL">🏢 Semua Cabang (' + sortedBranches.length + ' Cabang)</option>';
+    sortedBranches.forEach(function(b) {
+      branchOptionsMarkup += '<option value="' + b + '" ' + (b === existingVal ? 'selected' : '') + '>' + b + '</option>';
+    });
+    branchSelect.innerHTML = branchOptionsMarkup;
+
+    // Filter berdasarkan cabang yang dipilih
+    const curBranch = branchSelect.value;
+    if (curBranch && curBranch !== 'ALL') {
+      filtered = filtered.filter(function(p) {
+        return (p.cabang || '').toUpperCase().trim() === curBranch;
+      });
+    }
   }
 
   const searchInp = document.getElementById('omniSearchInput');
@@ -9072,7 +9462,7 @@ function renderOmniInboxModule() {
   if (!listContainer) return;
 
   if (filtered.length === 0) {
-    listContainer.innerHTML = '<div style="padding: 36px 18px; text-align: center; color: #64748b; font-size: 0.78rem; line-height: 1.5;">Belum ada percakapan masuk.<br><span style="font-size:0.72rem; color:#94a3b8;">Chat dari PIC FU WhatsApp akan otomatis masuk ke sini tanpa grup.</span></div>';
+    listContainer.innerHTML = '<div style="padding: 36px 18px; text-align: center; color: #64748b; font-size: 0.78rem; line-height: 1.5;">Tidak ada percakapan pada folder ini.<br><span style="font-size:0.72rem; color:#94a3b8;">Chat dari PIC FU WhatsApp akan otomatis masuk ke sini tanpa grup.</span></div>';
     const chatView = document.getElementById('omniChatViewContainer');
     const detailsView = document.getElementById('omniDetailsPanelContainer');
     if (chatView && !selectedOmniPicKey) {
@@ -9084,15 +9474,14 @@ function renderOmniInboxModule() {
     return;
   }
 
+  // URUTAN WHATSAPP REALTIME: Chat terbaru SELALU berada di urutan paling atas (#1)!
   filtered.sort(function(a, b) {
-    if (b.isUnresponded !== a.isUnresponded) return b.isUnresponded ? 1 : -1;
-    if (b.pendingCount !== a.pendingCount) return b.pendingCount - a.pendingCount;
-    return (b.latestTimestamp || '').localeCompare(a.latestTimestamp || '');
+    return (b.latestEpochMs || 0) - (a.latestEpochMs || 0);
   });
 
   listContainer.innerHTML = filtered.map(function(pic) {
     const isSelected = pic.key === selectedOmniPicKey;
-    const initial = (pic.picName || 'P').charAt(0).toUpperCase();
+    const botAvatar = generateBotAvatarSvg(pic.picWA || pic.key, 36);
     let timeDisplay = '';
     if (pic.latestTimestamp) {
       const parts = pic.latestTimestamp.split(' ');
@@ -9101,7 +9490,7 @@ function renderOmniInboxModule() {
 
     return '<div class="omni-chat-card ' + (isSelected ? 'active' : '') + '" onclick="selectOmniPic(\'' + pic.key + '\')">' +
       '<div class="omni-card-avatar-wrap">' +
-        '<div class="omni-avatar-circle">' + initial + '</div>' +
+        '<div class="omni-avatar-circle">' + botAvatar + '</div>' +
         '<span class="omni-badge-wa-dot"></span>' +
       '</div>' +
       '<div class="omni-card-body">' +
@@ -9124,12 +9513,23 @@ function renderOmniInboxModule() {
   }).join('');
 
   if (selectedOmniPicKey) {
-    const currentPic = allChats.find(function(p) { return p.key === selectedOmniPicKey; });
-    if (currentPic) {
+    const isSelectedInFiltered = filtered.some(function(p) {
+      return p.key === selectedOmniPicKey || normalizeWhatsAppPhone(p.picWA) === selectedOmniPicKey || (p.key && p.key.endsWith(selectedOmniPicKey.slice(-9)));
+    });
+    if (isSelectedInFiltered) {
+      const currentPic = filtered.find(function(p) {
+        return p.key === selectedOmniPicKey || normalizeWhatsAppPhone(p.picWA) === selectedOmniPicKey || (p.key && p.key.endsWith(selectedOmniPicKey.slice(-9)));
+      });
       renderOmniActiveChat(currentPic);
       renderOmniKeepPanel(currentPic);
     } else if (filtered.length > 0) {
       selectOmniPic(filtered[0].key);
+    } else {
+      selectedOmniPicKey = null;
+      const chatView = document.getElementById('omniChatViewContainer');
+      const detailsView = document.getElementById('omniDetailsPanelContainer');
+      if (chatView) chatView.innerHTML = renderOmniEmptyState();
+      if (detailsView) detailsView.innerHTML = '';
     }
   } else if (filtered.length > 0) {
     selectOmniPic(filtered[0].key);
@@ -9137,133 +9537,222 @@ function renderOmniInboxModule() {
 }
 
 function selectOmniPic(key) {
-  selectedOmniPicKey = key;
+  const normKey = normalizeWhatsAppPhone(key) || key;
+  selectedOmniPicKey = normKey;
   const allPics = getOmniPicChats();
-  const pic = allPics.find(function(p) { return p.key === key; });
-  document.querySelectorAll('.omni-chat-card').forEach(function(c) { c.classList.remove('active'); });
-  if (pic) {
-    renderOmniActiveChat(pic);
-    renderOmniKeepPanel(pic);
+  let pic = allPics.find(function(p) {
+    return p.key === normKey || normalizeWhatsAppPhone(p.picWA) === normKey || (p.key && p.key.endsWith(normKey.slice(-9)));
+  });
+  
+  if (!pic) {
+    const matched = matchPicFromMasterData(normKey, 'PIC ' + normKey, '-');
+    const keepsMap = getIndexedOmniKeeps();
+    const last9 = normKey.slice(-9);
+    const keeps = keepsMap[normKey] || (last9.length >= 9 ? keepsMap[last9] : []) || [];
+    pic = {
+      key: normKey,
+      picName: matched.picName,
+      picWA: normKey,
+      cabang: matched.cabang || '-',
+      keeps: keeps,
+      pendingCount: keeps.filter(function(k) { return k.isPending; }).length,
+      resolvedCount: keeps.filter(function(k) { return !k.isPending; }).length,
+      isResolved: false,
+      isUnresponded: true
+    };
   }
+
+  // Highlight kartu aktif secara instan (0ms)
+  const cards = document.querySelectorAll('.omni-chat-card');
+  cards.forEach(function(c) {
+    const oc = c.getAttribute('onclick') || '';
+    if (oc.includes(normKey)) {
+      c.classList.add('active');
+    } else {
+      c.classList.remove('active');
+    }
+  });
+
+  renderOmniActiveChat(pic);
+  renderOmniKeepPanel(pic);
 }
 
-let omniWaIsOnline = true;
-let omniWaStatusLastFetch = 0;
+function generateWhatsAppBotMessage(k, picName) {
+  if (!k) return '';
+  return 'halo kak ' + (picName || 'PIC') + ' mimin mau follow-up update progress dari format keep berikut ya^^\n\n' +
+    'tanggal keep: ' + (k.timestamp || '-') + '\n' +
+    'nama customer: ' + (k.customerName || '-') + '\n' +
+    'nomor whatsapp: ' + (k.customerWA || '-') + '\n' +
+    'barang: ' + (k.barang || '-') + '\n' +
+    'catatan: ' + (k.catatan || '-') + '\n' +
+    'remarks: ' + (k.remarks || '-') + '\n\n' +
+    'silakan bantu screenshot chatnya + infoin ke kami sudah sampai mana progressnya ya ^^ jangan lupa follow up kembali customernya jika ghosting agar peluang closing meningkat ya 👍';
+}
 
-async function fetchOmniWaStatus() {
-  const now = Date.now();
-  if (now - omniWaStatusLastFetch < 20000) return;
-  omniWaStatusLastFetch = now;
-  try {
-    const res = await fetch('/api/watzap-status');
-    if (res.ok) {
-      const data = await res.json();
-      omniWaIsOnline = !!(data.online || (data.status && data.status.toLowerCase() === 'online'));
-      const pill = document.getElementById('omniWaGatewayStatusPill');
-      if (pill) {
-        pill.className = 'omni-wa-status-pill ' + (omniWaIsOnline ? 'online' : 'offline');
-        pill.title = omniWaIsOnline ? 'WhatsApp Gateway Terhubung (Online)' : 'WhatsApp Gateway Terputus (Offline)';
-        pill.innerHTML = '<span class="omni-wa-status-dot ' + (omniWaIsOnline ? 'online' : 'offline') + '"></span>' +
-          '<span class="omni-wa-status-label">' + (omniWaIsOnline ? 'Online' : 'Offline') + '</span>';
-      }
-    }
-  } catch (e) {
-    console.debug('Gagal mengambil status watzap:', e);
+function formatOmniDateDivider(timestamp) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const now = new Date();
+  const defaultToday = `Today, ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+  if (!timestamp) return defaultToday;
+
+  const msgDate = new Date(Number(timestamp) || timestamp);
+  if (isNaN(msgDate.getTime())) return defaultToday;
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const dateStr = `${pad(msgDate.getDate())}/${pad(msgDate.getMonth() + 1)}/${msgDate.getFullYear()}`;
+
+  const isToday = msgDate.getFullYear() === today.getFullYear() &&
+                  msgDate.getMonth() === today.getMonth() &&
+                  msgDate.getDate() === today.getDate();
+  if (isToday) {
+    return `Today, ${dateStr}`;
   }
+
+  const isYesterday = msgDate.getFullYear() === yesterday.getFullYear() &&
+                      msgDate.getMonth() === yesterday.getMonth() &&
+                      msgDate.getDate() === yesterday.getDate();
+  if (isYesterday) {
+    return `Kemarin, ${dateStr}`;
+  }
+
+  return dateStr;
 }
 
 function renderOmniActiveChat(pic) {
   const container = document.getElementById('omniChatViewContainer');
   if (!container) return;
 
-  fetchOmniWaStatus();
-
   const initial = (pic.picName || 'P').charAt(0).toUpperCase();
   const cleanWA = pic.picWA;
   const threads = getOmniThreads();
-  const customMessages = threads[pic.key] || [];
+  const customMessages = threads[pic.key] || threads[cleanWA] || threads[normalizeWhatsAppPhone(cleanWA)] || [];
 
-  const keepsBotMarkup = (pic.keeps || []).map(function(k) {
-    const botText = generateWhatsAppBotMessage(k, pic.picName);
-    let timeFormatted = '12:46 PM';
-    if (k.timestamp) {
-      const parts = k.timestamp.split(' ');
-      if (parts[1]) timeFormatted = parts[1].slice(0, 5);
+  // Sort messages chronologically
+  const sortedMessages = (customMessages || []).slice().sort(function(a, b) {
+    return (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0);
+  });
+  window.currentOmniChatMessages = sortedMessages;
+
+  let lastDateGroup = null;
+  const messagesRendered = [];
+
+  sortedMessages.forEach(function(msg, idx) {
+    const msgTs = msg.timestamp ? Number(msg.timestamp) : Date.now();
+    const d = new Date(msgTs);
+    const dateKey = isNaN(d.getTime()) ? 'today' : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    if (dateKey !== lastDateGroup) {
+      lastDateGroup = dateKey;
+      const dateLabel = formatOmniDateDivider(msgTs);
+      messagesRendered.push(
+        '<div class="omni-date-divider">' +
+          '<span class="omni-date-pill">' + escapeHtml(dateLabel) + '</span>' +
+        '</div>'
+      );
     }
-    return '<div class="omni-msg-row omni-msg-bot">' +
-      '<div class="omni-bubble omni-bubble-bot">' +
-        '<div class="omni-bubble-bot-text">' + escapeHtml(botText) + '</div>' +
-        '<span class="omni-bubble-time">' +
-          timeFormatted +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>' +
-        '</span>' +
-      '</div>' +
-    '</div>';
-  }).join('');
 
-  const customMessagesMarkup = customMessages.map(function(msg) {
     if (msg.sender === 'SYSTEM') {
-      return '<div style="display:flex; justify-content:center; margin: 10px 0;">' +
-        '<span style="background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; font-size: 0.70rem; font-weight: 600; padding: 4px 12px; border-radius: 12px; text-align: center;">' +
-          escapeHtml(msg.text) +
-        '</span>' +
-      '</div>';
+      messagesRendered.push(
+        '<div style="display:flex; justify-content:center; margin: 10px 0;">' +
+          '<span style="background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; font-size: 0.70rem; font-weight: 600; padding: 4px 12px; border-radius: 12px; text-align: center;">' +
+            escapeHtml(msg.text) +
+          '</span>' +
+        '</div>'
+      );
+      return;
     }
+
     const isOutgoing = msg.sender === 'ADMIN';
-    const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const tickMarkup = isOutgoing ? (
+      '<span class="omni-msg-status-tick" id="tick_' + (msg.id || '') + '">' +
+        (msg.status === 'sending'
+          ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/></svg>'
+          : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>') +
+      '</span>'
+    ) : '';
 
-    let mediaHtml = '';
-    const mUrl = msg.media_url || msg.mediaUrl;
-    if (mUrl) {
-      const isImg = (msg.media_type === 'image') || /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(mUrl);
-      const fName = msg.filename || (isImg ? 'Foto Lampiran' : 'Dokumen');
-      const sizeStr = msg.file_size ? formatOmniFileSize(msg.file_size) : '';
-
-      if (isImg) {
-        mediaHtml = '<div class="omni-bubble-image-wrap">' +
-          '<a href="' + mUrl + '" target="_blank" rel="noopener noreferrer" title="Klik untuk melihat gambar">' +
-            '<img src="' + mUrl + '" alt="' + escapeHtml(fName) + '" class="omni-bubble-img" />' +
-          '</a>' +
-        '</div>';
-      } else {
-        mediaHtml = '<div class="omni-bubble-doc-wrap">' +
-          '<a href="' + mUrl + '" target="_blank" rel="noopener noreferrer" download="' + escapeHtml(fName) + '" class="omni-bubble-doc-card">' +
-            '<div class="omni-bubble-doc-icon">' +
-              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' +
-            '</div>' +
-            '<div class="omni-bubble-doc-info">' +
-              '<div class="omni-bubble-doc-title" title="' + escapeHtml(fName) + '">' + escapeHtml(fName) + '</div>' +
-              '<div class="omni-bubble-doc-sub">' + (sizeStr ? sizeStr + ' &middot; ' : '') + 'Klik untuk unduh dokumen</div>' +
-            '</div>' +
-            '<div class="omni-bubble-doc-action">' +
-              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
-            '</div>' +
-          '</a>' +
-        '</div>';
+    let replyToObj = msg.replyTo || null;
+    let displayText = msg.text || '';
+    if (displayText.startsWith('>')) {
+      const parsed = parseQuotedFromText(displayText);
+      if (parsed.cleanText) {
+        displayText = parsed.cleanText;
+        if (!replyToObj && parsed.replyTo) {
+          replyToObj = parsed.replyTo;
+        }
       }
     }
 
-    const captionHtml = msg.text ? ('<div class="omni-bubble-caption">' + escapeHtml(msg.text) + '</div>') : '';
+    const msgId = String(msg.id || msg.messageId || ('msg_' + (msg.timestamp || Math.random().toString(36).slice(2))));
+    const safeMsgId = escapeHtml(msgId).replace(/'/g, "\\'");
 
-    return '<div class="omni-msg-row ' + (isOutgoing ? 'omni-msg-outgoing' : 'omni-msg-incoming') + '">' +
-      '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
-        '<div class="omni-bubble-sender">' + (isOutgoing ? 'Admin (Anda)' : escapeHtml(pic.picName)) + '</div>' +
-        mediaHtml +
-        captionHtml +
-        '<span class="omni-bubble-time">' + timeStr + '</span>' +
+    const quotedBlock = replyToObj ? (
+      '<div class="omni-bubble-reply-block" onclick="handleOmniQuotedClick(' + idx + ')" title="Klik untuk melompat ke pesan yang direply">' +
+        '<div class="omni-reply-block-sender">' + escapeHtml(replyToObj.senderName || 'Balasan') + '</div>' +
+        '<div class="omni-reply-block-text">' + escapeHtml(replyToObj.text || '') + '</div>' +
+      '</div>'
+    ) : '';
+
+    const hasImage = Boolean(msg.mediaUrl || msg.image);
+    const mediaImg = hasImage ? (
+      '<div class="omni-bubble-media" onclick="openOmniImageModal(\'' + escapeHtml(msg.mediaUrl || msg.image) + '\')">' +
+        '<img src="' + escapeHtml(msg.mediaUrl || msg.image) + '" alt="WhatsApp Image" class="omni-chat-image" loading="lazy">' +
+      '</div>'
+    ) : (msg.messageType === 'image' ? (
+      '<div class="omni-bubble-media-placeholder">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+        '<span>📷 Foto / Gambar WhatsApp</span>' +
+      '</div>'
+    ) : '');
+
+    const senderDisplayName = isOutgoing ? 'Admin (Anda)' : escapeHtml(pic.picName || 'PIC');
+    const safeText = escapeHtml(displayText || msg.text || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const safeSender = escapeHtml(senderDisplayName).replace(/'/g, "\\'");
+    const replyBtn = '<button type="button" class="omni-btn-bubble-reply" onclick="startOmniQuotedReply(\'' + safeMsgId + '\', \'' + safeText + '\', \'' + safeSender + '\')" title="Balas pesan ini"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg></button>';
+
+    let cleanTextRender = displayText;
+    if (hasImage && (cleanTextRender === '[Foto/Gambar]' || cleanTextRender === '[Pesan Masuk]' || cleanTextRender === '[Image]')) {
+      cleanTextRender = '';
+    }
+    const textHtml = cleanTextRender ? ('<div style="white-space:pre-wrap; word-break:break-word;' + (hasImage ? ' margin-top:6px;' : '') + '">' + escapeHtml(cleanTextRender) + '</div>') : '';
+
+    messagesRendered.push(
+      '<div class="omni-msg-row ' + (isOutgoing ? 'omni-msg-outgoing' : 'omni-msg-incoming') + '" id="omniMsg_' + safeMsgId + '" data-msg-id="' + safeMsgId + '">' +
+        replyBtn +
+        '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
+          '<div class="omni-bubble-sender">' + senderDisplayName + '</div>' +
+          quotedBlock +
+          mediaImg +
+          textHtml +
+          '<span class="omni-bubble-time">' + timeStr + tickMarkup + '</span>' +
+        '</div>' +
+      '</div>'
+    );
+  });
+
+  if (messagesRendered.length === 0) {
+    messagesRendered.push(
+      '<div class="omni-date-divider">' +
+        '<span class="omni-date-pill">' + formatOmniDateDivider(Date.now()) + '</span>' +
       '</div>' +
-    '</div>';
-  }).join('');
+      '<div style="text-align:center; padding: 40px 16px; color:#94a3b8; font-size:0.75rem;">' +
+        'Belum ada pesan percakapan dengan kontak ini.' +
+      '</div>'
+    );
+  }
 
   container.innerHTML = '<div class="omni-chatview-header">' +
     '<div class="omni-header-contact">' +
-      '<div class="omni-header-avatar">' +
-        initial +
+      '<div class="omni-header-avatar" style="background:transparent; border:none; padding:0;">' +
+        generateBotAvatarSvg(pic.picWA || pic.key, 38) +
         '<span class="omni-badge-wa-dot"></span>' +
       '</div>' +
       '<div class="omni-header-info">' +
-        '<div class="omni-header-name" title="' + escapeHtml(pic.picName) + '">' +
-          '<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;">' + escapeHtml(pic.picName) + '</span>' +
+        '<div class="omni-header-name">' +
+          '<span>' + escapeHtml(pic.picName) + '</span>' +
           '<span class="omni-badge-fu-tag">' + escapeHtml(pic.cabang) + '</span>' +
         '</div>' +
         '<div class="omni-header-meta">' +
@@ -9272,46 +9761,35 @@ function renderOmniActiveChat(pic) {
         '</div>' +
       '</div>' +
     '</div>' +
-    '<div class="omni-header-actions">' +
-      '<div id="omniWaGatewayStatusPill" class="omni-wa-status-pill ' + (omniWaIsOnline ? 'online' : 'offline') + '" title="' + (omniWaIsOnline ? 'WhatsApp Gateway Terhubung (Online)' : 'WhatsApp Gateway Terputus (Offline)') + '">' +
-        '<span class="omni-wa-status-dot ' + (omniWaIsOnline ? 'online' : 'offline') + '"></span>' +
-        '<span class="omni-wa-status-label">' + (omniWaIsOnline ? 'Online' : 'Offline') + '</span>' +
-      '</div>' +
+    '<div class="omni-header-actions" style="display: flex; align-items: center; gap: 8px;">' +
+      '<button type="button" class="omni-btn-resolve ' + (pic.isResolved ? 'is-resolved' : '') + '" onclick="handleOmniResolveClick(\'' + pic.key + '\')" title="Selesaikan chat jika semua format keep tgl 3 ke atas sudah diisi">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+        '<span>' + (pic.isResolved ? '✓ Resolved' : 'Resolve Chat') + '</span>' +
+      '</button>' +
     '</div>' +
   '</div>' +
   '<div class="omni-messages-stream" id="omniMessagesStream">' +
-    '<div class="omni-date-divider">' +
-      '<span class="omni-date-pill">Today</span>' +
-    '</div>' +
-    keepsBotMarkup +
-    customMessagesMarkup +
+    messagesRendered.join('') +
   '</div>' +
+  '<button type="button" id="omniNewMessagePill" class="omni-new-msg-pill" style="display:none;" onclick="scrollOmniStreamToBottom()">' +
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
+    '<span>Pesan Baru</span>' +
+  '</button>' +
   '<div class="omni-chatview-footer-modern">' +
-    '<input type="file" id="omniFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" onchange="handleOmniFileSelected(this)" />' +
-    '<div id="omniAttachmentPreviewBar" class="omni-attachment-preview-bar" style="display:none;"></div>' +
+    '<div id="omniQuotedReplyBar" class="omni-quoted-reply-bar" style="display:none;">' +
+      '<div class="omni-quoted-bar-left">' +
+        '<div class="omni-quoted-reply-title">Membalas ke <span id="omniQuotedSenderName"></span></div>' +
+        '<div class="omni-quoted-reply-snippet" id="omniQuotedSnippet"></div>' +
+      '</div>' +
+      '<button type="button" class="omni-quoted-close-btn" onclick="cancelOmniQuotedReply()">&times;</button>' +
+    '</div>' +
     '<div class="omni-input-box-wrapper">' +
-      '<textarea id="omniReplyInput" class="omni-textarea-modern" rows="2" placeholder="Type &quot;shift + enter&quot; to add a new line. Type &quot;/&quot; to use quick reply" onkeydown="handleOmniInputKey(event)" oninput="handleOmniInputTyping(this)"></textarea>' +
+      '<textarea id="omniReplyInput" class="omni-textarea-modern" rows="2" placeholder="Ketik pesan balasan... (Tekan Enter untuk kirim, Shift + Enter untuk baris baru)" onkeydown="handleOmniInputKey(event)" oninput="handleOmniInputTyping(this)"></textarea>' +
     '</div>' +
     '<div class="omni-input-bottom-bar">' +
       '<div class="omni-bottom-left-actions">' +
-        '<button type="button" class="omni-btn-attachment-modern" title="Kirim Lampiran (Gambar / Dokumen)" onclick="handleOmniAttachmentClick()">' +
+        '<button type="button" class="omni-btn-attachment-modern" title="Kirim Lampiran / Screenshot" onclick="handleOmniAttachmentClick()">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>' +
-        '</button>' +
-        '<button type="button" class="omni-quick-pill primary" onclick="insertQuickReply(\'promo\')">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>' +
-          '<span>Share Promo</span>' +
-        '</button>' +
-        '<button type="button" class="omni-quick-pill" onclick="insertQuickReply(\'katalog\')">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' +
-          '<span>Cek Katalog</span>' +
-        '</button>' +
-        '<button type="button" class="omni-quick-pill" onclick="insertQuickReply(\'cicilan\')">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' +
-          '<span>Simulasi Cicilan</span>' +
-        '</button>' +
-        '<button type="button" class="omni-quick-pill" onclick="insertQuickReply(\'shopee\')">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
-          '<span>Shopee</span>' +
         '</button>' +
       '</div>' +
       '<div class="omni-bottom-right-actions">' +
@@ -9322,80 +9800,52 @@ function renderOmniActiveChat(pic) {
     '</div>' +
   '</div>';
 
-  if (omniPendingFile) {
-    renderOmniAttachmentPreview();
-  }
-
   const stream = document.getElementById('omniMessagesStream');
-  if (stream) stream.scrollTop = stream.scrollHeight;
+  if (stream) {
+    stream.scrollTop = stream.scrollHeight;
+    stream.addEventListener('scroll', function() {
+      const isNearBottom = (stream.scrollHeight - stream.scrollTop - stream.clientHeight) <= 80;
+      if (isNearBottom) {
+        const pill = document.getElementById('omniNewMessagePill');
+        if (pill) pill.style.display = 'none';
+      }
+    });
+  }
 }
 
-let omniPendingFile = null;
-
-function formatOmniFileSize(bytes) {
-  if (!bytes || isNaN(bytes)) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+function scrollOmniStreamToBottom() {
+  const stream = document.getElementById('omniMessagesStream');
+  if (stream) {
+    stream.scrollTo({ top: stream.scrollHeight, behavior: 'smooth' });
+  }
+  const pill = document.getElementById('omniNewMessagePill');
+  if (pill) pill.style.display = 'none';
 }
 
-function handleOmniAttachmentClick() {
-  const fileInput = document.getElementById('omniFileInput');
-  if (fileInput) fileInput.click();
-}
-
-function handleOmniFileSelected(input) {
-  if (!input || !input.files || input.files.length === 0) return;
-  const file = input.files[0];
-  omniPendingFile = file;
-  renderOmniAttachmentPreview();
-}
-
-function removeOmniAttachment() {
-  omniPendingFile = null;
-  const fileInput = document.getElementById('omniFileInput');
-  if (fileInput) fileInput.value = '';
-  renderOmniAttachmentPreview();
-}
-
-function renderOmniAttachmentPreview() {
-  const bar = document.getElementById('omniAttachmentPreviewBar');
-  const sendBtn = document.getElementById('omniBtnSend');
+function insertQuickReply(type) {
   const inp = document.getElementById('omniReplyInput');
-  if (!bar) return;
-
-  if (!omniPendingFile) {
-    bar.style.display = 'none';
-    bar.innerHTML = '';
-    if (sendBtn && (!inp || inp.value.trim().length === 0)) {
-      sendBtn.classList.remove('active');
+  if (!inp) return;
+  let text = '';
+  if (type === 'promo') {
+    text = 'Halo Kak! Berikut update promo menarik hari ini:\n- Diskon cashback spesial\n- Free aksesoris original\n- Garansi resmi & bisa COD\nBisa kami bantu proseskan pesanannya sekarang kak? 🙏';
+  } else if (type === 'katalog') {
+    text = 'Halo Kak, untuk daftar harga dan katalog tipe gadget terbaru kami, silakan akses link resmi:\nhttps://gadgetmart.id/katalog\nAda seri yang paling diminati kak?';
+  } else if (type === 'cicilan') {
+    text = 'Halo Kak, untuk simulasi cicilan tanpa kartu kredit (Home Credit / Kredivo / Akulaku / Spaylater):\n- DP mulai 0%\n- Bunga promo ringan\n- Cukup KTP proses 15 menit langsung bawa pulang unit!\nMau kami bantu hitungkan rinciannya?';
+  } else if (type === 'shopee') {
+    text = 'Halo Kak, jika ingin transaksi lebih praktis dengan voucher gratis ongkir ekstra, kakak bisa checkout langsung di Shopee Official Store kami:\nhttps://shopee.co.id/gadgetmart_official\nKabari kami jika sudah checkout ya kak!';
+  }
+  if (text) {
+    if (inp.value && inp.value.trim().length > 0) {
+      inp.value += '\n\n' + text;
+    } else {
+      inp.value = text;
     }
-    return;
-  }
-
-  const isImg = omniPendingFile.type.startsWith('image/');
-  const sizeFormatted = formatOmniFileSize(omniPendingFile.size);
-  let thumbHtml = '';
-  if (isImg) {
-    const objectUrl = URL.createObjectURL(omniPendingFile);
-    thumbHtml = '<img src="' + objectUrl + '" class="omni-preview-thumb-img" alt="Preview" />';
-  } else {
-    thumbHtml = '<div class="omni-preview-thumb-file"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
-  }
-
-  bar.style.display = 'flex';
-  bar.innerHTML = '<div class="omni-preview-thumb-wrap">' + thumbHtml + '</div>' +
-    '<div class="omni-preview-info">' +
-      '<div class="omni-preview-name" title="' + escapeHtml(omniPendingFile.name) + '">' + escapeHtml(omniPendingFile.name) + '</div>' +
-      '<div class="omni-preview-size">' + sizeFormatted + ' &middot; ' + (isImg ? 'Gambar' : 'Dokumen/File') + '</div>' +
-    '</div>' +
-    '<button type="button" class="omni-preview-btn-remove" onclick="removeOmniAttachment()" title="Batal Lampirkan">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-    '</button>';
-
-  if (sendBtn) sendBtn.classList.add('active');
-  if (inp && !inp.placeholder.includes('keterangan')) {
-    inp.placeholder = 'Tulis pesan / keterangan untuk lampiran (opsional)...';
+    inp.focus();
+    inp.style.height = 'auto';
+    inp.style.height = Math.min(inp.scrollHeight, 140) + 'px';
+    const sendBtn = document.getElementById('omniBtnSend');
+    if (sendBtn) sendBtn.classList.add('active');
   }
 }
 
@@ -9405,7 +9855,7 @@ function handleOmniInputTyping(el) {
   el.style.height = Math.min(el.scrollHeight, 140) + 'px';
   const sendBtn = document.getElementById('omniBtnSend');
   if (sendBtn) {
-    if (el.value.trim().length > 0 || omniPendingFile) {
+    if (el.value.trim().length > 0) {
       sendBtn.classList.add('active');
     } else {
       sendBtn.classList.remove('active');
@@ -9413,12 +9863,213 @@ function handleOmniInputTyping(el) {
   }
 }
 
+function handleOmniAttachmentClick() {
+  alert('📎 Fitur Kirim Lampiran: Anda dapat melampirkan screenshot chat atau dokumen pendukung.');
+}
+
+function handleOmniResolveClick(picKey) {
+  const allChats = getOmniPicChats();
+  const pic = allChats.find(function(p) { return p.key === picKey; });
+  if (!pic) return;
+
+  if (pic.isResolved) {
+    if (confirm('Percakapan ini sudah berstatus Resolved. Apakah Anda ingin membuka kembali (Unresolve) percakapan ini?')) {
+      setOmniChatResolved(picKey, false);
+      const threads = getOmniThreads();
+      if (!threads[picKey]) threads[picKey] = [];
+      threads[picKey].push({
+        sender: 'SYSTEM',
+        text: 'ℹ️ Percakapan dibuka kembali oleh Admin.',
+        timestamp: Date.now()
+      });
+      saveOmniThreads(threads);
+      if (typeof showSaveToast === 'function') {
+        showSaveToast('Percakapan dibuka kembali.');
+      }
+      renderOmniInboxModule();
+    }
+    return;
+  }
+
+  // ATURAN USER: Hanya bisa diresolve jika format keep 2 hari terakhir sudah diinput status dan feedbacknya
+  const keeps = pic.keeps || [];
+  const eligibleKeeps = keeps.filter(function(k) { return isEligibleKeep(k.timestamp); });
+
+  const uncompleted = eligibleKeeps.filter(function(k) {
+    const st = (k.status || '').trim();
+    const fb = (k.feedback || '').trim();
+    return !st || st === 'BELUM DIINPUT' || !fb || fb === '-' || fb === '""';
+  });
+
+  if (uncompleted.length > 0) {
+    alert('⚠️ PERCAKAPAN BELUM BISA DI-RESOLVE!\n\n' +
+      'Masih ada ' + uncompleted.length + ' format keep (2 hari terakhir) yang belum diinput Status atau Feedback-nya:\n\n' +
+      uncompleted.slice(0, 3).map(function(u) { return '• ' + u.customerName + ' (' + u.customerWA + ') - Status: ' + (u.status || 'Belum diinput'); }).join('\n') +
+      (uncompleted.length > 3 ? '\n...dan ' + (uncompleted.length - 3) + ' lainnya' : '') +
+      '\n\nHarap isi Status (Kolom V) dan Feedback Tim FU (Kolom W) pada panel sebelah kanan terlebih dahulu!');
+    return;
+  }
+
+  setOmniChatResolved(picKey, true);
+  const threads = getOmniThreads();
+  if (!threads[picKey]) threads[picKey] = [];
+  threads[picKey].push({
+    sender: 'SYSTEM',
+    text: '✅ Percakapan telah di-resolve oleh Admin (Status & Feedback format keep lengkap).',
+    timestamp: Date.now()
+  });
+  saveOmniThreads(threads);
+
+  if (typeof showSaveToast === 'function') {
+    showSaveToast('✅ Percakapan berhasil di-resolve!');
+  }
+  renderOmniInboxModule();
+}
+
+function playOmniMessageChime() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.22);
+  } catch (e) {}
+}
+
+function appendOmniBubbleToStream(msg, senderDisplayName) {
+  const stream = document.getElementById('omniMessagesStream');
+  if (!stream) return;
+
+  const isOutgoing = msg.sender === 'ADMIN';
+  const timeStr = new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const msgId = String(msg.id || msg.messageId || ('msg_' + (msg.timestamp || Math.random().toString(36).slice(2))));
+  const safeMsgId = escapeHtml(msgId).replace(/'/g, "\\'");
+
+  const row = document.createElement('div');
+  row.className = 'omni-msg-row ' + (isOutgoing ? 'omni-msg-outgoing' : 'omni-msg-incoming');
+  row.id = 'omniMsg_' + safeMsgId;
+  row.setAttribute('data-msg-id', safeMsgId);
+  row.style.animation = 'fadeIn 0.2s ease-in-out';
+
+  const tickSvg = isOutgoing ? (
+    '<span class="omni-msg-status-tick" id="tick_' + safeMsgId + '">' +
+      (msg.status === 'sending'
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>') +
+    '</span>'
+  ) : '';
+
+  let replyToObj = msg.replyTo || null;
+  let displayText = msg.text || msg.message || '';
+  if (displayText.startsWith('>')) {
+    const parsed = parseQuotedFromText(displayText);
+    if (parsed.cleanText) {
+      displayText = parsed.cleanText;
+      if (!replyToObj && parsed.replyTo) {
+        replyToObj = parsed.replyTo;
+      }
+    }
+  }
+
+  if (!window.currentOmniChatMessages) window.currentOmniChatMessages = [];
+  const streamIdx = window.currentOmniChatMessages.length;
+  window.currentOmniChatMessages.push(msg);
+
+  const quotedBlock = replyToObj ? (
+    '<div class="omni-bubble-reply-block" onclick="handleOmniQuotedClick(' + streamIdx + ')" title="Klik untuk melompat ke pesan yang direply">' +
+      '<div class="omni-reply-block-sender">' + escapeHtml(replyToObj.senderName || 'Balasan') + '</div>' +
+      '<div class="omni-reply-block-text">' + escapeHtml(replyToObj.text || '') + '</div>' +
+    '</div>'
+  ) : '';
+
+  const hasImage = Boolean(msg.mediaUrl || msg.image);
+  const mediaImg = hasImage ? (
+    '<div class="omni-bubble-media" onclick="openOmniImageModal(\'' + escapeHtml(msg.mediaUrl || msg.image) + '\')">' +
+      '<img src="' + escapeHtml(msg.mediaUrl || msg.image) + '" alt="WhatsApp Image" class="omni-chat-image" loading="lazy">' +
+    '</div>'
+  ) : (msg.messageType === 'image' ? (
+    '<div class="omni-bubble-media-placeholder">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+      '<span>📷 Foto / Gambar WhatsApp</span>' +
+    '</div>'
+  ) : '');
+
+  const senderNameText = isOutgoing ? 'Admin (Anda)' : (senderDisplayName || 'PIC');
+  const safeText = escapeHtml(displayText || msg.text || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const safeSender = escapeHtml(senderNameText).replace(/'/g, "\\'");
+  const replyBtn = '<button type="button" class="omni-btn-bubble-reply" onclick="startOmniQuotedReply(\'' + safeMsgId + '\', \'' + safeText + '\', \'' + safeSender + '\')" title="Balas pesan ini"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg></button>';
+
+  let cleanTextRenderStream = displayText;
+  if (hasImage && (cleanTextRenderStream === '[Foto/Gambar]' || cleanTextRenderStream === '[Pesan Masuk]' || cleanTextRenderStream === '[Image]')) {
+    cleanTextRenderStream = '';
+  }
+  const textHtmlStream = cleanTextRenderStream ? ('<div style="white-space:pre-wrap; word-break:break-word;' + (hasImage ? ' margin-top:6px;' : '') + '">' + escapeHtml(cleanTextRenderStream) + '</div>') : '';
+
+  row.innerHTML = replyBtn +
+    '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
+      '<div class="omni-bubble-sender">' + escapeHtml(senderNameText) + '</div>' +
+      quotedBlock +
+      mediaImg +
+      textHtmlStream +
+      '<span class="omni-bubble-time">' + timeStr + tickSvg + '</span>' +
+    '</div>';
+  stream.appendChild(row);
+
+  // Smart Auto-Scroll
+  const isNearBottom = (stream.scrollHeight - stream.scrollTop - stream.clientHeight) <= 120;
+  if (isOutgoing || isNearBottom) {
+    stream.scrollTo({ top: stream.scrollHeight, behavior: 'smooth' });
+  } else {
+    const pill = document.getElementById('omniNewMessagePill');
+    if (pill) pill.style.display = 'flex';
+  }
+}
+
+function updateOmniCardInSidebar(picKey, lastMsg, picName, picCabang) {
+  const listContainer = document.getElementById('omniChatListContainer');
+  if (!listContainer) return;
+  const normKey = normalizeWhatsAppPhone(picKey) || picKey;
+
+  const cards = listContainer.querySelectorAll('.omni-chat-card');
+  let targetCard = null;
+  cards.forEach(function(card) {
+    const oc = card.getAttribute('onclick') || '';
+    if (oc.includes(normKey)) {
+      targetCard = card;
+    }
+  });
+
+  const timeStr = lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const snippet = lastMsg ? (lastMsg.sender === 'ADMIN' ? 'Anda: ' + lastMsg.text : lastMsg.text) : '';
+
+  if (targetCard) {
+    const snippetEl = targetCard.querySelector('.omni-card-snippet');
+    if (snippetEl) snippetEl.innerText = snippet;
+    const timeEl = targetCard.querySelector('.omni-card-time');
+    if (timeEl) timeEl.innerText = timeStr;
+    // Pindahkan ke paling atas secara halus (posisi #1)
+    if (listContainer.firstChild !== targetCard) {
+      listContainer.insertBefore(targetCard, listContainer.firstChild);
+    }
+  } else {
+    renderOmniInboxModule();
+  }
+}
+
 async function sendOmniReply() {
   const inp = document.getElementById('omniReplyInput');
-  if (!selectedOmniPicKey) return;
-  const text = inp ? inp.value.trim() : '';
+  if (!inp || !selectedOmniPicKey) return;
+  const text = inp.value.trim();
   const fileToSend = omniPendingFile;
-
   if (!text && !fileToSend) return;
 
   const allPics = getOmniPicChats();
@@ -9426,8 +10077,9 @@ async function sendOmniReply() {
   const picWA = currentPic ? currentPic.picWA : selectedOmniPicKey;
   const picName = currentPic ? currentPic.picName : 'PIC FU';
 
-  const threads = getOmniThreads();
-  if (!threads[selectedOmniPicKey]) threads[selectedOmniPicKey] = [];
+  const now = Date.now();
+  const msgId = 'out_' + now + '_' + Math.random().toString(36).slice(2, 7);
+  let textToSend = text;
 
   let localMediaUrl = null;
   let mediaType = null;
@@ -9441,43 +10093,62 @@ async function sendOmniReply() {
     fileSize = fileToSend.size;
   }
 
-  const newMsg = {
-    messageId: 'out_' + Date.now(),
+  const outgoingMsg = {
+    id: msgId,
+    messageId: msgId,
     sender: 'ADMIN',
     text: text,
-    timestamp: Date.now(),
+    timestamp: now,
+    status: 'sending',
+    mediaUrl: localMediaUrl,
     media_url: localMediaUrl,
     media_type: mediaType,
+    messageType: mediaType,
     filename: fileName,
     file_size: fileSize
   };
 
-  threads[selectedOmniPicKey].push(newMsg);
+  // Cek jika sedang mereply pesan tertentu (Quoted Reply)
+  if (activeQuotedMsg) {
+    outgoingMsg.replyTo = {
+      id: activeQuotedMsg.id || '',
+      text: activeQuotedMsg.text,
+      senderName: activeQuotedMsg.senderName
+    };
+    textToSend = text;
+    cancelOmniQuotedReply();
+  }
+
+  const threads = getOmniThreads();
+  if (!threads[selectedOmniPicKey]) threads[selectedOmniPicKey] = [];
+  threads[selectedOmniPicKey].push(outgoingMsg);
   saveOmniThreads(threads);
 
-  // Reset inputs
-  if (inp) {
-    inp.value = '';
-    inp.style.height = 'auto';
-    inp.placeholder = 'Type "shift + enter" to add a new line. Type "/" to use quick reply';
-  }
+  // Clear input immediately (0ms UI latency) & maintain focus
+  inp.value = '';
+  inp.style.height = 'auto';
+  inp.focus();
   removeOmniAttachment();
-
   const sendBtn = document.getElementById('omniBtnSend');
   if (sendBtn) sendBtn.classList.remove('active');
 
-  if (currentPic) {
-    renderOmniActiveChat(currentPic);
-  }
+  // Optimistic UI: langsung tempel bubble ke obrolan secara instan!
+  appendOmniBubbleToStream(outgoingMsg, 'Admin (Anda)');
+  updateOmniCardInSidebar(selectedOmniPicKey, outgoingMsg, picName, currentPic ? currentPic.cabang : '-');
 
-  // Kirim langsung ke WhatsApp PIC via API WatZap
+  // Kirim langsung ke WhatsApp PIC via API WatZap / WAHA di latar belakang
   try {
     let res;
     if (fileToSend) {
       const formData = new FormData();
       formData.append('phone', picWA);
-      if (text) formData.append('message', text);
+      if (textToSend) formData.append('message', textToSend);
       formData.append('file', fileToSend);
+      formData.append('messageId', msgId);
+      formData.append('timestamp', now);
+      if (outgoingMsg.replyTo) {
+        formData.append('replyTo', JSON.stringify(outgoingMsg.replyTo));
+      }
       res = await fetch('/api/watzap-send', {
         method: 'POST',
         body: formData
@@ -9486,15 +10157,27 @@ async function sendOmniReply() {
       res = await fetch('/api/watzap-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: picWA, message: text })
+        body: JSON.stringify({
+          phone: picWA,
+          message: textToSend,
+          messageId: msgId,
+          timestamp: now,
+          replyTo: outgoingMsg.replyTo || null
+        })
       });
     }
 
     const json = await res.json();
     if (json.success) {
-      if (json.entry && json.entry.media_url) {
-        newMsg.media_url = json.entry.media_url;
-        saveOmniThreads(threads);
+      outgoingMsg.status = 'sent';
+      if (json.entry && (json.entry.media_url || json.entry.mediaUrl)) {
+        outgoingMsg.mediaUrl = json.entry.media_url || json.entry.mediaUrl;
+        outgoingMsg.media_url = outgoingMsg.mediaUrl;
+      }
+      saveOmniThreads(threads);
+      const tick = document.getElementById('tick_' + msgId);
+      if (tick) {
+        tick.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>';
       }
       if (typeof showSaveToast === 'function') {
         showSaveToast('Pesan ' + (fileToSend ? (fileToSend.type.startsWith('image/') ? 'gambar' : 'dokumen') : 'teks') + ' terkirim ke WhatsApp ' + picName + '!');
@@ -9510,70 +10193,432 @@ async function sendOmniReply() {
   }
 }
 
-let lastWatzapSyncTime = 0;
-let watzapPollInterval = null;
-
 async function pollWatzapIncomingMessages() {
   // OPTIMASI: HANYA poll jika user sedang berada di Tab 9 (Omnichannel)!
   if (typeof currentActiveTab !== 'undefined' && currentActiveTab !== 9) {
     return;
   }
+  if (isPollingWatzap) return;
+  isPollingWatzap = true;
 
   try {
     const res = await fetch('/api/watzap-webhook?since=' + lastWatzapSyncTime);
     if (!res.ok) return;
     const data = await res.json();
-    if (!data.success || !Array.isArray(data.messages) || data.messages.length === 0) return;
+    if (!data.success) return;
 
+    // SINKRONISASI STATUS RESOLVE PERMANEN DARI NEON POSTGRESQL (Tidak pernah hilang saat redeploy)
+    if (data.resolvedChats && typeof data.resolvedChats === 'object') {
+      const dbMap = {};
+      Object.keys(data.resolvedChats).forEach(function(ph) {
+        if (data.resolvedChats[ph] && data.resolvedChats[ph].isResolved) {
+          const norm = normalizeWhatsAppPhone(ph) || ph;
+          dbMap[norm] = true;
+        }
+      });
+      window.omniResolvedDbMap = Object.assign({}, getOmniResolvedChats(), dbMap);
+      try {
+        localStorage.setItem('omni_resolved_chats_v1', JSON.stringify(window.omniResolvedDbMap));
+      } catch (e) {}
+    }
+
+    if (!Array.isArray(data.messages) || data.messages.length === 0) return;
+
+    const isInitialLoad = (lastWatzapSyncTime === 0);
     let hasNew = false;
+    let playedSound = false;
     const threads = getOmniThreads();
 
     data.messages.forEach(function(msg) {
-      if (msg.timestamp > lastWatzapSyncTime) lastWatzapSyncTime = msg.timestamp;
-      const cleanPhone = cleanPhoneDigits(msg.phone);
+      const ts = Number(msg.timestamp || 0);
+      if (ts > lastWatzapSyncTime) lastWatzapSyncTime = ts;
+
+      const cleanPhone = normalizeWhatsAppPhone(msg.phone);
       if (!cleanPhone) return;
 
       // STRICT: TOLAK & ABAIKAN GRUP
-      if (msg.isGroup || cleanPhone.startsWith('120363') || cleanPhone.length > 14) return;
+      if (msg.isGroup || isGroupWhatsApp(cleanPhone)) return;
 
       const matched = matchPicFromMasterData(cleanPhone, msg.senderName || ('PIC ' + cleanPhone), '-');
-      const picKey = matched.wa || cleanPhone;
+      const picKey = cleanPhone; // Standarisasi: Key percakapan SELALU nomor telepon
+      const text = msg.message || msg.text || '';
+      const incomingMediaUrl = msg.mediaUrl || msg.media_url || msg.image || msg.url || '';
 
       if (!threads[picKey]) threads[picKey] = [];
-      const alreadyExists = threads[picKey].some(function(t) {
-        return (t.messageId && msg.messageId && t.messageId === msg.messageId) ||
-          (t.timestamp === msg.timestamp && t.text === msg.message && t.media_url === msg.media_url);
+
+      // Cari apakah pesan sudah pernah tercatat
+      let existingMsg = null;
+      threads[picKey].forEach(function(t) {
+        if (t.id && msg.messageId && t.id === msg.messageId) {
+          existingMsg = t;
+        } else if (Math.abs(Number(t.timestamp) - ts) < 5000 && (t.text || '').trim() === text.trim() && (t.sender || 'PIC') === (msg.sender || 'PIC')) {
+          existingMsg = t;
+        }
       });
-      if (!alreadyExists) {
-        threads[picKey].push({
-          messageId: msg.messageId || ('in_' + Date.now()),
+
+      if (existingMsg) {
+        // Jika sebelumnya belum ada mediaUrl dan sekarang ada, perbarui data media
+        if (!existingMsg.mediaUrl && incomingMediaUrl) {
+          existingMsg.mediaUrl = incomingMediaUrl;
+          existingMsg.messageType = 'image';
+          hasNew = true;
+        }
+      } else {
+        let replyToObj = msg.replyTo || null;
+        let cleanMsgText = text;
+        if (!replyToObj && cleanMsgText.startsWith('>')) {
+          const parsed = parseQuotedFromText(cleanMsgText);
+          if (parsed.replyTo) {
+            replyToObj = parsed.replyTo;
+            cleanMsgText = parsed.cleanText;
+          }
+        }
+
+        const newMsgObj = {
+          id: msg.messageId || ('in_' + ts),
           sender: msg.sender || 'PIC',
           senderName: msg.senderName || matched.picName,
-          text: msg.message,
-          media_url: msg.media_url || null,
-          media_type: msg.media_type || null,
-          filename: msg.filename || null,
-          file_size: msg.file_size || null,
-          timestamp: msg.timestamp ? (new Date(msg.timestamp).getTime() || Date.now()) : Date.now()
-        });
-        setOmniChatResolved(picKey, false);
+          text: cleanMsgText,
+          timestamp: ts,
+          status: 'sent',
+          mediaUrl: incomingMediaUrl,
+          messageType: msg.messageType || (incomingMediaUrl ? 'image' : 'text'),
+          replyTo: replyToObj
+        };
+        threads[picKey].push(newMsgObj);
+        // CATATAN: Sekali di-resolve, tetap berstatus resolve permanen di database Neon PostgreSQL!
         hasNew = true;
+
+        if (!isInitialLoad) {
+          // INCREMENTAL UPDATE: Jika chat ini sedang dibuka di layar, langsung tempel bubble!
+          const isCurrentChat = (selectedOmniPicKey === picKey || 
+            normalizeWhatsAppPhone(selectedOmniPicKey) === cleanPhone);
+
+          if (isCurrentChat) {
+            appendOmniBubbleToStream(newMsgObj, matched.picName);
+          }
+
+          // Perbarui kartu di sidebar kiri
+          updateOmniCardInSidebar(picKey, newMsgObj, matched.picName, matched.cabang);
+
+          // Mainkan notifikasi chime lembut jika pesan masuk dari PIC
+          if (msg.sender !== 'ADMIN' && !playedSound) {
+            playOmniMessageChime();
+            playedSound = true;
+          }
+        }
       }
     });
 
     if (hasNew) {
       saveOmniThreads(threads);
-      if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
+      if (isInitialLoad) {
         renderOmniInboxModule();
+        const allChats = getOmniPicChats();
         if (selectedOmniPicKey) {
-          const currentPic = getOmniPicChats().find(function(p) { return p.key === selectedOmniPicKey; });
-          if (currentPic) renderOmniActiveChat(currentPic);
+          selectOmniPic(selectedOmniPicKey);
+        } else if (allChats.length > 0) {
+          selectOmniPic(allChats[0].key);
+        }
+      } else {
+        const listContainer = document.getElementById('omniChatListContainer');
+        const allChats = getOmniPicChats();
+        const currentCardsCount = listContainer ? listContainer.querySelectorAll('.omni-chat-card').length : 0;
+        if (allChats.length !== currentCardsCount) {
+          renderOmniInboxModule();
+        } else {
+          const bAssigned = document.getElementById('omniBadgeAssigned');
+          const bUnresponded = document.getElementById('omniBadgeUnresponded');
+          const bResolved = document.getElementById('omniBadgeResolved');
+          const unrespCount = allChats.filter(function(p) { return p.isUnresponded && !p.isResolved; }).length;
+          const assignedCount = allChats.filter(function(p) { return !p.isResolved; }).length;
+          const resCount = allChats.filter(function(p) { return p.isResolved; }).length;
+          if (bAssigned) bAssigned.innerText = assignedCount;
+          if (bUnresponded) bUnresponded.innerText = unrespCount;
+          if (bResolved) bResolved.innerText = resCount;
         }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+  } finally {
+    isPollingWatzap = false;
+  }
 }
 
+function startWatzapPolling() {
+  if (watzapPollInterval) return;
+  pollWatzapIncomingMessages();
+  // Polling super cepat (1.2 detik) langsung ke Neon PostgreSQL
+  watzapPollInterval = setInterval(pollWatzapIncomingMessages, 1200);
+
+  // Saat user berpindah window (Alt+Tab) dan kembali, langsung sinkronkan tanpa refresh
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
+      pollWatzapIncomingMessages();
+    }
+  });
+}
+
+function handleOmniInputKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendOmniReply();
+  }
+}
+
+function openWhatsAppChat(cleanWA, picName) {
+  if (!cleanWA) return;
+  const phone = cleanWA.startsWith('62') ? cleanWA : (cleanWA.startsWith('0') ? '62' + cleanWA.slice(1) : '62' + cleanWA);
+  const text = encodeURIComponent('Halo Kak ' + (picName || '') + ', ini dari Admin Sosmed terkait follow-up format keep.');
+  window.open('https://wa.me/' + phone + '?text=' + text, '_blank');
+}
+
+// --------------------------------------------------------------------------
+// DEDICATED FORMAT KEEP PANEL (RIGHT COLUMN - MODERNIZED)
+// --------------------------------------------------------------------------
+function renderOmniKeepPanel(pic) {
+  const container = document.getElementById('omniDetailsPanelContainer');
+  if (!container) return;
+  if (!pic) {
+    container.innerHTML = '';
+    return;
+  }
+  const pendingKeeps = (pic.keeps || []).filter(function(k) { return k.isPending; });
+  const resolvedKeeps = (pic.keeps || []).filter(function(k) { return !k.isPending; });
+  const displayKeeps = selectedOmniKeepSubTab === 'PENDING' ? pendingKeeps : resolvedKeeps;
+
+  const statusOptions = [
+    'WIN',
+    'LOSE',
+    'BELUM DIINPUT',
+    'DOUBLE KEEP',
+    'ON PROGRESS LOW',
+    'ON PROGRESS MEDIUM',
+    'ON PROGRESS HOT',
+    'TAKE OUT'
+  ];
+
+  // User requirement: Yang kotak warna hijau tolong tulisannya dihapus aja (jika 0 maka kosong tanpa teks / notifikasi)
+  const cardsMarkup = displayKeeps.length === 0 ? '' : displayKeeps.map(function(k) {
+    const curStatus = k.status || 'BELUM DIINPUT';
+    const optMarkup = statusOptions.map(function(opt) {
+      return '<option value="' + opt + '" ' + (opt === curStatus ? 'selected' : '') + '>' + opt + '</option>';
+    }).join('');
+    const dateFormatted = k.timestamp ? k.timestamp.split(' ')[0] : '-';
+
+    return '<div class="omni-keep-card-modern" id="keepCard_' + k.customerWA + '">' +
+      '<div class="omni-keep-card-top-row">' +
+        '<div>' +
+          '<div class="omni-keep-cust-name">' + escapeHtml(k.customerName) + '</div>' +
+          '<a href="https://wa.me/' + k.customerWA + '" target="_blank" class="omni-keep-cust-phone" title="Chat WhatsApp Customer">' +
+            k.customerWA + ' &middot; ' + escapeHtml(k.cabang) +
+          '</a>' +
+        '</div>' +
+        '<span class="omni-keep-date-chip">' + dateFormatted + '</span>' +
+      '</div>' +
+      '<div class="omni-keep-info-box">' +
+        '<div class="omni-keep-info-row">' +
+          '<span class="omni-keep-info-label">Barang:</span>' +
+          '<strong>' + escapeHtml(k.barang) + '</strong>' +
+        '</div>' +
+        '<div class="omni-keep-info-row">' +
+          '<span class="omni-keep-info-label">Catatan:</span>' +
+          '<span>' + escapeHtml(k.catatan || '-') + '</span>' +
+        '</div>' +
+        '<div class="omni-keep-info-row">' +
+          '<span class="omni-keep-info-label">Remarks:</span>' +
+          '<span>' + escapeHtml(k.remarks || '-') + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="omni-keep-form-modern">' +
+        '<div>' +
+          '<label class="omni-keep-label-modern">REPORT AR (Kolom N):</label>' +
+          '<input type="text" class="omni-keep-input-modern" id="omniReportARInp_' + k.customerWA + '" value="' + escapeHtml(k.reportAR || '') + '" placeholder="Nomor Dokumen AR..." />' +
+        '</div>' +
+        '<div>' +
+          '<label class="omni-keep-label-modern">Status (Kolom V):</label>' +
+          '<select class="omni-keep-select-modern" id="omniStatusSelect_' + k.customerWA + '">' +
+            optMarkup +
+          '</select>' +
+        '</div>' +
+        '<div>' +
+          '<label class="omni-keep-label-modern">Feedback Tim FU (Kolom W):</label>' +
+          '<textarea class="omni-keep-textarea-modern" id="omniFeedbackInp_' + k.customerWA + '" placeholder="Tulis feedback dari PIC FU...">' + escapeHtml(k.feedback || '') + '</textarea>' +
+        '</div>' +
+        '<button type="button" class="omni-btn-save-modern" id="btnSaveKeep_' + k.customerWA + '" onclick="saveSingleKeepFeedback(\'' + k.customerWA + '\', \'' + pic.key + '\')">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+          '<span>Simpan Feedback & AR</span>' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  container.innerHTML = '<div class="omni-details-top">' +
+    '<div class="omni-details-title-row">' +
+      '<span class="omni-details-heading">Format Keep PIC</span>' +
+      '<span class="omni-keep-period-chip">2 Hari Terakhir</span>' +
+    '</div>' +
+    '<span class="omni-keep-counter-badge ' + (pendingKeeps.length === 0 ? 'zero' : '') + '">' +
+      pendingKeeps.length + ' Pending' +
+    '</span>' +
+  '</div>' +
+  '<div class="omni-keep-subtabs-wrap">' +
+    '<div class="omni-keep-subtabs">' +
+      '<button type="button" class="omni-subtab-btn ' + (selectedOmniKeepSubTab === 'PENDING' ? 'active' : '') + '" onclick="setOmniKeepSubTab(\'PENDING\')">' +
+        'Belum Diisi (' + pendingKeeps.length + ')' +
+      '</button>' +
+      '<button type="button" class="omni-subtab-btn ' + (selectedOmniKeepSubTab === 'RESOLVED' ? 'active' : '') + '" onclick="setOmniKeepSubTab(\'RESOLVED\')">' +
+        'Selesai (' + resolvedKeeps.length + ')' +
+      '</button>' +
+    '</div>' +
+  '</div>' +
+  '<div class="omni-details-scroll">' +
+    cardsMarkup +
+  '</div>';
+}
+
+async function saveSingleKeepFeedback(customerWA, picKey) {
+  const statusEl = document.getElementById('omniStatusSelect_' + customerWA);
+  const feedbackEl = document.getElementById('omniFeedbackInp_' + customerWA);
+  const arEl = document.getElementById('omniReportARInp_' + customerWA);
+  const saveBtn = document.getElementById('btnSaveKeep_' + customerWA);
+  if (!statusEl || !feedbackEl) return;
+
+  const newStatus = statusEl.value;
+  const newFeedback = feedbackEl.value.trim();
+  const newReportAR = arEl ? arEl.value.trim() : '';
+
+  let matchedRow = null;
+  if (Array.isArray(rawKeepRows)) {
+    for (let i = 0; i < rawKeepRows.length; i++) {
+      const rowWA = cleanPhoneDigits(rawKeepRows[i]['Nomor WA'] || '');
+      if (rowWA === customerWA) {
+        rawKeepRows[i]['Status'] = newStatus;
+        rawKeepRows[i]['Feedback Tim FU'] = newFeedback;
+        rawKeepRows[i]['REPORT AR'] = newReportAR;
+        matchedRow = rawKeepRows[i];
+        break;
+      }
+    }
+  }
+
+  const threads = getOmniThreads();
+  if (!threads[picKey]) threads[picKey] = [];
+  let updateText = '[UPDATE FORMAT KEEP] Status: ' + newStatus + ' | Feedback: ' + (newFeedback || '-');
+  if (newReportAR) updateText += ' | AR: ' + newReportAR;
+  updateText += ' (' + (matchedRow ? matchedRow['Nama'] : customerWA) + ')';
+
+  threads[picKey].push({
+    sender: 'ADMIN',
+    text: updateText,
+    timestamp: Date.now()
+  });
+  saveOmniThreads(threads);
+
+  if (saveBtn) {
+    saveBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <span>✓ Tersimpan</span>';
+    saveBtn.style.background = '#059669';
+  }
+
+  // Update in-memory 2-day keep cache (0ms)
+  const keepsMap = getIndexedOmniKeeps();
+  Object.keys(keepsMap).forEach(function(k) {
+    (keepsMap[k] || []).forEach(function(item) {
+      if (item.customerWA === customerWA) {
+        item.status = newStatus;
+        item.feedback = newFeedback;
+        item.reportAR = newReportAR;
+        item.isPending = (newStatus === 'BELUM DIINPUT');
+      }
+    });
+  });
+
+  try {
+    let success = false;
+    // 1. Coba update via API backend
+    try {
+      const res = await fetch('/api/update-keep-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nomorWA: customerWA,
+          status: newStatus,
+          feedback: newFeedback,
+          feedbackTimFU: newFeedback,
+          reportAR: newReportAR,
+          cabang: matchedRow ? matchedRow['Cabang'] : '',
+          namaTimFollowUp: matchedRow ? (matchedRow['Nama Tim Follow Up'] || matchedRow['Nama Tim FU']) : ''
+        })
+      });
+      if (res.ok) {
+        const j = await res.json();
+        if (j && j.success) success = true;
+      }
+    } catch (e) {
+      console.warn('API /api/update-keep-status gagal, fallback direct GAS:', e);
+    }
+
+    // 2. Fallback direct Apps Script jika backend gagal / 404
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybKV-XtULQW6ct4GCNCCgk2f84AD4CVsSGCOOzweskJFaZtPk0jnEut8tJ80Aq1naoXA/exec';
+    if (!success) {
+      try {
+        let gasUrl = `${APPS_SCRIPT_URL}?action=UPDATE_STATUS&nomorWA=${encodeURIComponent(customerWA)}&status=${encodeURIComponent(newStatus || '')}`;
+        if (newFeedback) gasUrl += `&feedback=${encodeURIComponent(newFeedback)}`;
+        await fetch(gasUrl, { redirect: 'follow' });
+      } catch (gasErr) {
+        console.error('Direct GAS update status gagal:', gasErr);
+      }
+    }
+
+    if (newReportAR) {
+      try {
+        await fetch('/api/update-report-ar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nomorWA: customerWA,
+            arDoc: newReportAR
+          })
+        });
+      } catch (e) {
+        // Fallback direct GAS
+        try {
+          const arUrl = `${APPS_SCRIPT_URL}?action=UPDATE_REPORT_AR&nomorWA=${encodeURIComponent(customerWA)}&arDoc=${encodeURIComponent(newReportAR)}`;
+          await fetch(arUrl, { redirect: 'follow' });
+        } catch (arErr) {
+          console.error('Direct GAS update report AR gagal:', arErr);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Gagal update keep status ke backend:', err);
+  }
+
+  if (typeof showSaveToast === 'function') {
+    showSaveToast('Format keep & REPORT AR berhasil disimpan!');
+  }
+
+  renderOmniInboxModule();
+}
+
+function clearOmniTestChats() {
+  if (confirm('Apakah Anda yakin ingin membersihkan riwayat chat uji coba dan grup?')) {
+    localStorage.removeItem('gadgetmart_omni_threads');
+    localStorage.removeItem('omni_resolved_chats_v1');
+    cachedOmniKeepsMap = null;
+    selectedOmniPicKey = null;
+    lastWatzapSyncTime = 0;
+    renderOmniInboxModule();
+    if (typeof showSaveToast === 'function') {
+      showSaveToast('Riwayat chat berhasil dibersihkan.');
+    }
+  }
+}
+
+
+// ==========================================================================
+// SIMULASI CHAT MASUK DARI WHATSAPP (TESTING HARNESS)
+// ==========================================================================
 function openSimulateChatModal(cleanWA, picName) {
   const existing = document.getElementById('omniSimulateModal');
   if (existing) existing.remove();
@@ -9707,237 +10752,6 @@ async function submitSimulateChat() {
   }
 }
 
-function startWatzapPolling() {
-  if (watzapPollInterval) return;
-  pollWatzapIncomingMessages();
-  watzapPollInterval = setInterval(pollWatzapIncomingMessages, 4000);
-}
-
-function handleOmniInputKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendOmniReply();
-  }
-}
-
-function openWhatsAppChat(cleanWA, picName) {
-  if (!cleanWA) return;
-  const phone = cleanWA.startsWith('62') ? cleanWA : (cleanWA.startsWith('0') ? '62' + cleanWA.slice(1) : '62' + cleanWA);
-  const text = encodeURIComponent('Halo Kak ' + (picName || '') + ', ini dari Admin Sosmed terkait follow-up format keep.');
-  window.open('https://wa.me/' + phone + '?text=' + text, '_blank');
-}
-
-// --------------------------------------------------------------------------
-// DEDICATED FORMAT KEEP PANEL (RIGHT COLUMN - MODERNIZED)
-// --------------------------------------------------------------------------
-function renderOmniKeepPanel(pic) {
-  const container = document.getElementById('omniDetailsPanelContainer');
-  if (!container) return;
-  const pendingKeeps = (pic.keeps || []).filter(function(k) { return k.isPending; });
-  const resolvedKeeps = (pic.keeps || []).filter(function(k) { return !k.isPending; });
-  const displayKeeps = selectedOmniKeepSubTab === 'PENDING' ? pendingKeeps : resolvedKeeps;
-
-  const statusOptions = [
-    'WIN',
-    'LOSE',
-    'BELUM DIINPUT',
-    'DOUBLE KEEP',
-    'ON PROGRESS LOW',
-    'ON PROGRESS MEDIUM',
-    'ON PROGRESS HOT',
-    'TAKE OUT'
-  ];
-
-  const cardsMarkup = displayKeeps.length === 0 ? (
-    '<div class="omni-keep-empty-box">' +
-      '<div class="omni-keep-empty-icon">' +
-        (selectedOmniKeepSubTab === 'PENDING'
-          ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
-          : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>') +
-      '</div>' +
-      '<div class="omni-keep-empty-title">' +
-        (selectedOmniKeepSubTab === 'PENDING' ? 'Semua Format Keep Selesai' : 'Belum Ada yang Selesai') +
-      '</div>' +
-      '<div class="omni-keep-empty-desc">' +
-        (selectedOmniKeepSubTab === 'PENDING'
-          ? 'Semua format keep tanggal 3 ke atas untuk PIC ini sudah diisi feedback & statusnya.'
-          : 'Format keep yang sudah disimpan feedbacknya akan muncul di sini.') +
-      '</div>' +
-    '</div>'
-  ) : displayKeeps.map(function(k) {
-    const curStatus = k.status || 'BELUM DIINPUT';
-    const optMarkup = statusOptions.map(function(opt) {
-      return '<option value="' + opt + '" ' + (opt === curStatus ? 'selected' : '') + '>' + opt + '</option>';
-    }).join('');
-    const dateFormatted = k.timestamp ? k.timestamp.split(' ')[0] : '-';
-
-    return '<div class="omni-keep-card-modern" id="keepCard_' + k.customerWA + '">' +
-      '<div class="omni-keep-card-top-row">' +
-        '<div>' +
-          '<div class="omni-keep-cust-name">' + escapeHtml(k.customerName) + '</div>' +
-          '<a href="https://wa.me/' + k.customerWA + '" target="_blank" class="omni-keep-cust-phone" title="Chat WhatsApp Customer">' +
-            k.customerWA + ' &middot; ' + escapeHtml(k.cabang) +
-          '</a>' +
-        '</div>' +
-        '<span class="omni-keep-date-chip">' + dateFormatted + '</span>' +
-      '</div>' +
-      '<div class="omni-keep-info-box">' +
-        '<div class="omni-keep-info-row">' +
-          '<span class="omni-keep-info-label">Barang:</span>' +
-          '<strong>' + escapeHtml(k.barang) + '</strong>' +
-        '</div>' +
-        '<div class="omni-keep-info-row">' +
-          '<span class="omni-keep-info-label">Catatan:</span>' +
-          '<span>' + escapeHtml(k.catatan || '-') + '</span>' +
-        '</div>' +
-        '<div class="omni-keep-info-row">' +
-          '<span class="omni-keep-info-label">Remarks:</span>' +
-          '<span>' + escapeHtml(k.remarks || '-') + '</span>' +
-        '</div>' +
-      '</div>' +
-      '<div class="omni-keep-form-modern">' +
-        '<div>' +
-          '<label class="omni-keep-label-modern">Status (Kolom V):</label>' +
-          '<select class="omni-keep-select-modern" id="omniStatusSelect_' + k.customerWA + '">' +
-            optMarkup +
-          '</select>' +
-        '</div>' +
-        '<div>' +
-          '<label class="omni-keep-label-modern">Feedback Tim FU (Kolom W):</label>' +
-          '<textarea class="omni-keep-textarea-modern" id="omniFeedbackInp_' + k.customerWA + '" placeholder="Tulis feedback dari PIC FU...">' + escapeHtml(k.feedback || '') + '</textarea>' +
-        '</div>' +
-        '<button type="button" class="omni-btn-save-modern" id="btnSaveKeep_' + k.customerWA + '" onclick="saveSingleKeepFeedback(\'' + k.customerWA + '\', \'' + pic.key + '\')">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
-          '<span>Simpan Feedback</span>' +
-        '</button>' +
-      '</div>' +
-    '</div>';
-  }).join('');
-
-  container.innerHTML = '<div class="omni-details-top">' +
-    '<div class="omni-details-title-row">' +
-      '<span class="omni-details-heading">Format Keep PIC FU</span>' +
-      '<span class="omni-keep-counter-badge ' + (pendingKeeps.length === 0 ? 'zero' : '') + '">' +
-        pendingKeeps.length + ' Pending' +
-      '</span>' +
-    '</div>' +
-    '<div class="omni-keep-subtabs">' +
-      '<button type="button" class="omni-subtab-btn ' + (selectedOmniKeepSubTab === 'PENDING' ? 'active' : '') + '" onclick="setOmniKeepSubTab(\'PENDING\')">' +
-        'Belum Diisi (' + pendingKeeps.length + ')' +
-      '</button>' +
-      '<button type="button" class="omni-subtab-btn ' + (selectedOmniKeepSubTab === 'RESOLVED' ? 'active' : '') + '" onclick="setOmniKeepSubTab(\'RESOLVED\')">' +
-        'Selesai (' + resolvedKeeps.length + ')' +
-      '</button>' +
-    '</div>' +
-    '<div style="display:flex; gap:6px; margin-top:8px;">' +
-      '<button type="button" class="omni-btn-wa-direct" style="flex:1; justify-content:center; height:28px; font-size:11px;" onclick="openWhatsAppChat(\'' + cleanPhoneDigits(pic.picWA) + '\', \'' + escapeHtml(pic.picName) + '\')" title="Buka WhatsApp Web">' +
-        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
-        '<span>Buka WA Web</span>' +
-      '</button>' +
-      '<button type="button" class="omni-btn-resolve ' + (pic.isResolved ? 'is-resolved' : '') + '" style="flex:1; justify-content:center; height:28px; font-size:11px;" onclick="handleOmniResolveClick(\'' + pic.key + '\')" title="Selesaikan chat jika format keep selesai">' +
-        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
-        '<span>' + (pic.isResolved ? '✓ Resolved' : 'Resolve') + '</span>' +
-      '</button>' +
-    '</div>' +
-  '</div>' +
-  '<div class="omni-details-scroll">' +
-    cardsMarkup +
-  '</div>';
-}
-
-async function saveSingleKeepFeedback(customerWA, picKey) {
-  const statusEl = document.getElementById('omniStatusSelect_' + customerWA);
-  const feedbackEl = document.getElementById('omniFeedbackInp_' + customerWA);
-  const saveBtn = document.getElementById('btnSaveKeep_' + customerWA);
-  if (!statusEl || !feedbackEl) return;
-
-  const newStatus = statusEl.value;
-  const newFeedback = feedbackEl.value.trim();
-
-  let matchedRow = null;
-  if (Array.isArray(rawKeepRows)) {
-    for (let i = 0; i < rawKeepRows.length; i++) {
-      const rowWA = cleanPhoneDigits(rawKeepRows[i]['Nomor WA'] || '');
-      if (rowWA === customerWA) {
-        rawKeepRows[i]['Status'] = newStatus;
-        rawKeepRows[i]['Feedback Tim FU'] = newFeedback;
-        matchedRow = rawKeepRows[i];
-        break;
-      }
-    }
-  }
-
-  const threads = getOmniThreads();
-  if (!threads[picKey]) threads[picKey] = [];
-  threads[picKey].push({
-    sender: 'ADMIN',
-    text: '[UPDATE FORMAT KEEP] Status: ' + newStatus + ' | Feedback: ' + (newFeedback || '-') + ' (' + (matchedRow ? matchedRow['Nama'] : customerWA) + ')',
-    timestamp: Date.now()
-  });
-  saveOmniThreads(threads);
-
-  if (saveBtn) {
-    saveBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <span>✓ Tersimpan</span>';
-    saveBtn.style.background = '#059669';
-  }
-
-  try {
-    await fetch('/api/update-keep-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nomorWA: customerWA,
-        status: newStatus,
-        feedbackTimFU: newFeedback,
-        cabang: matchedRow ? matchedRow['Cabang'] : '',
-        namaTimFollowUp: matchedRow ? (matchedRow['Nama Tim Follow Up'] || matchedRow['Nama Tim FU']) : ''
-      })
-    });
-  } catch (err) {
-    console.error('Gagal update keep status ke backend:', err);
-  }
-
-  if (typeof showSaveToast === 'function') {
-    showSaveToast('Status format keep berhasil disimpan!');
-  }
-
-  renderOmniInboxModule();
-}
-
-function clearOmniTestChats() {
-  if (confirm('Apakah Anda yakin ingin membersihkan riwayat chat uji coba dan grup?')) {
-    localStorage.removeItem('gadgetmart_omni_threads');
-    localStorage.removeItem('omni_resolved_chats_v1');
-    cachedOmniKeepsMap = null;
-    selectedOmniPicKey = null;
-    renderOmniInboxModule();
-    if (typeof showSaveToast === 'function') {
-      showSaveToast('Riwayat chat berhasil dibersihkan.');
-    }
-  }
-}
-
-function insertQuickReply(type) {
-  var input = document.getElementById('omniReplyInput') || document.getElementById('chat-input');
-  if (!input) return;
-  var quickTemplates = {
-    promo: "Halo Kak! 🔥 Khusus hari ini ada promo cashback dan diskon spesial untuk produk favorit di Gadgetmart. Mau Mimin bantu cek ketersediaan unitnya?",
-    share_promo: "Halo Kak! 🔥 Khusus hari ini ada promo cashback dan diskon spesial untuk produk favorit di Gadgetmart. Mau Mimin bantu cek ketersediaan unitnya?",
-    katalog: "Halo Kak! 📋 Silakan cek katalog lengkap produk dan harga terupdate Gadgetmart melalui link resmi kami di https://gadgetmart.id/katalog atau beri tahu Mimin produk yang sedang Kakak cari ya!",
-    cicilan: "Halo Kak! 🧮 Simulasi cicilan di Gadgetmart sangat fleksibel:\n- Tenor 3 Bulan: DP 0%\n- Tenor 6 Bulan: Angsuran ringan\n- Tenor 12 Bulan: Bunga kompetitif\nBisa lewat Kredivo, Akulaku, Home Credit, atau Kartu Kredit. Mau coba hitungkan untuk produk yang mana Kak?",
-    simulasi_cicilan: "Halo Kak! 🧮 Simulasi cicilan di Gadgetmart sangat fleksibel:\n- Tenor 3 Bulan: DP 0%\n- Tenor 6 Bulan: Angsuran ringan\n- Tenor 12 Bulan: Bunga kompetitif\nBisa lewat Kredivo, Akulaku, Home Credit, atau Kartu Kredit. Mau coba hitungkan untuk produk yang mana Kak?",
-    shopee: "Halo Kak! 🛍️ Untuk transaksi melalui Shopee Official Store Gadgetmart, Kakak bisa langsung kunjungi toko kami dengan jaminan 100% Original, Garansi Resmi, dan Gratis Ongkir!"
-  };
-  var text = quickTemplates[type] || '';
-  if (text) {
-    input.value = text;
-    input.focus();
-    if (typeof handleOmniInputTyping === 'function') {
-      handleOmniInputTyping(input);
-    }
-  }
-}
-
 // Global Window Exports
 window.switchOmniView = switchOmniView;
 window.renderOmniMasterTable = renderOmniMasterTable;
@@ -9954,6 +10768,7 @@ window.selectOmniPic = selectOmniPic;
 window.renderOmniInboxModule = renderOmniInboxModule;
 window.saveSingleKeepFeedback = saveSingleKeepFeedback;
 window.sendOmniReply = sendOmniReply;
+window.scrollOmniStreamToBottom = scrollOmniStreamToBottom;
 window.handleOmniInputKey = handleOmniInputKey;
 window.handleOmniInputTyping = handleOmniInputTyping;
 window.insertQuickReply = insertQuickReply;
@@ -9961,6 +10776,11 @@ window.handleOmniAttachmentClick = handleOmniAttachmentClick;
 window.handleOmniResolveClick = handleOmniResolveClick;
 window.openWhatsAppChat = openWhatsAppChat;
 window.clearOmniTestChats = clearOmniTestChats;
+window.generateBotAvatarSvg = generateBotAvatarSvg;
+window.startOmniQuotedReply = startOmniQuotedReply;
+window.cancelOmniQuotedReply = cancelOmniQuotedReply;
+window.openOmniImageModal = openOmniImageModal;
+window.closeOmniImageModal = closeOmniImageModal;
 window.handleOmniFileSelected = handleOmniFileSelected;
 window.removeOmniAttachment = removeOmniAttachment;
 window.openSimulateChatModal = openSimulateChatModal;

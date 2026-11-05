@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\BroadcastMedia;
 use App\Models\Setting;
+use App\Models\WhatsAppChat;
+use App\Models\WhatsAppMessage;
 use App\Services\WatzapService;
+use App\Support\RouteCipher;
 use App\Support\WorkspaceUrlCipher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,26 +33,26 @@ class WorkspaceSosmedController extends Controller
         if (! $request->routeIs('encrypted.route')) {
             $rawTab = $request->query('tab');
             if ($rawTab !== null && is_numeric($rawTab) && (int) $rawTab >= 1 && (int) $rawTab <= 9) {
-                return redirect()->to(\App\Support\RouteCipher::url('workspace-sosmed.index', [
+                return redirect()->to(RouteCipher::url('workspace-sosmed.index', [
                     'tab' => (int) $rawTab,
                 ]));
             }
         }
 
-        $activeTab = \App\Support\RouteCipher::resolveWorkspaceTab($request) 
+        $activeTab = RouteCipher::resolveWorkspaceTab($request)
             ?? WorkspaceUrlCipher::resolveTab($request);
 
         return view('workspace-sosmed.index', [
             'activeTab' => $activeTab,
             'tabTokens' => WorkspaceUrlCipher::allTokens(),
-            'encryptedTabUrls' => \App\Support\RouteCipher::allWorkspaceUrls(),
+            'encryptedTabUrls' => RouteCipher::allWorkspaceUrls(),
         ]);
     }
 
     public function databaseStatus(): JsonResponse
     {
         $check = function (string $filename) {
-            $path = $this->storagePath . DIRECTORY_SEPARATOR . $filename;
+            $path = $this->storagePath.DIRECTORY_SEPARATOR.$filename;
             if (File::exists($path)) {
                 return [
                     'exists' => true,
@@ -58,6 +61,7 @@ class WorkspaceSosmedController extends Controller
                     'mtime' => date('c', File::lastModified($path)),
                 ];
             }
+
             return ['exists' => false, 'mtimeMs' => 0];
         };
 
@@ -104,11 +108,11 @@ class WorkspaceSosmedController extends Controller
 
     public function monthlyTargets(Request $request): JsonResponse
     {
-        $file = $this->storagePath . DIRECTORY_SEPARATOR . 'monthly_targets.json';
+        $file = $this->storagePath.DIRECTORY_SEPARATOR.'monthly_targets.json';
 
         if ($request->isMethod('get')) {
             $dbVal = Setting::where('key', 'workspace_monthly_targets')->value('value');
-            if (!empty($dbVal)) {
+            if (! empty($dbVal)) {
                 $decoded = json_decode($dbVal, true);
                 if (is_array($decoded)) {
                     return response()->json($decoded);
@@ -117,19 +121,22 @@ class WorkspaceSosmedController extends Controller
             if (File::exists($file)) {
                 $content = File::get($file);
                 $decoded = json_decode($content, true) ?? [];
-                if (!empty($decoded)) {
+                if (! empty($decoded)) {
                     Setting::updateOrCreate(['key' => 'workspace_monthly_targets'], ['value' => $content]);
                 }
+
                 return response()->json($decoded);
             }
+
             return response()->json([]);
         }
 
         $payload = $request->all();
-        if (!empty($payload)) {
+        if (! empty($payload)) {
             $json = json_encode($payload, JSON_PRETTY_PRINT);
             @File::put($file, $json);
             Setting::updateOrCreate(['key' => 'workspace_monthly_targets'], ['value' => $json]);
+
             return response()->json(['success' => true, 'message' => 'Monthly targets berhasil disimpan!']);
         }
 
@@ -138,11 +145,11 @@ class WorkspaceSosmedController extends Controller
 
     public function salesPhotos(Request $request): JsonResponse
     {
-        $file = $this->storagePath . DIRECTORY_SEPARATOR . 'sales_photos.json';
+        $file = $this->storagePath.DIRECTORY_SEPARATOR.'sales_photos.json';
 
         if ($request->isMethod('get')) {
             $dbVal = Setting::where('key', 'workspace_sales_photos')->value('value');
-            if (!empty($dbVal)) {
+            if (! empty($dbVal)) {
                 $decoded = json_decode($dbVal, true);
                 if (is_array($decoded)) {
                     return response()->json($decoded);
@@ -151,11 +158,13 @@ class WorkspaceSosmedController extends Controller
             if (File::exists($file)) {
                 $content = File::get($file);
                 $decoded = json_decode($content, true) ?? [];
-                if (!empty($decoded)) {
+                if (! empty($decoded)) {
                     Setting::updateOrCreate(['key' => 'workspace_sales_photos'], ['value' => $content]);
                 }
+
                 return response()->json($decoded);
             }
+
             return response()->json([]);
         }
 
@@ -164,6 +173,7 @@ class WorkspaceSosmedController extends Controller
             $json = json_encode($payload, JSON_PRETTY_PRINT);
             @File::put($file, $json);
             Setting::updateOrCreate(['key' => 'workspace_sales_photos'], ['value' => $json]);
+
             return response()->json(['success' => true, 'message' => 'Foto sales berhasil disimpan!']);
         }
 
@@ -172,11 +182,11 @@ class WorkspaceSosmedController extends Controller
 
     public function monthlyArchives(Request $request): JsonResponse
     {
-        $file = $this->storagePath . DIRECTORY_SEPARATOR . 'monthly_archives.json';
+        $file = $this->storagePath.DIRECTORY_SEPARATOR.'monthly_archives.json';
 
         if ($request->isMethod('get')) {
             $dbVal = Setting::where('key', 'workspace_monthly_archives')->value('value');
-            if (!empty($dbVal)) {
+            if (! empty($dbVal)) {
                 $decoded = json_decode($dbVal, true);
                 if (is_array($decoded)) {
                     return response()->json($decoded);
@@ -185,11 +195,13 @@ class WorkspaceSosmedController extends Controller
             if (File::exists($file)) {
                 $content = File::get($file);
                 $decoded = json_decode($content, true) ?? [];
-                if (!empty($decoded)) {
+                if (! empty($decoded)) {
                     Setting::updateOrCreate(['key' => 'workspace_monthly_archives'], ['value' => $content]);
                 }
+
                 return response()->json($decoded);
             }
+
             return response()->json([]);
         }
 
@@ -198,6 +210,7 @@ class WorkspaceSosmedController extends Controller
             $json = json_encode($payload, JSON_PRETTY_PRINT);
             @File::put($file, $json);
             Setting::updateOrCreate(['key' => 'workspace_monthly_archives'], ['value' => $json]);
+
             return response()->json(['success' => true, 'message' => 'Arsip bulanan berhasil disimpan!']);
         }
 
@@ -212,7 +225,7 @@ class WorkspaceSosmedController extends Controller
             $res = Http::timeout(20)->withoutVerifying()->get($url);
             if ($res->successful()) {
                 $csv = $res->body();
-                $localFile = $this->storagePath . DIRECTORY_SEPARATOR . 'keep-data.csv';
+                $localFile = $this->storagePath.DIRECTORY_SEPARATOR.'keep-data.csv';
                 @File::put($localFile, $csv);
 
                 return response()->json([
@@ -223,7 +236,7 @@ class WorkspaceSosmedController extends Controller
                 ]);
             }
 
-            return response()->json(['error' => 'Gagal mengambil data dari Google Sheets. HTTP: ' . $res->status()], 502);
+            return response()->json(['error' => 'Gagal mengambil data dari Google Sheets. HTTP: '.$res->status()], 502);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -235,7 +248,7 @@ class WorkspaceSosmedController extends Controller
         $status = $request->input('status', '');
         $feedback = $request->input('feedback', '');
 
-        if (!$nomorWA) {
+        if (! $nomorWA) {
             return response()->json(['error' => 'Nomor WA wajib diisi.'], 400);
         }
 
@@ -248,7 +261,7 @@ class WorkspaceSosmedController extends Controller
                 'feedback' => $feedback,
             ]);
         } catch (\Throwable $e) {
-            Log::warning('WorkspaceSosmed updateKeepStatus Google Apps Script warning: ' . $e->getMessage());
+            Log::warning('WorkspaceSosmed updateKeepStatus Google Apps Script warning: '.$e->getMessage());
         }
 
         return response()->json([
@@ -264,7 +277,7 @@ class WorkspaceSosmedController extends Controller
         $nomorWA = $request->input('nomorWA', '');
         $arDoc = $request->input('arDoc', '');
 
-        if (!$nomorWA) {
+        if (! $nomorWA) {
             return response()->json(['error' => 'Nomor WA wajib diisi.'], 400);
         }
 
@@ -276,7 +289,7 @@ class WorkspaceSosmedController extends Controller
                 'arDoc' => $arDoc,
             ]);
         } catch (\Throwable $e) {
-            Log::warning('WorkspaceSosmed updateReportAr Google Apps Script warning: ' . $e->getMessage());
+            Log::warning('WorkspaceSosmed updateReportAr Google Apps Script warning: '.$e->getMessage());
         }
 
         return response()->json([
@@ -294,7 +307,7 @@ class WorkspaceSosmedController extends Controller
         $apiKey = $request->input('apiKey') ?: env('GEMINI_API_KEY', '');
         $requestedModel = $request->input('model', 'gemini-2.5-flash');
 
-        if (!$prompt) {
+        if (! $prompt) {
             return response()->json(['success' => false, 'error' => 'Prompt is required'], 400);
         }
 
@@ -312,8 +325,8 @@ class WorkspaceSosmedController extends Controller
                 $url = "https://generativelanguage.googleapis.com/v1beta/models/{$m}:generateContent?key={$apiKey}";
                 $res = Http::timeout(15)->post($url, [
                     'contents' => [
-                        ['parts' => [['text' => $fullPrompt]]]
-                    ]
+                        ['parts' => [['text' => $fullPrompt]]],
+                    ],
                 ]);
 
                 if ($res->successful()) {
@@ -346,6 +359,11 @@ class WorkspaceSosmedController extends Controller
         $originalName = null;
         $fileSize = null;
 
+        $replyTo = $request->input('reply_to') ?: $request->input('replyTo');
+        if (is_string($replyTo)) {
+            $replyTo = json_decode($replyTo, true);
+        }
+
         if (! $rawPhone) {
             return response()->json(['success' => false, 'message' => 'Nomor telepon tujuan wajib diisi!'], 400);
         }
@@ -355,7 +373,7 @@ class WorkspaceSosmedController extends Controller
         }
 
         if ($uploadedFile) {
-            $originalName = $uploadedFile->getClientOriginalName() ?: ('file_' . time());
+            $originalName = $uploadedFile->getClientOriginalName() ?: ('file_'.time());
             $mimeType = $uploadedFile->getMimeType() ?: 'application/octet-stream';
             $fileSize = $uploadedFile->getSize();
             $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
@@ -382,45 +400,74 @@ class WorkspaceSosmedController extends Controller
             $mediaType = in_array($pathExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : 'document';
         }
 
-        // Kirim via WatzapService (channel inbox follow-up)
-        if ($mediaUrl) {
-            if ($mediaType === 'image') {
-                $result = $watzapService->sendImage($rawPhone, $mediaUrl, $message ?: null, 'inbox');
-            } else {
-                $result = $watzapService->sendFile($rawPhone, $mediaUrl, $message ?: null, 'inbox');
-            }
-        } else {
-            $result = $watzapService->sendMessage($rawPhone, $message, 'inbox');
-        }
+        // Kirim via Dual-Gateway Omnichannel (WAHA VPS primary + WatZap fallback)
+        $result = $watzapService->sendOmnichannel($rawPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null);
+        $cleanPhone = $watzapService->resolvePhoneOrLid($rawPhone);
+        $msgId = $result['message_id'] ?? ('out_'.uniqid());
+        $isSuccess = ! empty($result['success']);
 
-        // Catat ke pesan keluar lokal
+        // Catat ke pesan keluar lokal & Database
         $entry = [
-            'messageId' => 'out_' . uniqid(),
-            'phone' => $rawPhone,
+            'messageId' => $msgId,
+            'phone' => $cleanPhone ?: $rawPhone,
             'message' => $message,
             'media_url' => $mediaUrl,
             'media_type' => $mediaType,
             'filename' => $originalName,
             'file_size' => $fileSize,
+            'reply_to' => is_array($replyTo) ? $replyTo : null,
             'timestamp' => now()->toIso8601String(),
-            'status' => $result['success'] ? 'sent' : 'failed',
+            'status' => $isSuccess ? 'sent' : 'failed',
             'direction' => 'outbound',
             'sender' => 'ADMIN',
+            'gateway' => $result['source'] ?? 'WATZAP',
         ];
 
         try {
-            $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
+            if ($cleanPhone) {
+                $chat = WhatsAppChat::firstOrCreate(
+                    ['phone_number' => $cleanPhone],
+                    [
+                        'customer_name' => 'PIC '.$cleanPhone,
+                        'folder' => 'all',
+                        'unread_count' => 0,
+                    ]
+                );
+                $chat->update([
+                    'last_message' => $message ?: ($mediaType ? "[$mediaType]" : 'Pesan keluar'),
+                    'last_message_at' => now(),
+                ]);
+                WhatsAppMessage::create([
+                    'whatsapp_chat_id' => $chat->id,
+                    'message_id' => $msgId,
+                    'sender_type' => 'admin',
+                    'user_id' => $request->user()?->id,
+                    'agent_name' => $request->user()?->name ?: 'Admin',
+                    'message' => $message ?: ($mediaType ? "[$mediaType]" : ''),
+                    'media_url' => $mediaUrl,
+                    'media_type' => $mediaType,
+                    'reply_to' => is_array($replyTo) ? $replyTo : null,
+                    'status' => $isSuccess ? 'sent' : 'failed',
+                ]);
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            $msgFile = $this->storagePath.DIRECTORY_SEPARATOR.'watzap_messages.json';
             $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
             $messages[] = $entry;
             $trimmed = array_slice($messages, -1000);
             @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
-        } catch (\Throwable $e) {}
+        } catch (\Throwable) {
+        }
 
         return response()->json([
-            'success' => $result['success'],
-            'status' => $result['status'] ?? '500',
-            'message' => $result['message'] ?? 'Proses kirim selesai',
+            'success' => $isSuccess,
+            'status' => $result['status'] ?? ($isSuccess ? '200' : '500'),
+            'message' => $result['message'] ?? ($isSuccess ? 'Pesan terkirim' : 'Proses kirim selesai'),
             'entry' => $entry,
+            'source' => $result['source'] ?? 'WATZAP',
             'raw' => $result['raw'] ?? [],
         ]);
     }
@@ -428,15 +475,18 @@ class WorkspaceSosmedController extends Controller
     public function watzapStatus(WatzapService $watzapService): JsonResponse
     {
         $status = $watzapService->getDeviceStatus('inbox');
+        $status['waha_enabled'] = $watzapService->isWahaEnabled();
+        $status['waha_url'] = $watzapService->getWahaUrl();
+
         return response()->json($status);
     }
 
-    public function watzapWebhook(Request $request): JsonResponse
+    public function watzapWebhook(Request $request, WatzapService $watzapService): JsonResponse
     {
-        $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
+        $msgFile = $this->storagePath.DIRECTORY_SEPARATOR.'watzap_messages.json';
         $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
 
-        // Mode GET: Polling dari frontend untuk mengambil chat masuk
+        // Mode GET: Polling dari frontend untuk mengambil chat masuk & riwayat pesan
         if ($request->isMethod('get')) {
             $since = $request->query('since');
             $phone = $request->query('phone');
@@ -454,12 +504,13 @@ class WorkspaceSosmedController extends Controller
                     }
                 }
                 if ($since) {
-                    $mTime = isset($m['timestamp']) ? strtotime($m['timestamp']) : 0;
-                    $sTime = is_numeric($since) ? (int) ($since > 1e11 ? $since / 1000 : $since) : strtotime($since);
+                    $mTime = isset($m['timestamp']) ? strtotime((string) $m['timestamp']) : 0;
+                    $sTime = is_numeric($since) ? (int) ($since > 1e11 ? $since / 1000 : $since) : strtotime((string) $since);
                     if ($mTime <= $sTime) {
                         return false;
                     }
                 }
+
                 return true;
             }));
 
@@ -470,11 +521,143 @@ class WorkspaceSosmedController extends Controller
             ]);
         }
 
-        // Mode POST: Webhook masuk dari WatZap API atau gateway
+        // Mode POST: Webhook masuk (WAHA VPS atau WatZap Cloud API)
         $data = $request->all();
+
+        // 1. Dukungan Webhook Resmi WAHA (WhatsApp HTTP API di VPS)
+        if (isset($data['event']) && in_array($data['event'], ['message', 'message.any'], true) && isset($data['payload']) && is_array($data['payload'])) {
+            $p = $data['payload'];
+            $isFromMe = ! empty($p['fromMe']);
+            $senderType = $isFromMe ? 'admin' : 'customer';
+            $direction = $isFromMe ? 'outbound' : 'inbound';
+            $senderRole = $isFromMe ? 'ADMIN' : 'PIC';
+
+            $targetJid = $isFromMe
+                ? (string) ($p['to'] ?? $p['_data']['id']['remote'] ?? $p['_data']['to'] ?? '')
+                : (string) ($p['from'] ?? $p['_data']['id']['remote'] ?? '');
+
+            // Abaikan grup WA & broadcast
+            if (str_contains($targetJid, '@g.us') || str_contains($targetJid, 'broadcast') || str_contains((string) ($p['from'] ?? ''), '@g.us')) {
+                return response()->json(['status' => 200, 'message' => 'Group or broadcast ignored']);
+            }
+
+            $cleanPhone = $watzapService->resolvePhoneOrLid($targetJid);
+            $cleanPhone = preg_replace('/@.*$/', '', (string) $cleanPhone);
+            $cleanPhone = preg_replace('/\D/', '', (string) $cleanPhone);
+            if (! $cleanPhone || strlen($cleanPhone) < 9) {
+                return response()->json(['status' => 200, 'message' => 'Invalid phone ignored']);
+            }
+
+            $messageId = (string) ($p['id'] ?? ('waha_'.time()));
+            $senderName = $isFromMe
+                ? 'Admin'
+                : (string) ($p['_data']['notifyName'] ?? $p['pushname'] ?? $p['author'] ?? 'PIC');
+
+            $rawText = trim((string) ($p['body'] ?? ''));
+            $mediaUrl = null;
+            $mediaType = null;
+
+            if (! empty($p['hasMedia']) || ! empty($p['media'])) {
+                if (is_array($p['media']) && ! empty($p['media']['url'])) {
+                    $mediaUrl = (string) $p['media']['url'];
+                } elseif (is_array($p['media']) && ! empty($p['media']['filename'])) {
+                    $mediaUrl = '/api/watzap-media?file=default/'.$p['media']['filename'];
+                } elseif (is_string($p['media'])) {
+                    $mediaUrl = $p['media'];
+                } else {
+                    $mediaUrl = '/api/watzap-media?file=default/'.$messageId.'.jpeg';
+                }
+                $mediaType = 'image';
+                if ($rawText === '') {
+                    $rawText = '[Foto/Gambar]';
+                }
+            }
+
+            // Quoted Reply Extraction
+            $replyTo = null;
+            if (! empty($p['replyTo']) && is_array($p['replyTo'])) {
+                $quotedText = trim((string) ($p['replyTo']['body'] ?? ''));
+                if ($quotedText !== '') {
+                    $replyTo = [
+                        'senderName' => $isFromMe ? 'PIC' : 'Admin',
+                        'text' => $quotedText,
+                        'id' => (string) ($p['replyTo']['id'] ?? ''),
+                    ];
+                }
+            }
+
+            if (! $replyTo) {
+                $parsedQuote = $this->parseQuotedFromText($rawText);
+                $rawText = $parsedQuote['cleanText'];
+                $replyTo = $parsedQuote['replyTo'];
+            }
+
+            $entry = [
+                'messageId' => $messageId,
+                'phone' => $cleanPhone,
+                'message' => $rawText,
+                'media_url' => $mediaUrl,
+                'media_type' => $mediaType,
+                'reply_to' => $replyTo,
+                'timestamp' => now()->toIso8601String(),
+                'status' => 'received',
+                'direction' => $direction,
+                'sender' => $senderRole,
+                'senderName' => $senderName,
+                'gateway' => 'WAHA_VPS',
+                'raw' => $data,
+            ];
+
+            try {
+                $chat = WhatsAppChat::firstOrCreate(
+                    ['phone_number' => $cleanPhone],
+                    [
+                        'customer_name' => $senderName ?: ('PIC '.$cleanPhone),
+                        'folder' => 'all',
+                        'unread_count' => 0,
+                    ]
+                );
+
+                $chat->update([
+                    'last_message' => $rawText,
+                    'last_message_at' => now(),
+                    'unread_count' => $direction === 'inbound' ? ($chat->unread_count + 1) : $chat->unread_count,
+                ]);
+
+                WhatsAppMessage::create([
+                    'whatsapp_chat_id' => $chat->id,
+                    'message_id' => $messageId,
+                    'sender_type' => $senderType,
+                    'agent_name' => $senderName,
+                    'message' => $rawText,
+                    'media_url' => $mediaUrl,
+                    'media_type' => $mediaType,
+                    'reply_to' => $replyTo,
+                    'raw_payload' => $data,
+                    'status' => 'received',
+                ]);
+            } catch (\Throwable) {
+            }
+
+            try {
+                $messages[] = $entry;
+                $trimmed = array_slice($messages, -1000);
+                @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
+            } catch (\Throwable) {
+            }
+
+            return response()->json([
+                'status' => '200',
+                'message' => 'WAHA webhook received and processed',
+                'entry' => $entry,
+            ]);
+        }
+
+        // 2. Dukungan Webhook WatZap Cloud API Standar
         $payload = (isset($data['data']) && is_array($data['data'])) ? $data['data'] : $data;
 
-        $phone = $payload['phone_no'] ?? $payload['sender_number'] ?? $payload['phone'] ?? $payload['from'] ?? $payload['wa_number'] ?? $data['phone_no'] ?? $data['sender_number'] ?? $data['phone'] ?? '';
+        $rawPhone = $payload['phone_no'] ?? $payload['sender_number'] ?? $payload['phone'] ?? $payload['from'] ?? $payload['wa_number'] ?? $data['phone_no'] ?? $data['sender_number'] ?? $data['phone'] ?? '';
+        $cleanPhone = $watzapService->resolvePhoneOrLid((string) $rawPhone);
         $message = $payload['message'] ?? $payload['text'] ?? $payload['caption'] ?? $payload['body'] ?? $data['message'] ?? $data['text'] ?? '';
         $mediaUrl = $payload['media_url'] ?? $payload['url'] ?? $payload['image_url'] ?? $payload['file_url'] ?? $data['media_url'] ?? $data['url'] ?? null;
         $mediaType = $payload['media_type'] ?? $payload['type'] ?? $data['media_type'] ?? null;
@@ -484,7 +667,7 @@ class WorkspaceSosmedController extends Controller
 
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $filename = $file->getClientOriginalName() ?: ('file_' . time());
+            $filename = $file->getClientOriginalName() ?: ('file_'.time());
             $mimeType = $file->getMimeType() ?: 'application/octet-stream';
             $fileSize = $file->getSize();
             $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
@@ -510,33 +693,237 @@ class WorkspaceSosmedController extends Controller
             $mediaType = in_array($pathExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : 'document';
         }
 
+        // Quoted reply parser from text
+        $parsedQuote = $this->parseQuotedFromText((string) $message);
+        $message = $parsedQuote['cleanText'];
+        $replyTo = $parsedQuote['replyTo'];
+
         $entry = [
-            'messageId' => $data['message_id'] ?? ('in_' . uniqid()),
-            'phone' => $phone,
+            'messageId' => $data['message_id'] ?? ('in_'.uniqid()),
+            'phone' => $cleanPhone ?: $rawPhone,
             'message' => $message,
             'media_url' => $mediaUrl,
             'media_type' => $mediaType,
             'filename' => $filename,
             'file_size' => $fileSize,
+            'reply_to' => $replyTo,
             'timestamp' => now()->toIso8601String(),
             'status' => 'received',
             'direction' => 'inbound',
             'sender' => 'PIC',
             'senderName' => $senderName,
+            'gateway' => 'WATZAP',
             'raw' => $data,
         ];
+
+        try {
+            if ($cleanPhone) {
+                $chat = WhatsAppChat::firstOrCreate(
+                    ['phone_number' => $cleanPhone],
+                    [
+                        'customer_name' => $senderName ?: ('PIC '.$cleanPhone),
+                        'folder' => 'all',
+                        'unread_count' => 0,
+                    ]
+                );
+                $chat->update([
+                    'last_message' => $message,
+                    'last_message_at' => now(),
+                    'unread_count' => $chat->unread_count + 1,
+                ]);
+                WhatsAppMessage::create([
+                    'whatsapp_chat_id' => $chat->id,
+                    'message_id' => $entry['messageId'],
+                    'sender_type' => 'customer',
+                    'agent_name' => $senderName,
+                    'message' => $message,
+                    'media_url' => $mediaUrl,
+                    'media_type' => $mediaType,
+                    'reply_to' => $replyTo,
+                    'raw_payload' => $data,
+                    'status' => 'received',
+                ]);
+            }
+        } catch (\Throwable) {
+        }
 
         try {
             $messages[] = $entry;
             $trimmed = array_slice($messages, -1000);
             @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
-        } catch (\Throwable $e) {}
+        } catch (\Throwable) {
+        }
 
         return response()->json([
             'status' => '200',
             'message' => 'Webhook received',
             'entry' => $entry,
         ]);
+    }
+
+    public function omniResolve(Request $request): JsonResponse
+    {
+        $localFile = $this->storagePath.DIRECTORY_SEPARATOR.'omni_resolved_chats.json';
+
+        if ($request->isMethod('get')) {
+            $resolvedMap = [];
+            try {
+                $chats = WhatsAppChat::where('is_resolved', true)->get(['phone_number', 'resolved_at', 'resolved_by']);
+                foreach ($chats as $c) {
+                    $phone = $c->phone_number;
+                    if ($phone) {
+                        $resolvedMap[$phone] = [
+                            'isResolved' => true,
+                            'resolvedAt' => $c->resolved_at ? $c->resolved_at->getTimestampMs() : (time() * 1000),
+                            'resolvedBy' => $c->resolved_by ?: 'Admin',
+                        ];
+                    }
+                }
+            } catch (\Throwable) {
+                if (File::exists($localFile)) {
+                    $resolvedMap = json_decode(File::get($localFile), true) ?: [];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'resolvedChats' => $resolvedMap,
+            ]);
+        }
+
+        // Mode POST: Toggle status resolved chat
+        $body = $request->all();
+        $rawPhone = $body['phone'] ?? $body['picKey'] ?? '';
+        $phone = preg_replace('/\D/', '', (string) $rawPhone);
+        if (str_starts_with($phone, '08')) {
+            $phone = '62'.substr($phone, 1);
+        } elseif (str_starts_with($phone, '8')) {
+            $phone = '62'.$phone;
+        }
+
+        if (! $phone || strlen($phone) < 9) {
+            return response()->json(['success' => false, 'error' => 'Nomor telepon tidak valid'], 400);
+        }
+
+        $isResolved = $request->boolean('is_resolved') || $request->boolean('isResolved') || ($body['action'] ?? '') === 'resolve';
+        $resolvedBy = trim((string) ($body['resolvedBy'] ?? ($request->user()?->name ?: 'Admin')));
+        $now = now();
+
+        try {
+            WhatsAppChat::updateOrCreate(
+                ['phone_number' => $phone],
+                [
+                    'customer_name' => 'PIC '.$phone,
+                    'is_resolved' => $isResolved,
+                    'resolved_by' => $resolvedBy,
+                    'resolved_at' => $isResolved ? $now : null,
+                ]
+            );
+        } catch (\Throwable) {
+        }
+
+        try {
+            $localData = File::exists($localFile) ? json_decode(File::get($localFile), true) ?: [] : [];
+            if ($isResolved) {
+                $localData[$phone] = [
+                    'isResolved' => true,
+                    'resolvedAt' => $now->getTimestampMs(),
+                    'resolvedBy' => $resolvedBy,
+                ];
+            } else {
+                unset($localData[$phone]);
+            }
+            @File::put($localFile, json_encode($localData, JSON_PRETTY_PRINT));
+        } catch (\Throwable) {
+        }
+
+        return response()->json([
+            'success' => true,
+            'phone' => $phone,
+            'is_resolved' => $isResolved,
+            'isResolved' => $isResolved,
+            'resolvedAt' => $now->getTimestampMs(),
+            'resolvedBy' => $resolvedBy,
+        ]);
+    }
+
+    public function watzapMedia(Request $request, WatzapService $watzapService): Response
+    {
+        $file = ltrim((string) $request->query('file', ''), '/\\');
+        if ($file === '') {
+            return response('Parameter file is required', 400);
+        }
+
+        try {
+            $wahaUrl = $watzapService->getWahaUrl().'/api/files/'.$file;
+            $res = Http::timeout(10)
+                ->withHeaders(['X-Api-Key' => $watzapService->getWahaApiKey()])
+                ->get($wahaUrl);
+
+            if (! $res->successful()) {
+                return response('Failed to fetch file from WAHA: '.$res->status(), $res->status());
+            }
+
+            $contentType = $res->header('Content-Type') ?: 'image/jpeg';
+
+            return response($res->body(), 200, [
+                'Content-Type' => $contentType,
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ]);
+        } catch (\Throwable $e) {
+            return response('Internal media proxy error: '.$e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Parse smart WhatsApp quoted text (> *Sender*:\n> message\n\nReply)
+     *
+     * @return array{cleanText: string, replyTo: array{senderName: string, text: string}|null}
+     */
+    protected function parseQuotedFromText(?string $rawText): array
+    {
+        if (! $rawText) {
+            return ['cleanText' => '', 'replyTo' => null];
+        }
+
+        $trimmed = trim($rawText);
+        if (! str_starts_with($trimmed, '>')) {
+            return ['cleanText' => $rawText, 'replyTo' => null];
+        }
+
+        if (preg_match('/^>(?: \*(.*?)\*:?)?\s*([\s\S]*?)\n\n([\s\S]*)$/', $trimmed, $m1)) {
+            $sender = trim($m1[1] ?: 'Pesan');
+            $quoted = trim(preg_replace('/^>\s?/m', '', $m1[2]));
+            $actual = trim($m1[3]);
+
+            return [
+                'cleanText' => $actual,
+                'replyTo' => ['senderName' => $sender, 'text' => $quoted],
+            ];
+        }
+
+        if (preg_match('/^> \[(.*?)\]\s*([\s\S]*?)\n\n([\s\S]*)$/', $trimmed, $m2)) {
+            $sender = trim($m2[1] ?: 'Pesan');
+            $quoted = trim(preg_replace('/^>\s?/m', '', $m2[2]));
+            $actual = trim($m2[3]);
+
+            return [
+                'cleanText' => $actual,
+                'replyTo' => ['senderName' => $sender, 'text' => $quoted],
+            ];
+        }
+
+        if (preg_match('/^> ([\s\S]*?)\n\n([\s\S]*)$/', $trimmed, $m3)) {
+            $quoted = trim(preg_replace('/^>\s?/m', '', $m3[1]));
+            $actual = trim($m3[2]);
+
+            return [
+                'cleanText' => $actual,
+                'replyTo' => ['senderName' => 'Pesan', 'text' => $quoted],
+            ];
+        }
+
+        return ['cleanText' => $rawText, 'replyTo' => null];
     }
 
     public function watzapSimulateReceive(Request $request): JsonResponse
@@ -551,7 +938,7 @@ class WorkspaceSosmedController extends Controller
 
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $filename = $file->getClientOriginalName() ?: ('sim_' . time());
+            $filename = $file->getClientOriginalName() ?: ('sim_'.time());
             $mimeType = $file->getMimeType() ?: 'application/octet-stream';
             $fileSize = $file->getSize();
             $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
@@ -577,7 +964,7 @@ class WorkspaceSosmedController extends Controller
         }
 
         $entry = [
-            'messageId' => 'sim_in_' . uniqid(),
+            'messageId' => 'sim_in_'.uniqid(),
             'phone' => $phone,
             'message' => $message,
             'media_url' => $mediaUrl,
@@ -592,12 +979,13 @@ class WorkspaceSosmedController extends Controller
         ];
 
         try {
-            $msgFile = $this->storagePath . DIRECTORY_SEPARATOR . 'watzap_messages.json';
+            $msgFile = $this->storagePath.DIRECTORY_SEPARATOR.'watzap_messages.json';
             $messages = File::exists($msgFile) ? json_decode(File::get($msgFile), true) ?? [] : [];
             $messages[] = $entry;
             $trimmed = array_slice($messages, -1000);
             @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         return response()->json([
             'success' => true,
@@ -610,7 +998,7 @@ class WorkspaceSosmedController extends Controller
     {
         $fileType = $request->query('type', 'turnover');
         $targetFileName = $fileType === 'croselling' ? 'CROSSELLING-12102026.xlsx' : 'turnover.xlsx';
-        $path = $this->storagePath . DIRECTORY_SEPARATOR . $targetFileName;
+        $path = $this->storagePath.DIRECTORY_SEPARATOR.$targetFileName;
 
         $prefix = $fileType === 'croselling' ? 'workspace_croselling' : 'workspace_turnover';
 
@@ -626,6 +1014,7 @@ class WorkspaceSosmedController extends Controller
                 "{$prefix}_filesize",
                 "{$prefix}_filename",
             ])->delete();
+
             return response()->json(['success' => true, 'message' => "File {$fileType} di-reset ke default."]);
         }
 
@@ -637,6 +1026,7 @@ class WorkspaceSosmedController extends Controller
             $base64 = Setting::where('key', "{$prefix}_file_base64")->value('value');
             if (! empty($base64)) {
                 $binary = base64_decode($base64);
+
                 return response($binary, 200, [
                     'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     'Content-Disposition' => "attachment; filename=\"{$targetFileName}\"",
@@ -670,7 +1060,7 @@ class WorkspaceSosmedController extends Controller
 
         $fileType = $request->query('type', 'turnover');
         $targetFileName = $fileType === 'croselling' ? 'CROSSELLING-12102026.xlsx' : 'turnover.xlsx';
-        $targetPath = $this->storagePath . DIRECTORY_SEPARATOR . $targetFileName;
+        $targetPath = $this->storagePath.DIRECTORY_SEPARATOR.$targetFileName;
 
         $content = $request->getContent();
         if (empty($content)) {
@@ -755,7 +1145,7 @@ class WorkspaceSosmedController extends Controller
 
         // Save to public workspace folder
         $targetFileName = $fileType === 'croselling' ? 'CROSSELLING-12102026.xlsx' : 'turnover.xlsx';
-        $targetPath = $this->storagePath . DIRECTORY_SEPARATOR . $targetFileName;
+        $targetPath = $this->storagePath.DIRECTORY_SEPARATOR.$targetFileName;
         @File::put($targetPath, $fullBuffer);
 
         $nowMs = (string) round(microtime(true) * 1000);
@@ -793,11 +1183,11 @@ class WorkspaceSosmedController extends Controller
             ->where(function ($q) use ($query, $digits, $likeOp) {
                 if ($digits !== '') {
                     $q->where('document_number', $digits)
-                      ->orWhere('no_hp_customer', 'like', "%{$digits}%");
+                        ->orWhere('no_hp_customer', 'like', "%{$digits}%");
                 }
                 $q->orWhere('document_number', $query)
-                  ->orWhere('name', $likeOp, "%{$query}%")
-                  ->orWhere('customer_vendor_name', $likeOp, "%{$query}%");
+                    ->orWhere('name', $likeOp, "%{$query}%")
+                    ->orWhere('customer_vendor_name', $likeOp, "%{$query}%");
             })
             ->limit(100)
             ->get();

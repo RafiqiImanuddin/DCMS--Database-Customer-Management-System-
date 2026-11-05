@@ -2293,6 +2293,24 @@
 </div>
 
   <script src="client.js?v={{ @filemtime(public_path('workspace-sosmed/client.js')) ?: '7.2' }}"></script>
+    <!-- Omnichannel Image Lightbox Modal -->
+    <div id="omniImageModal" class="omni-img-modal" style="display:none;" onclick="closeOmniImageModal()">
+        <div class="omni-img-modal-dialog" onclick="event.stopPropagation()">
+            <button type="button" class="omni-img-modal-close" onclick="closeOmniImageModal()">&times;</button>
+            <img id="omniImageModalImg" src="" alt="WhatsApp Media Preview" class="omni-img-modal-image">
+            <div style="text-align:center; margin-top:12px;">
+                <a id="omniImageModalDownload" href="#" target="_blank" download="whatsapp_image.jpg" class="btn btn-outline btn-sm" style="background:#ffffff; color:#0f172a; font-size:0.75rem; text-decoration:none; padding:6px 12px; border-radius:6px; display:inline-block; font-weight:600;">
+                    💾 Buka / Unduh Gambar Resolusi Penuh
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden audio element for message chime -->
+    <audio id="omniAudioChime" preload="auto">
+        <source src="data:audio/mp3;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaCDWAEWWWxIN3GMAAOggAcDgOA8Hg8Hg8Hg8Hg8Pg8AgMBgMD///8PD4PD4PD4PD4PD4PD4PAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAIDAID///8AAAA=" type="audio/mp3">
+    </audio>
+
   <script>
     window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
     window.WORKSPACE_ENCRYPTED_URLS = @json($encryptedTabUrls ?? \App\Support\RouteCipher::allWorkspaceUrls());

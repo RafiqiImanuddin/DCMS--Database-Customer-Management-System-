@@ -55,6 +55,175 @@ class WatzapService
         return $this->getApiKey($channel) !== '' && $this->getNumberKey($channel) !== '';
     }
 
+    public function getWahaUrl(): string
+    {
+        return rtrim((string) Setting::get('waha_vps_url', (string) config('services.waha.url', 'http://178.83.188.100:3088')), '/');
+    }
+
+    public function getWahaApiKey(): string
+    {
+        return trim((string) Setting::get('waha_api_key', (string) config('services.waha.api_key', 'gadgetmart123')));
+    }
+
+    public function getWahaSession(): string
+    {
+        return trim((string) Setting::get('waha_session', 'default'));
+    }
+
+    public function isWahaEnabled(): bool
+    {
+        return (string) Setting::get('waha_enabled', '1') !== '0';
+    }
+
+    /**
+     * Resolves phone or WhatsApp LID (@lid) to a normalized WhatsApp phone number (e.g. 628xxx).
+     */
+    public function resolvePhoneOrLid(?string $raw): string
+    {
+        if ($raw === null) {
+            return '';
+        }
+
+        $str = trim($raw);
+        if ($str === '') {
+            return '';
+        }
+
+        if (str_ends_with($str, '@lid') || (strlen($str) >= 13 && ! str_starts_with($str, '628') && ! str_starts_with($str, '08') && ! str_starts_with($str, '8'))) {
+            try {
+                $q = str_contains($str, '@') ? $str : "{$str}@lid";
+                $wahaUrl = $this->getWahaUrl().'/api/contacts?session='.urlencode($this->getWahaSession()).'&contactId='.urlencode($q);
+                $res = Http::timeout(3)
+                    ->withHeaders(['X-Api-Key' => $this->getWahaApiKey()])
+                    ->get($wahaUrl);
+                if ($res->ok()) {
+                    $d = $res->json();
+                    $num = $d['id'] ?? '';
+                    $clean = preg_replace('/@.*$/', '', (string) $num) ?? '';
+                    $clean = preg_replace('/\D/', '', $clean) ?? '';
+                    if (strlen($clean) >= 9 && strlen($clean) <= 15) {
+                        if (str_starts_with($clean, '08')) {
+                            return '62'.substr($clean, 1);
+                        }
+                        if (str_starts_with($clean, '8')) {
+                            return '62'.$clean;
+                        }
+
+                        return $clean;
+                    }
+                }
+            } catch (Throwable) {
+            }
+        }
+
+        $clean = preg_replace('/@.*$/', '', $str) ?? '';
+        $clean = preg_replace('/\D/', '', $clean) ?? '';
+        if (str_starts_with($clean, '08')) {
+            $clean = '62'.substr($clean, 1);
+        } elseif (str_starts_with($clean, '8')) {
+            $clean = '62'.$clean;
+        } elseif (! str_starts_with($clean, '62') && $clean !== '') {
+            $clean = '62'.$clean;
+        }
+
+        return $clean;
+    }
+
+    /**
+     * Send Omnichannel message with Dual-Gateway (WAHA VPS primary + WatZap fallback)
+     * and native quoted reply support.
+     *
+     * @param  array{id?: string, messageId?: string, senderName?: string, text?: string}|null  $replyTo
+     * @return array{success: bool, message: string, status: string, source: string, message_id: string, data: array, raw: string}
+     */
+    public function sendOmnichannel(string $rawPhone, string $message, ?string $mediaUrl = null, ?string $mediaType = null, ?array $replyTo = null): array
+    {
+        $cleanPhone = $this->resolvePhoneOrLid($rawPhone);
+        if (! $cleanPhone) {
+            return [
+                'success' => false,
+                'message' => 'Nomor telepon tujuan tidak valid.',
+                'status' => 'invalid_phone',
+                'source' => 'NONE',
+                'message_id' => 'err_'.uniqid(),
+                'data' => [],
+                'raw' => '',
+            ];
+        }
+
+        // 1. Prioritaskan Pengiriman via WAHA VPS (Super Cepat & Native Quoted Reply)
+        if ($this->isWahaEnabled()) {
+            try {
+                $endpoint = $mediaUrl
+                    ? ($mediaType === 'image' ? '/api/sendImage' : '/api/sendFile')
+                    : '/api/sendText';
+
+                $wahaUrl = $this->getWahaUrl().$endpoint;
+                $payload = [
+                    'session' => $this->getWahaSession(),
+                    'chatId' => "{$cleanPhone}@c.us",
+                ];
+
+                if ($mediaUrl) {
+                    $payload['file'] = ['url' => $mediaUrl];
+                    if ($message !== '') {
+                        $payload['caption'] = $message;
+                    }
+                } else {
+                    $payload['text'] = $message;
+                }
+
+                $replyId = $replyTo['id'] ?? $replyTo['messageId'] ?? null;
+                if ($replyId) {
+                    $payload['reply_to'] = (string) $replyId;
+                }
+
+                $response = Http::timeout(6)
+                    ->withHeaders([
+                        'Content-Type' => 'application/json',
+                        'X-Api-Key' => $this->getWahaApiKey(),
+                    ])
+                    ->post($wahaUrl, $payload);
+
+                if ($response->successful()) {
+                    $json = $response->json();
+                    $msgId = 'waha_'.time();
+                    if (isset($json['id'])) {
+                        $msgId = is_array($json['id']) ? (string) ($json['id']['_serialized'] ?? $json['id']['id'] ?? $msgId) : (string) $json['id'];
+                    }
+
+                    return [
+                        'success' => true,
+                        'source' => 'WAHA_VPS',
+                        'message_id' => $msgId,
+                        'status' => '200',
+                        'message' => 'Pesan berhasil dikirim via WAHA VPS.',
+                        'data' => is_array($json) ? $json : [],
+                        'raw' => $response->body(),
+                    ];
+                }
+            } catch (Throwable) {
+                // Lanjut fallback ke WatZap API
+            }
+        }
+
+        // 2. Fallback ke WatZap Cloud API
+        if ($mediaUrl) {
+            if ($mediaType === 'image') {
+                $result = $this->sendImage($cleanPhone, $mediaUrl, $message ?: null, 'inbox');
+            } else {
+                $result = $this->sendFile($cleanPhone, $mediaUrl, $message ?: null, 'inbox');
+            }
+        } else {
+            $result = $this->sendMessage($cleanPhone, $message, 'inbox');
+        }
+
+        $result['source'] = 'WATZAP';
+        $result['message_id'] = 'out_'.uniqid();
+
+        return $result;
+    }
+
     public function normalizePhone(?string $phone): ?string
     {
         if ($phone === null) {

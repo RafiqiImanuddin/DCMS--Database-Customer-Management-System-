@@ -7264,3 +7264,208 @@ h1, h2, h3, h4, h5, h6,
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* ========================================================================== */
+/* OMNICHANNEL INBOX FU: QUOTED REPLY & IMAGE LIGHTBOX MODAL STYLES          */
+/* ========================================================================== */
+
+/* Quoted Reply Block inside Bubble */
+.omni-bubble-reply-block {
+  background: rgba(0, 0, 0, 0.05);
+  border-left: 3.5px solid #25d366;
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.omni-bubble-reply-block:hover {
+  background: rgba(0, 0, 0, 0.11);
+  filter: brightness(0.96);
+}
+
+.omni-bubble-outgoing .omni-bubble-reply-block {
+  background: rgba(0, 0, 0, 0.06);
+  border-left-color: #059669;
+}
+
+.omni-bubble-outgoing .omni-bubble-reply-block:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.omni-reply-block-sender {
+  font-weight: 700;
+  color: #059669;
+  margin-bottom: 2px;
+}
+
+.omni-bubble-incoming .omni-reply-block-sender {
+  color: #2563eb;
+}
+
+.omni-reply-block-text {
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+/* Quoted Reply Banner above Textarea Input */
+.omni-quoted-reply-bar {
+  background: #f8fafc;
+  border-left: 4px solid #25d366;
+  border-radius: 6px 6px 0 0;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  animation: slideDown 0.15s ease-out;
+}
+
+.omni-quoted-bar-left {
+  flex: 1;
+  overflow: hidden;
+}
+
+.omni-quoted-reply-title {
+  font-size: 0.70rem;
+  font-weight: 700;
+  color: #059669;
+}
+
+.omni-quoted-reply-snippet {
+  font-size: 0.74rem;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.omni-quoted-close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.omni-quoted-close-btn:hover {
+  color: #e11d48;
+  background: #ffe4e6;
+}
+
+/* WhatsApp Chat Media Image */
+.omni-bubble-media {
+  max-width: 260px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.omni-chat-image {
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.omni-chat-image:hover {
+  filter: brightness(0.95);
+  transform: scale(1.02);
+}
+
+/* Image Lightbox Modal */
+.omni-img-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.omni-img-modal-dialog {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.omni-img-modal-image {
+  max-width: 85vw;
+  max-height: 78vh;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.omni-img-modal-close {
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f172a;
+  border: none;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s;
+}
+
+.omni-img-modal-close:hover {
+  transform: scale(1.1);
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.omni-bubble-media-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.omni-msg-focused {
+  animation: omniHighlightMsg 2s ease-out;
+}
+
+@keyframes omniHighlightMsg {
+  0% { background-color: rgba(37, 99, 235, 0.25); }
+  50% { background-color: rgba(37, 99, 235, 0.15); }
+  100% { background-color: transparent; }
+}

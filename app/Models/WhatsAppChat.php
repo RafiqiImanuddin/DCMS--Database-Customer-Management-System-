@@ -22,6 +22,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'last_message',
     'last_message_at',
     'unread_count',
+    'is_resolved',
+    'resolved_by',
+    'resolved_at',
 ])]
 class WhatsAppChat extends Model
 {
@@ -33,6 +36,8 @@ class WhatsAppChat extends Model
             'tanggal_pengambilan' => 'date',
             'last_message_at' => 'datetime',
             'unread_count' => 'integer',
+            'is_resolved' => 'boolean',
+            'resolved_at' => 'datetime',
         ];
     }
 
@@ -56,4 +61,3 @@ class WhatsAppChat extends Model
         $this->attributes['tags_json'] = json_encode(array_values(array_unique($tags)));
     }
 }
-
