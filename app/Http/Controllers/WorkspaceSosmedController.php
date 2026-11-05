@@ -66,7 +66,7 @@ class WorkspaceSosmedController extends Controller
         $dbTurnoverUploader = Setting::where('key', 'workspace_turnover_uploader')->value('value') ?? 'Superadmin';
         $dbTurnoverFilesize = (int) (Setting::where('key', 'workspace_turnover_filesize')->value('value') ?? 0);
 
-        if ($dbTurnoverMtime > ($turnoverStatus['mtimeMs'] ?? 0)) {
+        if ($dbTurnoverMtime > 0) {
             $turnoverStatus['exists'] = true;
             $turnoverStatus['mtimeMs'] = $dbTurnoverMtime;
             $turnoverStatus['mtime'] = date('c', (int) ($dbTurnoverMtime / 1000));
@@ -81,7 +81,7 @@ class WorkspaceSosmedController extends Controller
         $dbCrossUploader = Setting::where('key', 'workspace_croselling_uploader')->value('value') ?? 'Superadmin';
         $dbCrossFilesize = (int) (Setting::where('key', 'workspace_croselling_filesize')->value('value') ?? 0);
 
-        if ($dbCrossMtime > ($crossStatus['mtimeMs'] ?? 0)) {
+        if ($dbCrossMtime > 0) {
             $crossStatus['exists'] = true;
             $crossStatus['mtimeMs'] = $dbCrossMtime;
             $crossStatus['mtime'] = date('c', (int) ($dbCrossMtime / 1000));
@@ -629,12 +629,11 @@ class WorkspaceSosmedController extends Controller
             return response()->json(['success' => true, 'message' => "File {$fileType} di-reset ke default."]);
         }
 
-        // Check if database has newer custom file
+        // Check if database has custom file uploaded by user
         $dbMtime = (int) (Setting::where('key', "{$prefix}_mtime")->value('value') ?? 0);
-        $diskMtime = File::exists($path) ? File::lastModified($path) * 1000 : 0;
         $uploader = Setting::where('key', "{$prefix}_uploader")->value('value') ?? 'Superadmin';
 
-        if ($dbMtime > $diskMtime) {
+        if ($dbMtime > 0) {
             $base64 = Setting::where('key', "{$prefix}_file_base64")->value('value');
             if (! empty($base64)) {
                 $binary = base64_decode($base64);

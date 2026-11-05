@@ -362,7 +362,7 @@ class BroadcastReportController extends Controller
 
     public function destroy(Request $request, BroadcastReport $report): RedirectResponse
     {
-        if ((int) $report->user_id !== (int) $request->user()->id) {
+        if ((int) $report->user_id !== (int) $request->user()->id && ! $request->user()->isSuperAdmin()) {
             abort(404);
         }
 

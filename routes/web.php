@@ -48,6 +48,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/imports/{import}', [CrossSellingImportController::class, 'destroy'])->name('imports.destroy');
     Route::delete('/imports/turnover/{import}', [CrossSellingImportController::class, 'destroyTurnover'])->name('imports.destroy_turnover');
     Route::get('/imports/{import}', fn () => redirect()->route('imports.index'));
+    Route::get('/imports/turnover/{import}', fn () => redirect()->route('imports.index'));
 
     // Fitur Data Master Customer & Download (Sudah Terpadu dengan Repeat Order Dashboard)
     Route::get('/predictions/download', [RepeatOrderPredictionController::class, 'download'])->name('predictions.download');

@@ -6,20 +6,15 @@
     <title>@yield('title', 'Dashboard') - DCMS Gadgetmart</title>
     @yield('head')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @php
-        $encryptedCurrentUrl = \App\Support\RouteCipher::resolveCurrentEncryptedUrl(request());
-    @endphp
-    @if ($encryptedCurrentUrl)
     <script>
         (function() {
             try {
-                if (!window.location.pathname.startsWith('/r/')) {
-                    window.history.replaceState({}, '', '{{ $encryptedCurrentUrl }}');
+                if (localStorage.getItem('dcms_sidebar_collapsed') === '1' && window.innerWidth >= 768) {
+                    document.documentElement.classList.add('sidebar-collapsed');
                 }
             } catch (e) {}
         })();
     </script>
-    @endif
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
     <div class="flex min-h-screen">
@@ -29,7 +24,7 @@
             <header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur md:px-8">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <button id="sidebar-toggle" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar()}" type="button" class="grid size-10 place-items-center rounded-xl border border-slate-200 text-slate-600 md:hidden" aria-label="Buka menu">
+                        <button id="sidebar-toggle" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar()}" type="button" class="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs cursor-pointer" aria-label="Toggle Sidebar" title="Sembunyikan / Tampilkan Sidebar (Ctrl+B)">
                             <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
                         <div><div class="text-sm font-bold text-slate-900">@yield('title')</div><div class="hidden text-xs text-slate-400 sm:block">DCMS Gadgetmart</div></div>

@@ -23,6 +23,15 @@
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="stylesheet" href="style.css?v={{ @filemtime(public_path('workspace-sosmed/style.css')) ?: '7.2' }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('dcms_sidebar_collapsed') === '1' && window.innerWidth >= 768) {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 
 <body class="min-h-screen bg-slate-50 text-slate-900">
@@ -34,7 +43,7 @@
             <header class="workspace-header-wrapper">
                 <div class="workspace-header-pill">
                     <div class="flex items-center gap-3">
-                        <button id="sidebar-toggle" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar()}" type="button" class="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 md:hidden transition shadow-2xs" aria-label="Buka menu">
+                        <button id="sidebar-toggle" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar()}" type="button" class="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs cursor-pointer" aria-label="Toggle Menu" title="Sembunyikan / Tampilkan Menu (Ctrl+B)">
                             <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
                         <div class="header-pill-brand" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(1)}else{switchTab(1)}" title="Kembali ke Dashboard">
@@ -221,7 +230,9 @@
                             <div class="filter-inline-item">
                                 <label for="dashFilterMonth">Bulan / Periode:</label>
                                 <select id="dashFilterMonth" class="form-input-sm" onchange="applyDashboardFilters()">
-                                    <option value="10" selected>Oktober 2026 (Bulan Berjalan)</option>
+                                    <option value="12">Desember 2026</option>
+                                    <option value="11" selected>November 2026 (Bulan Berjalan)</option>
+                                    <option value="10">Oktober 2026</option>
                                     <option value="9">September 2026</option>
                                     <option value="8">Agustus 2026</option>
                                     <option value="7">Juli 2026</option>
@@ -914,7 +925,8 @@
                                     <select id="keepFilterPeriode" class="modern-filter-select"
                                         onchange="applyKeepFilters()">
                                         <option value="ALL">Semua Periode</option>
-                                        <option value="Oktober-26" selected>Oktober 2026</option>
+                                        <option value="November-26" selected>November 2026 (Terbaru)</option>
+                                        <option value="Oktober-26">Oktober 2026</option>
                                         <option value="September-26">September 2026</option>
                                         <option value="Agustus-26">Agustus 2026</option>
                                         <option value="Juli-26">Juli 2026</option>
@@ -1087,7 +1099,8 @@
                                     <select id="auditFilterPeriode" class="modern-filter-select"
                                         onchange="applyAuditFilters()">
                                         <option value="ALL">Semua Periode</option>
-                                        <option value="Oktober-26" selected>Oktober-26 (Bulan ini)</option>
+                                        <option value="November-26" selected>November-26 (Bulan ini)</option>
+                                        <option value="Oktober-26">Oktober-26</option>
                                         <option value="September-26">September-26</option>
                                         <option value="Agustus-26">Agustus-26</option>
                                         <option value="Juli-26">Juli-26</option>

@@ -111,8 +111,8 @@ function formatPhoneDisplay(p) {
 function resolvePostingDay(pd) {
   if (typeof pd === 'number') {
     const d = XLSX.SSF.parse_date_code(pd);
-    // In turnover.xlsx, October (month 10) was exported as day 10, and days 1-12 were exported as month 1-12!
-    if (d.d === 10 && d.m >= 1 && d.m <= 12) {
+    // In turnover.xlsx US inverted locale: if day matches activeMonth (e.g. 10 for Oct, 11 for Nov) and d.m is in valid range
+    if ((d.d === activeMonth || d.d === 10 || d.d === 11 || d.d === 12) && d.m >= 1 && d.m <= 31) {
       return d.m;
     }
     return d.d;
@@ -347,6 +347,65 @@ function readTurnoverJsonFromBuffer(arrayBuffer) {
   return XLSX.utils.sheet_to_json(sheet);
 }
 
+// Helper untuk mendeteksi bulan dan tahun aktif dari data turnover secara otomatis
+function autoDetectTurnoverMonth(rows) {
+  if (!rows || rows.length === 0) return null;
+  const monthCounts = {};
+  const yearCounts = {};
+  const sample = rows.slice(0, 1000);
+  for (const r of sample) {
+    const raw = r['Posting Date'];
+    if (!raw) continue;
+    let m = null, y = null;
+    if (typeof raw === 'number') {
+      const d = XLSX.SSF.parse_date_code(raw);
+      if (d) {
+        if (d.d === 10 || d.d === 11 || d.d === 12) {
+          m = d.d;
+        } else if (d.m >= 1 && d.m <= 12) {
+          m = d.m;
+        }
+        y = d.y || 2026;
+      }
+    } else if (typeof raw === 'string') {
+      const p = raw.split(/[\/\-]/);
+      if (p.length >= 3) {
+        const p1 = parseInt(p[0], 10);
+        const p2 = parseInt(p[1], 10);
+        const p3 = parseInt(p[2], 10);
+        y = p3 > 1000 ? p3 : (p1 > 1000 ? p1 : 2026);
+        if (p1 > 12) m = p2;
+        else if (p2 > 12) m = p1;
+        else m = p2;
+      }
+    }
+    if (m && m >= 1 && m <= 12) {
+      monthCounts[m] = (monthCounts[m] || 0) + 1;
+      if (y) yearCounts[y] = (yearCounts[y] || 0) + 1;
+    }
+  }
+
+  let dominantMonth = null;
+  let maxCount = 0;
+  for (const [m, cnt] of Object.entries(monthCounts)) {
+    if (cnt > maxCount) {
+      maxCount = cnt;
+      dominantMonth = parseInt(m, 10);
+    }
+  }
+
+  let dominantYear = 2026;
+  let maxYearCount = 0;
+  for (const [y, cnt] of Object.entries(yearCounts)) {
+    if (cnt > maxYearCount) {
+      maxYearCount = cnt;
+      dominantYear = parseInt(y, 10);
+    }
+  }
+
+  return dominantMonth ? { month: dominantMonth, year: dominantYear } : null;
+}
+
 // 2. PARSER ENGINE FOR turnover.xlsx (Achievement DPP)
 function parseTurnoverBuffer(arrayBuffer) {
   try {
@@ -355,6 +414,19 @@ function parseTurnoverBuffer(arrayBuffer) {
     if (!jsonData || jsonData.length === 0) return;
     rawTurnoverRows = jsonData;
     console.log(`turnover.xlsx loaded: ${jsonData.length} rows`);
+
+    const detected = autoDetectTurnoverMonth(jsonData);
+    if (detected) {
+      activeMonth = detected.month;
+      activeYear = detected.year;
+      daysInMonth = new Date(activeYear, activeMonth, 0).getDate();
+      console.log(`📅 Periode turnover terdeteksi otomatis: Bulan ${activeMonth}, Tahun ${activeYear} (${daysInMonth} hari)`);
+      const dashSel = document.getElementById('dashFilterMonth');
+      if (dashSel) {
+        dashSel.value = String(activeMonth);
+      }
+    }
+
     processAllReports();
     updateDatabaseStatus();
   } catch (err) {
@@ -1825,7 +1897,9 @@ function parseKeepCSV(csvText, isSilent = false) {
       pill.innerHTML = `<span>📁 Sumber: Google Sheets Live (${rawKeepRows.length.toLocaleString('id-ID')} Baris Data)</span>`;
     }
 
+    populateKeepPeriodeDropdown();
     populateKeepSosmedDropdown();
+    populateAuditPeriodeDropdown();
     applyKeepFilters();
 
     if (typeof rawCrosellingRows !== 'undefined' && rawCrosellingRows.length > 0 && typeof runARMissingSosmedAudit === 'function') {
@@ -1946,6 +2020,114 @@ async function syncLiveKeepData() {
 }
 window.syncLiveKeepData = syncLiveKeepData;
 
+function populateKeepPeriodeDropdown() {
+  const select = document.getElementById('keepFilterPeriode');
+  if (!select || !rawKeepRows || rawKeepRows.length === 0) return;
+
+  const currentVal = select.value;
+  const uniquePeriods = new Set();
+  rawKeepRows.forEach(r => {
+    const p = String(r['PERIODE'] || '').trim();
+    if (p && p !== 'undefined' && p !== 'null' && p !== '-') {
+      uniquePeriods.add(p);
+    }
+  });
+
+  if (uniquePeriods.size === 0) return;
+
+  const monthWeights = {
+    'januari': 1, 'jan': 1,
+    'februari': 2, 'feb': 2,
+    'maret': 3, 'mar': 3,
+    'april': 4, 'apr': 4,
+    'mei': 5, 'may': 5,
+    'juni': 6, 'jun': 6,
+    'juli': 7, 'jul': 7,
+    'agustus': 8, 'aug': 8, 'agu': 8,
+    'september': 9, 'sep': 9,
+    'oktober': 10, 'oct': 10, 'okt': 10,
+    'november': 11, 'nov': 11,
+    'desember': 12, 'dec': 12, 'des': 12
+  };
+
+  function getPeriodWeight(str) {
+    const parts = str.split(/[-_/ ]+/);
+    const mStr = (parts[0] || '').toLowerCase();
+    let y = parseInt(parts[1] || '26', 10);
+    if (y < 100) y += 2000;
+    const m = monthWeights[mStr] || 0;
+    return y * 100 + m;
+  }
+
+  const sortedPeriods = Array.from(uniquePeriods).sort((a, b) => getPeriodWeight(b) - getPeriodWeight(a));
+  const newestPeriod = sortedPeriods[0];
+
+  let chosenVal = 'ALL';
+  if (currentVal && currentVal !== 'Oktober-26' && (currentVal === 'ALL' || uniquePeriods.has(currentVal))) {
+    chosenVal = currentVal;
+  } else if (newestPeriod) {
+    chosenVal = newestPeriod;
+  }
+
+  select.innerHTML = '<option value="ALL">Semua Periode</option>' + 
+    sortedPeriods.map(p => {
+      const isNewest = (p === newestPeriod) ? ' (Terbaru)' : '';
+      return `<option value="${p}">${p}${isNewest}</option>`;
+    }).join('');
+
+  select.value = chosenVal;
+}
+
+function populateAuditPeriodeDropdown() {
+  const select = document.getElementById('auditFilterPeriode');
+  if (!select || !rawKeepRows || rawKeepRows.length === 0) return;
+
+  const currentVal = select.value;
+  const uniquePeriods = new Set();
+  rawKeepRows.forEach(r => {
+    const p = String(r['PERIODE'] || '').trim();
+    if (p && p !== 'undefined' && p !== 'null' && p !== '-') {
+      uniquePeriods.add(p);
+    }
+  });
+
+  if (uniquePeriods.size === 0) return;
+
+  const monthWeights = {
+    'januari': 1, 'jan': 1, 'februari': 2, 'feb': 2, 'maret': 3, 'mar': 3,
+    'april': 4, 'apr': 4, 'mei': 5, 'may': 5, 'juni': 6, 'jun': 6,
+    'juli': 7, 'jul': 7, 'agustus': 8, 'aug': 8, 'agu': 8, 'september': 9, 'sep': 9,
+    'oktober': 10, 'oct': 10, 'okt': 10, 'november': 11, 'nov': 11, 'desember': 12, 'dec': 12, 'des': 12
+  };
+
+  function getPeriodWeight(str) {
+    const parts = str.split(/[-_/ ]+/);
+    const mStr = (parts[0] || '').toLowerCase();
+    let y = parseInt(parts[1] || '26', 10);
+    if (y < 100) y += 2000;
+    const m = monthWeights[mStr] || 0;
+    return y * 100 + m;
+  }
+
+  const sortedPeriods = Array.from(uniquePeriods).sort((a, b) => getPeriodWeight(b) - getPeriodWeight(a));
+  const newestPeriod = sortedPeriods[0];
+
+  let chosenVal = 'ALL';
+  if (currentVal && currentVal !== 'Oktober-26' && (currentVal === 'ALL' || uniquePeriods.has(currentVal))) {
+    chosenVal = currentVal;
+  } else if (newestPeriod) {
+    chosenVal = newestPeriod;
+  }
+
+  select.innerHTML = '<option value="ALL">Semua Periode</option>' + 
+    sortedPeriods.map(p => {
+      const isNewest = (p === newestPeriod) ? ' (Bulan ini)' : '';
+      return `<option value="${p}">${p}${isNewest}</option>`;
+    }).join('');
+
+  select.value = chosenVal;
+}
+
 function populateKeepSosmedDropdown() {
   const select = document.getElementById('keepFilterSosmed');
   if (!select) return;
@@ -2065,7 +2247,10 @@ function toggleAuditFiltersSection() {
 }
 
 function resetKeepFilters() {
-  if (document.getElementById('keepFilterPeriode')) document.getElementById('keepFilterPeriode').value = 'Oktober-26';
+  const kSel = document.getElementById('keepFilterPeriode');
+  if (kSel) {
+    kSel.value = kSel.options.length > 1 ? kSel.options[1].value : 'ALL';
+  }
   if (document.getElementById('keepFilterSosmed')) document.getElementById('keepFilterSosmed').value = 'ALL';
   if (document.getElementById('keepFilterStatus')) document.getElementById('keepFilterStatus').value = 'ALL';
   if (document.getElementById('keepFilterTanggal')) document.getElementById('keepFilterTanggal').value = '';
@@ -3213,7 +3398,9 @@ function resetAuditFilters() {
   const statusEl = document.getElementById('auditFilterStatus');
   const searchEl = document.getElementById('auditSearchInput');
 
-  if (periodeEl) periodeEl.value = 'Oktober-26';
+  if (periodeEl) {
+    periodeEl.value = periodeEl.options.length > 1 ? periodeEl.options[1].value : 'ALL';
+  }
   if (sosmedEl) sosmedEl.value = 'ALL';
   if (tglVlookupEl) tglVlookupEl.value = '';
   if (tglReportEl) tglReportEl.value = '';
@@ -4975,14 +5162,38 @@ async function loadMonthlyArchives() {
     const res = await fetch(`/api/monthly-archives?t=${Date.now()}`);
     if (res.ok) {
       const serverData = await res.json();
-      const localData = JSON.parse(localStorage.getItem('gadgetmart_sosmed_archives') || '[]');
+      let localData = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('gadgetmart_sosmed_archives') || '[]');
+        localData = Array.isArray(stored) ? stored : Object.values(stored || {});
+      } catch (e) {
+        localData = [];
+      }
       const map = {};
-      localData.forEach(item => { map[item.title || `${item.month}_${item.year}`] = item; });
-      serverData.forEach(item => { map[item.title || `${item.month}_${item.year}`] = item; });
+      if (Array.isArray(localData)) {
+        localData.forEach(item => { if (item && typeof item === 'object') map[item.title || `${item.month}_${item.year}`] = item; });
+      }
+      if (Array.isArray(serverData)) {
+        serverData.forEach(item => { if (item && typeof item === 'object') map[item.title || `${item.month}_${item.year}`] = item; });
+      } else if (serverData && typeof serverData === 'object') {
+        Object.keys(serverData).forEach(k => {
+          if (serverData[k] && typeof serverData[k] === 'object') {
+            map[k] = serverData[k];
+          }
+        });
+      }
       cachedMonthlyArchives = Object.values(map);
     }
   } catch(e) {
-    cachedMonthlyArchives = JSON.parse(localStorage.getItem('gadgetmart_sosmed_archives') || '[]');
+    try {
+      const stored = JSON.parse(localStorage.getItem('gadgetmart_sosmed_archives') || '[]');
+      cachedMonthlyArchives = Array.isArray(stored) ? stored : Object.values(stored || {});
+    } catch (err) {
+      cachedMonthlyArchives = [];
+    }
+  }
+  if (!Array.isArray(cachedMonthlyArchives)) {
+    cachedMonthlyArchives = [];
   }
 }
 
@@ -5029,7 +5240,7 @@ function renderArchiveGrid() {
   const empty = document.getElementById('archiveEmptyState');
   if (!grid || !empty) return;
 
-  if (!cachedMonthlyArchives || cachedMonthlyArchives.length === 0) {
+  if (!Array.isArray(cachedMonthlyArchives) || cachedMonthlyArchives.length === 0) {
     grid.innerHTML = '';
     empty.style.display = 'block';
     return;
@@ -6023,45 +6234,41 @@ async function loadAllDefaultFiles() {
   if (statusTitle) statusTitle.innerText = 'Menghubungkan ke Server Database...';
   
   // 1. Fetch turnover.xlsx:
-  // Cek apakah ada file turnover kustom yang tersimpan di IndexedDB atau PostgreSQL Database
   let turnoverLoaded = false;
-  const isCustomTurnover = localStorage.getItem('gadgetmart_turnover_is_custom') === 'true';
 
-  // A. Jika ada file custom di IndexedDB, muat langsung agar REFRESH TETAP STAY & INSTAN
-  if (isCustomTurnover) {
+  // A. Prioritaskan ambil dari Database Server (/api/get-excel?type=turnover) agar data upload terbaru selalu masuk
+  try {
+    const resTurnover = await fetch(`/api/get-excel?type=turnover&t=${Date.now()}`);
+    if (resTurnover.ok) {
+      const isDbCustom = resTurnover.headers.get('X-Custom-File') === 'true';
+      const serverTs = resTurnover.headers.get('X-File-Timestamp');
+      const uploader = resTurnover.headers.get('X-File-Uploader') || 'Superadmin';
+      const buf1 = await resTurnover.arrayBuffer();
+      if (buf1 && buf1.byteLength > 100) {
+        parseTurnoverBuffer(buf1);
+        turnoverLoaded = true;
+        await saveFileToIndexedDB('turnover_file', buf1);
+        localStorage.setItem('gadgetmart_turnover_is_custom', 'true');
+        const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : getFormattedTimestamp();
+        localStorage.setItem('gadgetmart_turnover_timestamp', ts);
+        updateTurnoverIndicator(`File turnover terupdate per ${ts} (Sinkron dari ${uploader})`);
+        console.log('✅ turnover.xlsx dimuat dari database server!');
+      }
+    }
+  } catch (e) {
+    console.warn('Gagal fetch turnover dari server:', e);
+  }
+
+  // B. Fallback ke IndexedDB jika koneksi server gagal/offline
+  if (!turnoverLoaded) {
     try {
       const cachedTurnover = await getFileFromIndexedDB('turnover_file');
-      if (cachedTurnover) {
+      if (cachedTurnover && cachedTurnover.byteLength > 100) {
         parseTurnoverBuffer(cachedTurnover);
         turnoverLoaded = true;
         const ts = localStorage.getItem('gadgetmart_turnover_timestamp') || getFormattedTimestamp();
-        updateTurnoverIndicator(`File turnover terupdate per ${ts}`);
-        console.log('✅ turnover.xlsx kustom dimuat dari IndexedDB lokal!');
-      }
-    } catch (e) {}
-  }
-
-  // B. Ambil dari Database Server (/api/get-excel?type=turnover)
-  if (!turnoverLoaded) {
-    try {
-      const resTurnover = await fetch(`/api/get-excel?type=turnover&t=${Date.now()}`);
-      if (resTurnover.ok) {
-        const isDbCustom = resTurnover.headers.get('X-Custom-File') === 'true';
-        const serverTs = resTurnover.headers.get('X-File-Timestamp');
-        const buf1 = await resTurnover.arrayBuffer();
-        parseTurnoverBuffer(buf1);
-        turnoverLoaded = true;
-        if (isDbCustom) {
-          await saveFileToIndexedDB('turnover_file', buf1);
-          localStorage.setItem('gadgetmart_turnover_is_custom', 'true');
-          const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : getFormattedTimestamp();
-          localStorage.setItem('gadgetmart_turnover_timestamp', ts);
-          updateTurnoverIndicator(`File turnover terupdate per ${ts}`);
-        } else {
-          const ts = localStorage.getItem('gadgetmart_turnover_timestamp') || 'Default Sistem (13/10/2026 18:00 WITA)';
-          updateTurnoverIndicator(`File turnover terupdate per ${ts}`);
-        }
-        console.log('✅ turnover.xlsx dimuat dari database server!');
+        updateTurnoverIndicator(`File turnover terupdate per ${ts} (Offline Cache)`);
+        console.log('✅ turnover.xlsx dimuat dari IndexedDB lokal!');
       }
     } catch (e) {}
   }
@@ -6072,10 +6279,12 @@ async function loadAllDefaultFiles() {
       const resTurnover = await fetch(`/workspace-sosmed/turnover.xlsx?t=${Date.now()}`);
       if (resTurnover.ok) {
         const buf1 = await resTurnover.arrayBuffer();
-        parseTurnoverBuffer(buf1);
-        turnoverLoaded = true;
-        const ts = localStorage.getItem('gadgetmart_turnover_timestamp') || 'Default Sistem (13/10/2026 18:00 WITA)';
-        updateTurnoverIndicator(`File turnover terupdate per ${ts}`);
+        if (buf1 && buf1.byteLength > 100) {
+          parseTurnoverBuffer(buf1);
+          turnoverLoaded = true;
+          const ts = localStorage.getItem('gadgetmart_turnover_timestamp') || 'Default Sistem (13/10/2026 18:00 WITA)';
+          updateTurnoverIndicator(`File turnover terupdate per ${ts}`);
+        }
       }
     } catch (e) {}
   }
@@ -6155,13 +6364,19 @@ async function pollServerSyncStatus() {
       if (lastKnownSyncStatus.turnoverMtime && status.turnover.mtimeMs > lastKnownSyncStatus.turnoverMtime) {
         console.log('🔄 [Sync Engine] File turnover.xlsx baru terdeteksi dari laptop lain!');
         lastKnownSyncStatus.turnoverMtime = status.turnover.mtimeMs;
-        const resTurnover = await fetch(`/workspace-sosmed/turnover.xlsx?t=${Date.now()}`);
+        let resTurnover = await fetch(`/api/get-excel?type=turnover&t=${Date.now()}`);
+        if (!resTurnover.ok) {
+          resTurnover = await fetch(`/workspace-sosmed/turnover.xlsx?t=${Date.now()}`);
+        }
         if (resTurnover.ok) {
           const buf = await resTurnover.arrayBuffer();
           parseTurnoverBuffer(buf);
           await saveFileToIndexedDB('turnover_file', buf);
           processAllReports();
-          showSaveToast('🔄 File turnover.xlsx telah diperbarui otomatis dari laptop lain!');
+          const uploader = status.turnover.uploader || 'Superadmin';
+          const ts = getFormattedTimestamp();
+          updateTurnoverIndicator(`File turnover terupdate per ${ts} (Sinkron dari ${uploader})`);
+          showSaveToast('🔄 File turnover.xlsx telah diperbarui otomatis dari server!');
         }
       } else if (!lastKnownSyncStatus.turnoverMtime) {
         lastKnownSyncStatus.turnoverMtime = status.turnover.mtimeMs;
@@ -6473,11 +6688,15 @@ function setDashCalculationMode(mode) {
 }
 
 function resetDashboardFilters() {
-  dashFilters = { month: '10', cabang: 'all', sales: 'all', mode: currentCalculationMode };
+  const currentMonth = String(new Date().getMonth() + 1);
+  dashFilters = { month: currentMonth, cabang: 'all', sales: 'all', mode: currentCalculationMode };
   const mSel = document.getElementById('dashFilterMonth');
   const cSel = document.getElementById('dashFilterCabang');
   const sSel = document.getElementById('dashFilterSales');
-  if (mSel) mSel.value = '10';
+  if (mSel) {
+    mSel.value = currentMonth;
+    if (!mSel.value) mSel.value = 'all';
+  }
   if (cSel) cSel.value = 'all';
   if (sSel) sSel.value = 'all';
   applyDashboardFilters();
@@ -8157,22 +8376,28 @@ function changeClaimsPage(delta) {
   }
 }
 
-// Auto init on page load
-window.addEventListener('DOMContentLoaded', async () => {
-  initLiveClock();
-  await loadMonthlyTargets();
-  await loadSalesPhotos();
-  await loadMonthlyArchives();
-  await loadARClaimsData();
-  populateAdminPanel(getMasterSales());
-  onAdminTargetMonthChange();
-  renderArchiveGrid();
-  await loadAllDefaultFiles();
-  populateDashboardFilterDropdowns();
-  applyDashboardFilters();
-  loadKeepData();
-  startRealtimeSyncEngine();
-});
+// Auto init on page load with state resilience
+async function initSosmedApp() {
+  try { initLiveClock(); } catch (e) { console.warn('initLiveClock error:', e); }
+  try { await loadMonthlyTargets(); } catch (e) { console.warn('loadMonthlyTargets error:', e); }
+  try { await loadSalesPhotos(); } catch (e) { console.warn('loadSalesPhotos error:', e); }
+  try { await loadMonthlyArchives(); } catch (e) { console.warn('loadMonthlyArchives error:', e); }
+  try { await loadARClaimsData(); } catch (e) { console.warn('loadARClaimsData error:', e); }
+  try { populateAdminPanel(getMasterSales()); } catch (e) { console.warn('populateAdminPanel error:', e); }
+  try { onAdminTargetMonthChange(); } catch (e) { console.warn('onAdminTargetMonthChange error:', e); }
+  try { renderArchiveGrid(); } catch (e) { console.warn('renderArchiveGrid error:', e); }
+  try { await loadAllDefaultFiles(); } catch (e) { console.error('loadAllDefaultFiles error:', e); }
+  try { populateDashboardFilterDropdowns(); } catch (e) { console.warn('populateDashboardFilterDropdowns error:', e); }
+  try { applyDashboardFilters(); } catch (e) { console.warn('applyDashboardFilters error:', e); }
+  try { loadKeepData(); } catch (e) { console.warn('loadKeepData error:', e); }
+  try { startRealtimeSyncEngine(); } catch (e) { console.warn('startRealtimeSyncEngine error:', e); }
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initSosmedApp);
+} else {
+  initSosmedApp();
+}
 
 // Shortcut Global Cmd+K / Ctrl+K untuk Fokus ke Search Bar Aktif (Gambar 1 & 2)
 document.addEventListener('keydown', (e) => {
@@ -8621,6 +8846,14 @@ function setOmniChatResolved(key, isResolved) {
   try {
     localStorage.setItem('omni_resolved_chats_v1', JSON.stringify(map));
   } catch (e) {}
+}
+
+function handleOmniResolveClick(key) {
+  const map = getOmniResolvedChats();
+  const willBeResolved = !map[key];
+  setOmniChatResolved(key, willBeResolved);
+  renderOmniChatList();
+  renderOmniDetailsPanel();
 }
 
 // --------------------------------------------------------------------------

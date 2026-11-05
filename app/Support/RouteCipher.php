@@ -20,9 +20,25 @@ class RouteCipher
             'controller' => \App\Http\Controllers\CrossSellingImportController::class,
             'method' => 'index',
         ],
+        'imports.destroy' => [
+            'controller' => \App\Http\Controllers\CrossSellingImportController::class,
+            'method' => 'destroy',
+        ],
+        'imports.destroy_turnover' => [
+            'controller' => \App\Http\Controllers\CrossSellingImportController::class,
+            'method' => 'destroyTurnover',
+        ],
         'imports.template' => [
             'controller' => \App\Http\Controllers\CrossSellingImportController::class,
             'method' => 'template',
+        ],
+        'imports.template_turnover' => [
+            'controller' => \App\Http\Controllers\CrossSellingImportController::class,
+            'method' => 'templateTurnover',
+        ],
+        'predictions.rebuild' => [
+            'controller' => \App\Http\Controllers\RepeatOrderPredictionController::class,
+            'method' => 'rebuild',
         ],
         'predictions.index' => [
             'controller' => \App\Http\Controllers\RepeatOrderPredictionController::class,
@@ -201,6 +217,9 @@ class RouteCipher
         if ($request->routeIs('predictions.*')) return 'predictions.index';
         if ($request->routeIs('leads.*')) return 'leads.index';
         if ($request->routeIs('broadcasts.*')) return 'broadcasts.index';
+        if ($request->routeIs('monitoring.sales.*')) return 'monitoring.sales.index';
+        if ($request->routeIs('guidance.*')) return 'guidance.index';
+        if ($request->routeIs('settings.karyawan.*')) return 'settings.karyawan.index';
         if ($request->routeIs('settings.watzap.*', 'whatsapp.*')) return 'settings.watzap.index';
         if ($request->routeIs('workspace-sosmed.*')) return 'workspace-sosmed.index';
 

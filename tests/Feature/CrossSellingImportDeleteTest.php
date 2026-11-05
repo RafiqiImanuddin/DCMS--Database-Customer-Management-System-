@@ -329,7 +329,7 @@ class CrossSellingImportDeleteTest extends TestCase
     public function test_user_cannot_read_another_users_import_status(): void
     {
         $owner = User::factory()->create();
-        $otherUser = User::factory()->create();
+        $otherUser = User::factory()->admin()->create();
         $import = CrossSellingImport::create([
             'user_id' => $owner->id,
             'original_name' => 'private.xlsx',
@@ -380,7 +380,7 @@ class CrossSellingImportDeleteTest extends TestCase
     public function test_user_cannot_delete_another_users_import(): void
     {
         $owner = User::factory()->create();
-        $otherUser = User::factory()->create();
+        $otherUser = User::factory()->admin()->create();
         $import = CrossSellingImport::create([
             'user_id' => $owner->id,
             'original_name' => 'penjualan.xlsx',
@@ -462,7 +462,7 @@ class CrossSellingImportDeleteTest extends TestCase
     public function test_user_cannot_delete_another_users_broadcast_report(): void
     {
         $owner = User::factory()->create();
-        $otherUser = User::factory()->create();
+        $otherUser = User::factory()->admin()->create();
         $report = BroadcastReport::create([
             'user_id' => $owner->id,
             'customer_vendor_code' => 'C001',

@@ -8,6 +8,19 @@
     min-width: 18rem !important;
     max-width: 18rem !important;
     flex-shrink: 0 !important;
+    transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease !important;
+}
+
+@media (min-width: 768px) {
+    #sidebar {
+        margin-left: 0;
+    }
+    html.sidebar-collapsed #sidebar,
+    body.sidebar-collapsed #sidebar {
+        margin-left: -18rem !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
 }
 .sidebar-group-content {
     overflow: hidden;
@@ -38,12 +51,21 @@
 </style>
 
 <aside id="sidebar" style="font-family: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; width: 18rem !important; min-width: 18rem !important; max-width: 18rem !important; flex-shrink: 0 !important;" class="fixed inset-y-0 left-0 z-40 flex flex-col w-72 shrink-0 -translate-x-full border-r border-slate-800 bg-slate-950 text-white shadow-2xl transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0">
-    <div class="flex h-20 items-center gap-3 border-b border-white/10 px-6 shrink-0">
+    <div class="flex h-20 items-center gap-2.5 border-b border-white/10 px-5 shrink-0">
         <div class="min-w-0 flex-1">
             <div class="text-lg font-black tracking-tight leading-tight">DCMS</div>
-            <div class="text-xs font-medium text-slate-400 leading-snug">Database Customer Management System</div>
+            <div class="text-[11px] font-medium text-slate-400 leading-snug truncate">Database Customer Management</div>
         </div>
-        <img src="{{ asset('images/gadgetmart-logo.png') }}" alt="Gadgetmart" class="ml-auto h-12 w-12 shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm">
+        <img src="{{ asset('images/gadgetmart-logo.png') }}" alt="Gadgetmart" class="h-10 w-10 shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm">
+        <button type="button" 
+                onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar(false)}" 
+                class="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer" 
+                title="Sembunyikan Sidebar (Ctrl+B)" 
+                aria-label="Sembunyikan Sidebar">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+            </svg>
+        </button>
     </div>
 
     <nav class="flex-1 overflow-y-auto space-y-2 px-4 py-3 text-sm">
@@ -292,11 +314,41 @@ window.toggleDcmsSidebar = function(forceOpen) {
     const sb = document.getElementById('sidebar');
     const ov = document.getElementById('sidebar-overlay');
     if (!sb) return;
-    const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : sb.classList.contains('-translate-x-full');
-    sb.classList.toggle('-translate-x-full', !shouldOpen);
-    sb.classList.toggle('translate-x-0', shouldOpen);
-    if (ov) ov.classList.toggle('hidden', !shouldOpen);
+
+    const isDesktop = window.innerWidth >= 768;
+
+    if (isDesktop) {
+        const isCollapsed = document.documentElement.classList.contains('sidebar-collapsed') ||
+                            document.body.classList.contains('sidebar-collapsed');
+        const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : isCollapsed;
+
+        if (shouldOpen) {
+            document.documentElement.classList.remove('sidebar-collapsed');
+            document.body.classList.remove('sidebar-collapsed');
+            try { localStorage.setItem('dcms_sidebar_collapsed', '0'); } catch (e) {}
+        } else {
+            document.documentElement.classList.add('sidebar-collapsed');
+            document.body.classList.add('sidebar-collapsed');
+            try { localStorage.setItem('dcms_sidebar_collapsed', '1'); } catch (e) {}
+        }
+    } else {
+        const isClosed = sb.classList.contains('-translate-x-full');
+        const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : isClosed;
+
+        sb.classList.toggle('-translate-x-full', !shouldOpen);
+        sb.classList.toggle('translate-x-0', shouldOpen);
+        if (ov) ov.classList.toggle('hidden', !shouldOpen);
+    }
 };
+
+(function initDesktopSidebarState() {
+    try {
+        if (localStorage.getItem('dcms_sidebar_collapsed') === '1' && window.innerWidth >= 768) {
+            document.documentElement.classList.add('sidebar-collapsed');
+            document.body.classList.add('sidebar-collapsed');
+        }
+    } catch (e) {}
+})();
 
 window.toggleSidebarGroup = function(groupId) {
     const content = document.getElementById('sidebar-group-' + groupId);

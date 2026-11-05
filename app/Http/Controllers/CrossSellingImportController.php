@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
 use App\Models\RepeatOrderPrediction;
+use App\Models\Setting;
 use App\Models\Turnover;
 use App\Models\TurnoverImport;
 use App\Services\CrossSellingImporter;
@@ -15,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -194,6 +196,27 @@ class CrossSellingImportController extends Controller
                 'success_count' => $cImport->success_count,
                 'failed_count' => $cImport->failed_count,
             ];
+
+            // Sync langsung ke Workspace Sosmed
+            try {
+                $crossBytes = file_get_contents($validated['file']->getRealPath());
+                $nowMs = (string) round(microtime(true) * 1000);
+                $uploaderName = $request->user()->name ?? 'Superadmin';
+                $origCrossName = $validated['file']->getClientOriginalName();
+
+                Setting::updateOrCreate(['key' => 'workspace_croselling_mtime'], ['value' => $nowMs]);
+                Setting::updateOrCreate(['key' => 'workspace_croselling_uploader'], ['value' => $uploaderName]);
+                Setting::updateOrCreate(['key' => 'workspace_croselling_filename'], ['value' => $origCrossName]);
+                Setting::updateOrCreate(['key' => 'workspace_croselling_filesize'], ['value' => (string) strlen($crossBytes)]);
+                Setting::updateOrCreate(['key' => 'workspace_croselling_file_base64'], ['value' => base64_encode($crossBytes)]);
+
+                $targetCross = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'CROSSELLING-12102026.xlsx');
+                if (is_dir(dirname($targetCross))) {
+                    @file_put_contents($targetCross, $crossBytes);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Workspace crosselling sync warning: ' . $e->getMessage());
+            }
         }
 
         // 2. Process Turnover
@@ -219,6 +242,27 @@ class CrossSellingImportController extends Controller
                 'success_count' => $tImport->success_count,
                 'failed_count' => $tImport->failed_count,
             ];
+
+            // Sync langsung ke Workspace Sosmed
+            try {
+                $turnoverBytes = file_get_contents($validated['turnover_file']->getRealPath());
+                $nowMs = (string) round(microtime(true) * 1000);
+                $uploaderName = $request->user()->name ?? 'Superadmin';
+                $origTurnoverName = $validated['turnover_file']->getClientOriginalName();
+
+                Setting::updateOrCreate(['key' => 'workspace_turnover_mtime'], ['value' => $nowMs]);
+                Setting::updateOrCreate(['key' => 'workspace_turnover_uploader'], ['value' => $uploaderName]);
+                Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $origTurnoverName]);
+                Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($turnoverBytes)]);
+                Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($turnoverBytes)]);
+
+                $targetTurnover = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'turnover.xlsx');
+                if (is_dir(dirname($targetTurnover))) {
+                    @file_put_contents($targetTurnover, $turnoverBytes);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Workspace turnover sync warning: ' . $e->getMessage());
+            }
         }
 
         $messageParts = [];
@@ -244,7 +288,7 @@ class CrossSellingImportController extends Controller
 
     public function status(Request $request, CrossSellingImport $import): JsonResponse
     {
-        abort_unless($import->user_id === $request->user()->id, 404);
+        abort_unless($import->user_id === $request->user()->id || $request->user()->isSuperAdmin(), 404);
 
         return response()->json([
             'status' => $import->status,
@@ -256,7 +300,7 @@ class CrossSellingImportController extends Controller
 
     public function destroy(Request $request, CrossSellingImport $import, RepeatOrderPredictor $predictor): RedirectResponse
     {
-        abort_unless($import->user_id === $request->user()->id, 404);
+        abort_unless($import->user_id === $request->user()->id || $request->user()->isSuperAdmin(), 404);
 
         $storedPath = $import->stored_path;
 
@@ -270,7 +314,11 @@ class CrossSellingImportController extends Controller
             Storage::disk('local')->delete($storedPath);
         }
 
-        $predictor->rebuild();
+        try {
+            $predictor->rebuild();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Predictor rebuild warning during import deletion: ' . $e->getMessage());
+        }
 
         return redirect()->route('imports.index')->with('success', 'Data import berhasil dihapus.');
     }

@@ -200,5 +200,22 @@ class UnifiedDataImportTest extends TestCase
         $response = $this->actingAs($superadmin)->get('/imports/4');
         $response->assertRedirect(route('imports.index'));
     }
+
+    public function test_superadmin_can_delete_cross_selling_import_uploaded_by_another_user(): void
+    {
+        $otherUser = User::factory()->create();
+        $superadmin = User::factory()->superadmin()->create();
+
+        $import = CrossSellingImport::create([
+            'user_id' => $otherUser->id,
+            'original_name' => 'other_file.xlsx',
+            'stored_path' => 'cross-selling-imports/other_file.xlsx',
+            'status' => 'completed',
+        ]);
+
+        $response = $this->actingAs($superadmin)->delete(route('imports.destroy', $import));
+        $response->assertRedirect(route('imports.index'));
+        $this->assertDatabaseMissing('cross_selling_imports', ['id' => $import->id]);
+    }
 }
 
