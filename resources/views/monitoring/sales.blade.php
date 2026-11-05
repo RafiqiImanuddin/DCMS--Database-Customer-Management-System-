@@ -40,11 +40,13 @@
                 <span>Export CSV</span>
             </a>
 
-            <!-- Setting Karyawan & Bobot -->
+            @if (auth()->check() && auth()->user()->isSuperAdmin())
+            <!-- Setting Karyawan & Bobot (Superadmin Only) -->
             <a href="{{ \App\Support\RouteCipher::url('settings.karyawan.index') }}" class="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-slate-800 transition">
                 <svg class="size-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/></svg>
                 <span>Atur Bobot KPI</span>
             </a>
+            @endif
         </div>
     </div>
 
@@ -188,6 +190,12 @@
         <div class="flex items-center gap-2">
             <span class="font-bold">📅 Menampilkan Evaluasi Harian:</span>
             <span class="rounded-md bg-white px-2.5 py-0.5 font-black text-indigo-700 shadow-2xs border border-indigo-200">{{ $periodDisplayLabel }}</span>
+            @if (!auth()->check() || !auth()->user()->isSuperAdmin())
+                <span class="inline-flex items-center gap-1 rounded-md bg-amber-100/80 px-2 py-0.5 font-bold text-amber-800 border border-amber-300 text-[10px]">
+                    <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+                    <span>Mode Baca (Hanya Superadmin yang dapat mengisi/edit nilai)</span>
+                </span>
+            @endif
         </div>
         <div class="text-[11px] text-indigo-600 hidden sm:block">
             4 Aspek Penilaian: <strong>Balas Chat</strong>, <strong>Respon Time</strong>, <strong>Etika</strong>, & <strong>Kepatuhan Promo</strong> (Masing-masing 25%)
@@ -318,13 +326,17 @@
                                     </button>
                                 @endif
 
-                                <button type="button" 
-                                        onclick="openAssessModal({{ json_encode($emp) }}, {{ json_encode($assessment) }})" 
-                                        class="inline-flex items-center gap-1 rounded-lg {{ $assessment ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-brand-600 hover:bg-brand-700 text-white animate-pulse' }} px-3 py-1.5 text-xs font-bold shadow-xs transition"
-                                        title="{{ $assessment ? 'Edit Nilai Hari Ini' : 'Beri Nilai Hari Ini' }}">
-                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
-                                    <span>{{ $assessment ? 'Edit Nilai' : 'Input Nilai' }}</span>
-                                </button>
+                                @if (auth()->check() && auth()->user()->isSuperAdmin())
+                                    <button type="button" 
+                                            onclick="openAssessModal({{ json_encode($emp) }}, {{ json_encode($assessment) }})" 
+                                            class="inline-flex items-center gap-1 rounded-lg {{ $assessment ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-brand-600 hover:bg-brand-700 text-white animate-pulse' }} px-3 py-1.5 text-xs font-bold shadow-xs transition"
+                                            title="{{ $assessment ? 'Edit Nilai Hari Ini' : 'Beri Nilai Hari Ini' }}">
+                                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
+                                        <span>{{ $assessment ? 'Edit Nilai' : 'Input Nilai' }}</span>
+                                    </button>
+                                @elseif (!$assessment)
+                                    <span class="text-[11px] font-medium text-slate-400 italic px-2">Hanya Superadmin</span>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -342,6 +354,7 @@
     </div>
 </div>
 
+@if (auth()->check() && auth()->user()->isSuperAdmin())
 <!-- MODAL EVALUASI & PENILAIAN HARIAN SALES (INTERACTIVE MANUAL SCORER) -->
 <div id="assessModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
     <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onclick="closeAssessModal()"></div>
@@ -543,6 +556,7 @@
         </form>
     </div>
 </div>
+@endif
 
 <!-- MODAL RAPOR KINERJA HARIAN (PRINTABLE SCORECARD & WHATSAPP GENERATOR) -->
 <div id="reportModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
@@ -580,6 +594,9 @@ const activeCriteria = @json($kpiCriteria);
 let currentReportWaText = '';
 
 function openAssessModal(employee, assessment) {
+    const modal = document.getElementById('assessModal');
+    if (!modal) return;
+
     document.getElementById('assessEmployeeId').value = employee.id;
     document.getElementById('assessModalTitle').innerText = 'Evaluasi Harian: ' + employee.name + ' (' + employee.cabang + ')';
     document.getElementById('assessModalSubtitle').innerText = 'NIK: ' + employee.nik + ' • Posisi: ' + employee.role;
@@ -618,8 +635,10 @@ function openAssessModal(employee, assessment) {
 }
 
 function closeAssessModal() {
-    document.getElementById('assessModal').classList.add('hidden');
-    document.getElementById('assessModal').classList.remove('flex');
+    const modal = document.getElementById('assessModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
 function setQuickScore(code, score) {

@@ -371,4 +371,41 @@ class SalesMonitoringTest extends TestCase
         $response->assertSee('Etika');
         $response->assertSee('Kepatuhan Promo');
     }
+
+    public function test_regular_admin_cannot_store_assessment_and_has_view_only_monitoring(): void
+    {
+        $regularAdmin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $employee = Employee::first() ?? Employee::create([
+            'nik' => 'TEST-ADMIN-01',
+            'name' => 'Sales Test',
+            'role' => 'Admin Sales',
+            'cabang' => 'Head Office',
+            'phone' => '081234567899',
+            'status' => 'active',
+        ]);
+
+        // 1. Attempt to store assessment should be forbidden (403)
+        $this->actingAs($regularAdmin)->post(route('monitoring.sales.assessment.store'), [
+            'employee_id' => $employee->id,
+            'period' => '2026-11-05',
+            'scores' => ['chat_reply' => 90],
+        ])->assertStatus(403);
+
+        // 2. Attempt to auto sync metrics should be forbidden (403)
+        $this->actingAs($regularAdmin)->post(route('monitoring.sales.auto_sync'), [
+            'employee_id' => $employee->id,
+            'period' => '2026-11-05',
+        ])->assertStatus(403);
+
+        // 3. Regular admin visiting monitoring dashboard should see Read-Only mode and NOT see "Atur Bobot KPI" or edit/input buttons
+        $response = $this->actingAs($regularAdmin)->get(route('monitoring.sales.index'));
+        $response->assertStatus(200);
+        $response->assertSee('Mode Baca');
+        $response->assertDontSee('Atur Bobot KPI');
+        $response->assertDontSee('Edit Nilai');
+        $response->assertDontSee('Input Nilai');
+    }
 }

@@ -171,6 +171,8 @@ class SalesMonitoringController extends Controller
      */
     public function storeAssessment(Request $request): RedirectResponse|JsonResponse
     {
+        abort_unless($request->user()?->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang mengisi atau mengubah nilai evaluasi sales.');
+
         $validated = $request->validate([
             'employee_id' => ['required', 'exists:employees,id'],
             'period' => ['required', 'string', 'regex:/^\d{4}-\d{2}(-\d{2})?$/'],
@@ -284,6 +286,8 @@ class SalesMonitoringController extends Controller
      */
     public function autoSyncMetrics(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang melakukan auto-sync metrik.');
+
         $employeeId = $request->input('employee_id');
         $period = $request->input('period', Carbon::now()->format('Y-m-d'));
 
