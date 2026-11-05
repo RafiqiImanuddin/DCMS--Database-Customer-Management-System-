@@ -138,3 +138,25 @@ $registerSosmedApiRoutes = function () {
 
 Route::prefix('api')->group($registerSosmedApiRoutes);
 $registerSosmedApiRoutes();
+
+// Route Helper untuk migrasi database & clear cache via browser (solusi cPanel tanpa Terminal)
+Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
+    if ($request->query('key') !== 'dcms2026') {
+        abort(403, 'Akses Ditolak. Gunakan parameter key yang benar: ?key=dcms2026');
+    }
+
+    \Illuminate\Support\Facades\Artisan::call('migrate --force');
+    $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
+
+    \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+    $clearOutput = \Illuminate\Support\Facades\Artisan::output();
+
+    return response('<pre style="background:#0f172a; color:#10b981; padding:24px; font-family:monospace; font-size:14px; border-radius:10px; line-height:1.6;">'
+        . "🚀 === DCMS DATABASE MIGRATION SYSTEM ===\n\n"
+        . htmlspecialchars($migrateOutput ?: "Semua tabel database sudah yang terbaru (Nothing to migrate).\n")
+        . "\n🧹 === CLEAR CACHE & OPTIMIZATION ===\n\n"
+        . htmlspecialchars($clearOutput)
+        . "\n✅ PROSES SELESAI DENGAN SUKSES!"
+        . '</pre>');
+})->name('system.migrate');
+
