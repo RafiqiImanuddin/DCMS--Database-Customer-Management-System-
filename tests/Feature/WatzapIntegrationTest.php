@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\BroadcastReport;
 use App\Models\RepeatOrderPrediction;
 use App\Models\Setting;
 use App\Models\User;
@@ -343,5 +342,51 @@ class WatzapIntegrationTest extends TestCase
         // Exact match
         $resolvedExact = $service->resolveNumberKey('pL46HTdCO6vUgNfC', 'test_api_key');
         $this->assertEquals('pL46HTdCO6vUgNfC', $resolvedExact);
+    }
+
+    public function test_superadmin_can_update_waha_vps_settings(): void
+    {
+        $superadmin = User::factory()->create(['role' => 'superadmin']);
+
+        $response = $this->actingAs($superadmin)->post(route('settings.watzap.update'), [
+            'target_tab' => 'inbox',
+            'waha_enabled' => '1',
+            'waha_vps_url' => 'http://178.83.188.100:3088',
+            'waha_api_key' => 'gadgetmart123',
+            'waha_session' => 'default',
+        ]);
+
+        $response->assertRedirect(route('settings.watzap.index', ['tab' => 'inbox']));
+        $this->assertEquals('http://178.83.188.100:3088', Setting::get('waha_vps_url'));
+        $this->assertEquals('gadgetmart123', Setting::get('waha_api_key'));
+        $this->assertEquals('default', Setting::get('waha_session'));
+        $this->assertEquals('1', Setting::get('waha_enabled'));
+    }
+
+    public function test_superadmin_can_check_waha_status_via_ajax(): void
+    {
+        $superadmin = User::factory()->create(['role' => 'superadmin']);
+
+        Http::fake([
+            'http://178.83.188.100:3088/api/sessions' => Http::response([
+                [
+                    'name' => 'default',
+                    'status' => 'WORKING',
+                    'me' => [
+                        'id' => '6285111426699@c.us',
+                        'pushName' => 'admin divisi sosmed',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($superadmin)->postJson(route('settings.watzap.check_waha'), [
+            'session' => 'default',
+        ]);
+
+        $response->assertOk();
+        $this->assertTrue($response->json('success'));
+        $this->assertEquals('WORKING', $response->json('status'));
+        $this->assertEquals('6285111426699@c.us', $response->json('me.id'));
     }
 }

@@ -87,6 +87,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/watzap/test-send', [WatzapSettingController::class, 'testSend'])->name('settings.watzap.test_send');
     Route::post('/settings/watzap/register-webhook', [WatzapSettingController::class, 'registerWebhook'])->name('settings.watzap.register_webhook');
     Route::get('/settings/watzap/get-webhook', [WatzapSettingController::class, 'getWebhookStatus'])->name('settings.watzap.get_webhook');
+    Route::post('/settings/watzap/check-waha', [WatzapSettingController::class, 'checkWaha'])->name('settings.watzap.check_waha');
 
     // Monitoring Kinerja Admin Sales (Manager & Admin)
     Route::get('/monitoring/sales', [SalesMonitoringController::class, 'index'])->name('monitoring.sales.index');

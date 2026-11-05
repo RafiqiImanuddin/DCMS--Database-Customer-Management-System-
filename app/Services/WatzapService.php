@@ -76,6 +76,65 @@ class WatzapService
     }
 
     /**
+     * Check status session WAHA VPS.
+     *
+     * @return array{online: bool, status: string, name: string, me: array|null, message: string}
+     */
+    public function getWahaStatus(?string $sessionName = null): array
+    {
+        $targetSession = $sessionName ?: $this->getWahaSession();
+        $wahaUrl = $this->getWahaUrl();
+        $apiKey = $this->getWahaApiKey();
+
+        try {
+            $res = Http::timeout(4)
+                ->withHeaders(['X-Api-Key' => $apiKey])
+                ->get("{$wahaUrl}/api/sessions");
+
+            if ($res->ok()) {
+                $sessions = $res->json();
+                if (is_array($sessions)) {
+                    foreach ($sessions as $s) {
+                        if (($s['name'] ?? '') === $targetSession) {
+                            return [
+                                'online' => true,
+                                'status' => $s['status'] ?? 'UNKNOWN',
+                                'name' => $targetSession,
+                                'me' => $s['me'] ?? null,
+                                'message' => 'Terhubung ke WAHA VPS ('.($s['status'] ?? 'UNKNOWN').')',
+                            ];
+                        }
+                    }
+
+                    return [
+                        'online' => true,
+                        'status' => 'NOT_FOUND',
+                        'name' => $targetSession,
+                        'me' => null,
+                        'message' => "Sesi '{$targetSession}' belum dibuat di WAHA VPS.",
+                    ];
+                }
+            }
+
+            return [
+                'online' => false,
+                'status' => 'ERROR',
+                'name' => $targetSession,
+                'me' => null,
+                'message' => 'Gagal membaca sesi WAHA: HTTP '.$res->status(),
+            ];
+        } catch (Throwable $e) {
+            return [
+                'online' => false,
+                'status' => 'OFFLINE',
+                'name' => $targetSession,
+                'me' => null,
+                'message' => 'Koneksi ke WAHA VPS gagal: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Resolves phone or WhatsApp LID (@lid) to a normalized WhatsApp phone number (e.g. 628xxx).
      */
     public function resolvePhoneOrLid(?string $raw): string

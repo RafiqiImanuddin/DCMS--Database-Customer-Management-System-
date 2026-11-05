@@ -34,6 +34,13 @@ class WatzapSettingController extends Controller
         $isConfiguredInbox = $watzap->isConfigured('inbox');
         $deviceStatusInbox = $isConfiguredInbox ? $watzap->getDeviceStatus('inbox') : null;
 
+        // Kredensial Dual-Gateway WAHA VPS (Primary Gateway Inbox FU)
+        $wahaEnabled = $watzap->isWahaEnabled();
+        $wahaUrl = $watzap->getWahaUrl();
+        $wahaApiKey = $watzap->getWahaApiKey();
+        $wahaSession = $watzap->getWahaSession();
+        $wahaStatus = $watzap->getWahaStatus();
+
         $webhookUrl = url('/api/watzap-webhook');
         $availableSenders = $isConfiguredBroadcast ? $watzap->getAvailableSenders($apiKey) : [];
 
@@ -51,6 +58,11 @@ class WatzapSettingController extends Controller
             'inboxNumberKey' => $inboxNumberKey,
             'isConfiguredInbox' => $isConfiguredInbox,
             'deviceStatusInbox' => $deviceStatusInbox,
+            'wahaEnabled' => $wahaEnabled,
+            'wahaUrl' => $wahaUrl,
+            'wahaApiKey' => $wahaApiKey,
+            'wahaSession' => $wahaSession,
+            'wahaStatus' => $wahaStatus,
             'availableSenders' => $availableSenders,
             'webhookUrl' => $webhookUrl,
             'isSuperAdmin' => $isSuperAdmin,
@@ -73,6 +85,10 @@ class WatzapSettingController extends Controller
             'watzap_inbox_same_as_broadcast' => ['nullable', 'in:0,1'],
             'watzap_inbox_api_key' => ['nullable', 'string', 'max:255'],
             'watzap_inbox_number_key' => ['nullable', 'string', 'max:255'],
+            'waha_enabled' => ['nullable', 'in:0,1'],
+            'waha_vps_url' => ['nullable', 'url', 'max:255'],
+            'waha_api_key' => ['nullable', 'string', 'max:255'],
+            'waha_session' => ['nullable', 'string', 'max:255'],
         ]);
 
         $masterApiKey = trim($validated['watzap_api_key'] ?? Setting::get('watzap_api_key', ''));
@@ -100,6 +116,20 @@ class WatzapSettingController extends Controller
             $inboxApi = trim($validated['watzap_inbox_api_key'] ?? '') ?: $masterApiKey;
             $resolved = $rawKey !== '' ? $watzap->resolveNumberKey($rawKey, $inboxApi ?: null) : '';
             Setting::set('watzap_inbox_number_key', $resolved);
+        }
+
+        // Simpan Konfigurasi WAHA VPS (Primary Gateway Inbox FU)
+        if ($request->has('waha_enabled')) {
+            Setting::set('waha_enabled', $validated['waha_enabled'] ?? '1');
+        }
+        if ($request->has('waha_vps_url')) {
+            Setting::set('waha_vps_url', trim($validated['waha_vps_url'] ?? 'http://178.83.188.100:3088'));
+        }
+        if ($request->has('waha_api_key')) {
+            Setting::set('waha_api_key', trim($validated['waha_api_key'] ?? ''));
+        }
+        if ($request->has('waha_session')) {
+            Setting::set('waha_session', trim($validated['waha_session'] ?? 'default'));
         }
 
         $label = $targetTab === 'inbox' ? 'WA Inbox Follow Up' : 'WA Broadcast';
@@ -198,5 +228,21 @@ class WatzapSettingController extends Controller
         $res = $watzap->getWebhook($channel, $overrideApiKey ?: null, $overrideNumberKey ?: null);
 
         return response()->json($res);
+    }
+
+    public function checkWaha(Request $request, WatzapService $watzap): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $session = (string) $request->input('session', $watzap->getWahaSession());
+        $res = $watzap->getWahaStatus($session);
+
+        return response()->json([
+            'success' => $res['online'],
+            'status' => $res['status'],
+            'session' => $res['name'],
+            'me' => $res['me'],
+            'message' => $res['message'],
+        ]);
     }
 }

@@ -263,58 +263,129 @@
                 </span>
             </div>
 
-            <form method="POST" action="{{ route('settings.watzap.update') }}" class="space-y-4">
+            <form method="POST" action="{{ route('settings.watzap.update') }}" class="space-y-5">
                 @csrf
                 <input type="hidden" name="target_tab" value="inbox">
 
-                <!-- Opsi Mode Nomor Gateway Inbox -->
-                <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
-                    <span class="block text-xs font-bold uppercase tracking-wide text-slate-700 mb-2">Pilihan Nomor Pengirim Inbox Follow-Up:</span>
-                    <div class="space-y-2">
-                        <label class="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
-                            <input type="radio" name="watzap_inbox_same_as_broadcast" value="1" {{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '1' ? 'checked' : '' }} onchange="toggleInboxDedicatedFields(this.value)" class="text-emerald-600 focus:ring-emerald-500">
-                            <span>Gunakan Nomor yang Sama dengan WA Broadcast (Single Gateway)</span>
-                        </label>
-                        <label class="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
-                            <input type="radio" name="watzap_inbox_same_as_broadcast" value="0" {{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '0' ? 'checked' : '' }} onchange="toggleInboxDedicatedFields(this.value)" class="text-emerald-600 focus:ring-emerald-500">
-                            <span>Gunakan Nomor Khusus untuk CS / Tim Follow-Up (Dedicated Number)</span>
+                <!-- 1. DUAL-GATEWAY UTAMA: WAHA VPS (Self-Hosted WhatsApp API) -->
+                <div class="rounded-2xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 p-5 shadow-xs space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-100 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <span class="grid size-8 place-items-center rounded-xl bg-emerald-600 text-white shadow-sm font-bold text-xs">1</span>
+                            <div>
+                                <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                                    <span>Gateway Utama: WAHA VPS (High Performance & Quoted Reply)</span>
+                                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-800">Prioritas</span>
+                                </h3>
+                                <p class="text-[11px] text-slate-500">Mendukung koneksi langsung super cepat, Native Quoted Reply WhatsApp, dan media resolusi tinggi tanpa batas pihak ketiga.</p>
+                            </div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="waha_enabled" value="1" {{ old('waha_enabled', $wahaEnabled) ? 'checked' : '' }} @disabled(! $isSuperAdmin) class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                            <span class="ml-2 text-xs font-bold text-slate-800">Aktifkan WAHA</span>
                         </label>
                     </div>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="waha_vps_url" class="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-700">
+                                URL Server WAHA VPS <span class="text-rose-500">*</span>
+                            </label>
+                            <input id="waha_vps_url" name="waha_vps_url" type="text" value="{{ old('waha_vps_url', $wahaUrl) }}" @disabled(! $isSuperAdmin) placeholder="http://178.83.188.100:3088" class="dcms-input font-mono text-xs">
+                            <p class="mt-1 text-[11px] text-slate-400">Endpoint HTTP API WAHA VPS yang terpasang.</p>
+                        </div>
+                        <div>
+                            <label for="waha_session" class="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-700">
+                                Nama Session WhatsApp <span class="text-rose-500">*</span>
+                            </label>
+                            <input id="waha_session" name="waha_session" type="text" value="{{ old('waha_session', $wahaSession) }}" @disabled(! $isSuperAdmin) placeholder="default" class="dcms-input font-mono text-xs">
+                            <p class="mt-1 text-[11px] text-slate-400">Default: <code>default</code> (Nama sesi yang di-scan QR di WAHA).</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="waha_api_key" class="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-700">
+                            X-Api-Key WAHA VPS
+                        </label>
+                        <input id="waha_api_key" name="waha_api_key" type="password" autocomplete="new-password" data-lpignore="true" value="{{ old('waha_api_key', $wahaApiKey) }}" @disabled(! $isSuperAdmin) placeholder="gadgetmart123" class="dcms-input font-mono text-xs">
+                        <p class="mt-1 text-[11px] text-slate-400">Kunci keamanan untuk header otentikasi X-Api-Key WAHA VPS.</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                        <div class="flex items-center gap-2">
+                            @if($isSuperAdmin)
+                            <button type="button" id="btn-check-waha" onclick="checkWahaConnection()" class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-2xs hover:bg-emerald-50 transition">
+                                <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                <span>Tes Koneksi WAHA VPS</span>
+                            </button>
+                            @endif
+                            <a href="{{ $wahaUrl }}/dashboard" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition">
+                                <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                <span>Buka Web Console WAHA (Scan QR)</span>
+                            </a>
+                        </div>
+                        <span class="text-[11px] text-slate-500">Auto-Failover: Otomatis dialihkan ke WatZap jika WAHA VPS offline.</span>
+                    </div>
+                    <div id="waha-check-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
                 </div>
 
-                <!-- Input Khusus jika Nomor Terpisah -->
-                <div id="inbox-dedicated-fields" class="{{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '0' ? '' : 'hidden' }} space-y-4 pt-2">
-                    <div>
-                        <label for="watzap_inbox_api_key" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                            API Key Khusus Inbox (Opsional)
-                        </label>
-                        <input id="watzap_inbox_api_key" name="watzap_inbox_api_key" type="password" autocomplete="new-password" data-lpignore="true" value="{{ old('watzap_inbox_api_key', $inboxApiKey) }}" @disabled(! $isSuperAdmin) placeholder="Kosongkan jika menggunakan API Key WatZap yang sama" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
-                        <p class="mt-1 text-[11px] text-slate-400">Jika akun WatZap sama, kosongkan kolom ini (otomatis menggunakan API Key utama).</p>
+                <!-- 2. GATEWAY CADANGAN (FALLBACK): WATZAP CLOUD API -->
+                <div class="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 shadow-xs space-y-4">
+                    <div class="flex items-center gap-2.5 border-b border-slate-200 pb-3">
+                        <span class="grid size-8 place-items-center rounded-xl bg-slate-200 text-slate-700 font-bold text-xs">2</span>
+                        <div>
+                            <h3 class="font-extrabold text-sm text-slate-900">Gateway Cadangan: WatZap Cloud API (Auto-Failover)</h3>
+                            <p class="text-[11px] text-slate-500">Digunakan secara otomatis jika server WAHA VPS tidak dapat dihubungi atau sedang offline.</p>
+                        </div>
                     </div>
 
-                    <div>
-                        <label for="watzap_inbox_number_key" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                            Number Key Khusus Inbox FU (Device Key) <span class="text-rose-500">*</span>
-                        </label>
-                        <input id="watzap_inbox_number_key" name="watzap_inbox_number_key" type="text" value="{{ old('watzap_inbox_number_key', $inboxNumberKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: nk_cs_xxxxxxxxxxxx" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
-                        <p class="mt-1 text-[11px] text-slate-400">ID Number Key khusus nomor WhatsApp CS/Follow-Up yang sudah terhubung di WatZap.</p>
-                        @if(!empty($availableSenders))
-                        <div class="mt-2 flex flex-wrap items-center gap-1.5 pt-1">
-                            <span class="text-[11px] font-semibold text-slate-500">Pilih cepat nomor terhubung:</span>
-                            @foreach($availableSenders as $s)
-                                <button type="button" 
-                                    onclick="document.getElementById('watzap_inbox_number_key').value='{{ $s['key'] }}'"
-                                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700">
-                                    <span class="size-2 rounded-full {{ $s['is_online'] ? 'bg-emerald-500' : 'bg-slate-400' }}"></span>
-                                    <span>{{ $s['phone'] ?: $s['key'] }}</span>
-                                    <span class="text-[10px] text-slate-400">({{ $s['status'] }})</span>
-                                </button>
-                            @endforeach
+                    <!-- Opsi Mode Nomor Gateway Inbox WatZap -->
+                    <div class="rounded-xl border border-slate-200 bg-white p-4">
+                        <span class="block text-xs font-bold uppercase tracking-wide text-slate-700 mb-2">Pilihan Nomor Pengirim WatZap:</span>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                                <input type="radio" name="watzap_inbox_same_as_broadcast" value="1" {{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '1' ? 'checked' : '' }} onchange="toggleInboxDedicatedFields(this.value)" class="text-emerald-600 focus:ring-emerald-500">
+                                <span>Gunakan Nomor yang Sama dengan WA Broadcast (Single Gateway)</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                                <input type="radio" name="watzap_inbox_same_as_broadcast" value="0" {{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '0' ? 'checked' : '' }} onchange="toggleInboxDedicatedFields(this.value)" class="text-emerald-600 focus:ring-emerald-500">
+                                <span>Gunakan Nomor Khusus untuk CS / Tim Follow-Up (Dedicated Number)</span>
+                            </label>
                         </div>
-                        @endif
-                        <p class="mt-1.5 text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-100 rounded-lg p-2">
-                            💡 <strong>Info:</strong> Pada font WatZap, karakter ke-10 nomor key seringkali berupa huruf <code>l</code> kecil (bukan huruf I kapital atau angka 1). Klik tombol pilihan cepat di atas agar key terisi secara 100% akurat tanpa salah ketik.
-                        </p>
+                    </div>
+
+                    <!-- Input Khusus jika Nomor Terpisah -->
+                    <div id="inbox-dedicated-fields" class="{{ old('watzap_inbox_same_as_broadcast', $inboxSame) === '0' ? '' : 'hidden' }} space-y-4 pt-1">
+                        <div>
+                            <label for="watzap_inbox_api_key" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
+                                API Key Khusus Inbox (Opsional)
+                            </label>
+                            <input id="watzap_inbox_api_key" name="watzap_inbox_api_key" type="password" autocomplete="new-password" data-lpignore="true" value="{{ old('watzap_inbox_api_key', $inboxApiKey) }}" @disabled(! $isSuperAdmin) placeholder="Kosongkan jika menggunakan API Key WatZap yang sama" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
+                            <p class="mt-1 text-[11px] text-slate-400">Jika akun WatZap sama, kosongkan kolom ini (otomatis menggunakan API Key utama).</p>
+                        </div>
+
+                        <div>
+                            <label for="watzap_inbox_number_key" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
+                                Number Key Khusus Inbox FU (Device Key) <span class="text-rose-500">*</span>
+                            </label>
+                            <input id="watzap_inbox_number_key" name="watzap_inbox_number_key" type="text" value="{{ old('watzap_inbox_number_key', $inboxNumberKey) }}" @disabled(! $isSuperAdmin) placeholder="Contoh: nk_cs_xxxxxxxxxxxx" class="dcms-input font-mono text-xs disabled:bg-slate-100 disabled:text-slate-500">
+                            <p class="mt-1 text-[11px] text-slate-400">ID Number Key khusus nomor WhatsApp CS/Follow-Up yang sudah terhubung di WatZap.</p>
+                            @if(!empty($availableSenders))
+                            <div class="mt-2 flex flex-wrap items-center gap-1.5 pt-1">
+                                <span class="text-[11px] font-semibold text-slate-500">Pilih cepat nomor terhubung:</span>
+                                @foreach($availableSenders as $s)
+                                    <button type="button" 
+                                        onclick="document.getElementById('watzap_inbox_number_key').value='{{ $s['key'] }}'"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700">
+                                        <span class="size-2 rounded-full {{ $s['is_online'] ? 'bg-emerald-500' : 'bg-slate-400' }}"></span>
+                                        <span>{{ $s['phone'] ?: $s['key'] }}</span>
+                                        <span class="text-[10px] text-slate-400">({{ $s['status'] }})</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                            @endif
+                        </div>
                     </div>
                 </div>
 
@@ -396,9 +467,43 @@
 
     <!-- Kolom Kanan: Status Device & Panduan Inbox -->
     <div class="space-y-6">
+        <!-- Status Gateway Utama: WAHA VPS -->
+        <section class="dcms-card p-6 border-2 border-emerald-500/20">
+            <div class="flex items-center justify-between">
+                <h2 class="font-black text-slate-900">Status WAHA VPS (Primary)</h2>
+                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold {{ ($wahaStatus['online'] ?? false) && ($wahaStatus['status'] ?? '') === 'WORKING' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800' }}">
+                    <span class="size-2 rounded-full {{ ($wahaStatus['online'] ?? false) && ($wahaStatus['status'] ?? '') === 'WORKING' ? 'bg-emerald-500' : 'bg-rose-500' }}"></span>
+                    {{ ($wahaStatus['online'] ?? false) ? ($wahaStatus['status'] ?? 'Online') : 'Offline' }}
+                </span>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">Gateway utama pengiriman & penerimaan chat Inbox FU.</p>
+
+            <div class="mt-4 space-y-3">
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <span class="text-xs text-slate-500">Nomor WhatsApp</span>
+                    <span class="font-mono text-xs font-bold text-slate-900">
+                        {{ !empty($wahaStatus['me']['id']) ? str_replace('@c.us', '', $wahaStatus['me']['id']) : '-' }}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <span class="text-xs text-slate-500">Nama Akun WhatsApp</span>
+                    <span class="text-xs font-semibold text-slate-900">{{ $wahaStatus['me']['pushName'] ?? '-' }}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <span class="text-xs text-slate-500">Nama Sesi</span>
+                    <span class="font-mono text-xs font-bold text-slate-900">{{ $wahaStatus['name'] ?? $wahaSession }}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <span class="text-xs text-slate-500">Quoted Reply</span>
+                    <span class="text-xs font-bold text-emerald-700">Native WhatsApp Aktif</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Status Gateway Cadangan: WatZap -->
         <section class="dcms-card p-6">
-            <h2 class="font-black text-slate-900">Status Device WA Inbox</h2>
-            <p class="mt-1 text-xs text-slate-500">Nomor WhatsApp CS/Follow-Up yang melayani percakapan.</p>
+            <h2 class="font-black text-slate-900">Status Gateway Cadangan (WatZap)</h2>
+            <p class="mt-1 text-xs text-slate-500">Nomor cadangan jika server WAHA VPS offline.</p>
 
             <div class="mt-4 space-y-3">
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
@@ -645,6 +750,64 @@ async function checkApiConnection() {
             badge.className = 'rounded px-2 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-800';
             badge.textContent = 'Error';
             msg.textContent = 'Koneksi gagal: ' + err.message;
+        } else {
+            alert('Koneksi gagal: ' + err.message);
+        }
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+async function checkWahaConnection() {
+    const btn = document.getElementById('btn-check-waha');
+    const fb = document.getElementById('waha-check-feedback');
+    if (!btn) return;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Memeriksa WAHA VPS...';
+
+    if (fb) {
+        fb.className = 'mt-2.5 text-xs font-semibold text-slate-500';
+        fb.textContent = 'Menghubungi server WAHA VPS...';
+        fb.classList.remove('hidden');
+    }
+
+    try {
+        const response = await fetch('{{ route("settings.watzap.check_waha") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                url: document.getElementById('waha_vps_url')?.value || '',
+                api_key: document.getElementById('waha_api_key')?.value || '',
+                session: document.getElementById('waha_session')?.value || ''
+            })
+        });
+
+        const data = await response.json();
+        if (fb) {
+            if (data.success && data.status === 'WORKING') {
+                const phone = data.me ? (data.me.id || '').replace('@c.us', '') : '-';
+                const name = data.me ? (data.me.pushName || '') : '';
+                fb.className = 'mt-2.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '✅ <strong>Koneksi Sukses:</strong> Server WAHA VPS Online! Sesi <code>' + (data.session || 'default') + '</code> aktif terhubung ke nomor <strong>' + phone + '</strong> (' + name + ').';
+            } else if (data.success) {
+                fb.className = 'mt-2.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '⚠️ <strong>Peringatan:</strong> ' + (data.message || 'Sesi ditemukan namun belum siap.');
+            } else {
+                fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '❌ <strong>Gagal:</strong> ' + (data.message || 'Koneksi ke WAHA VPS gagal.');
+            }
+        } else {
+            alert(data.message || (data.success ? 'Koneksi Berhasil' : 'Koneksi Gagal'));
+        }
+    } catch (err) {
+        if (fb) {
+            fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3';
+            fb.textContent = 'Koneksi gagal: ' + err.message;
         } else {
             alert('Koneksi gagal: ' + err.message);
         }
