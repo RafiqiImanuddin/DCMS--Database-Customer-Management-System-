@@ -16,3 +16,4 @@
   - Perbaikan tuntas issue dropdown double / duplikat di seluruh modul aplikasi (Leads Customer, Prediksi RO, Laporan Broadcast, dll.).
   - Menggunakan native single `<select>` modern dengan chevron SVG custom dan transisi fokus yang halus.
   - Pembersihan header roomchat Workspace Sosmed (Inbox FU), menyisakan indikator status Online/Offline WhatsApp Gateway.
+
