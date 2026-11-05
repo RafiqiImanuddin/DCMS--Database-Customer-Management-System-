@@ -860,6 +860,25 @@
         "gateway": "WAHA_VPS"
     },
     {
+        "messageId": "true_204432608366832@lid_3EB0F4BAADB2A768700188",
+        "phone": "6285181925304",
+        "message": "Test reply chat",
+        "media_url": null,
+        "media_type": null,
+        "filename": null,
+        "file_size": null,
+        "reply_to": {
+            "id": "false_204432608366832@lid_3ABDB27825BD82F84B6A",
+            "text": "Test",
+            "senderName": "PIC 6285181925304"
+        },
+        "timestamp": "2026-11-05T16:50:07+00:00",
+        "status": "sent",
+        "direction": "outbound",
+        "sender": "ADMIN",
+        "gateway": "WAHA_VPS"
+    },
+    {
         "messageId": "true_211724858867838@lid_A5C3C0FB8F6E827E665BCF775198CD00",
         "phone": "6289671154222",
         "message": "",
