@@ -8715,9 +8715,13 @@ function closeOmniImageModal() {
 }
 
 let currentOmniView = 'CHATS'; // 'CHATS' or 'MASTER'
-let currentOmniFolder = 'ASSIGNED'; // 'ASSIGNED', 'UNRESPONDED', 'RESOLVED' (All chats dibuang)
+let currentOmniFolder = 'ALL'; // 'ALL', 'ASSIGNED', 'UNRESPONDED', 'RESOLVED'
 let selectedOmniPicKey = null; // Key (clean WA or picKey) of active PIC FU
 let selectedOmniKeepSubTab = 'PENDING'; // 'PENDING' (Belum Diisi) | 'RESOLVED' (Sudah Selesai)
+let lastWatzapSyncTime = 0;
+let isPollingWatzap = false;
+let watzapPollInterval = null;
+let omniPendingFile = null;
 
 const OMNI_MASTER_STORAGE_KEY = 'gadgetmart_pic_master';
 
@@ -9116,26 +9120,28 @@ function saveOmniThreads(threads) {
 }
 
 function setOmniFolder(folder) {
-  currentOmniFolder = folder || 'ASSIGNED';
-  ['Assigned', 'Unresponded', 'Resolved'].forEach(function(f) {
+  currentOmniFolder = folder || 'ALL';
+  ['All', 'Assigned', 'Unresponded', 'Resolved'].forEach(function(f) {
     const el = document.getElementById('omniFilter' + f);
     if (el) el.classList.remove('active');
   });
   const map = {
+    'ALL': 'omniFilterAll',
     'ASSIGNED': 'omniFilterAssigned',
     'UNRESPONDED': 'omniFilterUnresponded',
     'RESOLVED': 'omniFilterResolved'
   };
-  const activeEl = document.getElementById(map[folder]);
+  const activeEl = document.getElementById(map[currentOmniFolder]);
   if (activeEl) activeEl.classList.add('active');
   const titleEl = document.getElementById('omniChatListHeaderTitle');
   if (titleEl) {
     const titleMap = {
+      'ALL': 'All chats',
       'ASSIGNED': 'Assigned chats',
       'UNRESPONDED': 'Unresponded',
       'RESOLVED': 'Resolved'
     };
-    titleEl.innerText = titleMap[folder] || 'Assigned chats';
+    titleEl.innerText = titleMap[currentOmniFolder] || 'All chats';
   }
   renderOmniInboxModule();
 }
@@ -9413,6 +9419,7 @@ function renderOmniInboxModule() {
     }, 50);
   }
   const bAll = document.getElementById('omniBadgeAll');
+  if (bAll) bAll.innerText = allChats.length;
   const bAssigned = document.getElementById('omniBadgeAssigned');
   const bUnresponded = document.getElementById('omniBadgeUnresponded');
   const bResolved = document.getElementById('omniBadgeResolved');
@@ -9886,7 +9893,29 @@ function handleOmniInputTyping(el) {
 }
 
 function handleOmniAttachmentClick() {
-  alert('📎 Fitur Kirim Lampiran: Anda dapat melampirkan screenshot chat atau dokumen pendukung.');
+  const input = document.getElementById('omniFileInput');
+  if (input) {
+    input.click();
+  } else {
+    alert('📎 Fitur Kirim Lampiran: Anda dapat melampirkan screenshot chat atau dokumen pendukung.');
+  }
+}
+
+function handleOmniFileSelected(input) {
+  if (!input || !input.files || input.files.length === 0) return;
+  omniPendingFile = input.files[0];
+  const previewWrap = document.getElementById('omniAttachmentPreview');
+  const previewName = document.getElementById('omniAttachmentName');
+  if (previewWrap) previewWrap.style.display = 'flex';
+  if (previewName) previewName.innerText = omniPendingFile.name;
+}
+
+function removeOmniAttachment() {
+  omniPendingFile = null;
+  const input = document.getElementById('omniFileInput');
+  if (input) input.value = '';
+  const previewWrap = document.getElementById('omniAttachmentPreview');
+  if (previewWrap) previewWrap.style.display = 'none';
 }
 
 function handleOmniResolveClick(picKey) {
