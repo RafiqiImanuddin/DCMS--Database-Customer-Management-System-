@@ -1751,9 +1751,14 @@
                                         <div class="omni-chatlist-top-bar">
                                             <span class="omni-chatlist-main-title" id="omniChatListHeaderTitle">All
                                                 chats</span>
-                                            <div style="display:flex; align-items:center; gap:8px;">
+                                            <div style="display:flex; align-items:center; gap:6px;">
                                                 <span class="omni-chatlist-total-count" id="omniChatListTotalCount">0
                                                     chat</span>
+                                                <button type="button" class="omni-action-btn" id="btnSyncOmniWa" onclick="syncOmniChatsFromWhatsApp(true)"
+                                                    title="Sinkronkan Chat dari WhatsApp WAHA VPS" style="padding:2px 6px; display:inline-flex; align-items:center; gap:4px; font-size:0.7rem; font-weight:700; color:#059669; border-color:#a7f3d0; background:#ecfdf5;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                                    <span>Sync WA</span>
+                                                </button>
                                                 <button type="button" class="omni-action-btn" onclick="clearOmniTestChats()"
                                                     title="Bersihkan riwayat chat uji coba" style="padding:2px 4px;">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none"

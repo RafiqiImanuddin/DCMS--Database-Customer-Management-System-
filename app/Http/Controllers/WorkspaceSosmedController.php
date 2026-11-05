@@ -490,7 +490,41 @@ class WorkspaceSosmedController extends Controller
         if ($request->isMethod('get')) {
             $since = $request->query('since');
             $phone = $request->query('phone');
-            $inboundOnly = $request->boolean('inbound_only', true);
+            $inboundOnly = $request->boolean('inbound_only', false);
+            $forceSync = $request->boolean('sync', false);
+
+            // Sinkronisasi otomatis dari WAHA VPS jika aktif
+            if ($watzapService->isWahaEnabled()) {
+                $shouldSync = $forceSync || empty($since) || (int) $since === 0 || (time() % 3 === 0);
+                if ($shouldSync) {
+                    try {
+                        $synced = $watzapService->syncWahaMessages(30, 20);
+                        if (! empty($synced)) {
+                            $existingIds = array_column($messages, 'messageId');
+                            $existingIdMap = array_flip(array_filter($existingIds));
+                            foreach ($synced as $sItem) {
+                                if (! empty($sItem['messageId']) && isset($existingIdMap[$sItem['messageId']])) {
+                                    continue;
+                                }
+                                $messages[] = $sItem;
+                                if (! empty($sItem['messageId'])) {
+                                    $existingIdMap[$sItem['messageId']] = true;
+                                }
+                            }
+                            usort($messages, function ($a, $b) {
+                                $tA = is_numeric($a['timestamp'] ?? 0) ? (int) $a['timestamp'] : strtotime((string) ($a['timestamp'] ?? ''));
+                                $tB = is_numeric($b['timestamp'] ?? 0) ? (int) $b['timestamp'] : strtotime((string) ($b['timestamp'] ?? ''));
+
+                                return $tA <=> $tB;
+                            });
+                            $trimmed = array_slice($messages, -1000);
+                            @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
+                            $messages = $trimmed;
+                        }
+                    } catch (\Throwable) {
+                    }
+                }
+            }
 
             $filtered = array_values(array_filter($messages, function ($m) use ($since, $phone, $inboundOnly) {
                 if ($inboundOnly && ($m['direction'] ?? '') !== 'inbound') {
@@ -504,8 +538,8 @@ class WorkspaceSosmedController extends Controller
                     }
                 }
                 if ($since) {
-                    $mTime = isset($m['timestamp']) ? strtotime((string) $m['timestamp']) : 0;
-                    $sTime = is_numeric($since) ? (int) ($since > 1e11 ? $since / 1000 : $since) : strtotime((string) $since);
+                    $mTime = is_numeric($m['timestamp'] ?? null) ? (int) $m['timestamp'] : (isset($m['timestamp']) ? strtotime((string) $m['timestamp']) * 1000 : 0);
+                    $sTime = is_numeric($since) ? (int) ($since < 1e11 ? $since * 1000 : $since) : strtotime((string) $since) * 1000;
                     if ($mTime <= $sTime) {
                         return false;
                     }

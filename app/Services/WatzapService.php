@@ -135,6 +135,167 @@ class WatzapService
     }
 
     /**
+     * Sinkronisasi chat dan pesan terbaru dari WAHA VPS ke sistem lokal.
+     * Sangat penting agar chat fisik selalu tersinkronisasi realtime tanpa tergantung webhook!
+     *
+     * @return array<int, array>
+     */
+    public function syncWahaMessages(int $limitChats = 30, int $limitMessagesPerChat = 20): array
+    {
+        if (! $this->isWahaEnabled()) {
+            return [];
+        }
+
+        $wahaUrl = $this->getWahaUrl();
+        $apiKey = $this->getWahaApiKey();
+        $session = $this->getWahaSession();
+
+        try {
+            $chatsRes = Http::timeout(4)
+                ->withHeaders(['X-Api-Key' => $apiKey])
+                ->get("{$wahaUrl}/api/{$session}/chats");
+
+            if (! $chatsRes->ok()) {
+                return [];
+            }
+
+            $chats = $chatsRes->json();
+            if (! is_array($chats)) {
+                return [];
+            }
+
+            $syncedEntries = [];
+            $chatCount = 0;
+
+            foreach ($chats as $chat) {
+                if (! empty($chat['isGroup'])) {
+                    continue;
+                }
+
+                $chatId = is_array($chat['id']) ? ($chat['id']['_serialized'] ?? '') : (string) ($chat['id'] ?? '');
+                if ($chatId === '' || str_contains($chatId, '@g.us') || str_contains($chatId, 'broadcast')) {
+                    continue;
+                }
+
+                $chatName = trim((string) ($chat['name'] ?? ''));
+                $cleanPhone = $this->resolvePhoneOrLid($chatId);
+                if (! $cleanPhone || strlen($cleanPhone) < 9) {
+                    $cleanPhone = preg_replace('/@.*$/', '', $chatId);
+                    $cleanPhone = preg_replace('/\D/', '', (string) $cleanPhone);
+                }
+
+                $chatCount++;
+                if ($chatCount > $limitChats) {
+                    break;
+                }
+
+                try {
+                    $msgRes = Http::timeout(3)
+                        ->withHeaders(['X-Api-Key' => $apiKey])
+                        ->get("{$wahaUrl}/api/{$session}/chats/".urlencode($chatId)."/messages?limit={$limitMessagesPerChat}");
+
+                    if ($msgRes->ok()) {
+                        $messages = $msgRes->json();
+                        if (is_array($messages)) {
+                            foreach ($messages as $m) {
+                                $msgId = (string) ($m['id'] ?? ('waha_'.uniqid()));
+                                $isFromMe = ! empty($m['fromMe']) || ! empty($m['_data']['id']['fromMe']);
+                                $direction = $isFromMe ? 'outbound' : 'inbound';
+                                $senderRole = $isFromMe ? 'ADMIN' : 'PIC';
+                                $senderName = $isFromMe ? 'Admin' : ($chatName ?: 'PIC '.$cleanPhone);
+                                $rawBody = trim((string) ($m['body'] ?? ($m['_data']['body'] ?? '')));
+                                $ts = isset($m['timestamp']) ? (int) $m['timestamp'] : time();
+                                $epochMs = $ts > 1e11 ? $ts : ($ts * 1000);
+
+                                // Quoted Reply parsing
+                                $replyTo = null;
+                                if (! empty($m['replyTo']) && is_array($m['replyTo'])) {
+                                    $replyTo = [
+                                        'id' => (string) ($m['replyTo']['id'] ?? ''),
+                                        'senderName' => $isFromMe ? 'PIC' : 'Admin',
+                                        'text' => trim((string) ($m['replyTo']['body'] ?? '')),
+                                    ];
+                                }
+
+                                $hasMedia = ! empty($m['hasMedia']) || ! empty($m['media']);
+                                $mediaUrl = null;
+                                $mediaType = null;
+                                if ($hasMedia) {
+                                    $mediaType = 'image';
+                                    if (is_array($m['media']) && ! empty($m['media']['url'])) {
+                                        $mediaUrl = (string) $m['media']['url'];
+                                    } elseif (is_array($m['media']) && ! empty($m['media']['filename'])) {
+                                        $mediaUrl = '/api/watzap-media?file='.urlencode($m['media']['filename']);
+                                    } else {
+                                        $mediaUrl = '/api/watzap-media?file='.urlencode($msgId.'.jpeg');
+                                    }
+                                }
+
+                                $entry = [
+                                    'messageId' => $msgId,
+                                    'phone' => $cleanPhone,
+                                    'message' => $rawBody,
+                                    'media_url' => $mediaUrl,
+                                    'media_type' => $mediaType,
+                                    'reply_to' => $replyTo,
+                                    'timestamp' => $epochMs,
+                                    'status' => 'received',
+                                    'direction' => $direction,
+                                    'sender' => $senderRole,
+                                    'senderName' => $senderName,
+                                    'gateway' => 'WAHA_VPS',
+                                    'raw' => $m,
+                                ];
+
+                                $syncedEntries[] = $entry;
+
+                                try {
+                                    if ($cleanPhone) {
+                                        $dbChat = \App\Models\WhatsAppChat::firstOrCreate(
+                                            ['phone_number' => $cleanPhone],
+                                            [
+                                                'customer_name' => $chatName ?: ('PIC '.$cleanPhone),
+                                                'folder' => 'all',
+                                                'unread_count' => 0,
+                                            ]
+                                        );
+                                        $dbChat->update([
+                                            'last_message' => $rawBody ?: ($mediaType ? "[$mediaType]" : 'Pesan'),
+                                            'last_message_at' => date('Y-m-d H:i:s', $ts),
+                                        ]);
+
+                                        \App\Models\WhatsAppMessage::firstOrCreate(
+                                            ['message_id' => $msgId],
+                                            [
+                                                'whatsapp_chat_id' => $dbChat->id,
+                                                'sender_type' => $isFromMe ? 'admin' : 'customer',
+                                                'agent_name' => $senderName,
+                                                'message' => $rawBody,
+                                                'media_url' => $mediaUrl,
+                                                'media_type' => $mediaType,
+                                                'reply_to' => $replyTo,
+                                                'raw_payload' => $m,
+                                                'status' => 'received',
+                                                'created_at' => date('Y-m-d H:i:s', $ts),
+                                            ]
+                                        );
+                                    }
+                                } catch (\Throwable) {
+                                }
+                            }
+                        }
+                    }
+                } catch (\Throwable) {
+                }
+            }
+
+            return $syncedEntries;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
      * Resolves phone or WhatsApp LID (@lid) to a normalized WhatsApp phone number (e.g. 628xxx).
      */
     public function resolvePhoneOrLid(?string $raw): string

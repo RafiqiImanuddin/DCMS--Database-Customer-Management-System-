@@ -8763,7 +8763,21 @@ function isGroupWhatsApp(raw) {
   const s = String(raw);
   if (s.includes('@g.us')) return true;
   const d = s.replace(/\D/g, '');
-  return d.startsWith('120363') || d.length > 14;
+  return d.startsWith('120363') || d.length > 16;
+}
+
+function parseOmniTimestamp(raw) {
+  if (!raw) return Date.now();
+  if (typeof raw === 'number') {
+    return raw < 1e11 ? raw * 1000 : raw;
+  }
+  const str = String(raw).trim();
+  const num = Number(str);
+  if (!isNaN(num) && num > 0) {
+    return num < 1e11 ? num * 1000 : num;
+  }
+  const parsed = new Date(str).getTime();
+  return (!isNaN(parsed) && parsed > 0) ? parsed : Date.now();
 }
 
 // --------------------------------------------------------------------------
@@ -9329,7 +9343,7 @@ function getOmniPicChats() {
   const threads = getOmniThreads();
   // Filter ketat: HANYA chat personal, TOLAK grup WhatsApp
   const activeKeys = Object.keys(threads).filter(function(k) {
-    return !k.includes('@g.us') && !k.startsWith('120363') && k.length <= 14 && Array.isArray(threads[k]) && threads[k].length > 0;
+    return !k.includes('@g.us') && !k.startsWith('120363') && k.length <= 16 && Array.isArray(threads[k]) && threads[k].length > 0;
   });
 
   if (activeKeys.length === 0) return [];
@@ -9356,7 +9370,7 @@ function getOmniPicChats() {
     let latestTimestamp = '';
     let latestEpochMs = 0;
     if (lastMsg && lastMsg.timestamp) {
-      latestEpochMs = Number(lastMsg.timestamp);
+      latestEpochMs = parseOmniTimestamp(lastMsg.timestamp);
       const d = new Date(latestEpochMs);
       latestTimestamp = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
@@ -9390,6 +9404,14 @@ function renderOmniInboxModule() {
   fetchOmniResolvedStatuses();
   startWatzapPolling();
   const allChats = getOmniPicChats();
+
+  // Auto-sinkronisasi awal dari WAHA VPS jika data lokal masih kosong
+  if (!window._hasAutoSyncedWaha && allChats.length === 0) {
+    window._hasAutoSyncedWaha = true;
+    setTimeout(function() {
+      syncOmniChatsFromWhatsApp(false);
+    }, 50);
+  }
   const bAll = document.getElementById('omniBadgeAll');
   const bAssigned = document.getElementById('omniBadgeAssigned');
   const bUnresponded = document.getElementById('omniBadgeUnresponded');
@@ -10230,7 +10252,7 @@ async function pollWatzapIncomingMessages() {
     const threads = getOmniThreads();
 
     data.messages.forEach(function(msg) {
-      const ts = Number(msg.timestamp || 0);
+      const ts = parseOmniTimestamp(msg.timestamp);
       if (ts > lastWatzapSyncTime) lastWatzapSyncTime = ts;
 
       const cleanPhone = normalizeWhatsAppPhone(msg.phone);
@@ -10357,6 +10379,124 @@ function startWatzapPolling() {
       pollWatzapIncomingMessages();
     }
   });
+}
+
+async function syncOmniChatsFromWhatsApp(isManual) {
+  const btn = document.getElementById('btnSyncOmniWa');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:omni-spin .75s linear infinite;"></span> <span>Syncing...</span>';
+  }
+
+  try {
+    const res = await fetch('/api/watzap-webhook?sync=1&since=0');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.success && Array.isArray(data.messages)) {
+      const threads = getOmniThreads();
+      let addedCount = 0;
+
+      data.messages.forEach(function(msg) {
+        const ts = parseOmniTimestamp(msg.timestamp);
+        if (ts > lastWatzapSyncTime) lastWatzapSyncTime = ts;
+
+        const cleanPhone = normalizeWhatsAppPhone(msg.phone);
+        if (!cleanPhone || msg.isGroup || isGroupWhatsApp(cleanPhone)) return;
+
+        const picKey = cleanPhone;
+        const text = msg.message || msg.text || '';
+        const incomingMediaUrl = msg.mediaUrl || msg.media_url || msg.image || msg.url || '';
+        const matched = matchPicFromMasterData(cleanPhone, msg.senderName || ('PIC ' + cleanPhone), '-');
+
+        if (!threads[picKey]) threads[picKey] = [];
+
+        let existingMsg = null;
+        threads[picKey].forEach(function(t) {
+          if (t.id && msg.messageId && t.id === msg.messageId) {
+            existingMsg = t;
+          } else if (Math.abs(Number(t.timestamp) - ts) < 5000 && (t.text || '').trim() === text.trim()) {
+            existingMsg = t;
+          }
+        });
+
+        if (existingMsg) {
+          if (!existingMsg.mediaUrl && incomingMediaUrl) {
+            existingMsg.mediaUrl = incomingMediaUrl;
+            existingMsg.messageType = 'image';
+          }
+        } else {
+          let replyToObj = msg.replyTo || null;
+          let cleanMsgText = text;
+          if (!replyToObj && cleanMsgText.startsWith('>')) {
+            const parsed = parseQuotedFromText(cleanMsgText);
+            if (parsed.replyTo) {
+              replyToObj = parsed.replyTo;
+              cleanMsgText = parsed.cleanText;
+            }
+          }
+
+          threads[picKey].push({
+            id: msg.messageId || ('in_' + ts),
+            sender: msg.sender || 'PIC',
+            senderName: msg.senderName || matched.picName,
+            text: cleanMsgText,
+            timestamp: ts,
+            status: 'sent',
+            mediaUrl: incomingMediaUrl,
+            messageType: msg.messageType || (incomingMediaUrl ? 'image' : 'text'),
+            replyTo: replyToObj
+          });
+          addedCount++;
+        }
+      });
+
+      // Urutkan pesan per thread berdasarkan timestamp
+      Object.keys(threads).forEach(function(k) {
+        if (Array.isArray(threads[k])) {
+          threads[k].sort(function(a, b) {
+            return (a.timestamp || 0) - (b.timestamp || 0);
+          });
+        }
+      });
+
+      saveOmniThreads(threads);
+      renderOmniInboxModule();
+
+      const allChats = getOmniPicChats();
+      if (!selectedOmniPicKey && allChats.length > 0) {
+        selectOmniPic(allChats[0].key);
+      } else if (selectedOmniPicKey) {
+        selectOmniPic(selectedOmniPicKey);
+      }
+
+      if (isManual && typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'success',
+          title: 'Sinkronisasi Selesai!',
+          text: 'Berhasil menyinkronkan chat WhatsApp WAHA VPS (' + allChats.length + ' percakapan).',
+          timer: 2000,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end'
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Gagal sync chat WhatsApp:', err);
+    if (isManual && typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Sinkronisasi Gagal',
+        text: 'Tidak dapat menghubungi server: ' + (err.message || err),
+        confirmButtonText: 'Tutup'
+      });
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> <span>Sync WA</span>';
+    }
+  }
 }
 
 function handleOmniInputKey(e) {
@@ -10787,3 +10927,5 @@ window.openSimulateChatModal = openSimulateChatModal;
 window.closeSimulateChatModal = closeSimulateChatModal;
 window.toggleSimMediaInputs = toggleSimMediaInputs;
 window.submitSimulateChat = submitSimulateChat;
+window.syncOmniChatsFromWhatsApp = syncOmniChatsFromWhatsApp;
+window.parseOmniTimestamp = parseOmniTimestamp;
