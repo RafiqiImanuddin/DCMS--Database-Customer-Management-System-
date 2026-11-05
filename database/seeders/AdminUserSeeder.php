@@ -26,6 +26,7 @@ class AdminUserSeeder extends Seeder
             ['email' => 'rafiqirfq24@gmail.com'],
             [
                 'name' => 'Administrator DCMS',
+                'password' => Hash::make('Fitrianirafiqi1g'),
                 'role' => 'superadmin',
             ],
         );
