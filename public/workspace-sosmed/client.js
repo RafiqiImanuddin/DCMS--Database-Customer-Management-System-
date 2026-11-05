@@ -9529,6 +9529,27 @@ function clearOmniTestChats() {
   }
 }
 
+function insertQuickReply(type) {
+  var input = document.getElementById('omniReplyInput') || document.getElementById('chat-input');
+  if (!input) return;
+  var quickTemplates = {
+    promo: "Halo Kak! 🔥 Khusus hari ini ada promo cashback dan diskon spesial untuk produk favorit di Gadgetmart. Mau Mimin bantu cek ketersediaan unitnya?",
+    share_promo: "Halo Kak! 🔥 Khusus hari ini ada promo cashback dan diskon spesial untuk produk favorit di Gadgetmart. Mau Mimin bantu cek ketersediaan unitnya?",
+    katalog: "Halo Kak! 📋 Silakan cek katalog lengkap produk dan harga terupdate Gadgetmart melalui link resmi kami di https://gadgetmart.id/katalog atau beri tahu Mimin produk yang sedang Kakak cari ya!",
+    cicilan: "Halo Kak! 🧮 Simulasi cicilan di Gadgetmart sangat fleksibel:\n- Tenor 3 Bulan: DP 0%\n- Tenor 6 Bulan: Angsuran ringan\n- Tenor 12 Bulan: Bunga kompetitif\nBisa lewat Kredivo, Akulaku, Home Credit, atau Kartu Kredit. Mau coba hitungkan untuk produk yang mana Kak?",
+    simulasi_cicilan: "Halo Kak! 🧮 Simulasi cicilan di Gadgetmart sangat fleksibel:\n- Tenor 3 Bulan: DP 0%\n- Tenor 6 Bulan: Angsuran ringan\n- Tenor 12 Bulan: Bunga kompetitif\nBisa lewat Kredivo, Akulaku, Home Credit, atau Kartu Kredit. Mau coba hitungkan untuk produk yang mana Kak?",
+    shopee: "Halo Kak! 🛍️ Untuk transaksi melalui Shopee Official Store Gadgetmart, Kakak bisa langsung kunjungi toko kami dengan jaminan 100% Original, Garansi Resmi, dan Gratis Ongkir!"
+  };
+  var text = quickTemplates[type] || '';
+  if (text) {
+    input.value = text;
+    input.focus();
+    if (typeof handleOmniInputTyping === 'function') {
+      handleOmniInputTyping(input);
+    }
+  }
+}
+
 // Global Window Exports
 window.switchOmniView = switchOmniView;
 window.renderOmniMasterTable = renderOmniMasterTable;

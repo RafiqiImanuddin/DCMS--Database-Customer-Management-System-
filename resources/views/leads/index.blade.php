@@ -243,23 +243,23 @@
                                 <input type="checkbox" name="prediction_ids[]" value="{{ $lead->prediction->id }}"
                                     data-lead-id="{{ $lead->id }}"
                                     class="lead-checkbox size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                                    data-customer-name="{{ $lead->customer_vendor_name ?: 'Kaka' }}"
+                                    data-customer-name="{{ $lead->customer_vendor_name ?: 'No Name' }}"
                                     data-item-name="{{ $lead->dscription ?: ($lead->item_code ?: 'produk') }}"
                                     data-customer-code="{{ $lead->customer_vendor_code }}"
-                                    aria-label="Pilih {{ $lead->customer_vendor_name ?: 'Kaka' }}"
+                                    aria-label="Pilih {{ $lead->customer_vendor_name ?: 'No Name' }}"
                                     @disabled(! $leadPhoneValid)>
                             @else
                                 <input type="checkbox"
                                     data-lead-id="{{ $lead->id }}"
                                     class="lead-checkbox size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                                    data-customer-name="{{ $lead->customer_vendor_name ?: 'Kaka' }}"
+                                    data-customer-name="{{ $lead->customer_vendor_name ?: 'No Name' }}"
                                     data-item-name="{{ $lead->dscription ?: ($lead->item_code ?: 'produk') }}"
                                     data-customer-code="{{ $lead->customer_vendor_code }}"
-                                    aria-label="Pilih {{ $lead->customer_vendor_name ?: 'Kaka' }}">
+                                    aria-label="Pilih {{ $lead->customer_vendor_name ?: 'No Name' }}">
                             @endif
                         </td>
                         <td class="px-5 py-4">
-                            <div class="font-semibold text-slate-900">{{ $lead->customer_vendor_name ?: 'Kaka' }}</div>
+                            <div class="font-semibold text-slate-900">{{ $lead->customer_vendor_name ?: 'No Name' }}</div>
                             <div class="mt-1 text-xs text-slate-500">{{ $lead->customer_vendor_code }}</div>
                         </td>
                         <td class="px-3 py-4">

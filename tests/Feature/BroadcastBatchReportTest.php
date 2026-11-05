@@ -423,5 +423,130 @@ class BroadcastBatchReportTest extends TestCase
         $this->assertStringContainsString('{item}', $result);
         $this->assertTrue(str_contains($result, 'kami punya promo') || str_contains($result, 'ada penawaran khusus'));
     }
+
+    public function test_broadcast_cycle_starts_on_first_sent_broadcast_and_calculates_remaining_24h_window(): void
+    {
+        $service = app(BroadcastService::class);
+        Setting::forget('broadcast_cycle_started_at');
+        Setting::set('broadcast_daily_limit', '50');
+
+        $infoBefore = $service->getCycleInfo();
+        $this->assertFalse($infoBefore['is_active']);
+        $this->assertEquals(0, $infoBefore['sent_count']);
+        $this->assertEquals(50, $infoBefore['remaining_quota']);
+
+        // Record cycle start as now
+        $knownNow = now();
+        $this->travelTo($knownNow);
+
+        $service->recordCycleStart();
+
+        $infoAfter = $service->getCycleInfo();
+        $this->assertTrue($infoAfter['is_active']);
+        $this->assertEquals($knownNow->toIso8601String(), $infoAfter['started_at']->toIso8601String());
+        $this->assertEquals($knownNow->copy()->addHours(24)->toIso8601String(), $infoAfter['reset_at']->toIso8601String());
+        $this->assertEqualsWithDelta(86400, $infoAfter['remaining_seconds'], 2);
+
+        // Travel 4 hours forward
+        $this->travelTo($knownNow->copy()->addHours(4));
+
+        $info4h = $service->getCycleInfo();
+        $this->assertTrue($info4h['is_active']);
+        $this->assertEqualsWithDelta(72000, $info4h['remaining_seconds'], 2); // ~20 hours left
+        $this->assertTrue(str_contains($info4h['remaining_text'], 'jam'));
+    }
+
+    public function test_broadcast_cycle_automatically_resets_after_24_hours(): void
+    {
+        $service = app(BroadcastService::class);
+        $startTime = now();
+        $this->travelTo($startTime);
+
+        $service->recordCycleStart();
+        $this->assertTrue($service->getCycleInfo()['is_active']);
+
+        // Travel 24 hours and 1 minute forward
+        $this->travelTo($startTime->copy()->addHours(24)->addMinute());
+
+        $infoExpired = $service->getCycleInfo();
+        $this->assertFalse($infoExpired['is_active']);
+        $this->assertEquals(0, $infoExpired['sent_count']);
+        $this->assertStringContainsString('1x24 jam', $infoExpired['remaining_text']);
+
+        // When a new broadcast is sent, a fresh cycle starts
+        $service->recordCycleStart();
+        $infoNew = $service->getCycleInfo();
+        $this->assertTrue($infoNew['is_active']);
+        $this->assertEquals(now()->toIso8601String(), $infoNew['started_at']->toIso8601String());
+    }
+
+    public function test_broadcast_daily_limit_enforcement_blocks_when_quota_exhausted_in_24h_cycle(): void
+    {
+        $user = User::factory()->create();
+        Setting::set('broadcast_daily_limit', '2');
+        Setting::set('broadcast_cycle_started_at', now()->subMinutes(15)->toIso8601String());
+
+        // Create 2 sent reports within the current cycle
+        BroadcastReport::create([
+            'user_id' => $user->id,
+            'phone_number' => '081234567890',
+            'channel' => 'whatsapp',
+            'message' => 'Test 1',
+            'status' => 'sent',
+            'sent_at' => now()->subMinutes(10),
+        ]);
+
+        BroadcastReport::create([
+            'user_id' => $user->id,
+            'phone_number' => '081234567891',
+            'channel' => 'whatsapp',
+            'message' => 'Test 2',
+            'status' => 'sent',
+            'sent_at' => now()->subMinutes(5),
+        ]);
+
+        $pred = RepeatOrderPrediction::create([
+            'customer_vendor_code' => 'C999888',
+            'customer_vendor_name' => 'Kaka Test',
+            'no_hp_customer' => '081299999999',
+            'item_code' => 'TESTITEM',
+            'classification' => 'tinggi',
+        ]);
+
+        // Attempting to send single broadcast should be blocked
+        $responseSingle = $this->actingAs($user)->post(route('broadcasts.store', $pred->id), [
+            'message' => 'Halo pesan promo',
+        ]);
+
+        $responseSingle->assertRedirect();
+        $responseSingle->assertSessionHas('error');
+        $this->assertStringContainsString('Batas kuota broadcast (2 pesan / 1x24 jam) telah tercapai', session('error'));
+
+        // Attempting to send bulk broadcast should also be blocked
+        $responseBulk = $this->actingAs($user)->post(route('broadcasts.bulk'), [
+            'prediction_ids' => [$pred->id],
+            'message' => 'Halo pesan promo bulk',
+        ]);
+
+        $responseBulk->assertRedirect();
+        $responseBulk->assertSessionHas('error');
+        $this->assertStringContainsString('Batas kuota broadcast (2 pesan / 1x24 jam) telah tercapai', session('error'));
+    }
+
+    public function test_user_can_manually_reset_broadcast_24h_cycle(): void
+    {
+        $user = User::factory()->create();
+        $service = app(BroadcastService::class);
+        $service->recordCycleStart();
+
+        $this->assertTrue($service->getCycleInfo()['is_active']);
+
+        $response = $this->actingAs($user)->post(route('broadcasts.reset-cycle'));
+
+        $response->assertRedirect(route('broadcasts.index'));
+        $response->assertSessionHas('success');
+
+        $this->assertFalse($service->getCycleInfo()['is_active']);
+    }
 }
 

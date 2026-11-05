@@ -46,6 +46,18 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $response->assertSee('Inbox Follow-Up');
     }
 
+    public function test_sidebar_has_collapsible_groups(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+        $response->assertStatus(200);
+        $response->assertSee('toggleSidebarGroup(\'customer\')', false);
+        $response->assertSee('toggleSidebarGroup(\'workspace\')', false);
+        $response->assertSee('sidebar-group-customer');
+        $response->assertSee('sidebar-group-workspace');
+    }
+
     public function test_raw_numeric_tab_redirects_to_encrypted_routing(): void
     {
         $user = User::factory()->create();

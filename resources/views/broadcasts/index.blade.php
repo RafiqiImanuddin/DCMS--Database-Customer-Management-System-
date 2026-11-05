@@ -81,7 +81,19 @@
                 Jeda acak antar pesan: <strong>{{ $safetySettings['delay_min'] }} - {{ $safetySettings['delay_max'] }} detik</strong> &middot; 
                 Istirahat tiap <strong>{{ $safetySettings['batch_size'] }} pesan ({{ $safetySettings['batch_cooldown'] }}s)</strong> &middot; 
                 Spintax Acak: <strong>{{ $safetySettings['spintax_enabled'] ? 'ON' : 'OFF' }}</strong> &middot; 
-                Terkirim hari ini: <strong>{{ $todaySentCount }} / {{ $safetySettings['daily_limit'] }}</strong>
+                Limit 1x24 Jam: <strong>{{ $cycleInfo['sent_count'] }} / {{ $safetySettings['daily_limit'] }}</strong>
+                &middot; 
+                @if($cycleInfo['is_active'])
+                    <span class="inline-flex items-center gap-1 font-semibold text-emerald-950 bg-emerald-200/70 px-2 py-0.5 rounded-md border border-emerald-300">
+                        <svg class="size-3 text-emerald-700 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                        Reset dalam: <span id="cycle-countdown-timer" data-reset-ts="{{ $cycleInfo['reset_at']?->timestamp ?? 0 }}">{{ $cycleInfo['remaining_text'] }}</span> ({{ $cycleInfo['reset_time_formatted'] }})
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-1 font-medium text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md border border-emerald-200/80">
+                        <svg class="size-3 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Durasi Reset: 1x24 jam sejak broadcast pertama
+                    </span>
+                @endif
             </p>
         </div>
     </div>
@@ -562,29 +574,49 @@ function testSpintaxPreview() {
                 </div>
             </div>
 
-            <!-- Section 4: Batas Aman Harian -->
+            <!-- Section 4: Batas Maksimal Broadcast (Siklus 1x24 Jam) -->
             <div class="rounded-xl border border-slate-200/90 bg-slate-50/70 p-4">
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                         <svg class="size-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
-                        4. Batas Maksimal Broadcast Harian (Daily Cap)
+                        4. Batas Maksimal Broadcast (Siklus 1x24 Jam)
                     </span>
                     <span class="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Batas Aman Akun</span>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-center">
                     <div>
                         <div class="relative">
-                            <input type="number" id="daily_limit" name="daily_limit" min="10" max="5000" value="{{ $safetySettings['daily_limit'] }}" class="dcms-input text-xs font-bold font-mono pl-3 pr-14" required>
-                            <span class="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">pesan/hari</span>
+                            <input type="number" id="daily_limit" name="daily_limit" min="10" max="5000" value="{{ $safetySettings['daily_limit'] }}" class="dcms-input text-xs font-bold font-mono pl-3 pr-16" required>
+                            <span class="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400 font-semibold">pesan/24j</span>
                         </div>
-                        <p class="mt-1 text-[11px] text-slate-400">Rekomendasi nomor berumur: maks 250 - 500 pesan/hari.</p>
+                        <p class="mt-1 text-[11px] text-slate-400">Rekomendasi nomor berumur: maks 250 - 500 pesan per 24 jam.</p>
                     </div>
                     <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs">
-                        <div class="text-slate-500 text-[11px]">Pesan Terkirim Hari Ini:</div>
+                        <div class="flex items-center justify-between text-slate-500 text-[11px]">
+                            <span>Terkirim di Siklus Aktif:</span>
+                            <span class="font-bold {{ $cycleInfo['remaining_quota'] <= 0 ? 'text-rose-600' : 'text-emerald-600' }}">
+                                Sisa: {{ $cycleInfo['remaining_quota'] }}
+                            </span>
+                        </div>
                         <div class="text-base font-black text-slate-900 mt-0.5">
-                            {{ $todaySentCount }} <span class="text-xs font-medium text-slate-400">/ {{ $safetySettings['daily_limit'] }}</span>
+                            {{ $cycleInfo['sent_count'] }} <span class="text-xs font-medium text-slate-400">/ {{ $safetySettings['daily_limit'] }}</span>
+                        </div>
+                        <div class="mt-1.5 text-[11px] text-slate-600 font-medium flex items-start gap-1">
+                            <span class="text-emerald-600 font-bold shrink-0">⏳</span>
+                            <span>{{ $cycleInfo['status_description'] }}</span>
                         </div>
                     </div>
+                </div>
+                <div class="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 border-t border-slate-200/60 text-[11px] text-slate-500">
+                    <p class="leading-relaxed">
+                        💡 Durasi reset berjalan selama <strong>1x24 jam sejak broadcast pertama dijalankan</strong>, dan otomatis direset ke 0 setelah 24 jam penuh.
+                    </p>
+                    @if($cycleInfo['is_active'])
+                        <button type="button" onclick="confirmResetCycle()" class="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-800 underline">
+                            <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                            Reset Siklus Sekarang
+                        </button>
+                    @endif
                 </div>
             </div>
 
@@ -617,5 +649,53 @@ function testSpintaxPreview() {
         </form>
     </div>
 </div>
+
+<form id="reset-cycle-form" action="{{ route('broadcasts.reset-cycle') }}" method="POST" class="hidden">
+    @csrf
+</form>
+
+<script>
+function confirmResetCycle() {
+    if (confirm('Apakah Anda yakin ingin mereset siklus kuota broadcast 24 jam sekarang? Hitungan pesan terkirim akan dimulai dari 0 dan siklus 24 jam baru akan dimulai saat broadcast berikutnya dikirim.')) {
+        document.getElementById('reset-cycle-form').submit();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const timerEl = document.getElementById('cycle-countdown-timer');
+    if (!timerEl) return;
+
+    const resetTs = parseInt(timerEl.getAttribute('data-reset-ts'), 10);
+    if (!resetTs || isNaN(resetTs)) return;
+
+    function updateTimer() {
+        const now = Math.floor(Date.now() / 1000);
+        const remaining = resetTs - now;
+
+        if (remaining <= 0) {
+            timerEl.textContent = 'Mereset kuota...';
+            setTimeout(function() {
+                window.location.reload();
+            }, 2000);
+            return;
+        }
+
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        const seconds = remaining % 60;
+
+        if (hours > 0) {
+            timerEl.textContent = `${hours} jam ${minutes} mnt ${seconds} dtk`;
+        } else if (minutes > 0) {
+            timerEl.textContent = `${minutes} mnt ${seconds} dtk`;
+        } else {
+            timerEl.textContent = `${seconds} detik`;
+        }
+    }
+
+    updateTimer();
+    setInterval(updateTimer, 1000);
+});
+</script>
 
 @endsection

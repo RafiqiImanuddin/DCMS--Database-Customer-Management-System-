@@ -95,4 +95,77 @@ class RepeatOrderDashboardTest extends TestCase
         $respCategory->assertSee('Pelanggan Masa Depan');
         $respCategory->assertDontSee('Pelanggan Overdue');
     }
+
+    public function test_master_customer_can_be_filtered_by_cabang(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        // Cabang BJMC
+        RepeatOrderPrediction::create([
+            'customer_vendor_code' => 'CUST_BJMC',
+            'customer_vendor_name' => 'Pelanggan Banjarmasin',
+            'no_hp_customer' => '628123456789',
+            'cabang' => 'BJMC',
+            'item_code' => 'GAD.SAM.A55',
+            'transaction_count' => 3,
+            'average_gap_days' => 45,
+            'predicted_repeat_date' => now()->addDays(10),
+            'classification' => 'tinggi',
+        ]);
+
+        // Cabang TJGC
+        RepeatOrderPrediction::create([
+            'customer_vendor_code' => 'CUST_TJGC',
+            'customer_vendor_name' => 'Pelanggan Tanjung',
+            'no_hp_customer' => '628987654321',
+            'cabang' => 'TJGC',
+            'item_code' => 'GAD.APL.IP15',
+            'transaction_count' => 2,
+            'average_gap_days' => 60,
+            'predicted_repeat_date' => now()->addDays(15),
+            'classification' => 'sedang',
+        ]);
+
+        // Filter BJMC
+        $responseBjmc = $this->actingAs($user)->get(route('predictions.index', ['cabang' => 'BJMC']));
+        $responseBjmc->assertOk();
+        $responseBjmc->assertSee('Pelanggan Banjarmasin');
+        $responseBjmc->assertDontSee('Pelanggan Tanjung');
+        $responseBjmc->assertSee('Fokus Cabang: BJMC');
+
+        // Filter TJGC
+        $responseTjgc = $this->actingAs($user)->get(route('predictions.index', ['cabang' => 'TJGC']));
+        $responseTjgc->assertOk();
+        $responseTjgc->assertSee('Pelanggan Tanjung');
+        $responseTjgc->assertDontSee('Pelanggan Banjarmasin');
+        $responseTjgc->assertSee('Fokus Cabang: TJGC');
+
+        // Download filtered by Cabang
+        $downloadResponse = $this->actingAs($user)->get(route('predictions.download', ['cabang' => 'BJMC']));
+        $downloadResponse->assertOk();
+        $disposition = (string) $downloadResponse->headers->get('content-disposition');
+        $this->assertStringContainsString('cabang-bjmc', $disposition);
+    }
+
+    public function test_master_customer_displays_no_name_when_customer_name_is_empty(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        RepeatOrderPrediction::create([
+            'customer_vendor_code' => 'C203111',
+            'customer_vendor_name' => '',
+            'no_hp_customer' => '6283823241594',
+            'cabang' => 'BTCC',
+            'item_code' => 'ACC.APL.SG00096',
+            'transaction_count' => 1,
+            'average_gap_days' => 0,
+            'predicted_repeat_date' => now()->addDays(10),
+            'classification' => 'baru',
+        ]);
+
+        $response = $this->actingAs($user)->get(route('predictions.index'));
+        $response->assertOk();
+        $response->assertSee('No Name');
+        $response->assertDontSee('Kaka');
+    }
 }

@@ -10,6 +10,7 @@ use App\Support\BrandCategory;
 use App\Support\PhoneNumberSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -99,9 +100,28 @@ class RepeatOrderPredictionController extends Controller
         // 6. Broadcast Templates
         $templates = BroadcastTemplate::orderBy('id')->get();
 
+        $branches = RepeatOrderPrediction::whereNotNull('cabang')
+            ->whereRaw("TRIM(cabang) <> ''")
+            ->distinct()
+            ->orderBy('cabang')
+            ->pluck('cabang');
+
+        $selectedCabang = $request->string('cabang')->trim()->toString();
+        if ($selectedCabang !== '' && ! $branches->contains($selectedCabang)) {
+            $selectedCabang = '';
+        }
+
+        $perPage = (int) $request->integer('per_page', 20);
+        if (! in_array($perPage, [10, 20, 50, 100, 200], true)) {
+            $perPage = 20;
+        }
+
         return view('predictions.index', [
-            'predictions' => $query->orderByRaw('predicted_repeat_date ASC NULLS LAST')->orderByDesc('transaction_count')->paginate(20)->withQueryString(),
+            'predictions' => $query->orderByRaw('predicted_repeat_date ASC NULLS LAST')->orderByDesc('transaction_count')->paginate($perPage)->withQueryString(),
             'periods' => RepeatOrderPrediction::whereNotNull('period_label')->distinct()->orderByDesc('period_label')->pluck('period_label'),
+            'branches' => $branches,
+            'selectedCabang' => $selectedCabang,
+            'perPage' => $perPage,
             'brandOptions' => $brandOptions,
             'selectedBrand' => $selectedBrand,
             'selectedPhoneStatus' => $selectedPhoneStatus,
@@ -153,7 +173,11 @@ class RepeatOrderPredictionController extends Controller
         $totalFiltered = (clone $query)->count();
         $query->orderByRaw('predicted_repeat_date ASC NULLS LAST')->orderByDesc('transaction_count')->skip($offset)->take($perBatch);
 
+        $selectedCabang = $request->string('cabang')->trim()->toString();
         $filename = 'master-customer-repeat-order';
+        if ($selectedCabang !== '') {
+            $filename .= '-cabang-'.Str::slug($selectedCabang);
+        }
         if ($totalFiltered > $perBatch) {
             $filename .= '-batch-'.$batch;
         }
@@ -163,6 +187,7 @@ class RepeatOrderPredictionController extends Controller
             'Kode Pelanggan',
             'Nama Pelanggan',
             'No HP Konsumen',
+            'Cabang',
             'Kode Item',
             'Kategori',
             'Nama Barang',
@@ -181,6 +206,7 @@ class RepeatOrderPredictionController extends Controller
                     $row->customer_vendor_code,
                     $row->customer_vendor_name,
                     $row->no_hp_customer,
+                    $row->cabang ?? '-',
                     $row->item_code,
                     $row->category,
                     $row->dscription,
@@ -211,6 +237,11 @@ class RepeatOrderPredictionController extends Controller
         };
         $query->where($applyMasterCustomerScope);
 
+        $selectedCabang = $request->string('cabang')->trim()->toString();
+        if ($selectedCabang !== '') {
+            $query->where('cabang', $selectedCabang);
+        }
+
         $brandOptions = collect(BrandCategory::BRAND_OPTIONS);
         $selectedBrand = $request->string('brand')->trim()->toString();
         if (! $brandOptions->contains($selectedBrand)) {
@@ -223,7 +254,8 @@ class RepeatOrderPredictionController extends Controller
                     ->orWhere('customer_vendor_name', 'like', '%'.$search.'%')
                     ->orWhere('no_hp_customer', 'like', '%'.$search.'%')
                     ->orWhere('item_code', 'like', '%'.$search.'%')
-                    ->orWhere('dscription', 'like', '%'.$search.'%');
+                    ->orWhere('dscription', 'like', '%'.$search.'%')
+                    ->orWhere('cabang', 'like', '%'.$search.'%');
             });
         }
 

@@ -64,6 +64,14 @@ class RouteCipher
             'controller' => \App\Http\Controllers\WatzapSettingController::class,
             'method' => 'index',
         ],
+        'settings.karyawan.index' => [
+            'controller' => \App\Http\Controllers\EmployeeSettingController::class,
+            'method' => 'index',
+        ],
+        'monitoring.sales.index' => [
+            'controller' => \App\Http\Controllers\SalesMonitoringController::class,
+            'method' => 'index',
+        ],
         'whatsapp.index' => [
             'controller' => \App\Http\Controllers\WatzapSettingController::class,
             'method' => 'index',

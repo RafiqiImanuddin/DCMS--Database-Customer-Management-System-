@@ -6,9 +6,11 @@ use App\Http\Controllers\BroadcastReportController;
 use App\Http\Controllers\BroadcastTemplateController;
 use App\Http\Controllers\CrossSellingImportController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeSettingController;
 use App\Http\Controllers\EncryptedRouteController;
 use App\Http\Controllers\LeadCustomerController;
 use App\Http\Controllers\RepeatOrderPredictionController;
+use App\Http\Controllers\SalesMonitoringController;
 use App\Http\Controllers\WatzapSettingController;
 use App\Http\Controllers\WorkspaceSosmedController;
 use Illuminate\Support\Facades\Route;
@@ -67,6 +69,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/broadcasts/batches/{batch}', [BroadcastReportController::class, 'destroyBatch'])->name('broadcasts.batches.destroy');
     Route::post('/broadcasts/bulk', [BroadcastReportController::class, 'bulkStore'])->name('broadcasts.bulk');
     Route::post('/broadcasts/settings', [BroadcastReportController::class, 'updateSettings'])->name('broadcasts.settings.update');
+    Route::post('/broadcasts/reset-cycle', [BroadcastReportController::class, 'resetCycle'])->name('broadcasts.reset-cycle');
     Route::delete('/broadcasts/{report}', [BroadcastReportController::class, 'destroy'])->name('broadcasts.destroy');
     Route::post('/predictions/{prediction}/broadcast', [BroadcastReportController::class, 'store'])->name('broadcasts.store');
 
@@ -78,6 +81,22 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/watzap/test-send', [WatzapSettingController::class, 'testSend'])->name('settings.watzap.test_send');
     Route::post('/settings/watzap/register-webhook', [WatzapSettingController::class, 'registerWebhook'])->name('settings.watzap.register_webhook');
     Route::get('/settings/watzap/get-webhook', [WatzapSettingController::class, 'getWebhookStatus'])->name('settings.watzap.get_webhook');
+
+    // Monitoring Kinerja Admin Sales (Manager & Admin)
+    Route::get('/monitoring/sales', [SalesMonitoringController::class, 'index'])->name('monitoring.sales.index');
+    Route::post('/monitoring/sales/assessments', [SalesMonitoringController::class, 'storeAssessment'])->name('monitoring.sales.assessment.store');
+    Route::get('/monitoring/sales/assessments/{assessment}', [SalesMonitoringController::class, 'showAssessment'])->name('monitoring.sales.assessment.show');
+    Route::get('/monitoring/sales/export', [SalesMonitoringController::class, 'export'])->name('monitoring.sales.export');
+    Route::post('/monitoring/sales/auto-sync', [SalesMonitoringController::class, 'autoSyncMetrics'])->name('monitoring.sales.auto_sync');
+
+    // Pengaturan Data Karyawan & Bobot Penilaian KPI
+    Route::get('/settings/karyawan', [EmployeeSettingController::class, 'index'])->name('settings.karyawan.index');
+    Route::post('/settings/karyawan', [EmployeeSettingController::class, 'storeEmployee'])->name('settings.karyawan.store');
+    Route::put('/settings/karyawan/{employee}', [EmployeeSettingController::class, 'updateEmployee'])->name('settings.karyawan.update');
+    Route::delete('/settings/karyawan/{employee}', [EmployeeSettingController::class, 'destroyEmployee'])->name('settings.karyawan.destroy');
+    Route::post('/settings/kpi-weights', [EmployeeSettingController::class, 'updateKpiWeights'])->name('settings.kpi_weights.update');
+    Route::post('/settings/kpi-criteria', [EmployeeSettingController::class, 'storeKpiCriterion'])->name('settings.kpi_criteria.store');
+    Route::delete('/settings/kpi-criteria/{criterion}', [EmployeeSettingController::class, 'destroyKpiCriterion'])->name('settings.kpi_criteria.destroy');
 
     // Modul Terintegrasi: Workspace Sosmed (Sosmed KPI, Report, Cek AR, Keep & Follow-Up)
     Route::get('/workspace-sosmed/{token?}', [WorkspaceSosmedController::class, 'index'])->name('workspace-sosmed.index');

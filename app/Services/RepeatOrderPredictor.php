@@ -50,7 +50,7 @@ class RepeatOrderPredictor
                     $group = [
                         'cross_selling_import_id' => $row->cross_selling_import_id,
                         'customer_vendor_code' => $row->customer_vendor_code,
-                        'customer_vendor_name' => $row->name ?: null,
+                        'customer_vendor_name' => trim((string) $row->name) ?: 'No Name',
                         'no_hp_customer' => $row->no_hp_customer,
                         'cabang' => $row->cabang,
                         'item_code' => $row->item_code,
@@ -63,7 +63,10 @@ class RepeatOrderPredictor
                         'period_label' => $row->period_label,
                     ];
                 } else {
-                    $group['customer_vendor_name'] = $row->name ?: $group['customer_vendor_name'];
+                    $cleanedName = trim((string) $row->name);
+                    if ($cleanedName !== '') {
+                        $group['customer_vendor_name'] = $cleanedName;
+                    }
                     $group['no_hp_customer'] = $row->no_hp_customer ?: $group['no_hp_customer'];
                     $group['cabang'] = $row->cabang ?: $group['cabang'];
                     $group['dscription'] = $row->dscription ?: $group['dscription'];
@@ -135,7 +138,7 @@ class RepeatOrderPredictor
         return [
             'cross_selling_import_id' => $group['cross_selling_import_id'],
             'customer_vendor_code' => $group['customer_vendor_code'],
-            'customer_vendor_name' => $group['customer_vendor_name'],
+            'customer_vendor_name' => trim((string) $group['customer_vendor_name']) ?: 'No Name',
             'no_hp_customer' => $group['no_hp_customer'],
             'cabang' => $group['cabang'],
             'item_code' => $group['item_code'],

@@ -309,9 +309,17 @@
 <!-- ======================================================== -->
 <!-- FORM PENCARIAN & FILTER TERPADU                          -->
 <!-- ======================================================== -->
-<form method="GET" class="dcms-card mb-5 grid gap-3 p-4 lg:grid-cols-[minmax(200px,1fr)_160px_160px_140px_140px_140px_auto]">
-    <input name="search" value="{{ request('search') }}" placeholder="Cari pelanggan, item, atau HP" class="dcms-input py-2.5 text-xs">
+<form method="GET" class="dcms-card mb-5 grid gap-2.5 p-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(180px,1.2fr)_140px_140px_140px_130px_130px_140px_110px_auto_auto] items-center">
+    <input name="search" value="{{ request('search') }}" placeholder="Cari pelanggan, HP, item, cabang" class="dcms-input py-2.5 text-xs">
     
+    <!-- Filter Cabang -->
+    <select name="cabang" class="dcms-input py-2.5 text-xs font-medium">
+        <option value="">🏢 Semua Cabang</option>
+        @foreach($branches as $b)
+            <option value="{{ $b }}" @selected($selectedCabang === $b)>Cabang {{ $b }}</option>
+        @endforeach
+    </select>
+
     <select name="classification" class="dcms-input py-2.5 text-xs">
         <option value="">Semua klasifikasi</option>
         @foreach(['tinggi', 'sedang', 'rendah', 'baru'] as $value)
@@ -356,7 +364,17 @@
         <option value="missing" @selected($selectedPhoneStatus === 'missing')>Tanpa nomor</option>
     </select>
 
-    <button class="dcms-primary-button px-5 text-xs font-bold">Filter</button>
+    <select name="per_page" class="dcms-input py-2.5 text-xs font-medium">
+        <option value="20" @selected($perPage == 20)>20 baris</option>
+        <option value="50" @selected($perPage == 50)>50 baris</option>
+        <option value="100" @selected($perPage == 100)>100 baris</option>
+        <option value="200" @selected($perPage == 200)>200 baris</option>
+    </select>
+
+    <button type="submit" class="dcms-primary-button px-4 py-2.5 text-xs font-bold whitespace-nowrap">Filter</button>
+    @if(request()->hasAny(['search', 'classification', 'period', 'category', 'brand', 'phone_status', 'cabang', 'per_page']))
+        <a href="{{ route('predictions.index') }}" class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-center text-xs font-semibold text-slate-600 hover:bg-slate-50 transition whitespace-nowrap">Reset</a>
+    @endif
 </form>
 
 <!-- Visualisasi Filter Cepat: Potensi & WhatsApp -->
@@ -378,10 +396,12 @@
                     $chartParams = array_filter([
                         'classification' => request('classification') === $classification ? null : $classification,
                         'search' => request('search'),
+                        'cabang' => request('cabang'),
                         'period' => request('period'),
                         'category' => request('category'),
                         'brand' => request('brand'),
                         'phone_status' => request('phone_status'),
+                        'per_page' => request('per_page'),
                     ], fn ($value) => filled($value));
                 @endphp
                 <a href="{{ route('predictions.index', $chartParams) }}"
@@ -415,9 +435,11 @@
                         'phone_status' => request('phone_status') === $phoneStatus ? null : $phoneStatus,
                         'classification' => request('classification'),
                         'search' => request('search'),
+                        'cabang' => request('cabang'),
                         'period' => request('period'),
                         'category' => request('category'),
                         'brand' => request('brand'),
+                        'per_page' => request('per_page'),
                     ], fn ($value) => filled($value));
                 @endphp
                 <a href="{{ route('predictions.index', $chartParams) }}"
@@ -437,7 +459,14 @@
     @csrf
     <section class="dcms-card mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex min-w-0 flex-1 flex-col">
-            <p class="text-sm font-bold text-slate-800">Pilih Konsumen untuk Tindak Lanjut</p>
+            <div class="flex flex-wrap items-center gap-2">
+                <p class="text-sm font-bold text-slate-800">Pilih Konsumen untuk Tindak Lanjut</p>
+                @if($selectedCabang)
+                    <span class="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2.5 py-0.5 text-xs font-bold text-purple-700 border border-purple-200">
+                        🏢 Fokus Cabang: {{ $selectedCabang }} <span class="font-normal text-purple-600">({{ number_format($predictions->total()) }} kontak)</span>
+                    </span>
+                @endif
+            </div>
             <p class="text-xs text-slate-500">Pindahkan data konsumen yang dicentang ke menu Leads Customer atau kirim broadcast langsung.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -463,7 +492,6 @@
                         <th class="px-3 py-3.5">Item & Kategori</th>
                         <th class="px-3 py-3.5 text-center">Transaksi</th>
                         <th class="px-3 py-3.5">Order Terakhir</th>
-                        <th class="px-3 py-3.5">Prediksi Beli</th>
                         <th class="px-3 py-3.5">Siklus</th>
                         <th class="px-3 py-3.5">Potensi</th>
                         <th class="px-5 py-3.5 text-right">Aksi</th>
@@ -471,16 +499,23 @@
                 </thead>
                 <tbody>
                 @forelse($predictions as $prediction)
-                    @php
-                        $isOverdue = $prediction->predicted_repeat_date && $prediction->predicted_repeat_date->toDateString() < $today;
-                    @endphp
                     <tr class="border-b border-slate-100 align-middle transition hover:bg-brand-50/40">
+                        @php
+                            $custName = trim((string) $prediction->customer_vendor_name) ?: 'No Name';
+                        @endphp
                         <td class="px-5 py-4">
-                            <input type="checkbox" name="prediction_ids[]" value="{{ $prediction->id }}" class="prediction-checkbox size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" aria-label="Pilih {{ $prediction->customer_vendor_name ?: 'Kaka' }}">
+                            <input type="checkbox" name="prediction_ids[]" value="{{ $prediction->id }}" class="prediction-checkbox size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" aria-label="Pilih {{ $custName }}">
                         </td>
                         <td class="px-5 py-4">
-                            <div class="max-w-48 truncate font-bold text-slate-900">{{ $prediction->customer_vendor_name ?: 'Kaka' }}</div>
-                            <div class="mt-1 text-xs text-slate-500 font-mono">{{ $prediction->customer_vendor_code }}{{ $prediction->cabang ? ' · '.$prediction->cabang : '' }}</div>
+                            <div class="max-w-48 truncate font-bold {{ $custName === 'No Name' ? 'text-slate-400 font-medium italic' : 'text-slate-900' }}">{{ $custName }}</div>
+                            <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                <span class="text-xs text-slate-500 font-mono">{{ $prediction->customer_vendor_code }}</span>
+                                @if($prediction->cabang)
+                                    <span class="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200" title="Cabang: {{ $prediction->cabang }}">
+                                        🏢 {{ $prediction->cabang }}
+                                    </span>
+                                @endif
+                            </div>
                         </td>
                         <td class="px-3 py-4">
                             @if($prediction->no_hp_customer)
@@ -525,14 +560,6 @@
                         <td class="px-3 py-4 whitespace-nowrap text-xs text-slate-600">
                             {{ $prediction->last_order_date?->format('d M Y') ?: '-' }}
                         </td>
-                        <td class="px-3 py-4 whitespace-nowrap">
-                            <div class="font-bold {{ $isOverdue ? 'text-rose-600' : 'text-brand-700' }}">
-                                {{ $prediction->predicted_repeat_date?->format('d M Y') ?: '-' }}
-                            </div>
-                            @if($isOverdue)
-                                <span class="mt-0.5 inline-flex items-center rounded bg-rose-50 px-1.5 py-0.2 text-[9px] font-bold text-rose-700">⚠️ Terlewat</span>
-                            @endif
-                        </td>
                         <td class="px-3 py-4 whitespace-nowrap text-xs text-slate-600">
                             {{ $prediction->average_gap_days ? number_format((float) $prediction->average_gap_days, 0).' hari' : '-' }}
                         </td>
@@ -542,14 +569,14 @@
                             </span>
                         </td>
                         <td class="px-5 py-4 text-right whitespace-nowrap">
-                            <button type="button" onclick="singleQuickBroadcast({{ $prediction->id }}, '{{ addslashes($prediction->customer_vendor_name ?: 'Kaka') }}', '{{ addslashes($prediction->dscription ?: ($prediction->item_code ?: 'produk')) }}', '{{ $prediction->no_hp_customer }}')" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-emerald-700 shadow-sm hover:border-emerald-300 hover:bg-emerald-50 transition">
+                            <button type="button" onclick="singleQuickBroadcast({{ $prediction->id }}, '{{ addslashes($custName) }}', '{{ addslashes($prediction->dscription ?: ($prediction->item_code ?: 'produk')) }}', '{{ $prediction->no_hp_customer }}')" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-emerald-700 shadow-sm hover:border-emerald-300 hover:bg-emerald-50 transition">
                                 <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
                                 Broadcast
                             </button>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="10" class="px-5 py-12 text-center text-slate-500">Belum ada data pelanggan yang sesuai dengan filter.</td></tr>
+                    <tr><td colspan="9" class="px-5 py-12 text-center text-slate-500">Belum ada data pelanggan yang sesuai dengan filter.</td></tr>
                 @endforelse
                 </tbody>
             </table>
@@ -687,7 +714,19 @@ function openQuickBroadcastModal() {
         container.appendChild(input);
     });
 
-    document.getElementById('modal-target-summary').textContent = `Mengirim ke ${checked.length} pelanggan terpilih`;
+    const activeCabang = @json($selectedCabang);
+    const summaryText = activeCabang 
+        ? `Mengirim ke ${checked.length} pelanggan terpilih (Fokus Cabang: ${activeCabang})`
+        : `Mengirim ke ${checked.length} pelanggan terpilih`;
+
+    document.getElementById('modal-target-summary').textContent = summaryText;
+
+    const titleInput = document.getElementById('modal-broadcast-title');
+    if (titleInput && (!titleInput.value || titleInput.value.startsWith('Broadcast '))) {
+        const dateStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        titleInput.value = activeCabang ? `Broadcast Cabang ${activeCabang} - ${dateStr}` : `Broadcast - ${dateStr}`;
+    }
+
     document.getElementById('quick-broadcast-modal').classList.remove('hidden');
 }
 
@@ -705,7 +744,8 @@ function singleQuickBroadcast(id, name, item, phone) {
     // Auto-fill personalized preview
     const textarea = document.getElementById('modal-message-input');
     if (textarea && !textarea.value) {
-        textarea.value = `Halo Kak ${name}! Terima kasih telah setia berbelanja di Gadgetmart. Kami ada info promo spesial untuk produk ${item}. Balas pesan ini untuk info lengkapnya ya! 📱✨`;
+        const greetingTarget = (name && name !== 'No Name') ? `Kak ${name}` : 'Kak';
+        textarea.value = `Halo ${greetingTarget}! Terima kasih telah setia berbelanja di Gadgetmart. Kami ada info promo spesial untuk produk ${item}. Balas pesan ini untuk info lengkapnya ya! 📱✨`;
     }
 
     document.getElementById('quick-broadcast-modal').classList.remove('hidden');

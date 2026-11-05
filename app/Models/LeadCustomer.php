@@ -28,4 +28,11 @@ class LeadCustomer extends Model
     {
         return \App\Support\BrandCategory::resolve($this->item_code);
     }
+
+    public function getCustomerVendorNameAttribute(?string $value): string
+    {
+        $val = trim((string) $value);
+
+        return $val !== '' ? $val : 'No Name';
+    }
 }

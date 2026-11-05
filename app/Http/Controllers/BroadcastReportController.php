@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BroadcastReportController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, BroadcastService $broadcastService): View
     {
         $userId = $request->user()->id;
         $tab = $request->query('tab', 'batches');
@@ -77,9 +77,7 @@ class BroadcastReportController extends Controller
             'daily_limit' => (int) Setting::get('broadcast_daily_limit', '250'),
         ];
 
-        $todaySentCount = BroadcastReport::where('status', 'sent')
-            ->whereDate('sent_at', today())
-            ->count();
+        $cycleInfo = $broadcastService->getCycleInfo();
 
         return view('broadcasts.index', [
             'tab' => $tab,
@@ -91,7 +89,8 @@ class BroadcastReportController extends Controller
             'totalSent' => $totalSent,
             'avgDeliveryRate' => $avgDeliveryRate,
             'safetySettings' => $safetySettings,
-            'todaySentCount' => $todaySentCount,
+            'cycleInfo' => $cycleInfo,
+            'todaySentCount' => $cycleInfo['sent_count'],
         ]);
     }
 
@@ -166,6 +165,18 @@ class BroadcastReportController extends Controller
             'image_url' => ['nullable', 'url', 'max:500'],
         ]);
 
+        $cycleInfo = $service->getCycleInfo();
+        if ($cycleInfo['remaining_quota'] < 1) {
+            $resetNotice = $cycleInfo['reset_at']
+                ? ' Kuota akan direset otomatis pada '.$cycleInfo['reset_time_formatted'].' (sisa '.$cycleInfo['remaining_text'].').'
+                : ' Kuota broadcast 1x24 jam telah habis.';
+
+            return redirect()->back()->with(
+                'error',
+                'Batas kuota broadcast ('.$cycleInfo['daily_limit'].' pesan / 1x24 jam) telah tercapai.'.$resetNotice
+            );
+        }
+
         $imageUrl = $this->resolveImageUrl($request, $validated['image_url'] ?? null);
         $title = trim((string) ($request->input('title') ?: '')) ?: ('Broadcast - '.($prediction->customer_vendor_name ?: $prediction->customer_vendor_code ?: now()->format('d M Y H:i')));
 
@@ -215,6 +226,31 @@ class BroadcastReportController extends Controller
         $title = trim((string) ($request->input('title') ?: '')) ?: ('Broadcast - '.now()->format('d M Y H:i'));
 
         $predictions = RepeatOrderPrediction::whereIn('id', $validated['prediction_ids'])->get();
+
+        $cycleInfo = $service->getCycleInfo();
+        $targetCount = count($predictions);
+
+        if ($cycleInfo['remaining_quota'] < 1) {
+            $resetNotice = $cycleInfo['reset_at']
+                ? ' Kuota akan direset otomatis pada '.$cycleInfo['reset_time_formatted'].' (sisa '.$cycleInfo['remaining_text'].').'
+                : ' Kuota 1x24 jam telah habis.';
+
+            return redirect()->back()->with(
+                'error',
+                'Batas kuota broadcast ('.$cycleInfo['daily_limit'].' pesan / 1x24 jam) telah tercapai.'.$resetNotice
+            );
+        }
+
+        if ($targetCount > $cycleInfo['remaining_quota']) {
+            $resetNotice = $cycleInfo['reset_at']
+                ? ' Kuota akan direset pada '.$cycleInfo['reset_time_formatted'].'.'
+                : '';
+
+            return redirect()->back()->with(
+                'error',
+                "Target penerima ({$targetCount} kontak) melebihi sisa kuota broadcast ({$cycleInfo['remaining_quota']} dari batas {$cycleInfo['daily_limit']} per 24 jam). Silakan sesuaikan jumlah target atau tunggu reset kuota.{$resetNotice}"
+            );
+        }
 
         $batch = BroadcastBatch::create([
             'user_id' => $request->user()->id,
@@ -360,6 +396,16 @@ class BroadcastReportController extends Controller
         Setting::set('broadcast_daily_limit', (string) $validated['daily_limit']);
 
         return redirect()->back()->with('success', 'Pengaturan Delay & Anti-Banned WhatsApp Broadcast berhasil disimpan!');
+    }
+
+    public function resetCycle(BroadcastService $service): RedirectResponse
+    {
+        $service->resetCycle();
+
+        return redirect()->route('broadcasts.index')->with(
+            'success',
+            'Siklus kuota broadcast 1x24 jam berhasil di-reset ulang. Kuota diatur ulang ke 0 dan siap digunakan.'
+        );
     }
 
     private function resolveImageUrl(Request $request, ?string $fallbackUrl): ?string
