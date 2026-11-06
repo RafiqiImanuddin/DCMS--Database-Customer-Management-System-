@@ -45,6 +45,13 @@
             <span>Bobot & Kriteria Penilaian</span>
             <span class="rounded-full {{ abs($totalMatrixWeight - 100) < 0.1 && abs($totalWeight - 100) < 0.1 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }} px-2 py-0.5 text-xs font-bold">Matrix {{ $totalMatrixWeight }}% | Layanan {{ $totalWeight }}%</span>
         </a>
+
+        <a href="{{ route('settings.karyawan.index', ['tab' => 'monthly_targets']) }}" 
+           class="inline-flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition {{ $activeTab === 'monthly_targets' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800' }}">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+            <span>Target Omzet Bulanan</span>
+            <span class="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-bold">Periode Bulanan</span>
+        </a>
     </div>
 
     @if ($activeTab === 'employees')
@@ -439,6 +446,223 @@
         </form>
     </div>
     @endif
+
+    @if ($activeTab === 'monthly_targets')
+    <!-- TAB 3: TARGET OMZET BULANAN (PER BULAN BEDA TARGET) -->
+    @php
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $currentMonthName = $monthNames[$targetMonth] ?? "Bulan {$targetMonth}";
+        $salesSavedTargets = $periodTargetData['salesTargets'] ?? [];
+    @endphp
+    <div class="space-y-6">
+        <!-- Period Selector & Overview Banner -->
+        <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <div class="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 border border-blue-200/60 px-2.5 py-1 text-xs font-bold text-blue-700">
+                        <span>🎯 Setting Satu Gerbang</span>
+                        <span class="text-blue-300">•</span>
+                        <span>Otomatis Sinkron ke Rapor Matrix Sosmed</span>
+                    </div>
+                    <h2 class="mt-2 text-lg font-black text-slate-900">Target Omzet Periode {{ $currentMonthName }} {{ $targetYear }}</h2>
+                    <p class="text-xs text-slate-500">Target omzet setiap bulan berbeda-beda. Pilih periode di samping untuk mengatur target tim dan masing-masing sales aktif.</p>
+                </div>
+
+                <!-- Periode Switcher -->
+                <form method="GET" action="{{ route('settings.karyawan.index') }}" class="flex flex-wrap items-center gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <input type="hidden" name="tab" value="monthly_targets">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Pilih Bulan</label>
+                        <select name="target_month" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 focus:border-brand-500 focus:outline-none">
+                            @foreach ($monthNames as $num => $name)
+                                <option value="{{ $num }}" {{ (int)$targetMonth === $num ? 'selected' : '' }}>{{ $name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Tahun</label>
+                        <select name="target_year" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 focus:border-brand-500 focus:outline-none">
+                            @for ($y = 2024; $y <= 2028; $y++)
+                                <option value="{{ $y }}" {{ (int)$targetYear === $y ? 'selected' : '' }}>{{ $y }}</option>
+                            @endfor
+                        </select>
+                    </div>
+
+                    <div class="self-end">
+                        <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-900 transition">
+                            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+                            <span>Ganti Periode</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Target Form -->
+        <form method="POST" action="{{ route('settings.monthly_targets.update') }}" id="monthlyTargetsForm" class="space-y-6">
+            @csrf
+            <input type="hidden" name="target_month" value="{{ $targetMonth }}">
+            <input type="hidden" name="target_year" value="{{ $targetYear }}">
+
+            <!-- Team Target Summary Card -->
+            <div class="rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-50/50 via-white to-slate-50 p-6 shadow-xs">
+                <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="max-w-xl">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex size-7 items-center justify-center rounded-lg bg-blue-600 text-white font-black text-sm">🎯</span>
+                            <h3 class="text-base font-black text-slate-900">Target Total Tim Sosmed ({{ $currentMonthName }} {{ $targetYear }})</h3>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-600">Nilai ini menjadi patokan total omzet tim di Rapor Matrix kartu KPI <strong>TOTAL ACHIEVEMENT OMZET</strong> dan target GP 5% tim.</p>
+                        
+                        <div class="mt-3 flex flex-wrap items-center gap-2">
+                            <button type="button" onclick="bagiRataTargetTim()" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600/10 border border-blue-300 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-600 hover:text-white transition">
+                                <span>⚡ Bagi Rata ke Seluruh Sales Aktif ({{ $activeSalesEmployees->count() }} orang)</span>
+                            </button>
+                            <button type="button" onclick="hitungTotalDariSales()" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/10 border border-emerald-300 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-600 hover:text-white transition">
+                                <span>🧮 Hitung Total dari Penjumlahan Sales</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs min-w-[280px]">
+                        <label class="block text-xs font-black uppercase text-slate-500 mb-1">Target Tim (Rp)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">Rp</span>
+                            <input type="text" 
+                                   id="inputTeamTarget" 
+                                   name="team_target" 
+                                   value="{{ number_format($periodTeamTarget, 0, ',', '.') }}" 
+                                   oninput="formatRupiahInput(this); recalculateTargetSummary();" 
+                                   class="w-full rounded-xl border border-slate-300 bg-slate-50 pl-10 pr-3 py-2.5 text-lg font-black text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
+                        </div>
+                        <div class="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                            <span>Target GP 5%:</span>
+                            <strong id="previewTeamGP" class="text-emerald-700 font-bold">Rp {{ number_format($periodTeamTarget * 0.05, 0, ',', '.') }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Individual Sales Target Table -->
+            <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+                <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h4 class="text-sm font-black text-slate-900">Target Individu Sales Sosmed ({{ $currentMonthName }} {{ $targetYear }})</h4>
+                        <p class="text-xs text-slate-500">Target masing-masing sales aktif untuk perhitungan pencapaian di Report 1, Report 2, dan Bobot Rapor Matrix.</p>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <div id="targetBalancePill" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                            <span class="size-2 rounded-full bg-emerald-500"></span>
+                            <span id="targetBalanceText">Total Sales Seimbang</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200/80 bg-slate-50/50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                <th class="px-5 py-3.5">Sales / PIC</th>
+                                <th class="px-5 py-3.5">NIK / Kode SAP</th>
+                                <th class="px-5 py-3.5">Cabang & Role</th>
+                                <th class="px-5 py-3.5 text-right" style="min-width: 220px;">Target Omzet Bulan Ini (Rp)</th>
+                                <th class="px-5 py-3.5 text-right" style="min-width: 170px;">Target GP 5% (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                            @forelse ($activeSalesEmployees as $emp)
+                            @php
+                                $currentTargetVal = isset($salesSavedTargets[$emp->nik]) 
+                                    ? (float)$salesSavedTargets[$emp->nik] 
+                                    : (isset($salesSavedTargets[strtoupper($emp->name)]) ? (float)$salesSavedTargets[strtoupper($emp->name)] : (float)($emp->target ?: 867261886.00));
+                            @endphp
+                            <tr class="hover:bg-slate-50/70 transition">
+                                <td class="px-5 py-3.5">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex size-8 shrink-0 items-center justify-center rounded-lg font-black text-xs text-white shadow-xs" style="background-color: {{ $emp->avatar_color ?: '#4f46e5' }}">
+                                            {{ strtoupper(substr($emp->name, 0, 2)) }}
+                                        </div>
+                                        <div>
+                                            <div class="font-bold text-slate-900">{{ strtoupper($emp->name) }}</div>
+                                            <div class="text-[11px] text-slate-400">{{ $emp->phone ?: '-' }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-3.5">
+                                    <span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">{{ $emp->nik }}</span>
+                                </td>
+                                <td class="px-5 py-3.5">
+                                    <div class="font-semibold text-slate-800">Cabang {{ $emp->cabang }}</div>
+                                    <div class="text-[11px] text-slate-400">{{ $emp->role }}</div>
+                                </td>
+                                <td class="px-5 py-3.5 text-right">
+                                    <div class="relative inline-flex items-center max-w-[210px] w-full">
+                                        <span class="absolute left-2.5 text-xs font-bold text-slate-400">Rp</span>
+                                        <input type="text" 
+                                               name="sales_targets[{{ $emp->nik }}]" 
+                                               value="{{ number_format($currentTargetVal, 0, ',', '.') }}" 
+                                               data-nik="{{ $emp->nik }}"
+                                               data-name="{{ strtoupper($emp->name) }}"
+                                               oninput="formatRupiahInput(this); updateRowGP(this); recalculateTargetSummary();" 
+                                               class="sales-target-input w-full rounded-lg border border-slate-300 bg-white pl-8 pr-2.5 py-1.5 text-right text-xs font-bold text-slate-900 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+                                    </div>
+                                </td>
+                                <td class="px-5 py-3.5 text-right">
+                                    <span class="row-target-gp font-bold text-emerald-700">Rp {{ number_format($currentTargetVal * 0.05, 0, ',', '.') }}</span>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="5" class="px-5 py-8 text-center text-slate-400">
+                                    Belum ada data karyawan sales aktif. Tambahkan di tab Data Karyawan.
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                        <tfoot class="border-t-2 border-slate-200 bg-slate-50/80 font-black text-xs text-slate-900">
+                            <tr>
+                                <td colspan="3" class="px-5 py-3.5 text-right uppercase tracking-wider text-slate-500">
+                                    Total Penjumlahan Target Seluruh Sales ({{ $activeSalesEmployees->count() }} orang):
+                                </td>
+                                <td class="px-5 py-3.5 text-right text-brand-700 text-sm" id="footerTotalSalesTarget">
+                                    Rp 0
+                                </td>
+                                <td class="px-5 py-3.5 text-right text-emerald-700" id="footerTotalSalesGP">
+                                    Rp 0
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- Footer Action Buttons -->
+                <div class="border-t border-slate-100 bg-white p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="text-xs text-slate-500">
+                        Pastikan target omzet tim dan target sales telah sesuai sebelum menyimpan.
+                    </div>
+
+                    @if ($isSuperAdmin)
+                    <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-2.5 text-xs font-bold text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 transition">
+                        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                        <span>Simpan Target Periode {{ $currentMonthName }} {{ $targetYear }}</span>
+                    </button>
+                    @else
+                    <div class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500">
+                        <svg class="size-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span>Pengubahan target omzet hanya dapat dilakukan oleh Superadmin</span>
+                    </div>
+                    @endif
+                </div>
+            </div>
+        </form>
+    </div>
+    @endif
 </div>
 
 <!-- MODAL TAMBAH / EDIT KARYAWAN -->
@@ -689,6 +913,108 @@ function recalculateWeights() {
         }
     }
 }
+
+// ==========================================
+// 4. MONTHLY TARGETS MANAGEMENT ENGINE
+// ==========================================
+function parseRupiah(val) {
+    if (!val) return 0;
+    const cleaned = String(val).replace(/[^0-9]/g, '');
+    return parseFloat(cleaned) || 0;
+}
+
+function formatRupiahDisplay(num) {
+    return 'Rp ' + Math.round(num).toLocaleString('id-ID');
+}
+
+function formatRupiahInput(input) {
+    const raw = parseRupiah(input.value);
+    input.value = raw > 0 ? raw.toLocaleString('id-ID') : '0';
+}
+
+function updateRowGP(input) {
+    const raw = parseRupiah(input.value);
+    const row = input.closest('tr');
+    if (row) {
+        const gpEl = row.querySelector('.row-target-gp');
+        if (gpEl) {
+            gpEl.innerText = formatRupiahDisplay(raw * 0.05);
+        }
+    }
+}
+
+function recalculateTargetSummary() {
+    const teamInput = document.getElementById('inputTeamTarget');
+    const teamVal = teamInput ? parseRupiah(teamInput.value) : 0;
+
+    const teamGPEl = document.getElementById('previewTeamGP');
+    if (teamGPEl) {
+        teamGPEl.innerText = formatRupiahDisplay(teamVal * 0.05);
+    }
+
+    let sumSales = 0;
+    const inputs = document.querySelectorAll('.sales-target-input');
+    inputs.forEach(inp => {
+        sumSales += parseRupiah(inp.value);
+    });
+
+    const footSalesEl = document.getElementById('footerTotalSalesTarget');
+    const footGPEl = document.getElementById('footerTotalSalesGP');
+    if (footSalesEl) footSalesEl.innerText = formatRupiahDisplay(sumSales);
+    if (footGPEl) footGPEl.innerText = formatRupiahDisplay(sumSales * 0.05);
+
+    const balancePill = document.getElementById('targetBalancePill');
+    const balanceText = document.getElementById('targetBalanceText');
+    if (balancePill && balanceText) {
+        const diff = sumSales - teamVal;
+        if (Math.abs(diff) < 1000) {
+            balancePill.className = 'inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-bold text-emerald-700';
+            balancePill.innerHTML = '<span class="size-2 rounded-full bg-emerald-500"></span><span>Total Sales Seimbang (Rp ' + Math.round(sumSales).toLocaleString('id-ID') + ')</span>';
+        } else if (diff > 0) {
+            balancePill.className = 'inline-flex items-center gap-1.5 rounded-lg bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-bold text-blue-700';
+            balancePill.innerHTML = '<span class="size-2 rounded-full bg-blue-500"></span><span>Sales > Target Tim (+Rp ' + Math.round(diff).toLocaleString('id-ID') + ')</span>';
+        } else {
+            balancePill.className = 'inline-flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-bold text-amber-700';
+            balancePill.innerHTML = '<span class="size-2 rounded-full bg-amber-500"></span><span>Sales < Target Tim (-Rp ' + Math.round(Math.abs(diff)).toLocaleString('id-ID') + ')</span>';
+        }
+    }
+}
+
+function bagiRataTargetTim() {
+    const teamInput = document.getElementById('inputTeamTarget');
+    const teamVal = teamInput ? parseRupiah(teamInput.value) : 0;
+    const inputs = document.querySelectorAll('.sales-target-input');
+    if (inputs.length === 0 || teamVal <= 0) {
+        alert('Masukkan nilai target tim terlebih dahulu.');
+        return;
+    }
+    const perSales = Math.round(teamVal / inputs.length);
+    inputs.forEach(inp => {
+        inp.value = perSales.toLocaleString('id-ID');
+        updateRowGP(inp);
+    });
+    recalculateTargetSummary();
+}
+
+function hitungTotalDariSales() {
+    let sumSales = 0;
+    const inputs = document.querySelectorAll('.sales-target-input');
+    inputs.forEach(inp => {
+        sumSales += parseRupiah(inp.value);
+    });
+    const teamInput = document.getElementById('inputTeamTarget');
+    if (teamInput) {
+        teamInput.value = sumSales.toLocaleString('id-ID');
+    }
+    recalculateTargetSummary();
+}
+
+// Initial calculation on load if activeTab is monthly_targets
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('monthlyTargetsForm')) {
+        recalculateTargetSummary();
+    }
+});
 </script>
 @endsection
 

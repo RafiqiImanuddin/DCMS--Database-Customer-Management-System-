@@ -104,6 +104,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/kpi-weights', [EmployeeSettingController::class, 'updateKpiWeights'])->name('settings.kpi_weights.update');
     Route::post('/settings/kpi-criteria', [EmployeeSettingController::class, 'storeKpiCriterion'])->name('settings.kpi_criteria.store');
     Route::delete('/settings/kpi-criteria/{criterion}', [EmployeeSettingController::class, 'destroyKpiCriterion'])->name('settings.kpi_criteria.destroy');
+    Route::post('/settings/monthly-targets', [EmployeeSettingController::class, 'updateMonthlyTargets'])->name('settings.monthly_targets.update');
 
     // Guidance & SOP (Rumus Potensi & Penilaian untuk Superadmin, Guidance Umum untuk Staff)
     Route::get('/guidance', [GuidanceController::class, 'index'])->name('guidance.index');

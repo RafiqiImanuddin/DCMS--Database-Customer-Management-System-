@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\CrossSelling;
+use App\Models\LeadCustomer;
 use App\Models\RepeatOrderPrediction;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class RepeatOrderPredictor
 {
@@ -18,8 +19,24 @@ class RepeatOrderPredictor
         $currentKey = null;
         $group = null;
         $predictionBatch = [];
+        $todayTimestamp = strtotime(Carbon::today()->toDateString());
+        $now = now();
 
-        CrossSelling::query()
+        DB::table('cross_sellings')
+            ->select([
+                'cross_selling_import_id',
+                'customer_vendor_code',
+                'customer_vendor_name',
+                'name',
+                'no_hp_customer',
+                'cabang',
+                'item_code',
+                'dscription',
+                'posting_date',
+                'quantity',
+                'harga_jual',
+                'period_label',
+            ])
             ->whereNotNull('customer_vendor_code')
             ->whereNotNull('posting_date')
             ->where('quantity', '>', 0)
@@ -29,11 +46,11 @@ class RepeatOrderPredictor
             ->orderBy('item_code')
             ->orderBy('posting_date')
             ->cursor()
-            ->each(function (CrossSelling $row) use (&$currentKey, &$group, &$predictionBatch) {
+            ->each(function (object $row) use (&$currentKey, &$group, &$predictionBatch, $todayTimestamp, $now) {
                 $key = $row->customer_vendor_code.'|'.($row->item_code ?? '');
 
                 if ($currentKey !== null && $currentKey !== $key) {
-                    if ($prediction = $this->buildPrediction($group)) {
+                    if ($prediction = $this->buildPrediction($group, $todayTimestamp, $now)) {
                         $predictionBatch[] = $prediction;
                     }
                     if (count($predictionBatch) >= 500) {
@@ -44,13 +61,14 @@ class RepeatOrderPredictor
                 }
 
                 $currentKey = $key;
-                $date = $row->posting_date->toDateString();
+                $date = substr((string) $row->posting_date, 0, 10);
+                $resolvedName = $this->resolveCustomerName($row->name ?? null, $row->customer_vendor_name ?? null);
 
                 if ($group === null) {
                     $group = [
                         'cross_selling_import_id' => $row->cross_selling_import_id,
                         'customer_vendor_code' => $row->customer_vendor_code,
-                        'customer_vendor_name' => trim((string) $row->name) ?: 'No Name',
+                        'customer_vendor_name' => $resolvedName ?: 'No Name',
                         'no_hp_customer' => $row->no_hp_customer,
                         'cabang' => $row->cabang,
                         'item_code' => $row->item_code,
@@ -58,14 +76,13 @@ class RepeatOrderPredictor
                         'first_order_date' => $date,
                         'last_order_date' => $date,
                         'dates' => [$date => true],
-                        'total_quantity' => 0,
-                        'total_value' => 0,
+                        'total_quantity' => 0.0,
+                        'total_value' => 0.0,
                         'period_label' => $row->period_label,
                     ];
                 } else {
-                    $cleanedName = trim((string) $row->name);
-                    if ($cleanedName !== '') {
-                        $group['customer_vendor_name'] = $cleanedName;
+                    if ($resolvedName !== '') {
+                        $group['customer_vendor_name'] = $resolvedName;
                     }
                     $group['no_hp_customer'] = $row->no_hp_customer ?: $group['no_hp_customer'];
                     $group['cabang'] = $row->cabang ?: $group['cabang'];
@@ -81,27 +98,69 @@ class RepeatOrderPredictor
             });
 
         if ($group !== null) {
-            if ($prediction = $this->buildPrediction($group)) {
+            if ($prediction = $this->buildPrediction($group, $todayTimestamp, $now)) {
                 $predictionBatch[] = $prediction;
             }
         }
         if ($predictionBatch) {
             $this->insertPredictionBatch($predictionBatch);
         }
+
+        $this->relinkExistingLeads();
     }
 
-    private function buildPrediction(array $group): ?array
+    private function resolveCustomerName(?string $name, ?string $vendorName): string
     {
-        if (empty($group['no_hp_customer']) || trim($group['no_hp_customer']) === '') {
+        $cleanName = trim((string) $name);
+        if ($cleanName !== '' && $cleanName !== '-') {
+            return $cleanName;
+        }
+
+        $cleanVendor = trim((string) $vendorName);
+        if ($cleanVendor === '' || $cleanVendor === '-') {
+            return '';
+        }
+
+        $upperVendor = strtoupper($cleanVendor);
+        $genericMarkers = [
+            'CASH OR USER',
+            'DEBIT ',
+            'QRIS ',
+            'KREDIVO',
+            'AKULAKU',
+            'SHOPEE',
+            'TOKOPEDIA',
+            'CREDIT ',
+            'TRANSFER ',
+            'OFFLINE) MPL',
+            'ONLINE) MPL',
+        ];
+
+        foreach ($genericMarkers as $marker) {
+            if (str_contains($upperVendor, $marker)) {
+                return '';
+            }
+        }
+
+        return $cleanVendor;
+    }
+
+    private function buildPrediction(array $group, int $todayTimestamp, mixed $now): ?array
+    {
+        if (empty($group['no_hp_customer']) || trim((string) $group['no_hp_customer']) === '') {
             return null;
         }
         $dates = array_keys($group['dates']);
         sort($dates);
-        $carbonDates = array_map(fn (string $date) => Carbon::parse($date), $dates);
         $gaps = [];
 
-        for ($index = 1; $index < count($carbonDates); $index++) {
-            $gaps[] = $carbonDates[$index - 1]->diffInDays($carbonDates[$index]);
+        $countDates = count($dates);
+        for ($index = 1; $index < $countDates; $index++) {
+            $t1 = strtotime($dates[$index - 1]);
+            $t2 = strtotime($dates[$index]);
+            if ($t1 !== false && $t2 !== false) {
+                $gaps[] = (float) round(abs($t2 - $t1) / 86400);
+            }
         }
 
         $medianGap = $this->median($gaps);
@@ -109,11 +168,22 @@ class RepeatOrderPredictor
             fn (float $gap) => abs($gap - $medianGap),
             $gaps,
         ));
-        $predictedDate = $medianGap === null
-            ? null
-            : Carbon::parse($group['last_order_date'])->addDays((int) round($medianGap));
 
-        $uniqueCount = count($dates);
+        $predictedDateStr = null;
+        $daysUntil = null;
+        if ($medianGap !== null) {
+            $lastTs = strtotime($group['last_order_date']);
+            if ($lastTs !== false) {
+                $addDays = (int) round($medianGap);
+                $predictedTs = strtotime("+{$addDays} days", $lastTs);
+                if ($predictedTs !== false) {
+                    $predictedDateStr = date('Y-m-d', $predictedTs);
+                    $daysUntil = (int) round(($predictedTs - $todayTimestamp) / 86400);
+                }
+            }
+        }
+
+        $uniqueCount = $countDates;
         $confidence = match (true) {
             $uniqueCount >= 5 => 90,
             $uniqueCount >= 4 => 85,
@@ -128,8 +198,7 @@ class RepeatOrderPredictor
         $confidence = max(10, min(95, $confidence));
 
         $classification = 'baru';
-        if ($predictedDate !== null) {
-            $daysUntil = Carbon::today()->diffInDays($predictedDate, false);
+        if ($daysUntil !== null) {
             $classification = $daysUntil <= 30
                 ? 'tinggi'
                 : ($daysUntil <= 60 ? 'sedang' : 'rendah');
@@ -148,14 +217,33 @@ class RepeatOrderPredictor
             'transaction_count' => $uniqueCount,
             'total_quantity' => $group['total_quantity'],
             'total_value' => $group['total_value'],
-            'average_gap_days' => $medianGap,
-            'predicted_repeat_date' => $predictedDate?->toDateString(),
+            'average_gap_days' => $medianGap ?? 0,
+            'predicted_repeat_date' => $predictedDateStr,
             'confidence' => $confidence,
             'classification' => $classification,
             'period_label' => $group['period_label'],
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => $now,
+            'updated_at' => $now,
         ];
+    }
+
+    private function relinkExistingLeads(): void
+    {
+        try {
+            $leads = LeadCustomer::query()->get(['id', 'customer_vendor_code', 'item_code', 'no_hp_customer']);
+            foreach ($leads as $lead) {
+                $matchId = RepeatOrderPrediction::query()
+                    ->where('customer_vendor_code', $lead->customer_vendor_code)
+                    ->when($lead->item_code, fn ($q) => $q->where('item_code', $lead->item_code))
+                    ->value('id');
+
+                if ($matchId) {
+                    LeadCustomer::where('id', $lead->id)->update(['repeat_order_prediction_id' => $matchId]);
+                }
+            }
+        } catch (\Throwable) {
+            // Ignore if table does not exist during partial migrations
+        }
     }
 
     private function median(array $values): ?float

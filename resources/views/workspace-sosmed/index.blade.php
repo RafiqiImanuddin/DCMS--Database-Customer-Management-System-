@@ -111,6 +111,11 @@
                             </button>
                             <div class="header-gear-dropdown" id="headerGearDropdown">
                                 <div class="dropdown-group-title">ADMINISTRASI & TOOLS</div>
+                                <button type="button" class="gear-dropdown-item"
+                                    onclick="openMonthlyTargetModal(); closeSettingsDropdown();">
+                                    <span class="dropdown-icon">🎯</span>
+                                    <span class="dropdown-text">Atur Target Omzet Bulanan</span>
+                                </button>
                                 <button type="button" class="gear-dropdown-item" id="tabBtn8"
                                     onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(8)}else{switchTab(8)}; closeSettingsDropdown();">
                                     <span class="dropdown-icon">⚙️</span>
@@ -168,7 +173,10 @@
                                 <span class="kpi-pill-badge badge-crimson">M-T-D</span>
                             </div>
                             <div class="kpi-value text-crimson" id="kpiTotalAchieve">Rp 0</div>
-                            <div class="kpi-sub" id="kpiTargetSub">Target: Rp 8.447.356.034</div>
+                            <div class="kpi-sub" id="kpiTargetSub" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+                                <span id="kpiTargetSubText">Target: Rp 8.447.356.034</span>
+                                <button type="button" onclick="openMonthlyTargetModal()" class="kpi-target-edit-btn" title="Ubah target omzet bulan ini" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 700; cursor: pointer;">✏️ Ubah Target</button>
+                            </div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar" id="kpiProgressBar" style="width: 0%"></div>
                             </div>
@@ -545,6 +553,12 @@
                             <span id="turnoverBannerText">File turnover terupdate per: Memuat status...</span>
                         </div>
                         <div class="banner-right">
+                            <button type="button" class="btn btn-xs"
+                                onclick="openMonthlyTargetModal()"
+                                style="font-weight: 700; display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid #2563eb; color: #1d4ed8; background: #eff6ff; padding: 4px 10px; border-radius: 6px; cursor: pointer;"
+                                title="Atur target omzet tim dan sales untuk bulan ini">
+                                🎯 Update Target Omzet
+                            </button>
                             <button class="btn btn-xs btn-outline-crimson"
                                 onclick="document.getElementById('fileInput').click()"
                                 title="Unggah file turnover.xlsx baru untuk memperbarui laporan">🔄 Update File Turnover
@@ -1939,6 +1953,88 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeGeminiModal()">Tutup</button>
                 <button class="btn btn-crimson" onclick="saveGeminiConfig()">Simpan Konfigurasi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Update Target Omzet Bulanan (Pop-up Cepat dari Report Matrix) -->
+    <div id="monthlyTargetModal" class="modal-overlay" style="display:none">
+        <div class="modal-dialog card-tegas" style="max-width: 680px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="border-bottom: 1.5px solid #e2e8f0; padding-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.4rem;">🎯</span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #0f172a;">Update Target Omzet Bulanan</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.76rem; color: #64748b;">Target tersimpan per bulan & otomatis sinkron dengan Master Karyawan.</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" onclick="closeMonthlyTargetModal()">✕</button>
+            </div>
+
+            <div class="modal-body" style="overflow-y: auto; padding: 18px 20px; flex: 1;">
+                <!-- Period Switcher inside Modal -->
+                <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                    <div style="flex: 1.2; min-width: 140px;">
+                        <label for="modalTargetMonthSelect" style="display: block; font-size: 0.74rem; font-weight: 800; color: #475569; margin-bottom: 4px; text-transform: uppercase;">Bulan Target:</label>
+                        <select id="modalTargetMonthSelect" class="form-input" onchange="onModalTargetMonthChange()" style="font-weight: 700;">
+                            <option value="1">Januari</option>
+                            <option value="2">Februari</option>
+                            <option value="3">Maret</option>
+                            <option value="4">April</option>
+                            <option value="5">Mei</option>
+                            <option value="6">Juni</option>
+                            <option value="7">Juli</option>
+                            <option value="8">Agustus</option>
+                            <option value="9">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11" selected>November</option>
+                            <option value="12">Desember</option>
+                        </select>
+                    </div>
+
+                    <div style="width: 100px;">
+                        <label for="modalTargetYearInput" style="display: block; font-size: 0.74rem; font-weight: 800; color: #475569; margin-bottom: 4px; text-transform: uppercase;">Tahun:</label>
+                        <input type="number" id="modalTargetYearInput" value="2026" min="2024" max="2030" class="form-input" onchange="onModalTargetMonthChange()" style="font-weight: 700; text-align: center;">
+                    </div>
+
+                    <div style="flex: 1.8; min-width: 220px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <label for="modalTeamTargetInput" style="font-size: 0.74rem; font-weight: 800; color: #475569; text-transform: uppercase;">Target Tim Bulan Ini (Rp):</label>
+                            <span id="modalTeamGPPreview" style="font-size: 0.72rem; font-weight: 700; color: #059669;">GP 5%: Rp 0</span>
+                        </div>
+                        <input type="number" id="modalTeamTargetInput" class="form-input" oninput="onModalTeamInputChange()" style="font-weight: 800; font-size: 1.05rem; color: #c8102e;">
+                    </div>
+                </div>
+
+                <!-- Helper Quick Action Buttons -->
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                    <button type="button" class="btn btn-xs btn-outline-primary" onclick="modalBagiRataSales()" style="font-weight: 700; border-color: #3b82f6; color: #1d4ed8; background: #eff6ff;">
+                        ⚡ Bagi Rata ke Seluruh Sales Aktif
+                    </button>
+                    <button type="button" class="btn btn-xs btn-outline-success" onclick="modalHitungTotalSales()" style="font-weight: 700; border-color: #10b981; color: #047857; background: #ecfdf5;">
+                        🧮 Hitung Total dari Penjumlahan Sales
+                    </button>
+                </div>
+
+                <!-- Active Sales Target List -->
+                <div style="font-size: 0.78rem; font-weight: 800; color: #475569; margin-bottom: 8px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+                    <span>Target Individu Masing-Masing Sales:</span>
+                    <span id="modalTargetBalanceStatus" style="font-size: 0.75rem; font-weight: 700; color: #059669;">Seimbang</span>
+                </div>
+
+                <div id="modalSalesTargetListContainer" style="display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; padding-right: 4px;">
+                    <!-- Dynamically populated rows -->
+                </div>
+            </div>
+
+            <div class="modal-footer" style="border-top: 1.5px solid #e2e8f0; padding-top: 14px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 0.76rem; color: #64748b;">
+                    Total Sales: <strong id="modalFooterTotalSales" style="color: #0f172a;">Rp 0</strong>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-outline" onclick="closeMonthlyTargetModal()">Batal</button>
+                    <button type="button" class="btn btn-crimson" onclick="saveModalMonthlyTargets()">💾 Simpan Target Omzet</button>
+                </div>
             </div>
         </div>
     </div>

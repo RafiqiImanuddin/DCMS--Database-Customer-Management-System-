@@ -65,6 +65,12 @@ class WorkspaceSosmedController extends Controller
             'cross_selling' => 30.0,
         ];
 
+        $monthlyTargetsSetting = Setting::where('key', 'workspace_monthly_targets')->value('value');
+        $monthlyTargets = ! empty($monthlyTargetsSetting) ? json_decode($monthlyTargetsSetting, true) : [];
+        if (! is_array($monthlyTargets)) {
+            $monthlyTargets = [];
+        }
+
         $employees = Employee::query()
             ->orderBy('id')
             ->get()
@@ -88,6 +94,7 @@ class WorkspaceSosmedController extends Controller
 
         return [
             'matrix_weights' => $matrixWeights,
+            'monthly_targets' => $monthlyTargets,
             'employees' => $employees,
         ];
     }
@@ -181,11 +188,31 @@ class WorkspaceSosmedController extends Controller
 
         $payload = $request->all();
         if (! empty($payload)) {
-            $json = json_encode($payload, JSON_PRETTY_PRINT);
+            $existingJson = Setting::where('key', 'workspace_monthly_targets')->value('value');
+            $existingData = ! empty($existingJson) ? json_decode($existingJson, true) : [];
+            if (! is_array($existingData)) {
+                $existingData = [];
+            }
+
+            if (isset($payload['month'], $payload['year'])) {
+                $key = sprintf('%04d-%02d', (int) $payload['year'], (int) $payload['month']);
+                $existingData[$key] = $payload;
+                $merged = $existingData;
+            } elseif (is_array($payload)) {
+                $merged = array_merge($existingData, $payload);
+            } else {
+                $merged = $payload;
+            }
+
+            $json = json_encode($merged, JSON_PRETTY_PRINT);
             @File::put($file, $json);
             Setting::updateOrCreate(['key' => 'workspace_monthly_targets'], ['value' => $json]);
 
-            return response()->json(['success' => true, 'message' => 'Monthly targets berhasil disimpan!']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Monthly targets berhasil disimpan!',
+                'data' => $merged,
+            ]);
         }
 
         return response()->json(['error' => 'Data targets kosong.'], 400);

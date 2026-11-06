@@ -8,6 +8,7 @@ use App\Models\RepeatOrderPrediction;
 use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
 
 class EmployeeSettingController extends Controller
@@ -72,6 +73,34 @@ class EmployeeSettingController extends Controller
             $branches = array_values(array_unique(array_merge(['Head Office'], $branches)));
         }
 
+        // Monthly Targets per Periode (Satu Gerbang dengan Workspace Sosmed)
+        $monthlyTargetsSetting = Setting::where('key', 'workspace_monthly_targets')->value('value');
+        $monthlyTargetsData = ! empty($monthlyTargetsSetting) ? json_decode($monthlyTargetsSetting, true) : [];
+        if (! is_array($monthlyTargetsData)) {
+            $monthlyTargetsData = [];
+        }
+
+        $targetMonth = (int) $request->input('target_month', now()->month);
+        $targetYear = (int) $request->input('target_year', now()->year);
+        $targetPeriodKey = sprintf('%04d-%02d', $targetYear, $targetMonth);
+
+        $periodTargetData = $monthlyTargetsData[$targetPeriodKey] ?? null;
+        $periodTeamTarget = (float) ($periodTargetData['teamTarget'] ?? 0);
+
+        // Active sales employees for monthly targets
+        $activeSalesEmployees = Employee::query()
+            ->where('status', 'active')
+            ->orderBy('cabang')
+            ->orderBy('name')
+            ->get();
+
+        if ($periodTeamTarget <= 0) {
+            $periodTeamTarget = (float) $activeSalesEmployees->sum('target');
+            if ($periodTeamTarget <= 0) {
+                $periodTeamTarget = 8447356034.0;
+            }
+        }
+
         return view('settings.karyawan', compact(
             'employees',
             'kpiCriteria',
@@ -82,7 +111,14 @@ class EmployeeSettingController extends Controller
             'search',
             'cabang',
             'status',
-            'activeTab'
+            'activeTab',
+            'monthlyTargetsData',
+            'targetMonth',
+            'targetYear',
+            'targetPeriodKey',
+            'periodTargetData',
+            'periodTeamTarget',
+            'activeSalesEmployees'
         ));
     }
 
@@ -272,6 +308,93 @@ class EmployeeSettingController extends Controller
 
         return redirect()->route('settings.karyawan.index', ['tab' => 'weights'])
             ->with('success', "Kriteria '{$name}' telah dihapus. Sesuaikan kembali bobot kriteria lainnya agar total 100%.");
+    }
+
+    /**
+     * Update monthly targets for Sosmed team and active sales for a specific period.
+     */
+    public function updateMonthlyTargets(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang mengubah target omzet.');
+
+        $targetMonth = (int) $request->input('target_month', now()->month);
+        $targetYear = (int) $request->input('target_year', now()->year);
+
+        $parseMoney = function ($value): float {
+            if (is_numeric($value)) {
+                return (float) $value;
+            }
+            $str = trim((string) $value);
+            $str = (string) preg_replace('/[^\d,.]/', '', $str);
+            if ($str === '') {
+                return 0.0;
+            }
+            if (str_contains($str, '.') && str_contains($str, ',')) {
+                $str = str_replace('.', '', $str);
+                $str = str_replace(',', '.', $str);
+            } elseif (str_contains($str, '.')) {
+                if (substr_count($str, '.') > 1 || preg_match('/\.\d{3}$/', $str)) {
+                    $str = str_replace('.', '', $str);
+                }
+            } elseif (str_contains($str, ',')) {
+                $str = str_replace(',', '.', $str);
+            }
+
+            return (float) $str;
+        };
+
+        $teamTarget = $parseMoney($request->input('team_target', 0));
+
+        $salesTargetsInput = $request->input('sales_targets', []);
+        $salesTargets = [];
+
+        foreach ($salesTargetsInput as $code => $val) {
+            $cleaned = $parseMoney($val);
+            $salesTargets[$code] = $cleaned;
+            // Also map by sales employee name for dual lookup
+            $emp = Employee::where('nik', $code)->first();
+            if ($emp) {
+                $salesTargets[strtoupper($emp->name)] = $cleaned;
+            }
+        }
+
+        $periodKey = sprintf('%04d-%02d', $targetYear, $targetMonth);
+
+        $monthlyTargetsSetting = Setting::where('key', 'workspace_monthly_targets')->value('value');
+        $monthlyTargetsData = ! empty($monthlyTargetsSetting) ? json_decode($monthlyTargetsSetting, true) : [];
+        if (! is_array($monthlyTargetsData)) {
+            $monthlyTargetsData = [];
+        }
+
+        $monthlyTargetsData[$periodKey] = [
+            'month' => $targetMonth,
+            'year' => $targetYear,
+            'teamTarget' => $teamTarget,
+            'salesTargets' => $salesTargets,
+        ];
+
+        $json = json_encode($monthlyTargetsData, JSON_PRETTY_PRINT);
+        Setting::updateOrCreate(['key' => 'workspace_monthly_targets'], ['value' => $json]);
+
+        // Also sync to storage file for Workspace Sosmed fallback
+        $storageDir = storage_path('app/workspace-sosmed');
+        if (! File::exists($storageDir)) {
+            @File::makeDirectory($storageDir, 0755, true);
+        }
+        @File::put($storageDir.DIRECTORY_SEPARATOR.'monthly_targets.json', $json);
+
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+        $mName = $monthNames[$targetMonth] ?? "Bulan {$targetMonth}";
+
+        return redirect()->route('settings.karyawan.index', [
+            'tab' => 'monthly_targets',
+            'target_month' => $targetMonth,
+            'target_year' => $targetYear,
+        ])->with('success', "Target omzet bulanan periode {$mName} {$targetYear} (Rp ".number_format($teamTarget, 0, ',', '.').") berhasil disimpan dan otomatis terhubung ke Rapor Matrix!");
     }
 }
 

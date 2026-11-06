@@ -52,6 +52,10 @@ function applyWorkspaceSettings(data) {
       cross_selling: parseFloat(data.matrix_weights.cross_selling) || 30.0,
     };
   }
+  if (data.monthly_targets && typeof data.monthly_targets === 'object' && Object.keys(data.monthly_targets).length > 0) {
+    cachedMonthlyTargets = data.monthly_targets;
+    console.log('✅ Monthly targets synced from central database:', cachedMonthlyTargets);
+  }
 }
 
 function initWorkspaceSettings() {
@@ -170,8 +174,16 @@ function resolvePostingDay(pd) {
     return d.d;
   }
   if (typeof pd === 'string') {
-    const parts = pd.split(/[\/\-]/);
-    if (parts.length >= 2) return parseInt(parts[0], 10);
+    const clean = pd.trim().split(' ')[0];
+    const parts = clean.split(/[\/\-]/);
+    if (parts.length >= 3) {
+      if (parts[0].length === 4) {
+        return parseInt(parts[2], 10) || 1;
+      }
+      return parseInt(parts[0], 10) || 1;
+    } else if (parts.length >= 2) {
+      return parseInt(parts[0], 10) || 1;
+    }
   }
   return 1;
 }
@@ -626,7 +638,7 @@ function processAllReports() {
   const picStats = {};
   activePICs.forEach(pic => {
     const m = masterList.find(x => x.name === pic);
-    const target = m ? getSalesTargetForMonth(m.code, activeMonth, activeYear, m.target) : 867261886;
+    const target = m ? getSalesTargetForMonth(m.code, activeMonth, activeYear, m.target, m.name) : 867261886;
     picStats[pic] = {
       name: pic,
       target: target,
@@ -875,7 +887,7 @@ function renderReport1Table(activePICs) {
   let sumTarget = 0;
   activePICs.forEach(pic => {
     const m = masterList.find(x => x.name === pic);
-    const target = m ? getSalesTargetForMonth(m.code, activeMonth, activeYear, m.target) : 867261886;
+    const target = m ? getSalesTargetForMonth(m.code, activeMonth, activeYear, m.target, m.name) : 867261886;
     sumTarget += target;
     const total = colTotals[pic];
     const sisa = total - target;
@@ -968,6 +980,18 @@ function renderReport2Tables(picStats, activePICs) {
 
     const ratioAkhir = (pctAkhir / tg) * 100;
     const statusAkhir = ratioAkhir >= 90 ? '🖤' : (ratioAkhir >= 80 ? '💔' : '☠️');
+
+    // Attach calculated metrics directly to PIC stats object
+    s.pctOmzet = Math.round(pctOmzet * 10) / 10;
+    s.ratioOmzet = ratioOmzet;
+    s.statusOmzet = statusOmzet;
+    s.pctGP = Math.round(pctGP * 10) / 10;
+    s.ratioGP = ratioGP;
+    s.statusGP = statusGP;
+    s.pctCross = pctCross;
+    s.pctAkhir = Math.round(pctAkhir * 10) / 10;
+    s.ratioAkhir = ratioAkhir;
+    s.statusAkhir = statusAkhir;
 
     // Table 1 Row
     const tr1 = document.createElement('tr');
@@ -1069,6 +1093,12 @@ function updateExecutiveKPICards(picStats, activePICs) {
     sumCross += s.crossCount;
   });
 
+  const explicitTeamTarget = getTeamTargetForMonth(activeMonth, activeYear);
+  if (explicitTeamTarget && explicitTeamTarget > 0) {
+    grandTarget = explicitTeamTarget;
+    grandGPTarget = Math.round(grandTarget * 0.05);
+  }
+
   const grandTotal = (typeof lastTotalSosmedAchieve === 'number' && lastTotalSosmedAchieve > 0) ? lastTotalSosmedAchieve : sumAch;
   const grandGP = (typeof lastTotalSosmedGP === 'number' && lastTotalSosmedGP !== 0) ? lastTotalSosmedGP : sumGP;
   const grandGadget = (typeof lastTotalSosmedGadget === 'number' && lastTotalSosmedGadget > 0) ? lastTotalSosmedGadget : sumGadget;
@@ -1081,8 +1111,14 @@ function updateExecutiveKPICards(picStats, activePICs) {
 
   const elAch = document.getElementById('kpiTotalAchieve');
   if (elAch) elAch.innerText = formatRupiah(grandTotal);
-  const elTgt = document.getElementById('kpiTargetSub');
-  if (elTgt) elTgt.innerText = `Target: ${formatRupiah(grandTarget)}`;
+
+  const elTgtText = document.getElementById('kpiTargetSubText');
+  if (elTgtText) {
+    elTgtText.innerText = `Target: ${formatRupiah(grandTarget)}`;
+  } else {
+    const elTgt = document.getElementById('kpiTargetSub');
+    if (elTgt) elTgt.innerHTML = `<span>Target: ${formatRupiah(grandTarget)}</span> <button type="button" onclick="openMonthlyTargetModal()" class="kpi-target-edit-btn" title="Ubah target omzet bulan ini" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 700; cursor: pointer; margin-left: 8px;">✏️ Ubah Target</button>`;
+  }
   const elPct = document.getElementById('kpiProgressPct');
   if (elPct) elPct.innerText = formatPercent(pct);
   const elBar = document.getElementById('kpiProgressBar');
@@ -1229,6 +1265,7 @@ function switchTab(tabIndex) {
     }
   } else if (tabIndex === 2) {
     if (aiSection) aiSection.style.display = 'flex';
+    if (kpiSection) kpiSection.style.display = 'block';
   } else {
     if (aiSection) aiSection.style.display = 'none';
   }
@@ -1315,6 +1352,10 @@ function showSaveToast(message) {
   setTimeout(() => {
     if (toast) toast.style.display = 'none';
   }, 4000);
+}
+
+function showToast(message) {
+  showSaveToast(message);
 }
 
 // ==========================================================================
@@ -4584,6 +4625,12 @@ function renderSpeedometerGauges(picStats, activePICs) {
     }
   });
 
+  const explicitTeamTarget = getTeamTargetForMonth(activeMonth, activeYear);
+  if (explicitTeamTarget && explicitTeamTarget > 0) {
+    grandTarget = explicitTeamTarget;
+    grandGPTarget = Math.round(grandTarget * 0.05);
+  }
+
   const grandTotal = (typeof lastTotalSosmedAchieve === 'number' && lastTotalSosmedAchieve > 0) ? lastTotalSosmedAchieve : sumAch;
   const grandGP = (typeof lastTotalSosmedGP === 'number' && lastTotalSosmedGP !== 0) ? lastTotalSosmedGP : sumGP;
   const grandGadget = (typeof lastTotalSosmedGadget === 'number' && lastTotalSosmedGadget > 0) ? lastTotalSosmedGadget : sumGadget;
@@ -4643,12 +4690,13 @@ function renderMonthToMonthCharts() {
 
   // Base Historical Targets & Baseline Data (Jan-Sep 2026) using getTeamTargetForMonth
   const monthlyTargets = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => getTeamTargetForMonth(m, activeYear));
-  const monthlyOmzetData = [7420000000, 7650000000, 7890000000, 8120000000, 8350000000, 7950000000, 8280000000, 8520000000, 8310000000, null, null, null];
-  const monthlyGPData = [380000000, 395000000, 410000000, 435000000, 460000000, 420000000, 445000000, 470000000, 430000000, null, null, null];
-  const monthlyCrossItems = [120, 135, 150, 180, 210, 175, 190, 220, 195, null, null, null];
-  const monthlyGadgetUnits = [320, 340, 370, 410, 440, 390, 420, 450, 410, null, null, null];
+  const monthlyOmzetData = [7420000000, 7650000000, 7890000000, 8120000000, 8350000000, 7950000000, 8280000000, 8520000000, 8310000000, 8447356034, null, null];
+  const monthlyGPData = [380000000, 395000000, 410000000, 435000000, 460000000, 420000000, 445000000, 470000000, 430000000, 422367802, null, null];
+  const monthlyCrossItems = [120, 135, 150, 180, 210, 175, 190, 220, 195, 230, null, null];
+  const monthlyGadgetUnits = [320, 340, 370, 410, 440, 390, 420, 450, 410, 460, null, null];
 
-  // Fill in active month (Oktober index 9) with real active calculation
+  // Fill in active month with real active calculation dynamically
+  const activeMonthIdx = (typeof activeMonth === 'number' && activeMonth >= 1 && activeMonth <= 12) ? (activeMonth - 1) : 10;
   if (lastProcessedPicStats && lastActivePICs.length > 0) {
     let currTotal = 0, currGP = 0, currCross = 0, currGadget = 0;
     lastActivePICs.forEach(p => {
@@ -4657,10 +4705,10 @@ function renderMonthToMonthCharts() {
       currCross += lastProcessedPicStats[p].crossCount;
       currGadget += lastProcessedPicStats[p].gadgetCount;
     });
-    monthlyOmzetData[9] = currTotal;
-    monthlyGPData[9] = currGP;
-    monthlyCrossItems[9] = currCross;
-    monthlyGadgetUnits[9] = currGadget;
+    monthlyOmzetData[activeMonthIdx] = currTotal;
+    monthlyGPData[activeMonthIdx] = currGP;
+    monthlyCrossItems[activeMonthIdx] = currCross;
+    monthlyGadgetUnits[activeMonthIdx] = currGadget;
   }
 
   // Override with any user uploaded archives from cachedMonthlyArchives
@@ -5067,11 +5115,16 @@ function renderMoMGrowthChart(monthlyOmzetData) {
   const canvas = document.getElementById('chartMoMGrowth');
   if (!canvas || typeof Chart === 'undefined') return;
 
-  const monthLabels = ['Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt'];
+  const allMonthShorts = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const currentMonthIdx = (typeof activeMonth === 'number' && activeMonth >= 1 && activeMonth <= 12) ? (activeMonth - 1) : 10;
+  const targetEndIdx = Math.max(9, currentMonthIdx);
+
+  const monthLabels = [];
   const growthRates = [];
   const barColors = [];
 
-  for (let i = 1; i <= 9; i++) {
+  for (let i = 1; i <= targetEndIdx; i++) {
+    monthLabels.push(allMonthShorts[i]);
     const prev = monthlyOmzetData[i - 1];
     const curr = monthlyOmzetData[i];
     if (prev && curr) {
@@ -5139,6 +5192,14 @@ function renderSalesLeaderboard(sortBy = 'omzet') {
     return;
   }
 
+  // Update title with active month and year
+  const titleEl = document.getElementById('leaderboardTitleText');
+  if (titleEl) {
+    const monthNames = ['', 'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+    const mStr = monthNames[Number(activeMonth)] || String(activeMonth).toUpperCase();
+    titleEl.innerHTML = `🏆 SALES LEADERBOARD &bull; REALISASI OMZET ${mStr} ${activeYear}`;
+  }
+
   // Count deals closed per PIC from raw turnover documents
   const picDeals = {};
   lastActivePICs.forEach(p => picDeals[p] = 0);
@@ -5153,19 +5214,22 @@ function renderSalesLeaderboard(sortBy = 'omzet') {
 
   // Build ranking dataset strictly based on current month real performance
   const rankingList = lastActivePICs.map(pic => {
-    const stat = lastProcessedPicStats[pic];
-    const currOmzet = stat.pencapaian;
-    const currGP = stat.acvGP;
-    const currDeals = picDeals[pic] || Math.round(stat.pencapaian / 18500000) || 12;
+    const stat = lastProcessedPicStats[pic] || {};
+    const currOmzet = stat.pencapaian || 0;
+    const currGP = stat.acvGP || 0;
+    const currDeals = picDeals[pic] || Math.round(currOmzet / 18500000) || 0;
+    const currPctOmzet = (stat.target > 0) ? Math.round((currOmzet / stat.target) * 100) : (stat.pctOmzet || 0);
+    const currPctGP = (stat.targetGP > 0) ? Math.round((currGP / stat.targetGP) * 100) : (stat.pctGP || 0);
+    const currScore = stat.pctAkhir || 0;
 
     return {
       name: pic,
       omzet: currOmzet,
       gp: currGP,
       deals: currDeals,
-      pctOmzet: stat.pctOmzet,
-      pctGP: stat.pctGP,
-      score: stat.pctAkhir,
+      pctOmzet: currPctOmzet,
+      pctGP: currPctGP,
+      score: currScore,
       isATH: false
     };
   });
@@ -5718,13 +5782,21 @@ function getTeamTargetForMonth(m, y) {
   if (cachedMonthlyTargets && cachedMonthlyTargets[key] && cachedMonthlyTargets[key].teamTarget) {
     return Number(cachedMonthlyTargets[key].teamTarget);
   }
-  return 8447356034;
+  const master = getMasterSales().filter(x => x.active);
+  const sumSales = master.reduce((acc, curr) => acc + (Number(curr.target) || 867261886), 0);
+  return sumSales > 0 ? sumSales : 8447356034;
 }
 
-function getSalesTargetForMonth(picCode, m, y, defaultTarget) {
+function getSalesTargetForMonth(picCode, m, y, defaultTarget, picName) {
   const key = getMonthlyTargetKey(m, y);
-  if (cachedMonthlyTargets && cachedMonthlyTargets[key] && cachedMonthlyTargets[key].salesTargets && cachedMonthlyTargets[key].salesTargets[picCode] !== undefined) {
-    return Number(cachedMonthlyTargets[key].salesTargets[picCode]);
+  if (cachedMonthlyTargets && cachedMonthlyTargets[key] && cachedMonthlyTargets[key].salesTargets) {
+    const st = cachedMonthlyTargets[key].salesTargets;
+    if (picCode && st[picCode] !== undefined) return Number(st[picCode]);
+    if (picName && st[picName] !== undefined) return Number(st[picName]);
+    if (picName) {
+      const matchKey = Object.keys(st).find(k => k.toUpperCase() === picName.toUpperCase());
+      if (matchKey && st[matchKey] !== undefined) return Number(st[matchKey]);
+    }
   }
   return defaultTarget;
 }
@@ -5801,6 +5873,7 @@ async function saveAdminTargets() {
     if (input) {
       const val = parseFloat(input.value) || 0;
       salesTargets[item.code] = val;
+      salesTargets[item.name] = val;
       if (m === activeMonth && y === activeYear) {
         item.target = val;
       }
@@ -5817,7 +5890,224 @@ async function saveAdminTargets() {
   saveMasterSales(masterList);
   await persistMonthlyTargetsToServer();
   const monthName = mSelect ? mSelect.options[mSelect.selectedIndex].text : `Bulan ${m}`;
-  alert(`✅ Target bulanan untuk ${monthName} ${y} berhasil disimpan permanen ke server!`);
+  showToast(`✅ Target bulanan untuk ${monthName} ${y} berhasil disimpan permanen ke server!`);
+  processAllReports();
+}
+
+// ==========================================================================
+// 15B. INTERACTIVE MONTHLY TARGET MODAL ENGINE (POPOVER DARI REPORT MATRIX)
+// ==========================================================================
+function openMonthlyTargetModal(m, y) {
+  const modal = document.getElementById('monthlyTargetModal');
+  if (!modal) return;
+
+  const targetM = (m !== undefined && m !== null) ? parseInt(m, 10) : (activeMonth || (new Date().getMonth() + 1));
+  const targetY = (y !== undefined && y !== null) ? parseInt(y, 10) : (activeYear || new Date().getFullYear());
+
+  const mSelect = document.getElementById('modalTargetMonthSelect');
+  const yInput = document.getElementById('modalTargetYearInput');
+  if (mSelect) mSelect.value = String(targetM);
+  if (yInput) yInput.value = String(targetY);
+
+  onModalTargetMonthChange();
+  modal.style.display = 'flex';
+}
+
+function closeMonthlyTargetModal() {
+  const modal = document.getElementById('monthlyTargetModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function onModalTargetMonthChange() {
+  const mSelect = document.getElementById('modalTargetMonthSelect');
+  const yInput = document.getElementById('modalTargetYearInput');
+  const teamInput = document.getElementById('modalTeamTargetInput');
+  if (!mSelect || !yInput) return;
+
+  const m = parseInt(mSelect.value, 10);
+  const y = parseInt(yInput.value, 10);
+  const key = getMonthlyTargetKey(m, y);
+  const monthData = cachedMonthlyTargets[key] || {};
+
+  const masterList = getMasterSales().filter(x => x.active);
+  let defaultTeam = 0;
+  masterList.forEach(x => { defaultTeam += (Number(x.target) || 867261886); });
+  if (defaultTeam <= 0) defaultTeam = 8447356034;
+
+  const teamTarget = monthData.teamTarget !== undefined ? Number(monthData.teamTarget) : defaultTeam;
+  if (teamInput) teamInput.value = teamTarget;
+
+  const container = document.getElementById('modalSalesTargetListContainer');
+  if (container) {
+    container.innerHTML = masterList.map(item => {
+      let currentVal = item.target || 867261886;
+      if (monthData.salesTargets) {
+        if (monthData.salesTargets[item.code] !== undefined) {
+          currentVal = Number(monthData.salesTargets[item.code]);
+        } else if (monthData.salesTargets[item.name] !== undefined) {
+          currentVal = Number(monthData.salesTargets[item.name]);
+        }
+      }
+      const gpVal = Math.round(currentVal * 0.05);
+      return `
+        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div style="min-width: 160px; flex: 1;">
+            <div style="font-weight: 800; font-size: 0.85rem; color: #0f172a;">${item.name}</div>
+            <div style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${item.code} &bull; Cabang ${item.cabang || '-'}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="font-size: 0.72rem; font-weight: 700; color: #059669; min-width: 120px; text-align: right;" id="modalRowGP_${item.code}">
+              GP: ${formatRupiah(gpVal)}
+            </div>
+            <div style="position: relative; width: 170px;">
+              <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 0.72rem; font-weight: 700; color: #94a3b8;">Rp</span>
+              <input type="number" 
+                     id="modalSalesInput_${item.code}" 
+                     data-code="${item.code}" 
+                     data-name="${item.name}" 
+                     value="${currentVal}" 
+                     oninput="onModalSalesRowChange('${item.code}')" 
+                     class="form-input modal-sales-target-input" 
+                     style="padding-left: 28px; text-align: right; font-weight: 700; font-size: 0.85rem;">
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  updateModalTargetSummary();
+}
+
+function onModalTeamInputChange() {
+  updateModalTargetSummary();
+}
+
+function onModalSalesRowChange(code) {
+  const inp = document.getElementById(`modalSalesInput_${code}`);
+  if (inp) {
+    const val = parseFloat(inp.value) || 0;
+    const gpEl = document.getElementById(`modalRowGP_${code}`);
+    if (gpEl) {
+      gpEl.innerText = `GP: ${formatRupiah(Math.round(val * 0.05))}`;
+    }
+  }
+  updateModalTargetSummary();
+}
+
+function updateModalTargetSummary() {
+  const teamInput = document.getElementById('modalTeamTargetInput');
+  const teamVal = teamInput ? (parseFloat(teamInput.value) || 0) : 0;
+
+  const teamGPEl = document.getElementById('modalTeamGPPreview');
+  if (teamGPEl) {
+    teamGPEl.innerText = `GP 5%: ${formatRupiah(Math.round(teamVal * 0.05))}`;
+  }
+
+  let sumSales = 0;
+  const inputs = document.querySelectorAll('.modal-sales-target-input');
+  inputs.forEach(inp => {
+    sumSales += (parseFloat(inp.value) || 0);
+  });
+
+  const footerTotalEl = document.getElementById('modalFooterTotalSales');
+  if (footerTotalEl) {
+    footerTotalEl.innerText = formatRupiah(sumSales);
+  }
+
+  const statusEl = document.getElementById('modalTargetBalanceStatus');
+  if (statusEl) {
+    const diff = sumSales - teamVal;
+    if (Math.abs(diff) < 1000) {
+      statusEl.style.color = '#059669';
+      statusEl.innerText = '✅ Seimbang dengan Target Tim';
+    } else if (diff > 0) {
+      statusEl.style.color = '#2563eb';
+      statusEl.innerText = `ℹ️ Sales > Target Tim (+${formatRupiah(diff)})`;
+    } else {
+      statusEl.style.color = '#d97706';
+      statusEl.innerText = `⚠️ Sales < Target Tim (-${formatRupiah(Math.abs(diff))})`;
+    }
+  }
+}
+
+function modalBagiRataSales() {
+  const teamInput = document.getElementById('modalTeamTargetInput');
+  const teamVal = teamInput ? (parseFloat(teamInput.value) || 0) : 0;
+  const inputs = document.querySelectorAll('.modal-sales-target-input');
+  if (inputs.length === 0 || teamVal <= 0) {
+    alert('Isi Target Tim terlebih dahulu.');
+    return;
+  }
+  const perSales = Math.round(teamVal / inputs.length);
+  inputs.forEach(inp => {
+    inp.value = perSales;
+    const code = inp.getAttribute('data-code');
+    const gpEl = document.getElementById(`modalRowGP_${code}`);
+    if (gpEl) gpEl.innerText = `GP: ${formatRupiah(Math.round(perSales * 0.05))}`;
+  });
+  updateModalTargetSummary();
+}
+
+function modalHitungTotalSales() {
+  let sumSales = 0;
+  const inputs = document.querySelectorAll('.modal-sales-target-input');
+  inputs.forEach(inp => {
+    sumSales += (parseFloat(inp.value) || 0);
+  });
+  const teamInput = document.getElementById('modalTeamTargetInput');
+  if (teamInput) {
+    teamInput.value = sumSales;
+  }
+  updateModalTargetSummary();
+}
+
+async function saveModalMonthlyTargets() {
+  const mSelect = document.getElementById('modalTargetMonthSelect');
+  const yInput = document.getElementById('modalTargetYearInput');
+  const teamInput = document.getElementById('modalTeamTargetInput');
+
+  const m = mSelect ? parseInt(mSelect.value, 10) : (activeMonth || 11);
+  const y = yInput ? parseInt(yInput.value, 10) : (activeYear || 2026);
+  const key = getMonthlyTargetKey(m, y);
+
+  const teamTarget = teamInput ? (parseFloat(teamInput.value) || 8447356034) : 8447356034;
+  const salesTargets = {};
+  const masterList = getMasterSales();
+
+  const inputs = document.querySelectorAll('.modal-sales-target-input');
+  inputs.forEach(inp => {
+    const code = inp.getAttribute('data-code');
+    const name = inp.getAttribute('data-name');
+    const val = parseFloat(inp.value) || 0;
+    if (code) salesTargets[code] = val;
+    if (name) salesTargets[name] = val;
+
+    if (m === activeMonth && y === activeYear) {
+      const item = masterList.find(x => x.code === code || x.name === name);
+      if (item) item.target = val;
+    }
+  });
+
+  cachedMonthlyTargets[key] = {
+    month: m,
+    year: y,
+    teamTarget: teamTarget,
+    salesTargets: salesTargets
+  };
+
+  saveMasterSales(masterList);
+  await persistMonthlyTargetsToServer();
+
+  closeMonthlyTargetModal();
+
+  if (document.getElementById('adminTargetMonthSelect')) {
+    onAdminTargetMonthChange();
+  }
+
+  const mName = mSelect ? mSelect.options[mSelect.selectedIndex].text : `Bulan ${m}`;
+  showToast(`🎯 Target omzet ${mName} ${y} (${formatRupiah(teamTarget)}) berhasil disimpan dan langsung diperbarui!`);
+
   processAllReports();
 }
 

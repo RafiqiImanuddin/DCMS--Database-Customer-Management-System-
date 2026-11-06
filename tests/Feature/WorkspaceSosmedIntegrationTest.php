@@ -362,5 +362,71 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $invalidRes->assertRedirect(route('settings.karyawan.index', ['tab' => 'weights']));
         $invalidRes->assertSessionHas('error');
     }
+
+    public function test_employee_setting_monthly_targets_tab_and_post_update(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+        $admin = User::factory()->admin()->create();
+
+        $emp = Employee::firstOrCreate(
+            ['nik' => 'BJM.SOS.005'],
+            [
+                'name' => 'Sifa',
+                'role' => 'Sales',
+                'cabang' => 'Banjarmasin',
+                'phone' => '081234567890',
+                'status' => 'active',
+                'target' => 867261886.00,
+            ]
+        );
+
+        // 1. Visit Tab 3: monthly_targets
+        $response = $this->actingAs($superadmin)->get(route('settings.karyawan.index', [
+            'tab' => 'monthly_targets',
+            'target_month' => 11,
+            'target_year' => 2026,
+        ]));
+        $response->assertOk();
+        $response->assertSee('Target Omzet Periode November 2026');
+        $response->assertSee('BJM.SOS.005');
+
+        // 2. Superadmin updates monthly targets for November 2026
+        $postRes = $this->actingAs($superadmin)->post(route('settings.monthly_targets.update'), [
+            'target_month' => 11,
+            'target_year' => 2026,
+            'team_target' => '9.500.000.000',
+            'sales_targets' => [
+                'BJM.SOS.005' => '1.200.000.000',
+            ],
+        ]);
+        $postRes->assertRedirect(route('settings.karyawan.index', [
+            'tab' => 'monthly_targets',
+            'target_month' => 11,
+            'target_year' => 2026,
+        ]));
+        $postRes->assertSessionHas('success');
+
+        // 3. Verify in database
+        $saved = json_decode(Setting::where('key', 'workspace_monthly_targets')->value('value'), true);
+        $this->assertIsArray($saved);
+        $this->assertArrayHasKey('2026-11', $saved);
+        $this->assertEquals(9500000000, $saved['2026-11']['teamTarget']);
+        $this->assertEquals(1200000000, $saved['2026-11']['salesTargets']['BJM.SOS.005']);
+
+        // 4. Verify workspace settings API returns monthly_targets
+        $settingsApiRes = $this->actingAs($superadmin)->getJson(route('api.sosmed.workspace_settings'));
+        $settingsApiRes->assertOk();
+        $settingsData = $settingsApiRes->json();
+        $this->assertArrayHasKey('monthly_targets', $settingsData);
+        $this->assertArrayHasKey('2026-11', $settingsData['monthly_targets']);
+
+        // 5. Staff admin is forbidden to update monthly targets
+        $forbiddenRes = $this->actingAs($admin)->post(route('settings.monthly_targets.update'), [
+            'target_month' => 11,
+            'target_year' => 2026,
+            'team_target' => '9.500.000.000',
+        ]);
+        $forbiddenRes->assertForbidden();
+    }
 }
 
