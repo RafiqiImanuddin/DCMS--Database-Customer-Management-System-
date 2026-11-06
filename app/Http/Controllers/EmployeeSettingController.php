@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\KpiCriterion;
 use App\Models\RepeatOrderPrediction;
+use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -45,6 +46,15 @@ class EmployeeSettingController extends Controller
         $kpiCriteria = KpiCriterion::query()->orderBy('sort_order')->orderBy('id')->get();
         $totalWeight = (float) $kpiCriteria->where('is_active', true)->sum('weight');
 
+        // Master weights for Sosmed Report Matrix
+        $matrixWeightsSetting = Setting::where('key', 'workspace_matrix_weights')->value('value');
+        $matrixWeights = ! empty($matrixWeightsSetting) ? json_decode($matrixWeightsSetting, true) : [
+            'omzet' => 35.0,
+            'gp' => 35.0,
+            'cross_selling' => 30.0,
+        ];
+        $totalMatrixWeight = (float) (($matrixWeights['omzet'] ?? 0) + ($matrixWeights['gp'] ?? 0) + ($matrixWeights['cross_selling'] ?? 0));
+
         // Fetch list of branches for employee dropdown from employees + repeat_order_predictions
         $branches = RepeatOrderPrediction::query()
             ->whereNotNull('cabang')
@@ -66,6 +76,8 @@ class EmployeeSettingController extends Controller
             'employees',
             'kpiCriteria',
             'totalWeight',
+            'matrixWeights',
+            'totalMatrixWeight',
             'branches',
             'search',
             'cabang',
@@ -85,6 +97,7 @@ class EmployeeSettingController extends Controller
             'nik' => ['required', 'string', 'max:50', 'unique:employees,nik'],
             'name' => ['required', 'string', 'max:255'],
             'role' => ['required', 'string', 'max:100'],
+            'target' => ['nullable', 'numeric', 'min:0'],
             'cabang' => ['required', 'string', 'max:50'],
             'phone' => ['required', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:255'],
@@ -93,6 +106,10 @@ class EmployeeSettingController extends Controller
             'avatar_color' => ['nullable', 'string', 'max:20'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        if (empty($validated['target'])) {
+            $validated['target'] = 867261886.00;
+        }
 
         if (empty($validated['avatar_color'])) {
             $palette = ['#2563eb', '#059669', '#7c3aed', '#d97706', '#db2777', '#0891b2', '#4f46e5', '#ea580c'];
@@ -116,6 +133,7 @@ class EmployeeSettingController extends Controller
             'nik' => ['required', 'string', 'max:50', 'unique:employees,nik,' . $employee->id],
             'name' => ['required', 'string', 'max:255'],
             'role' => ['required', 'string', 'max:100'],
+            'target' => ['nullable', 'numeric', 'min:0'],
             'cabang' => ['required', 'string', 'max:50'],
             'phone' => ['required', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:255'],
@@ -124,6 +142,10 @@ class EmployeeSettingController extends Controller
             'avatar_color' => ['nullable', 'string', 'max:20'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        if (! isset($validated['target']) || $validated['target'] === null || $validated['target'] === '') {
+            $validated['target'] = $employee->target ?? 867261886.00;
+        }
 
         $employee->update($validated);
 
@@ -146,50 +168,71 @@ class EmployeeSettingController extends Controller
     }
 
     /**
-     * Update weights and benchmarks for KPI criteria.
+     * Update weights and benchmarks for KPI criteria and Report Matrix.
      */
     public function updateKpiWeights(Request $request): RedirectResponse
     {
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang mengubah bobot KPI.');
 
+        $matrixWeights = $request->input('matrix_weights', []);
         $weights = $request->input('weights', []);
         $benchmarks = $request->input('benchmarks', []);
         $descriptions = $request->input('descriptions', []);
         $actives = $request->input('actives', []);
 
-        if (! is_array($weights) || empty($weights)) {
-            return redirect()->route('settings.karyawan.index', ['tab' => 'weights'])
-                ->with('error', 'Data bobot penilaian tidak valid.');
-        }
+        // 1. Process Sosmed Report Matrix Weights (Omzet, GP, Cross Selling)
+        if (! empty($matrixWeights) && is_array($matrixWeights)) {
+            $wOmzet = (float) ($matrixWeights['omzet'] ?? 0);
+            $wGp = (float) ($matrixWeights['gp'] ?? 0);
+            $wCross = (float) ($matrixWeights['cross_selling'] ?? 0);
+            $totalMatrix = $wOmzet + $wGp + $wCross;
 
-        $totalActiveWeight = 0.0;
-        foreach ($weights as $id => $weight) {
-            $isActive = ! empty($actives[$id]);
-            if ($isActive) {
-                $totalActiveWeight += (float) $weight;
+            if (abs($totalMatrix - 100.0) > 0.05) {
+                return redirect()->route('settings.karyawan.index', ['tab' => 'weights'])
+                    ->with('error', "Total bobot Rapor Matrix Sosmed (Omzet + GP + Cross-Selling) harus tepat 100%. Saat ini totalnya: {$totalMatrix}%. Silakan sesuaikan kembali.");
             }
+
+            Setting::updateOrCreate(
+                ['key' => 'workspace_matrix_weights'],
+                ['value' => json_encode([
+                    'omzet' => $wOmzet,
+                    'gp' => $wGp,
+                    'cross_selling' => $wCross,
+                ])]
+            );
         }
 
-        // Allow tiny float tolerance (e.g. 99.99 to 100.01)
-        if (abs($totalActiveWeight - 100.0) > 0.05) {
-            return redirect()->route('settings.karyawan.index', ['tab' => 'weights'])
-                ->with('error', "Total bobot kriteria aktif harus tepat 100%. Saat ini totalnya: {$totalActiveWeight}%. Silakan sesuaikan kembali.");
-        }
+        // 2. Process Qualitative KPI Criteria (Manager Evaluation)
+        if (! empty($weights) && is_array($weights)) {
+            $totalActiveWeight = 0.0;
+            foreach ($weights as $id => $weight) {
+                $isActive = ! empty($actives[$id]);
+                if ($isActive) {
+                    $totalActiveWeight += (float) $weight;
+                }
+            }
 
-        foreach ($weights as $id => $weight) {
-            $criterion = KpiCriterion::find($id);
-            if ($criterion) {
-                $criterion->update([
-                    'weight' => max(0, min(100, (float) $weight)),
-                    'target_benchmark' => $benchmarks[$id] ?? $criterion->target_benchmark,
-                    'description' => $descriptions[$id] ?? $criterion->description,
-                    'is_active' => ! empty($actives[$id]),
-                ]);
+            // Allow tiny float tolerance (e.g. 99.99 to 100.01)
+            if (abs($totalActiveWeight - 100.0) > 0.05) {
+                return redirect()->route('settings.karyawan.index', ['tab' => 'weights'])
+                    ->with('error', "Total bobot kriteria kualitatif aktif harus tepat 100%. Saat ini totalnya: {$totalActiveWeight}%. Silakan sesuaikan kembali.");
+            }
+
+            foreach ($weights as $id => $weight) {
+                $criterion = KpiCriterion::find($id);
+                if ($criterion) {
+                    $criterion->update([
+                        'weight' => max(0, min(100, (float) $weight)),
+                        'target_benchmark' => $benchmarks[$id] ?? $criterion->target_benchmark,
+                        'description' => $descriptions[$id] ?? $criterion->description,
+                        'is_active' => ! empty($actives[$id]),
+                    ]);
+                }
             }
         }
 
         return redirect()->route('settings.karyawan.index', ['tab' => 'weights'])
-            ->with('success', 'Bobot dan kriteria penilaian kinerja admin sales berhasil disimpan!');
+            ->with('success', 'Bobot KPI (Rapor Matrix Sosmed & Evaluasi Kinerja) berhasil disimpan dan langsung tersinkronkan!');
     }
 
     /**

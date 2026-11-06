@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'nik',
     'name',
     'role',
+    'target',
     'cabang',
     'phone',
     'email',
@@ -31,6 +32,7 @@ class Employee extends Model
     {
         return [
             'joined_date' => 'date',
+            'target' => 'float',
         ];
     }
 

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Employee;
+use App\Models\Setting;
 use App\Models\User;
 use App\Support\WorkspaceUrlCipher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -257,6 +259,108 @@ class WorkspaceSosmedIntegrationTest extends TestCase
 
         $resGetArchive = $this->actingAs($user)->getJson(route('api.sosmed.monthly_archives'));
         $resGetArchive->assertOk()->assertJson($archivesPayload);
+    }
+
+    public function test_workspace_settings_api_returns_employees_and_matrix_weights(): void
+    {
+        Employee::create([
+            'nik' => 'BJM.SOS.999',
+            'name' => 'Budi Sosmed',
+            'role' => 'Admin Sales',
+            'target' => 999000000,
+            'cabang' => 'BJMA',
+            'phone' => '08123456789',
+            'status' => 'active',
+        ]);
+
+        Setting::updateOrCreate(
+            ['key' => 'workspace_matrix_weights'],
+            ['value' => json_encode(['omzet' => 40.0, 'gp' => 30.0, 'cross_selling' => 30.0])]
+        );
+
+        $res = $this->getJson(route('api.sosmed.workspace_settings'));
+        $res->assertOk();
+        $res->assertJsonStructure([
+            'matrix_weights' => ['omzet', 'gp', 'cross_selling'],
+            'employees' => [
+                '*' => ['id', 'code', 'nik', 'name', 'target', 'active', 'status', 'cabang', 'role'],
+            ],
+        ]);
+
+        $this->assertEquals(40.0, $res->json('matrix_weights.omzet'));
+        $this->assertEquals(30.0, $res->json('matrix_weights.gp'));
+        $this->assertEquals(30.0, $res->json('matrix_weights.cross_selling'));
+    }
+
+    public function test_employee_settings_can_store_and_update_target(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+
+        // 1. Store
+        $storeRes = $this->actingAs($superadmin)->post(route('settings.karyawan.store'), [
+            'nik' => 'SLS-NEW-01',
+            'name' => 'New Sales Person',
+            'role' => 'Admin Sales',
+            'target' => 1250000000,
+            'cabang' => 'Head Office',
+            'phone' => '081999888777',
+            'status' => 'active',
+        ]);
+        $storeRes->assertRedirect(route('settings.karyawan.index', ['tab' => 'employees']));
+        $this->assertDatabaseHas('employees', [
+            'nik' => 'SLS-NEW-01',
+            'target' => 1250000000,
+        ]);
+
+        $emp = Employee::where('nik', 'SLS-NEW-01')->firstOrFail();
+
+        // 2. Update
+        $updateRes = $this->actingAs($superadmin)->put(route('settings.karyawan.update', $emp->id), [
+            'nik' => 'SLS-NEW-01',
+            'name' => 'New Sales Person Updated',
+            'role' => 'Senior Sales',
+            'target' => 1500000000,
+            'cabang' => 'Head Office',
+            'phone' => '081999888777',
+            'status' => 'active',
+        ]);
+        $updateRes->assertRedirect(route('settings.karyawan.index', ['tab' => 'employees']));
+        $this->assertDatabaseHas('employees', [
+            'id' => $emp->id,
+            'target' => 1500000000,
+        ]);
+    }
+
+    public function test_employee_settings_can_update_matrix_weights(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+
+        // Valid 100% matrix weights
+        $res = $this->actingAs($superadmin)->post(route('settings.kpi_weights.update'), [
+            'matrix_weights' => [
+                'omzet' => 45.0,
+                'gp' => 35.0,
+                'cross_selling' => 20.0,
+            ],
+        ]);
+        $res->assertRedirect(route('settings.karyawan.index', ['tab' => 'weights']));
+        $res->assertSessionHas('success');
+
+        $saved = json_decode(Setting::where('key', 'workspace_matrix_weights')->value('value'), true);
+        $this->assertEquals(45.0, $saved['omzet']);
+        $this->assertEquals(35.0, $saved['gp']);
+        $this->assertEquals(20.0, $saved['cross_selling']);
+
+        // Invalid matrix weights (sum != 100)
+        $invalidRes = $this->actingAs($superadmin)->post(route('settings.kpi_weights.update'), [
+            'matrix_weights' => [
+                'omzet' => 50.0,
+                'gp' => 50.0,
+                'cross_selling' => 20.0, // total 120%
+            ],
+        ]);
+        $invalidRes->assertRedirect(route('settings.karyawan.index', ['tab' => 'weights']));
+        $invalidRes->assertSessionHas('error');
     }
 }
 

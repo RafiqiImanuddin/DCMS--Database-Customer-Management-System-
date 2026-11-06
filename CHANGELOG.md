@@ -1,5 +1,23 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.5] - 2026-11-06
+### Satu Gerbang Pengaturan: Integrasi Report Matrix dengan Data Karyawan & Bobot KPI
+- **Integrasi Master Data Karyawan (Satu Gerbang Setting)**:
+  - Kolom Report 1 (Daily Achievement Matrix) dan baris Report 2 (Achievement Omzet & GP vs Timegone serta Evaluasi Cross-Selling) kini sepenuhnya dinamis membaca dari master tabel `employees` di database.
+  - Penambahan kolom `Target Omzet Bulanan (Rp)` pada data karyawan di menu Master Setting (`/settings/karyawan`), tabel karyawan, serta form modal tambah/edit sales.
+  - Setiap perubahan karyawan aktif/nonaktif, penambahan admin sales baru, atau penyesuaian target individu di Master Setting langsung otomatis tercermin di Report Matrix Workspace Sosmed.
+  - Algoritma pencocokan kode sales SAP Turnover yang cerdas: mencocokkan kode NIK resmi (`BJM.SOS.xxx`), alias (`SOSMED x`), maupun nama sales secara case-insensitive.
+- **Konfigurasi Bobot KPI Matrix Dinamis**:
+  - Tab *Bobot & Kriteria Penilaian* di `/settings/karyawan` kini dibagi menjadi 2 seksi transparan:
+    1. **Bobot Rapor Matrix Sosmed**: Mengatur persentase bobot Omzet (default 35%), Gross Profit / GP (default 35%), dan Cross-Selling Gadget (default 30%).
+    2. **Kriteria Kinerja Kualitatif**: Evaluasi layanan chat konsumen, respon time, etika, dan kepatuhan promo untuk monitoring harian manager sales.
+  - Perhitungan persentase **% AKHIR (RAPOR)** dan status emoji performa (🖤/💔/☠️) di Report 2 kini dinamis mengikuti bobot yang ditentukan di Master Setting KPI.
+  - Tag info standar pada tabel Report 2 otomatis menampilkan formula bobot yang sedang aktif secara realtime.
+  - Endpoint baru `GET /api/workspace-settings` dan injeksi server-side `window.WORKSPACE_INITIAL_SETTINGS` untuk loading instan dengan 0ms latency.
+- **Paket Deployment & Migrasi Database cPanel**:
+  - Penambahan file migrasi `database/migrations/2026_11_06_100000_add_target_to_employees_table.php`.
+  - Database dump `dcms_cpanel_core.sql` dan paket deployment `dcms_cpanel_deploy.zip` telah diperbarui sehingga pengguna dapat langsung redeploy ke cPanel atau menjalankan `/system/migrate?key=dcms2026`.
+
 ## [V2.4] - 2026-11-06
 ### Live Floating WhatsApp Widget, Relokasi Pusat Unggah Data & Super-Fast Bulk Deletion
 - **Live Floating WhatsApp Widget di Seluruh Halaman (Global FAB)**:

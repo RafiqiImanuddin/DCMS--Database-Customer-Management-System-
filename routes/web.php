@@ -116,6 +116,7 @@ Route::middleware('auth')->group(function () {
 // Workspace Sosmed API Endpoints (REPORT Engine)
 $registerSosmedApiRoutes = function () {
     Route::get('/database-status', [WorkspaceSosmedController::class, 'databaseStatus'])->name('api.sosmed.database_status');
+    Route::get('/workspace-settings', [WorkspaceSosmedController::class, 'workspaceSettings'])->name('api.sosmed.workspace_settings');
     Route::match(['get', 'post'], '/monthly-targets', [WorkspaceSosmedController::class, 'monthlyTargets'])->name('api.sosmed.monthly_targets');
     Route::match(['get', 'post'], '/sales-photos', [WorkspaceSosmedController::class, 'salesPhotos'])->name('api.sosmed.sales_photos');
     Route::match(['get', 'post'], '/monthly-archives', [WorkspaceSosmedController::class, 'monthlyArchives'])->name('api.sosmed.monthly_archives');

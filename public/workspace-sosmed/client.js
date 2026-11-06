@@ -5,7 +5,7 @@
  * Full-height PNG Screenshot Download Engine, and Gemini AI Assistant.
  */
 
-// 1. DEFAULT MASTER SALES & TARGETS CONFIGURATION
+// 1. DEFAULT MASTER SALES & TARGETS CONFIGURATION (FALLBACK JIKA OFFLINE)
 const DEFAULT_SALES_MASTER = [
   { code: 'BJM.SOS.005', name: 'SIFA', target: 1081261572, active: true },
   { code: 'BJM.SOS.015', name: 'DANIEL', target: 1081261572, active: true },
@@ -17,16 +17,68 @@ const DEFAULT_SALES_MASTER = [
   { code: 'BJM.SOS.019', name: 'ZOFIA', target: 867261886, active: true },
   { code: 'BJM.SOS.022', name: 'QONA', target: 867261886, active: true },
   // Extended Master Sales
+  { code: 'BJM.SOS.021', name: 'RARA', target: 867261886, active: true },
   { code: 'BJM.SOS.013', name: 'TIKA', target: 867261886, active: false },
   { code: 'BJM.SOS.001', name: 'DIANA', target: 867261886, active: false },
   { code: 'BJM.SOS.012', name: 'QOFA', target: 867261886, active: false },
   { code: 'BJM.SOS.010', name: 'RIMA', target: 867261886, active: false },
   { code: 'BJM.SOS.020', name: 'REVA', target: 867261886, active: false },
-  { code: 'BJM.SOS.021', name: 'ALI', target: 867261886, active: false },
   { code: 'BJM.SOS.000', name: 'NOL', target: 0, active: false }
 ];
 
+// Centralized dynamic state (Satu Gerbang dengan /settings/karyawan)
+let dynamicMasterSales = null;
+let dynamicMatrixWeights = { omzet: 35.0, gp: 35.0, cross_selling: 30.0 };
+
+function applyWorkspaceSettings(data) {
+  if (!data) return;
+  if (Array.isArray(data.employees) && data.employees.length > 0) {
+    dynamicMasterSales = data.employees.map(emp => ({
+      id: emp.id,
+      code: emp.code || emp.nik,
+      nik: emp.nik,
+      name: String(emp.name || '').toUpperCase().trim(),
+      target: Number(emp.target) || 867261886,
+      active: emp.active !== false && emp.status !== 'inactive',
+      role: emp.role,
+      cabang: emp.cabang,
+      phone: emp.phone,
+    }));
+  }
+  if (data.matrix_weights && typeof data.matrix_weights === 'object') {
+    dynamicMatrixWeights = {
+      omzet: parseFloat(data.matrix_weights.omzet) || 35.0,
+      gp: parseFloat(data.matrix_weights.gp) || 35.0,
+      cross_selling: parseFloat(data.matrix_weights.cross_selling) || 30.0,
+    };
+  }
+}
+
+function initWorkspaceSettings() {
+  if (window.WORKSPACE_INITIAL_SETTINGS && Array.isArray(window.WORKSPACE_INITIAL_SETTINGS.employees)) {
+    applyWorkspaceSettings(window.WORKSPACE_INITIAL_SETTINGS);
+  }
+  fetchWorkspaceSettings();
+}
+
+async function fetchWorkspaceSettings() {
+  try {
+    const res = await fetch(`/api/workspace-settings?t=${Date.now()}`);
+    if (res.ok) {
+      const data = await res.json();
+      applyWorkspaceSettings(data);
+    }
+  } catch(e) {
+    console.warn('Gagal memuat setting master dari server:', e);
+  }
+}
+
+initWorkspaceSettings();
+
 function getMasterSales() {
+  if (dynamicMasterSales && dynamicMasterSales.length > 0) {
+    return dynamicMasterSales;
+  }
   const saved = localStorage.getItem('gadgetmart_sosmed_master');
   if (saved) {
     try { return JSON.parse(saved); } catch(e){}
@@ -627,8 +679,27 @@ function processAllReports() {
 
     // Identify sales PIC
     let matchedPIC = null;
+    const empUpper = emp.toUpperCase();
+    const remUpper = rem.toUpperCase();
+    const cabUpper = cab.toUpperCase();
+
     for (const m of masterList) {
-      if (emp.includes(m.code) || rem.includes(m.code) || cab.includes(m.code)) {
+      const codeUpper = String(m.code || '').toUpperCase();
+      const nameUpper = String(m.name || '').toUpperCase();
+      const nikUpper = String(m.nik || '').toUpperCase();
+
+      const numMatch = codeUpper.match(/\d+/);
+      const codeNum = numMatch ? parseInt(numMatch[0], 10) : null;
+      const sosmedAlias = codeNum !== null ? `SOSMED ${codeNum}` : null;
+      const sosmedPad = codeNum !== null ? `SOSMED ${String(codeNum).padStart(3, '0')}` : null;
+
+      if (
+        (codeUpper && (empUpper.includes(codeUpper) || remUpper.includes(codeUpper) || cabUpper.includes(codeUpper))) ||
+        (nikUpper && (empUpper.includes(nikUpper) || remUpper.includes(nikUpper) || cabUpper.includes(nikUpper))) ||
+        (sosmedAlias && (empUpper.includes(sosmedAlias) || remUpper.includes(sosmedAlias) || cabUpper.includes(sosmedAlias))) ||
+        (sosmedPad && (empUpper.includes(sosmedPad) || remUpper.includes(sosmedPad) || cabUpper.includes(sosmedPad))) ||
+        (nameUpper && nameUpper.length >= 3 && (empUpper.includes(nameUpper) || remUpper.includes(nameUpper) || cabUpper.includes(nameUpper)))
+      ) {
         matchedPIC = m.name;
         break;
       }
@@ -886,10 +957,14 @@ function renderReport2Tables(picStats, activePICs) {
     const ratioActual = s.gadgetCount > 0 ? (s.crossCount / s.gadgetCount) : 0;
     const pctCross = Math.min(100, Math.round(ratioActual * 3 * 100));
 
-    // Final Report % (35% Omzet + 35% GP + 30% Cross)
+    // Final Report % based on central KPI weights from /settings/karyawan ("satu gerbang")
+    const wOmzet = (dynamicMatrixWeights.omzet || 35.0) / 100;
+    const wGP = (dynamicMatrixWeights.gp || 35.0) / 100;
+    const wCross = (dynamicMatrixWeights.cross_selling || 30.0) / 100;
+
     const omzetNorm = Math.min(100, Math.max(0, pctOmzet));
     const gpNorm = Math.min(100, Math.max(0, pctGP));
-    const pctAkhir = (omzetNorm * 0.35) + (gpNorm * 0.35) + (pctCross * 0.30);
+    const pctAkhir = (omzetNorm * wOmzet) + (gpNorm * wGP) + (pctCross * wCross);
 
     const ratioAkhir = (pctAkhir / tg) * 100;
     const statusAkhir = ratioAkhir >= 90 ? '🖤' : (ratioAkhir >= 80 ? '💔' : '☠️');
@@ -954,7 +1029,10 @@ function renderReport2Tables(picStats, activePICs) {
   // Table 2 MANAJER Total Row
   const totalRatio = managerGadget > 0 ? (managerCross / managerGadget) : 0;
   const totalPctCross = Math.min(100, Math.round(totalRatio * 3 * 100));
-  const totalPctAkhir = (Math.min(100, Math.max(0, totalPctOmzet)) * 0.35) + (Math.min(100, Math.max(0, totalPctGP)) * 0.35) + (totalPctCross * 0.30);
+  const wOmzet = (dynamicMatrixWeights.omzet || 35.0) / 100;
+  const wGP = (dynamicMatrixWeights.gp || 35.0) / 100;
+  const wCross = (dynamicMatrixWeights.cross_selling || 30.0) / 100;
+  const totalPctAkhir = (Math.min(100, Math.max(0, totalPctOmzet)) * wOmzet) + (Math.min(100, Math.max(0, totalPctGP)) * wGP) + (totalPctCross * wCross);
   const ratioMgrAkhir = (totalPctAkhir / tg) * 100;
   const statusMgrAkhir = ratioMgrAkhir >= 90 ? '🖤' : (ratioMgrAkhir >= 80 ? '💔' : '☠️');
 
@@ -969,6 +1047,11 @@ function renderReport2Tables(picStats, activePICs) {
       <td></td>
     </tr>
   `;
+
+  const crossMetaTag = document.querySelector('#kpiCrossTable')?.closest('.table-card')?.querySelector('.table-meta-tag');
+  if (crossMetaTag) {
+    crossMetaTag.innerHTML = `Standar Rasio: 1 Cross per 3 Gadget &bull; <strong style="color:#0f172a;">Bobot: ${dynamicMatrixWeights.omzet}% Omzet + ${dynamicMatrixWeights.gp}% GP + ${dynamicMatrixWeights.cross_selling}% Cross</strong> (Satu Gerbang Setting)`;
+  }
 }
 
 // 6. UPDATE EXECUTIVE KPI SUMMARY CARDS
@@ -5765,10 +5848,10 @@ function toggleSalesActive(index) {
 }
 
 function resetMasterToDefault() {
-  if (confirm("Reset seluruh target dan master sales ke pengaturan pabrik?")) {
-    saveMasterSales(DEFAULT_SALES_MASTER);
-    populateAdminPanel(DEFAULT_SALES_MASTER);
-    processAllReports();
+  if (confirm("Reset seluruh target dan master sales ke master database?")) {
+    localStorage.removeItem('gadgetmart_sosmed_master');
+    dynamicMasterSales = null;
+    fetchWorkspaceSettings();
   }
 }
 

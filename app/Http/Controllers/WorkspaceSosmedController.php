@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BroadcastMedia;
+use App\Models\Employee;
 use App\Models\Setting;
 use App\Models\WhatsAppChat;
 use App\Models\WhatsAppMessage;
@@ -42,11 +43,58 @@ class WorkspaceSosmedController extends Controller
         $activeTab = RouteCipher::resolveWorkspaceTab($request)
             ?? WorkspaceUrlCipher::resolveTab($request);
 
+        $initialWorkspaceSettings = $this->getWorkspaceSettingsData();
+
         return view('workspace-sosmed.index', [
             'activeTab' => $activeTab,
             'tabTokens' => WorkspaceUrlCipher::allTokens(),
             'encryptedTabUrls' => RouteCipher::allWorkspaceUrls(),
+            'initialWorkspaceSettings' => $initialWorkspaceSettings,
         ]);
+    }
+
+    /**
+     * Get centralized workspace settings (Employees & Matrix KPI Weights).
+     */
+    private function getWorkspaceSettingsData(): array
+    {
+        $matrixWeightsSetting = Setting::where('key', 'workspace_matrix_weights')->value('value');
+        $matrixWeights = ! empty($matrixWeightsSetting) ? json_decode($matrixWeightsSetting, true) : [
+            'omzet' => 35.0,
+            'gp' => 35.0,
+            'cross_selling' => 30.0,
+        ];
+
+        $employees = Employee::query()
+            ->orderBy('id')
+            ->get()
+            ->map(function ($emp) {
+                return [
+                    'id' => $emp->id,
+                    'code' => $emp->nik,
+                    'nik' => $emp->nik,
+                    'name' => strtoupper($emp->name),
+                    'target' => (float) ($emp->target ?: 867261886.00),
+                    'active' => $emp->status === 'active',
+                    'status' => $emp->status,
+                    'cabang' => $emp->cabang,
+                    'role' => $emp->role,
+                    'phone' => $emp->phone,
+                    'avatar_color' => $emp->avatar_color,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'matrix_weights' => $matrixWeights,
+            'employees' => $employees,
+        ];
+    }
+
+    public function workspaceSettings(): JsonResponse
+    {
+        return response()->json($this->getWorkspaceSettingsData());
     }
 
     public function databaseStatus(): JsonResponse

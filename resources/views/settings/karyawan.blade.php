@@ -43,7 +43,7 @@
            class="inline-flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition {{ $activeTab === 'weights' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800' }}">
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z"/></svg>
             <span>Bobot & Kriteria Penilaian</span>
-            <span class="rounded-full {{ abs($totalWeight - 100) < 0.1 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }} px-2 py-0.5 text-xs font-bold">{{ $totalWeight }}%</span>
+            <span class="rounded-full {{ abs($totalMatrixWeight - 100) < 0.1 && abs($totalWeight - 100) < 0.1 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }} px-2 py-0.5 text-xs font-bold">Matrix {{ $totalMatrixWeight }}% | Layanan {{ $totalWeight }}%</span>
         </a>
     </div>
 
@@ -106,8 +106,9 @@
                     <thead>
                         <tr class="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                             <th class="px-5 py-3.5">Karyawan</th>
-                            <th class="px-5 py-3.5">NIK</th>
+                            <th class="px-5 py-3.5">NIK / Kode Sales</th>
                             <th class="px-5 py-3.5">Cabang & Posisi</th>
+                            <th class="px-5 py-3.5">Target Omzet (Rp)</th>
                             <th class="px-5 py-3.5">WhatsApp / Kontak</th>
                             <th class="px-5 py-3.5">Status</th>
                             <th class="px-5 py-3.5 text-center">Riwayat Penilaian</th>
@@ -136,6 +137,9 @@
                                     🏢 {{ $emp->cabang }}
                                 </div>
                                 <div class="mt-0.5 text-[11px] font-medium text-slate-500">{{ $emp->role }}</div>
+                            </td>
+                            <td class="px-5 py-4 font-mono font-bold text-slate-900">
+                                Rp {{ number_format($emp->target ?? 867261886, 0, ',', '.') }}
                             </td>
                             <td class="px-5 py-4">
                                 <a href="https://wa.me/{{ preg_replace('/^0/', '62', preg_replace('/[^\d]/', '', $emp->phone)) }}" target="_blank" class="inline-flex items-center gap-1.5 font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">
@@ -186,7 +190,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="px-5 py-12 text-center text-slate-400">
+                            <td colspan="8" class="px-5 py-12 text-center text-slate-400">
                                 <svg class="mx-auto size-12 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
                                 <p class="mt-2 text-sm font-semibold text-slate-600">Belum ada data karyawan sales</p>
                                 <p class="text-xs text-slate-400">Silakan tambahkan data karyawan pertama menggunakan tombol di atas.</p>
@@ -210,47 +214,147 @@
     @if ($activeTab === 'weights')
     <!-- TAB 2: BOBOT & KRITERIA PENILAIAN -->
     <div class="space-y-6">
-        <!-- Status Bobot Banner -->
-        <div class="rounded-2xl border {{ abs($totalWeight - 100) < 0.1 ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70' }} p-4.5">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="grid size-10 shrink-0 place-items-center rounded-xl {{ abs($totalWeight - 100) < 0.1 ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white' }}">
-                        @if (abs($totalWeight - 100) < 0.1)
-                            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                        @else
-                            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>
-                        @endif
-                    </div>
-                    <div>
-                        <div class="text-sm font-bold {{ abs($totalWeight - 100) < 0.1 ? 'text-emerald-900' : 'text-amber-900' }}">
-                            Total Bobot Kriteria Aktif: <span id="summary-total-weight">{{ $totalWeight }}</span>%
+        <!-- Form Update Bobot -->
+        <form method="POST" action="{{ route('settings.kpi_weights.update') }}">
+            @csrf
+
+            <!-- SECTION 1: BOBOT RAPOR MATRIX SOSMED -->
+            <div class="rounded-2xl border border-indigo-200/80 bg-white p-6 shadow-xs space-y-5">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-indigo-50 pb-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500/10 px-2.5 py-1 text-xs font-bold text-indigo-700">
+                                📊 Satu Gerbang Master Setting
+                            </span>
+                            <span class="text-xs font-semibold text-slate-400">•</span>
+                            <span class="text-xs font-bold text-slate-600">Workspace Sosmed</span>
                         </div>
-                        <div class="text-xs {{ abs($totalWeight - 100) < 0.1 ? 'text-emerald-700' : 'text-amber-700' }}">
-                            @if (abs($totalWeight - 100) < 0.1)
-                                Konfigurasi bobot sempurna (100%). Penilaian manager akan dihitung dengan akurat.
-                            @else
-                                Perhatian: Total bobot kriteria aktif saat ini belum pas 100%. Mohon sesuaikan angka bobot hingga pas 100%.
-                            @endif
+                        <h2 class="text-base font-black text-slate-900">Bobot Rapor Matrix Sosmed (Report 2: Evaluasi Akhir)</h2>
+                        <p class="text-xs text-slate-500">Bobot komponen ini mengontrol secara langsung persentase <strong>% AKHIR (RAPOR)</strong> dan status emoji performa sales di halaman Report Matrix.</p>
+                    </div>
+
+                    <div class="shrink-0">
+                        <span id="matrix-status-pill" class="inline-flex items-center gap-1.5 rounded-xl {{ abs($totalMatrixWeight - 100) < 0.1 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }} px-3.5 py-2 text-xs font-black">
+                            <span class="size-2 rounded-full {{ abs($totalMatrixWeight - 100) < 0.1 ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
+                            <span>Total Bobot Matrix: <span id="matrix-total-val">{{ $totalMatrixWeight }}</span>%</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <!-- Bobot Omzet -->
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-indigo-300">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <span class="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800 uppercase">Komponen 1</span>
+                                <div class="mt-1.5 font-black text-sm text-slate-900">Pencapaian Omzet</div>
+                                <div class="text-[11px] text-slate-500">Target omzet bulanan admin sales</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="relative inline-flex items-center">
+                                    <input type="number" 
+                                           id="weight_matrix_omzet"
+                                           name="matrix_weights[omzet]" 
+                                           value="{{ $matrixWeights['omzet'] ?? 35 }}" 
+                                           min="0" 
+                                           max="100" 
+                                           step="0.5" 
+                                           {{ $isSuperAdmin ? '' : 'disabled' }}
+                                           oninput="recalculateWeights()" 
+                                           class="matrix-weight-input w-20 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-right text-sm font-black text-slate-900 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 focus:outline-none">
+                                    <span class="ml-1 text-xs font-bold text-slate-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bobot Gross Profit -->
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-indigo-300">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <span class="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800 uppercase">Komponen 2</span>
+                                <div class="mt-1.5 font-black text-sm text-slate-900">Gross Profit (GP)</div>
+                                <div class="text-[11px] text-slate-500">Target profit 5% dari target omzet</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="relative inline-flex items-center">
+                                    <input type="number" 
+                                           id="weight_matrix_gp"
+                                           name="matrix_weights[gp]" 
+                                           value="{{ $matrixWeights['gp'] ?? 35 }}" 
+                                           min="0" 
+                                           max="100" 
+                                           step="0.5" 
+                                           {{ $isSuperAdmin ? '' : 'disabled' }}
+                                           oninput="recalculateWeights()" 
+                                           class="matrix-weight-input w-20 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-right text-sm font-black text-slate-900 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 focus:outline-none">
+                                    <span class="ml-1 text-xs font-bold text-slate-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bobot Cross Selling -->
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-indigo-300">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <span class="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800 uppercase">Komponen 3</span>
+                                <div class="mt-1.5 font-black text-sm text-slate-900">Cross-Selling (>50K)</div>
+                                <div class="text-[11px] text-slate-500">Standar rasio 1 cross per 3 gadget</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="relative inline-flex items-center">
+                                    <input type="number" 
+                                           id="weight_matrix_cross"
+                                           name="matrix_weights[cross_selling]" 
+                                           value="{{ $matrixWeights['cross_selling'] ?? 30 }}" 
+                                           min="0" 
+                                           max="100" 
+                                           step="0.5" 
+                                           {{ $isSuperAdmin ? '' : 'disabled' }}
+                                           oninput="recalculateWeights()" 
+                                           class="matrix-weight-input w-20 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-right text-sm font-black text-slate-900 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 focus:outline-none">
+                                    <span class="ml-1 text-xs font-bold text-slate-500">%</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                @if ($isSuperAdmin)
-                <button type="button" onclick="openAddCriterionModal()" class="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-slate-700 border border-slate-300 shadow-xs hover:bg-slate-50 transition shrink-0">
-                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                    <span>Tambah Kriteria Kustom</span>
-                </button>
-                @endif
+                <div class="rounded-xl bg-indigo-50/70 p-3 text-xs text-indigo-900 flex items-center gap-2">
+                    <svg class="size-4 shrink-0 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    <span>Formula Rapor Akhir: <strong id="formula-preview-text">% Akhir = ({{ $matrixWeights['omzet'] ?? 35 }}% x Omzet) + ({{ $matrixWeights['gp'] ?? 35 }}% x GP) + ({{ $matrixWeights['cross_selling'] ?? 30 }}% x Cross-Selling)</strong>.</span>
+                </div>
             </div>
-        </div>
 
-        <!-- Form Update Bobot -->
-        <form method="POST" action="{{ route('settings.kpi_weights.update') }}">
-            @csrf
-            <div class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
-                <div>
-                    <h2 class="text-base font-bold text-slate-900">Daftar Kriteria & Bobot Penilaian Kinerja Sales</h2>
-                    <p class="text-xs text-slate-500">Sesuaikan persentase bobot (%) untuk tiap aspek kinerja. Manager akan menginput nilai (0-100) untuk setiap kriteria ini saat evaluasi bulanan.</p>
+            <!-- SECTION 2: KRITERIA KINERJA KUALITATIF (MANAGER) -->
+            <div class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6 mt-6">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                                💬 Evaluasi Layanan & Chat
+                            </span>
+                            <span class="text-xs font-semibold text-slate-400">•</span>
+                            <span class="text-xs font-bold text-slate-600">Monitoring Manager</span>
+                        </div>
+                        <h2 class="mt-1 text-base font-black text-slate-900">Kriteria Penilaian Kinerja Kualitatif Sales</h2>
+                        <p class="text-xs text-slate-500">Kriteria evaluasi harian manager untuk cara balas pesan konsumen, etika, respon time, dan penawaran promo.</p>
+                    </div>
+
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span id="qual-status-pill" class="inline-flex items-center gap-1.5 rounded-xl {{ abs($totalWeight - 100) < 0.1 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }} px-3.5 py-2 text-xs font-black">
+                            <span class="size-2 rounded-full {{ abs($totalWeight - 100) < 0.1 ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
+                            <span>Total Kriteria Aktif: <span id="summary-total-weight">{{ $totalWeight }}</span>%</span>
+                        </span>
+
+                        @if ($isSuperAdmin)
+                        <button type="button" onclick="openAddCriterionModal()" class="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-slate-700 border border-slate-300 shadow-xs hover:bg-slate-50 transition shrink-0">
+                            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                            <span>Tambah Kriteria Kustom</span>
+                        </button>
+                        @endif
+                    </div>
                 </div>
 
                 <div class="space-y-4">
@@ -383,16 +487,22 @@
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-bold text-slate-700">Email (Opsional)</label>
-                    <input type="email" id="empEmail" name="email" placeholder="sales@gadgetmart.id" class="dcms-input mt-1">
+                    <label class="block text-xs font-bold text-slate-700">Target Omzet Bulanan (Rp) <span class="text-red-500">*</span></label>
+                    <input type="number" id="empTarget" name="target" required value="867261886" min="0" step="1000" placeholder="867261886" class="dcms-input mt-1 font-mono font-bold">
+                    <span class="text-[10px] text-slate-400">Target sales untuk Report Matrix (Rp 867.261.886 / Rp 1.081.261.572).</span>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700">Status Karyawan <span class="text-red-500">*</span></label>
                     <select id="empStatus" name="status" class="dcms-select mt-1 w-full">
-                        <option value="active">Aktif</option>
-                        <option value="inactive">Nonaktif</option>
+                        <option value="active">Aktif (Tampil di Report Matrix)</option>
+                        <option value="inactive">Nonaktif (Disembunyikan)</option>
                     </select>
                 </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700">Email (Opsional)</label>
+                <input type="email" id="empEmail" name="email" placeholder="sales@gadgetmart.id" class="dcms-input mt-1">
             </div>
 
             <div>
@@ -463,6 +573,7 @@ function openCreateEmployeeModal() {
     document.getElementById('empCabang').value = 'Head Office';
     document.getElementById('empName').value = '';
     document.getElementById('empRole').value = 'Admin Sales';
+    document.getElementById('empTarget').value = '867261886';
     document.getElementById('empPhone').value = '';
     document.getElementById('empEmail').value = '';
     document.getElementById('empStatus').value = 'active';
@@ -480,6 +591,7 @@ function openEditEmployeeModal(emp) {
     document.getElementById('empCabang').value = emp.cabang || '';
     document.getElementById('empName').value = emp.name || '';
     document.getElementById('empRole').value = emp.role || 'Admin Sales';
+    document.getElementById('empTarget').value = emp.target || '867261886';
     document.getElementById('empPhone').value = emp.phone || '';
     document.getElementById('empEmail').value = emp.email || '';
     document.getElementById('empStatus').value = emp.status || 'active';
@@ -504,32 +616,76 @@ function closeAddCriterionModal() {
 }
 
 function recalculateWeights() {
-    let total = 0;
+    // 1. Recalculate Sosmed Matrix Weights
+    const omzetInput = document.getElementById('weight_matrix_omzet');
+    const gpInput = document.getElementById('weight_matrix_gp');
+    const crossInput = document.getElementById('weight_matrix_cross');
+
+    const wOmzet = omzetInput ? (parseFloat(omzetInput.value) || 0) : 35;
+    const wGp = gpInput ? (parseFloat(gpInput.value) || 0) : 35;
+    const wCross = crossInput ? (parseFloat(crossInput.value) || 0) : 30;
+    const matrixTotal = Math.round((wOmzet + wGp + wCross) * 100) / 100;
+
+    const matrixValEl = document.getElementById('matrix-total-val');
+    const matrixPillEl = document.getElementById('matrix-status-pill');
+    const formulaEl = document.getElementById('formula-preview-text');
+
+    if (matrixValEl) matrixValEl.innerText = matrixTotal;
+    if (formulaEl) {
+        formulaEl.innerText = `% Akhir = (${wOmzet}% x Omzet) + (${wGp}% x GP) + (${wCross}% x Cross-Selling)`;
+    }
+    if (matrixPillEl) {
+        if (Math.abs(matrixTotal - 100) < 0.1) {
+            matrixPillEl.className = 'inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 px-3.5 py-2 text-xs font-black';
+            matrixPillEl.innerHTML = '<span class="size-2 rounded-full bg-emerald-500"></span><span>Total Bobot Matrix: ' + matrixTotal + '%</span>';
+        } else {
+            matrixPillEl.className = 'inline-flex items-center gap-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 px-3.5 py-2 text-xs font-black';
+            matrixPillEl.innerHTML = '<span class="size-2 rounded-full bg-amber-500"></span><span>Total Bobot Matrix: ' + matrixTotal + '% (Harus 100%)</span>';
+        }
+    }
+
+    // 2. Recalculate Qualitative Kriteria Weights
+    let qualTotal = 0;
     const inputs = document.querySelectorAll('.criterion-weight-input');
     inputs.forEach(input => {
         const row = input.closest('.rounded-xl');
         const checkbox = row ? row.querySelector('.criterion-active-checkbox') : null;
         if (!checkbox || checkbox.checked) {
-            total += parseFloat(input.value) || 0;
+            qualTotal += parseFloat(input.value) || 0;
         }
     });
 
-    total = Math.round(total * 100) / 100;
+    qualTotal = Math.round(qualTotal * 100) / 100;
     const sumEl = document.getElementById('summary-total-weight');
     const footerEl = document.getElementById('footer-total-weight');
-    if (sumEl) sumEl.innerText = total;
-    if (footerEl) footerEl.innerText = total + '%';
+    const qualPillEl = document.getElementById('qual-status-pill');
 
+    if (sumEl) sumEl.innerText = qualTotal;
+    if (footerEl) footerEl.innerText = qualTotal + '%';
+    if (qualPillEl) {
+        if (Math.abs(qualTotal - 100) < 0.1) {
+            qualPillEl.className = 'inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 px-3.5 py-2 text-xs font-black';
+            qualPillEl.innerHTML = '<span class="size-2 rounded-full bg-emerald-500"></span><span>Total Kriteria Aktif: ' + qualTotal + '%</span>';
+        } else {
+            qualPillEl.className = 'inline-flex items-center gap-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 px-3.5 py-2 text-xs font-black';
+            qualPillEl.innerHTML = '<span class="size-2 rounded-full bg-amber-500"></span><span>Total Kriteria Aktif: ' + qualTotal + '% (Harus 100%)</span>';
+        }
+    }
+
+    // 3. Save Button State
     const saveBtn = document.getElementById('btn-save-weights');
     if (saveBtn) {
-        if (Math.abs(total - 100) > 0.1) {
+        const matrixOk = Math.abs(matrixTotal - 100) < 0.1;
+        const qualOk = Math.abs(qualTotal - 100) < 0.1;
+
+        if (!matrixOk || !qualOk) {
             saveBtn.classList.remove('bg-brand-600', 'hover:bg-brand-700');
             saveBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
-            saveBtn.innerText = 'Simpan (Total: ' + total + '% - Harap Sesuaikan ke 100%)';
+            saveBtn.innerText = 'Simpan (Matrix: ' + matrixTotal + '%, Layanan: ' + qualTotal + '% - Sesuaikan ke 100%)';
         } else {
             saveBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
             saveBtn.classList.add('bg-brand-600', 'hover:bg-brand-700');
-            saveBtn.innerText = 'Simpan Bobot Penilaian (100% Pas)';
+            saveBtn.innerText = 'Simpan Seluruh Bobot Penilaian (100% Pas)';
         }
     }
 }

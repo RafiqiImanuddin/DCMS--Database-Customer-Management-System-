@@ -2297,6 +2297,12 @@
     </main>
 </div>
 
+  <script>
+    window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
+    window.WORKSPACE_ENCRYPTED_URLS = @json($encryptedTabUrls ?? \App\Support\RouteCipher::allWorkspaceUrls());
+    window.WORKSPACE_ACTIVE_TAB = {{ (int) ($activeTab ?? 1) }};
+    window.WORKSPACE_INITIAL_SETTINGS = @json($initialWorkspaceSettings ?? []);
+  </script>
   <script src="client.js?v={{ @filemtime(public_path('workspace-sosmed/client.js')) ?: '7.2' }}"></script>
     <!-- Omnichannel Image Lightbox Modal -->
     <div id="omniImageModal" class="omni-img-modal" style="display:none;" onclick="closeOmniImageModal()">
@@ -2317,10 +2323,6 @@
     </audio>
 
   <script>
-    window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
-    window.WORKSPACE_ENCRYPTED_URLS = @json($encryptedTabUrls ?? \App\Support\RouteCipher::allWorkspaceUrls());
-    window.WORKSPACE_ACTIVE_TAB = {{ (int) ($activeTab ?? 1) }};
-
     function updateSidebarActiveTab(tabIndex) {
         document.querySelectorAll('.workspace-sidebar-link').forEach(link => {
             const isTarget = link.getAttribute('data-tab') == tabIndex;
