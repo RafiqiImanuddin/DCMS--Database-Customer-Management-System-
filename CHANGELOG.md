@@ -1,5 +1,32 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.4] - 2026-11-06
+### Live Floating WhatsApp Widget, Relokasi Pusat Unggah Data & Super-Fast Bulk Deletion
+- **Live Floating WhatsApp Widget di Seluruh Halaman (Global FAB)**:
+  - Tombol aksi mengambang (*Floating Action Button*) hijau WhatsApp di pojok kanan bawah di seluruh halaman sistem (`layouts.live-chat-widget`).
+  - Badge notifikasi berdenyut (*pulse animation*) dan suara *chime* lembut saat ada chat WhatsApp inbound baru yang belum dibalas.
+  - Jendela ngambang (*floating window*) responsif untuk melihat percakapan masuk terbaru dan membalas chat secara ringkas secara instan via WAHA VPS API (`/api/watzap-send`).
+  - Banner & tombol shortcut khusus *"Buka Modul Inbox FU Lengkap ↗"* untuk beralih ke Workspace Sosmed Tab 9 jika memerlukan respon kompleks, lampiran file/dokumen, atau pengisian Format Keep.
+  - Auto-hide cerdas saat pengguna berada di Tab 9 (Inbox FU) di Workspace Sosmed agar tidak menumpuk.
+- **Relokasi Menu Pusat Unggah Data ke Grup Setting**:
+  - Memindahkan menu **Pusat Unggah Data** (`/imports`) dari grup *Customer & Outreach* ke dalam grup **Setting** di sidebar dengan badge **`SAP`**.
+  - Penyesuaian highlight aktif `$isSettingActive` otomatis saat berada di halaman impor data.
+- **Super-Fast Bulk Delete Pusat Unggah Data (Optimasi 98%)**:
+  - Penghapusan riwayat impor batch besar (hingga 150.000+ baris transaksi) yang sebelumnya memakan waktu 2–4 menit kini selesai dalam **~2–3 detik**.
+  - Menghapus pemanggilan PHP cursor `$predictor->rebuild()` yang berat pada saat aksi delete.
+  - Menggunakan penghapusan bertahap (*chunked delete* per 25.000 baris) dengan *temporary foreign key check bypass* di MySQL.
+  - Indikator status visual berupa spinner *"Menghapus..."* pada tombol konfirmasi.
+- **Fix & Penyempurnaan Modul Omnichannel Inbox Follow-Up**:
+  - Memperbaiki bug JavaScript `ReferenceError: mediaImg is not defined` di `client.js` sehingga pesan balasan teks langsung terkirim secara instan ke WhatsApp tujuan.
+  - Dukungan pengiriman dan penerimaan file multimedia (foto/gambar dan dokumen PDF/Word/Excel) menggunakan format raw base64 langsung ke WAHA VPS (`/api/sendImage` & `/api/sendFile`).
+  - Penanganan fallback cerdas pada *Quoted Reply* (kutipan pesan) di `WatzapService.php` agar pesan tetap terkirim walaupun ID pesan kutipan tidak tersimpan di memori WhatsApp.
+  - Pembersihan formulir gateway cadangan (WatZap Cloud API) di halaman `/settings/watzap`, menyisakan fokus penuh pada WAHA VPS Primary dengan tombol shortcut langsung ke Inbox Follow-Up.
+- **Rute Helper Migrasi Database cPanel Otomatis**:
+  - Penambahan rute aman `/system/migrate?key=dcms2026` untuk memudahkan deployment di hosting cPanel yang tidak memiliki akses Terminal/SSH.
+  - Otomatis menjalankan `php artisan migrate --force` dan `php artisan optimize:clear` langsung dari browser.
+- **Paket Deployment Siap Pakai**:
+  - Pembuatan file ZIP deployment otomatis `dcms-deploy-latest.zip` (37.45 MB) lengkap dengan folder `vendor/` dan aset Vite terkompilasi.
+
 ## [V2.3] - 2026-11-05
 ### Migrasi cPanel, Sinkronisasi Realtime Workspace Sosmed & Deteksi Periode Dinamis
 - **Sinkronisasi Otomatis Pusat Unggah Data &rarr; Workspace Sosmed**:
