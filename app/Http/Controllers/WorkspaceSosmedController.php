@@ -72,6 +72,7 @@ class WorkspaceSosmedController extends Controller
         }
 
         $employees = Employee::query()
+            ->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END")
             ->orderBy('id')
             ->get()
             ->map(function ($emp) {
@@ -85,6 +86,7 @@ class WorkspaceSosmedController extends Controller
                     'status' => $emp->status,
                     'cabang' => $emp->cabang,
                     'role' => $emp->role,
+                    'level' => $emp->level ?? 'Karyawan',
                     'phone' => $emp->phone,
                     'avatar_color' => $emp->avatar_color,
                 ];
@@ -303,9 +305,16 @@ class WorkspaceSosmedController extends Controller
                 $localFile = $this->storagePath.DIRECTORY_SEPARATOR.'keep-data.csv';
                 @File::put($localFile, $csv);
 
+                // Otomatis sinkronkan juga ke database SQL MySQL
+                try {
+                    Artisan::call('keep:import-csv');
+                } catch (\Throwable $e) {
+                    Log::warning('Auto import keep CSV to MySQL failed: '.$e->getMessage());
+                }
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Data keep berhasil disinkronkan langsung dari Google Sheets!',
+                    'message' => 'Data keep berhasil disinkronkan langsung dari Google Sheets dan database SQL!',
                     'csvText' => $csv,
                     'rowsSample' => substr($csv, 0, 150),
                 ]);
@@ -327,10 +336,29 @@ class WorkspaceSosmedController extends Controller
             return response()->json(['error' => 'Nomor WA wajib diisi.'], 400);
         }
 
+        // 1. Update ke MySQL SosmedKeep secara realtime
+        $cleanPhone = preg_replace('/\D/', '', (string) $nomorWA);
+        $last9 = substr($cleanPhone, -9);
+        $keep = \App\Models\SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
+            $q->where('nomor_wa', $cleanPhone)
+                ->orWhere('nomor_wa', 'like', "%{$last9}");
+        })->latest('id')->first();
+
+        if ($keep) {
+            if ($status !== null && $status !== '') {
+                $keep->status = trim((string) $status);
+            }
+            if ($request->has('feedback')) {
+                $keep->feedback_tim_fu = trim((string) $feedback);
+            }
+            $keep->save();
+        }
+
+        // 2. Background sync ke Google Apps Script (asynchronous fallback)
         $appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
 
         try {
-            Http::timeout(10)->withoutVerifying()->get($appsScriptUrl, [
+            Http::timeout(5)->withoutVerifying()->get($appsScriptUrl, [
                 'nomorWA' => $nomorWA,
                 'status' => $status,
                 'feedback' => $feedback,
@@ -341,9 +369,10 @@ class WorkspaceSosmedController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Status keep berhasil diperbarui!',
+            'message' => 'Status keep berhasil diperbarui di database SQL!',
             'nomorWA' => $nomorWA,
             'status' => $status,
+            'mysql_updated' => (bool) $keep,
         ]);
     }
 
@@ -356,10 +385,27 @@ class WorkspaceSosmedController extends Controller
             return response()->json(['error' => 'Nomor WA wajib diisi.'], 400);
         }
 
+        // 1. Update ke MySQL SosmedKeep secara realtime
+        $cleanPhone = preg_replace('/\D/', '', (string) $nomorWA);
+        $last9 = substr($cleanPhone, -9);
+        $cleanARDoc = trim((string) $arDoc);
+
+        $keep = \App\Models\SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
+            $q->where('nomor_wa', $cleanPhone)
+                ->orWhere('nomor_wa', 'like', "%{$last9}");
+        })->latest('id')->first();
+
+        if ($keep) {
+            $keep->report_ar = $cleanARDoc;
+            $keep->tanggal_input_ar = $cleanARDoc !== '' ? now() : null;
+            $keep->save();
+        }
+
+        // 2. Background sync ke Google Apps Script (asynchronous fallback)
         $appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
 
         try {
-            Http::timeout(10)->withoutVerifying()->get($appsScriptUrl, [
+            Http::timeout(5)->withoutVerifying()->get($appsScriptUrl, [
                 'nomorWA' => $nomorWA,
                 'arDoc' => $arDoc,
             ]);
@@ -369,9 +415,10 @@ class WorkspaceSosmedController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Dokumen AR berhasil diperbarui!',
+            'message' => 'Dokumen AR berhasil diperbarui di database SQL!',
             'nomorWA' => $nomorWA,
             'arDoc' => $arDoc,
+            'mysql_updated' => (bool) $keep,
         ]);
     }
 
@@ -1272,10 +1319,12 @@ class WorkspaceSosmedController extends Controller
             $fullBuffer .= File::get("{$tempDir}/chunk_{$i}");
         }
 
-        // Save to public workspace folder
+        // Save to public workspace folder (skip writing real static file in testing environment)
         $targetFileName = $fileType === 'croselling' ? 'CROSSELLING-12102026.xlsx' : 'turnover.xlsx';
         $targetPath = $this->storagePath.DIRECTORY_SEPARATOR.$targetFileName;
-        @File::put($targetPath, $fullBuffer);
+        if (! app()->environment('testing')) {
+            @File::put($targetPath, $fullBuffer);
+        }
 
         $nowMs = (string) round(microtime(true) * 1000);
         $prefix = $fileType === 'croselling' ? 'workspace_croselling' : 'workspace_turnover';

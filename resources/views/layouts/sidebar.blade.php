@@ -153,10 +153,29 @@
                 </a>
 
                 <!-- 2. Report Matrix -->
-                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" data-tab="2" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625a1.125 1.125 0 0 0 1.125-1.125m-1.125 1.125h-7.5a1.125 1.125 0 0 1-1.125-1.125m8.625 0V5.625m0 12.75v-1.5c0-.621-.504-1.125-1.125-1.125m0 0h-7.5m7.5 0V3.375m0 19.5a1.125 1.125 0 0 1-1.125 1.125"/></svg>
-                    <span>Report Matrix</span>
-                </a>
+                <div class="space-y-1" id="report-matrix-nav-container">
+                    <div id="wrap-report-matrix-btn" class="flex items-center justify-between rounded-xl transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" data-tab="2" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);}if(window.toggleReportMatrixSubmenu){window.toggleReportMatrixSubmenu(null, true);}if(window.setReportViewMode && (window.currentReportViewMode === 'all' || !window.currentReportViewMode)){window.setReportViewMode('r1');}return false;" class="workspace-sidebar-link flex-1 flex items-center gap-3 px-3.5 py-2.5 font-semibold transition min-w-0 {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? 'text-white' : 'text-slate-300 hover:text-white' }}">
+                            <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625a1.125 1.125 0 0 0 1.125-1.125m-1.125 1.125h-7.5a1.125 1.125 0 0 1-1.125-1.125m8.625 0V5.625m0 12.75v-1.5c0-.621-.504-1.125-1.125-1.125m0 0h-7.5m7.5 0V3.375m0 19.5a1.125 1.125 0 0 1-1.125 1.125"/></svg>
+                            <span class="truncate">Report Matrix</span>
+                        </a>
+                        <button type="button" onclick="if(window.toggleReportMatrixSubmenu){window.toggleReportMatrixSubmenu(event);}" class="grid size-8 mr-1 place-items-center rounded-lg hover:bg-white/10 transition cursor-pointer" aria-label="Buka / Tutup Sub Menu Report Matrix" title="Buka / Tutup Sub Menu">
+                            <svg id="chevron-report-matrix" class="size-3.5 shrink-0 transition-transform duration-200 {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? 'rotate-90 text-white' : 'text-slate-500' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Sub Bar / Sub Menu: Report Matrix Views -->
+                    <div id="submenu-report-matrix" class="pl-4 pr-1 space-y-1 {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? '' : 'hidden' }}">
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);}if(window.setReportViewMode){window.setReportViewMode('r1');}if(window.updateReportSubmenuActive){window.updateReportSubmenuActive('r1');}return false;" id="subitem-report-r1" class="report-matrix-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition bg-white/15 text-white">
+                            <span class="shrink-0 text-sky-400">📅</span>
+                            <span class="truncate">Report 1: Daily Matrix</span>
+                        </a>
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);}if(window.setReportViewMode){window.setReportViewMode('r2');}if(window.updateReportSubmenuActive){window.updateReportSubmenuActive('r2');}return false;" id="subitem-report-r2" class="report-matrix-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition">
+                            <span class="shrink-0 text-rose-400">🎯</span>
+                            <span class="truncate">Report 2: Omzet & GP</span>
+                        </a>
+                    </div>
+                </div>
 
                 <!-- 3. Cek Status AR -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 3]) }}" data-tab="3" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(3);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 3) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
@@ -385,6 +404,38 @@ window.toggleSidebarGroup = function(groupId) {
         try {
             localStorage.setItem('dcms_sidebar_' + groupId, 'collapsed');
         } catch (e) {}
+    }
+};
+
+window.toggleReportMatrixSubmenu = function(e, openOnly) {
+    if (e && e.stopPropagation) {
+        e.stopPropagation();
+    }
+    const sub = document.getElementById('submenu-report-matrix');
+    const chev = document.getElementById('chevron-report-matrix');
+    if (!sub) return;
+
+    const isHidden = sub.classList.contains('hidden');
+    if (openOnly === true) {
+        sub.classList.remove('hidden');
+        if (chev) {
+            chev.classList.add('rotate-90', 'text-white');
+            chev.classList.remove('text-slate-500');
+        }
+    } else {
+        if (isHidden) {
+            sub.classList.remove('hidden');
+            if (chev) {
+                chev.classList.add('rotate-90', 'text-white');
+                chev.classList.remove('text-slate-500');
+            }
+        } else {
+            sub.classList.add('hidden');
+            if (chev) {
+                chev.classList.remove('rotate-90', 'text-white');
+                chev.classList.add('text-slate-500');
+            }
+        }
     }
 };
 

@@ -408,4 +408,58 @@ class SalesMonitoringTest extends TestCase
         $response->assertDontSee('Edit Nilai');
         $response->assertDontSee('Input Nilai');
     }
+
+    public function test_superadmin_can_manage_employee_levels(): void
+    {
+        // 1. Create employee with level Internship
+        $res = $this->actingAs($this->user)->post(route('settings.karyawan.store'), [
+            'nik' => 'SLS-INTERN-01',
+            'name' => 'Intern Test',
+            'role' => 'Sales Trainee',
+            'level' => 'Internship',
+            'cabang' => 'Head Office',
+            'phone' => '089988776655',
+            'target' => 500000000,
+            'status' => 'active',
+        ]);
+        $res->assertRedirect();
+
+        $employee = Employee::where('nik', 'SLS-INTERN-01')->first();
+        $this->assertNotNull($employee);
+        $this->assertEquals('Internship', $employee->level);
+
+        // 2. View in Karyawan Setting Page
+        $viewRes = $this->actingAs($this->user)->get(route('settings.karyawan.index'));
+        $viewRes->assertStatus(200);
+        $viewRes->assertSee('Internship');
+        $viewRes->assertSee('SLS-INTERN-01');
+
+        // 3. Filter by level
+        $filterRes = $this->actingAs($this->user)->get(route('settings.karyawan.index', ['level' => 'Internship']));
+        $filterRes->assertStatus(200);
+        $filterRes->assertSee('SLS-INTERN-01');
+
+        // 4. Update level to Karyawan
+        $updateRes = $this->actingAs($this->user)->put("/settings/karyawan/{$employee->id}", [
+            'nik' => 'SLS-INTERN-01',
+            'name' => 'Intern Test Promoted',
+            'role' => 'Admin Sales',
+            'level' => 'Karyawan',
+            'cabang' => 'Head Office',
+            'phone' => '089988776655',
+            'target' => 867261886,
+            'status' => 'active',
+        ]);
+        $updateRes->assertRedirect();
+        $this->assertEquals('Karyawan', $employee->fresh()->level);
+
+        // 5. Check Workspace Settings API output includes level
+        $apiRes = $this->actingAs($this->user)->get(route('api.sosmed.workspace_settings'));
+        $apiRes->assertStatus(200);
+        $employeesData = $apiRes->json('employees');
+        $this->assertIsArray($employeesData);
+        $found = collect($employeesData)->firstWhere('nik', 'SLS-INTERN-01');
+        $this->assertNotNull($found);
+        $this->assertEquals('Karyawan', $found['level']);
+    }
 }

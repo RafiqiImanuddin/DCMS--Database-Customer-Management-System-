@@ -215,11 +215,11 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $superadmin = User::factory()->superadmin()->create();
         $staff = User::factory()->admin()->create();
 
-        // Superadmin sees upload button
+        // Superadmin sees central sync indicator
         $superRes = $this->actingAs($superadmin)->get(WorkspaceUrlCipher::url(3));
         $superRes->assertOk();
         $superRes->assertSee('Akses Superadmin');
-        $superRes->assertSee('Unggah File Cross Selling (.xlsx)');
+        $superRes->assertSee('Cek Sinkronisasi Server');
 
         // Staff sees auto-sync indicator, not the upload button
         $staffRes = $this->actingAs($staff)->get(WorkspaceUrlCipher::url(3));

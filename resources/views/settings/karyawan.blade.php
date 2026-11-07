@@ -78,6 +78,15 @@
                     </select>
                 </div>
 
+                <!-- Level Filter -->
+                <div class="w-36">
+                    <select name="level" class="dcms-select w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-brand-500 focus:outline-none">
+                        <option value="">Semua Level</option>
+                        <option value="Karyawan" {{ $level === 'Karyawan' ? 'selected' : '' }}>Karyawan</option>
+                        <option value="Internship" {{ $level === 'Internship' ? 'selected' : '' }}>Internship</option>
+                    </select>
+                </div>
+
                 <!-- Status Filter -->
                 <div class="w-36">
                     <select name="status" class="dcms-select w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-brand-500 focus:outline-none">
@@ -88,7 +97,7 @@
                 </div>
 
                 <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition">Filter</button>
-                @if ($search || $cabang || $status)
+                @if ($search || $cabang || $status || $level)
                     <a href="{{ route('settings.karyawan.index', ['tab' => 'employees']) }}" class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Reset</a>
                 @endif
             </form>
@@ -115,6 +124,7 @@
                             <th class="px-5 py-3.5">Karyawan</th>
                             <th class="px-5 py-3.5">NIK / Kode Sales</th>
                             <th class="px-5 py-3.5">Cabang & Posisi</th>
+                            <th class="px-5 py-3.5">Level</th>
                             <th class="px-5 py-3.5">Target Omzet (Rp)</th>
                             <th class="px-5 py-3.5">WhatsApp / Kontak</th>
                             <th class="px-5 py-3.5">Status</th>
@@ -144,6 +154,19 @@
                                     🏢 {{ $emp->cabang }}
                                 </div>
                                 <div class="mt-0.5 text-[11px] font-medium text-slate-500">{{ $emp->role }}</div>
+                            </td>
+                            <td class="px-5 py-4">
+                                @if (($emp->level ?? 'Karyawan') === 'Internship')
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-2.5 py-1 text-[11px] font-bold text-purple-700 border border-purple-200">
+                                        <span class="size-1.5 rounded-full bg-purple-500"></span>
+                                        Internship
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 border border-blue-200">
+                                        <span class="size-1.5 rounded-full bg-blue-500"></span>
+                                        Karyawan
+                                    </span>
+                                @endif
                             </td>
                             <td class="px-5 py-4 font-mono font-bold text-slate-900">
                                 Rp {{ number_format($emp->target ?? 867261886, 0, ',', '.') }}
@@ -197,7 +220,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="px-5 py-12 text-center text-slate-400">
+                            <td colspan="9" class="px-5 py-12 text-center text-slate-400">
                                 <svg class="mx-auto size-12 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
                                 <p class="mt-2 text-sm font-semibold text-slate-600">Belum ada data karyawan sales</p>
                                 <p class="text-xs text-slate-400">Silakan tambahkan data karyawan pertama menggunakan tombol di atas.</p>
@@ -599,7 +622,14 @@
                                 </td>
                                 <td class="px-5 py-3.5">
                                     <div class="font-semibold text-slate-800">Cabang {{ $emp->cabang }}</div>
-                                    <div class="text-[11px] text-slate-400">{{ $emp->role }}</div>
+                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                        <span class="text-[11px] text-slate-400">{{ $emp->role }}</span>
+                                        @if (($emp->level ?? 'Karyawan') === 'Internship')
+                                            <span class="inline-flex items-center rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">Internship</span>
+                                        @else
+                                            <span class="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">Karyawan</span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-5 py-3.5 text-right">
                                     <div class="relative inline-flex items-center max-w-[210px] w-full">
@@ -693,9 +723,18 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-bold text-slate-700">Nama Lengkap Karyawan <span class="text-red-500">*</span></label>
-                <input type="text" id="empName" name="name" required placeholder="Nama lengkap admin sales" class="dcms-input mt-1">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700">Nama Lengkap Karyawan <span class="text-red-500">*</span></label>
+                    <input type="text" id="empName" name="name" required placeholder="Nama lengkap admin sales" class="dcms-input mt-1">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700">Level Karyawan <span class="text-red-500">*</span></label>
+                    <select id="empLevel" name="level" required class="dcms-select mt-1 w-full">
+                        <option value="Karyawan">Karyawan</option>
+                        <option value="Internship">Internship</option>
+                    </select>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
@@ -796,6 +835,7 @@ function openCreateEmployeeModal() {
     document.getElementById('empNik').value = '';
     document.getElementById('empCabang').value = 'Head Office';
     document.getElementById('empName').value = '';
+    document.getElementById('empLevel').value = 'Karyawan';
     document.getElementById('empRole').value = 'Admin Sales';
     document.getElementById('empTarget').value = '867261886';
     document.getElementById('empPhone').value = '';
@@ -814,6 +854,7 @@ function openEditEmployeeModal(emp) {
     document.getElementById('empNik').value = emp.nik || '';
     document.getElementById('empCabang').value = emp.cabang || '';
     document.getElementById('empName').value = emp.name || '';
+    document.getElementById('empLevel').value = emp.level || 'Karyawan';
     document.getElementById('empRole').value = emp.role || 'Admin Sales';
     document.getElementById('empTarget').value = emp.target || '867261886';
     document.getElementById('empPhone').value = emp.phone || '';

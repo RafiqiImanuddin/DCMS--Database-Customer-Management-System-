@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'nik',
     'name',
     'role',
+    'level',
     'target',
     'cabang',
     'phone',

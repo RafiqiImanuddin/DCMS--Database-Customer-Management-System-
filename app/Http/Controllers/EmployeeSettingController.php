@@ -21,6 +21,7 @@ class EmployeeSettingController extends Controller
         $search = $request->string('search')->trim()->toString();
         $cabang = $request->string('cabang')->trim()->toString();
         $status = $request->string('status')->trim()->toString();
+        $level = $request->string('level')->trim()->toString();
         $activeTab = $request->string('tab', 'employees')->toString();
 
         $employeeQuery = Employee::query()->withCount('assessments');
@@ -42,7 +43,16 @@ class EmployeeSettingController extends Controller
             $employeeQuery->where('status', $status);
         }
 
-        $employees = $employeeQuery->orderBy('cabang')->orderBy('name')->paginate(25)->withQueryString();
+        if ($level !== '') {
+            $employeeQuery->where('level', $level);
+        }
+
+        $employees = $employeeQuery
+            ->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END")
+            ->orderBy('cabang')
+            ->orderBy('name')
+            ->paginate(25)
+            ->withQueryString();
 
         $kpiCriteria = KpiCriterion::query()->orderBy('sort_order')->orderBy('id')->get();
         $totalWeight = (float) $kpiCriteria->where('is_active', true)->sum('weight');
@@ -87,9 +97,10 @@ class EmployeeSettingController extends Controller
         $periodTargetData = $monthlyTargetsData[$targetPeriodKey] ?? null;
         $periodTeamTarget = (float) ($periodTargetData['teamTarget'] ?? 0);
 
-        // Active sales employees for monthly targets
+        // Active sales employees for monthly targets (Karyawan first, then Internship)
         $activeSalesEmployees = Employee::query()
             ->where('status', 'active')
+            ->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END")
             ->orderBy('cabang')
             ->orderBy('name')
             ->get();
@@ -111,6 +122,7 @@ class EmployeeSettingController extends Controller
             'search',
             'cabang',
             'status',
+            'level',
             'activeTab',
             'monthlyTargetsData',
             'targetMonth',
@@ -133,6 +145,7 @@ class EmployeeSettingController extends Controller
             'nik' => ['required', 'string', 'max:50', 'unique:employees,nik'],
             'name' => ['required', 'string', 'max:255'],
             'role' => ['required', 'string', 'max:100'],
+            'level' => ['nullable', 'in:Karyawan,Internship'],
             'target' => ['nullable', 'numeric', 'min:0'],
             'cabang' => ['required', 'string', 'max:50'],
             'phone' => ['required', 'string', 'max:30'],
@@ -142,6 +155,10 @@ class EmployeeSettingController extends Controller
             'avatar_color' => ['nullable', 'string', 'max:20'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        if (empty($validated['level'])) {
+            $validated['level'] = 'Karyawan';
+        }
 
         if (empty($validated['target'])) {
             $validated['target'] = 867261886.00;
@@ -169,6 +186,7 @@ class EmployeeSettingController extends Controller
             'nik' => ['required', 'string', 'max:50', 'unique:employees,nik,' . $employee->id],
             'name' => ['required', 'string', 'max:255'],
             'role' => ['required', 'string', 'max:100'],
+            'level' => ['nullable', 'in:Karyawan,Internship'],
             'target' => ['nullable', 'numeric', 'min:0'],
             'cabang' => ['required', 'string', 'max:50'],
             'phone' => ['required', 'string', 'max:30'],
@@ -178,6 +196,10 @@ class EmployeeSettingController extends Controller
             'avatar_color' => ['nullable', 'string', 'max:20'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        if (empty($validated['level'])) {
+            $validated['level'] = $employee->level ?? 'Karyawan';
+        }
 
         if (! isset($validated['target']) || $validated['target'] === null || $validated['target'] === '') {
             $validated['target'] = $employee->target ?? 867261886.00;

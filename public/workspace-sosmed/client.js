@@ -7,24 +7,57 @@
 
 // 1. DEFAULT MASTER SALES & TARGETS CONFIGURATION (FALLBACK JIKA OFFLINE)
 const DEFAULT_SALES_MASTER = [
-  { code: 'BJM.SOS.005', name: 'SIFA', target: 1081261572, active: true },
-  { code: 'BJM.SOS.015', name: 'DANIEL', target: 1081261572, active: true },
-  { code: 'BJM.SOS.017', name: 'MARLINA', target: 1081261572, active: true },
-  { code: 'BJM.SOS.004', name: 'BINTANG', target: 867261886, active: true },
-  { code: 'BJM.SOS.007', name: 'FEBRI', target: 867261886, active: true },
-  { code: 'BJM.SOS.016', name: 'DEA', target: 867261886, active: true },
-  { code: 'BJM.SOS.018', name: 'MARISA', target: 867261886, active: true },
-  { code: 'BJM.SOS.019', name: 'ZOFIA', target: 867261886, active: true },
-  { code: 'BJM.SOS.022', name: 'QONA', target: 867261886, active: true },
+  { code: 'BJM.SOS.005', name: 'SIFA', target: 1081261572, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.015', name: 'DANIEL', target: 1081261572, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.017', name: 'MARLINA', target: 1081261572, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.004', name: 'BINTANG', target: 867261886, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.007', name: 'FEBRI', target: 867261886, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.016', name: 'DEA', target: 867261886, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.018', name: 'MARISA', target: 867261886, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.019', name: 'ZOFIA', target: 867261886, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.022', name: 'QONA', target: 867261886, active: true, level: 'Karyawan' },
   // Extended Master Sales
-  { code: 'BJM.SOS.021', name: 'RARA', target: 867261886, active: true },
-  { code: 'BJM.SOS.013', name: 'TIKA', target: 867261886, active: false },
-  { code: 'BJM.SOS.001', name: 'DIANA', target: 867261886, active: false },
-  { code: 'BJM.SOS.012', name: 'QOFA', target: 867261886, active: false },
-  { code: 'BJM.SOS.010', name: 'RIMA', target: 867261886, active: false },
-  { code: 'BJM.SOS.020', name: 'REVA', target: 867261886, active: false },
-  { code: 'BJM.SOS.000', name: 'NOL', target: 0, active: false }
+  { code: 'BJM.SOS.021', name: 'RARA', target: 867261886, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.013', name: 'TIKA', target: 867261886, active: false, level: 'Karyawan' },
+  { code: 'BJM.SOS.001', name: 'DIANA', target: 867261886, active: false, level: 'Karyawan' },
+  { code: 'BJM.SOS.012', name: 'QOFA', target: 867261886, active: false, level: 'Karyawan' },
+  { code: 'BJM.SOS.010', name: 'RIMA', target: 867261886, active: false, level: 'Karyawan' },
+  { code: 'BJM.SOS.020', name: 'REVA', target: 867261886, active: false, level: 'Karyawan' },
+  { code: 'BJM.SOS.000', name: 'NOL', target: 0, active: false, level: 'Karyawan' }
 ];
+
+// Global State & Cache Declarations (Wajib diinisialisasi di paling atas sebelum fungsi berjalan)
+let currentCalculationMode = 'DPP'; // 'DPP' or 'GROSS'
+let rawTurnoverRows = [];     // Source for Report 1 & 2 Achievement (with DPP)
+let rawCrosellingRows = [];   // Source for Tab 3: Cek AR & Pencarian WhatsApp Pelanggan (Google Sheets)
+let rawKeepRows = [];
+let filteredKeepRows = [];
+let keepCurrentPage = 1;
+const KEEP_PAGE_SIZE = 50;
+let parsedDailyMatrix = {};
+let activeMonth = 11;
+let activeYear = 2026;
+let daysInMonth = 30;
+let lastActiveDay = 13;
+let timegonePct = 42;
+let currentActiveTab = 1;
+
+// Executive Dashboard & Leaderboard State
+let currentLeaderboardSort = 'omzet'; // 'omzet', 'gp', 'score'
+let leaderboardPeriodMode = 'current'; // 'current' or 'ath'
+let dashFilters = { month: '11', cabang: 'all', sales: 'all', mode: 'DPP' };
+let cachedMonthlyTargets = {};
+let lastProcessedPicStats = null;
+let lastActivePICs = [];
+let lastDocTransactions = {};
+let lastTotalSosmedAchieve = 0;
+let lastTotalSosmedGP = 0;
+let lastTotalSosmedGadget = 0;
+let lastTotalSosmedCross = 0;
+let cachedSalesPhotos = {};
+let calculatedSalesKPI = [];
+let cachedMonthlyArchives = [];
+let chartInstances = {};
 
 // Centralized dynamic state (Satu Gerbang dengan /settings/karyawan)
 let dynamicMasterSales = null;
@@ -41,9 +74,17 @@ function applyWorkspaceSettings(data) {
       target: Number(emp.target) || 867261886,
       active: emp.active !== false && emp.status !== 'inactive',
       role: emp.role,
+      level: emp.level || 'Karyawan',
       cabang: emp.cabang,
       phone: emp.phone,
-    }));
+    })).sort((a, b) => {
+      const levelA = (a.level || 'Karyawan').trim().toLowerCase();
+      const levelB = (b.level || 'Karyawan').trim().toLowerCase();
+      if (levelA !== levelB) {
+        return levelA === 'karyawan' ? -1 : 1;
+      }
+      return 0;
+    });
   }
   if (data.matrix_weights && typeof data.matrix_weights === 'object') {
     dynamicMatrixWeights = {
@@ -97,35 +138,6 @@ function saveMasterSales(list) {
 // Default Gemini API configuration
 const DEFAULT_GEMINI_API_KEY = '';
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
-
-// Global State
-let currentCalculationMode = 'DPP'; // 'DPP' or 'GROSS'
-let rawTurnoverRows = [];     // Source for Report 1 & 2 Achievement (with DPP)
-let rawCrosellingRows = [];   // Source for Tab 3: Cek AR & Pencarian WhatsApp Pelanggan (Google Sheets)
-let parsedDailyMatrix = {};
-let activeMonth = 10;
-let activeYear = 2026;
-let daysInMonth = 31;
-let lastActiveDay = 13;
-let timegonePct = 42;
-let currentActiveTab = 1;
-
-// Executive Dashboard & Leaderboard State
-let currentLeaderboardSort = 'omzet'; // 'omzet', 'gp', 'score'
-let leaderboardPeriodMode = 'current'; // 'current' or 'ath'
-let dashFilters = { month: '10', cabang: 'all', sales: 'all', mode: 'DPP' };
-let cachedMonthlyTargets = {};
-let lastProcessedPicStats = null;
-let lastActivePICs = [];
-let lastDocTransactions = {};
-let lastTotalSosmedAchieve = 0;
-let lastTotalSosmedGP = 0;
-let lastTotalSosmedGadget = 0;
-let lastTotalSosmedCross = 0;
-let cachedSalesPhotos = {};
-let calculatedSalesKPI = [];
-let cachedMonthlyArchives = [];
-let chartInstances = {};
 
 
 
@@ -424,9 +436,7 @@ function autoDetectTurnoverMonth(rows) {
     if (typeof raw === 'number') {
       const d = XLSX.SSF.parse_date_code(raw);
       if (d) {
-        if (d.d === 10 || d.d === 11 || d.d === 12) {
-          m = d.d;
-        } else if (d.m >= 1 && d.m <= 12) {
+        if (d.m >= 1 && d.m <= 12) {
           m = d.m;
         }
         y = d.y || 2026;
@@ -605,7 +615,18 @@ function processAllReports() {
   if (!rawTurnoverRows || rawTurnoverRows.length === 0) return;
 
   const masterList = getMasterSales();
-  const activePICs = masterList.filter(m => m.active).map(m => m.name);
+  // Urutkan: Karyawan terlebih dahulu, kemudian Internship
+  const activePICs = masterList
+    .filter(m => m.active)
+    .sort((a, b) => {
+      const levelA = (a.level || 'Karyawan').trim().toLowerCase();
+      const levelB = (b.level || 'Karyawan').trim().toLowerCase();
+      if (levelA !== levelB) {
+        return levelA === 'karyawan' ? -1 : 1;
+      }
+      return 0;
+    })
+    .map(m => m.name);
 
   // Initialize Report 1 Matrix (Day 1..31)
   parsedDailyMatrix = {};
@@ -843,8 +864,16 @@ function renderReport1Table(activePICs) {
     titleEl.innerText = `REPORT 1: DAILY ACHIEVEMENT SOSMED ${mStr} ${activeYear}`;
   }
 
+  const masterList = getMasterSales();
   let headerHtml = `<th class="col-sticky col-date">TANGGAL</th>`;
-  activePICs.forEach(pic => headerHtml += `<th>${pic}</th>`);
+  activePICs.forEach(pic => {
+    const emp = masterList.find(x => x.name === pic);
+    const isIntern = emp && (emp.level || '').toLowerCase() === 'internship';
+    const badge = isIntern 
+      ? ` <span class="matrix-intern-badge" style="display:inline-block; font-size:9px; font-weight:700; color:#7c3aed; background:#f3e8ff; border:1px solid #ddd6fe; border-radius:4px; padding:0 4px; margin-left:3px; vertical-align:middle;">INTERN</span>` 
+      : '';
+    headerHtml += `<th>${pic}${badge}</th>`;
+  });
   headerHtml += `<th class="col-achieve">ACHIEVE DAY</th><th class="col-week">WEEK</th><th class="col-avg">AVG</th>`;
   theadRow.innerHTML = headerHtml;
 
@@ -1144,7 +1173,7 @@ function updateExecutiveKPICards(picStats, activePICs) {
 }
 
 // 7. TAB NAVIGATION & VIEW MODE FILTER (SUPPORT 7 UNIFIED TABS)
-let currentReportViewMode = 'all'; // 'all', 'r1', 'r2'
+let currentReportViewMode = 'r1'; // 'r1', 'r2'
 
 function toggleSettingsDropdown(e) {
   if (e) e.stopPropagation();
@@ -1247,6 +1276,12 @@ function switchTab(tabIndex) {
     activeModEl.textContent = moduleNames[tabIndex] || 'Dashboard';
   }
 
+  // Sembunyikan subbar header di menu Format Keep (Tab 4)
+  const headerWrapper = document.getElementById('workspaceHeaderWrapper') || document.querySelector('.workspace-header-wrapper');
+  if (headerWrapper) {
+    headerWrapper.style.display = (tabIndex === 4) ? 'none' : '';
+  }
+
   closeWorkspaceMenu();
   closeSettingsDropdown();
 
@@ -1265,12 +1300,21 @@ function switchTab(tabIndex) {
     }
   } else if (tabIndex === 2) {
     if (aiSection) aiSection.style.display = 'flex';
-    if (kpiSection) kpiSection.style.display = 'block';
+    if (!currentReportViewMode || currentReportViewMode === 'all') {
+      currentReportViewMode = 'r1';
+    }
+    setReportViewMode(currentReportViewMode);
   } else {
     if (aiSection) aiSection.style.display = 'none';
   }
 
-  if (tabIndex === 4 && rawKeepRows.length === 0) loadKeepData();
+  if (tabIndex === 4) {
+    if (rawKeepRows.length === 0) {
+      loadKeepData();
+    } else {
+      renderKeepPage();
+    }
+  }
   if (tabIndex === 5 && rawAuditARList.length === 0) runARMissingSosmedAudit();
   if (tabIndex === 6) renderARClaimsModule();
   if (tabIndex === 7) renderArchiveGrid();
@@ -1281,26 +1325,26 @@ function switchTab(tabIndex) {
   }
   if (tabIndex === 9) renderOmniInboxModule();
 }
+window.switchTab = switchTab;
 
 function setReportViewMode(mode) {
+  if (mode !== 'r2') mode = 'r1';
   currentReportViewMode = mode;
-  const btnAll = document.getElementById('filterBtnAll');
   const btnR1 = document.getElementById('filterBtnR1');
   const btnR2 = document.getElementById('filterBtnR2');
 
-  if (btnAll) btnAll.classList.toggle('active', mode === 'all');
   if (btnR1) btnR1.classList.toggle('active', mode === 'r1');
   if (btnR2) btnR2.classList.toggle('active', mode === 'r2');
+
+  if (typeof updateReportSubmenuActive === 'function') {
+    try { updateReportSubmenuActive(mode); } catch (e) {}
+  }
 
   const r1Wrap = document.getElementById('report1ViewWrap');
   const r2Wrap = document.getElementById('report2ViewWrap');
   const kpiSection = document.getElementById('kpiGridSection');
 
-  if (mode === 'all') {
-    if (r1Wrap) r1Wrap.style.display = 'block';
-    if (r2Wrap) r2Wrap.style.display = 'block';
-    if (kpiSection) kpiSection.style.display = 'block';
-  } else if (mode === 'r1') {
+  if (mode === 'r1') {
     if (r1Wrap) r1Wrap.style.display = 'block';
     if (r2Wrap) r2Wrap.style.display = 'none';
     if (kpiSection) kpiSection.style.display = 'block';
@@ -1964,10 +2008,7 @@ function renderARDocumentView(docNumber, rows, source = 'CROSSELLING') {
 }
 
 // 9. TAB 4: DATA KEEP & FOLLOW UP CUSTOMER (GOOGLE SHEETS INTEGRATION)
-let rawKeepRows = [];
-let filteredKeepRows = [];
-let keepCurrentPage = 1;
-const KEEP_PAGE_SIZE = 50;
+// rawKeepRows, filteredKeepRows, keepCurrentPage, KEEP_PAGE_SIZE telah diinisialisasi secara global di bagian atas
 
 function parseRFC4180CSV(str) {
   const arr = [];
@@ -2009,6 +2050,12 @@ function parseKeepCSV(csvText, isSilent = false) {
         rowObj[headers[j]] = rowArr[j] !== undefined ? rowArr[j] : '';
       }
       rowObj._gsheetsIndex = i - 1;
+      // Skip ghost/empty rows from spreadsheet formula artefacts
+      const nama = String(rowObj['Nama'] || '').trim();
+      const barang = String(rowObj['Barang Keep'] || '').trim();
+      const wa = String(rowObj['Nomor WA'] || '').trim();
+      const ts = String(rowObj['Timestamp'] || '').trim();
+      if (!nama && !barang && !wa && !ts) continue;
       jsonData.push(rowObj);
     }
 
@@ -2037,18 +2084,75 @@ window.parseKeepCSV = parseKeepCSV;
 
 async function loadKeepData(isSilent = false) {
   const pill = document.getElementById('keepStatusPill');
-  if (pill && !isSilent) pill.innerHTML = '<span>⏳ Membaca Data Keep Google Sheets...</span>';
+  if (pill && !isSilent) pill.innerHTML = '<span>⏳ Membaca Data Keep MySQL...</span>';
 
   try {
+    // 1. Coba baca langsung dari Database SQL DCMS
+    const resSql = await fetch(`/api/sosmed-keeps?t=${Date.now()}`);
+    if (resSql.ok) {
+      const json = await resSql.json();
+      if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
+        rawKeepRows = json.data.map((item, idx) => ({
+          'Timestamp': item.keep_timestamp || '',
+          'Nomor Sender': item.nomor_sender || '',
+          'Grup ID': item.grup_id || '',
+          'Sender': item.sender || '',
+          'GRUP': item.grup || '',
+          '!grup': item.jenis_chat || 'GRUP',
+          'Nama': item.nama || '',
+          'Nomor WA': item.nomor_wa || '',
+          'Barang Keep': item.barang_keep || '',
+          'Tanggal Ambil': item.tanggal_ambil || '',
+          'Catatan': item.catatan || '',
+          'Remarks': item.remarks || '',
+          'Kode Sosmed': item.kode_sosmed || '',
+          'REPORT AR': item.report_ar || '',
+          'Tanggal Input AR': item.tanggal_input_ar || '',
+          'AR dari VLOOKUP': item.ar_vlookup || '',
+          'Tanggal VLOOKUP': item.tanggal_vlookup || '',
+          'Cabang': item.cabang || '',
+          'Evidence': item.evidence || '',
+          'Nomor Follow Up': item.nomor_follow_up || '',
+          'Nama Tim Follow Up': item.nama_tim_follow_up || '',
+          'Status': item.status || '',
+          'Feedback Tim FU': item.feedback_tim_fu || '',
+          'NAMA TOKO KOMPETITOR\n(JIKA USER DEAL DI TOKO LAIN)': item.nama_toko_kompetitor || '',
+          'USER KREDIT': item.user_kredit || '',
+          'PERIODE': item.periode || '',
+          'ITEM': item.item || '',
+          'HAPUS DATA': 'FALSE',
+          'Nomor FU': item.nomor_fu || '',
+          _gsheetsIndex: idx
+        }));
+
+        if (pill) {
+          pill.innerHTML = `<span>⚡ Sumber: Database SQL MySQL (${rawKeepRows.length.toLocaleString('id-ID')} Data Realtime)</span>`;
+        }
+
+        populateKeepPeriodeDropdown();
+        populateKeepSosmedDropdown();
+        populateAuditPeriodeDropdown();
+        applyKeepFilters();
+        renderKeepPage();
+
+        if (typeof rawCrosellingRows !== 'undefined' && rawCrosellingRows.length > 0 && typeof runARMissingSosmedAudit === 'function') {
+          runARMissingSosmedAudit();
+        }
+        return;
+      }
+    }
+
+    // 2. Fallback baca dari CSV lokal jika endpoint SQL belum siap
     const res = await fetch(`keep-data.csv?t=${Date.now()}`);
     if (!res.ok) throw new Error("File keep-data.csv tidak ditemukan");
     const csvText = await res.text();
     parseKeepCSV(csvText, isSilent);
   } catch (err) {
-    console.warn("Gagal memuat keep-data.csv:", err);
+    console.warn("Gagal memuat data keep:", err);
     if (pill && !isSilent) pill.innerHTML = '<span style="color:#e11d48;">❌ Gagal memuat data keep</span>';
   }
 }
+window.loadKeepData = loadKeepData;
 
 function renderKeepTable() {
   applyKeepFilters();
@@ -2144,59 +2248,93 @@ async function syncLiveKeepData() {
 }
 window.syncLiveKeepData = syncLiveKeepData;
 
+const KEEP_MONTH_WEIGHTS = {
+  'januari': 1, 'jan': 1,
+  'februari': 2, 'feb': 2,
+  'maret': 3, 'mar': 3,
+  'april': 4, 'apr': 4,
+  'mei': 5, 'may': 5,
+  'juni': 6, 'jun': 6,
+  'juli': 7, 'jul': 7,
+  'agustus': 8, 'aug': 8, 'agu': 8,
+  'september': 9, 'sep': 9,
+  'oktober': 10, 'oct': 10, 'okt': 10,
+  'november': 11, 'nov': 11,
+  'desember': 12, 'dec': 12, 'des': 12
+};
+
+const KEEP_MONTH_NAMES = {
+  1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
+  5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
+  9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
+};
+
+function parseKeepPeriodInfo(str) {
+  if (!str || typeof str !== 'string') return null;
+  const clean = str.trim();
+  if (!clean || clean === '-' || clean === 'undefined' || clean === 'null') return null;
+
+  const parts = clean.split(/[-_/ ]+/);
+  if (parts.length < 2) return null;
+  const mStr = (parts[0] || '').toLowerCase();
+  const m = KEEP_MONTH_WEIGHTS[mStr];
+  if (!m) return null;
+
+  let y = parseInt(parts[1], 10);
+  if (isNaN(y)) return null;
+  if (y < 100) y += 2000;
+
+  // Filter out invalid/ghost formula years (e.g. 99 -> 2099 or 1899)
+  if (y < 2020 || y > 2040) return null;
+
+  return {
+    raw: clean,
+    month: m,
+    year: y,
+    weight: y * 100 + m,
+    label: `${KEEP_MONTH_NAMES[m]} ${y}`
+  };
+}
+
+function getSortedValidKeepPeriods(rows) {
+  if (!rows || rows.length === 0) return [];
+  const periodMap = new Map();
+
+  rows.forEach(r => {
+    const p = String(r['PERIODE'] || '').trim();
+    if (p && !periodMap.has(p)) {
+      const info = parseKeepPeriodInfo(p);
+      if (info) {
+        periodMap.set(p, info);
+      }
+    }
+  });
+
+  return Array.from(periodMap.values()).sort((a, b) => b.weight - a.weight);
+}
+
 function populateKeepPeriodeDropdown() {
   const select = document.getElementById('keepFilterPeriode');
   if (!select || !rawKeepRows || rawKeepRows.length === 0) return;
 
   const currentVal = select.value;
-  const uniquePeriods = new Set();
-  rawKeepRows.forEach(r => {
-    const p = String(r['PERIODE'] || '').trim();
-    if (p && p !== 'undefined' && p !== 'null' && p !== '-') {
-      uniquePeriods.add(p);
-    }
-  });
+  const sortedPeriods = getSortedValidKeepPeriods(rawKeepRows);
 
-  if (uniquePeriods.size === 0) return;
+  if (sortedPeriods.length === 0) return;
 
-  const monthWeights = {
-    'januari': 1, 'jan': 1,
-    'februari': 2, 'feb': 2,
-    'maret': 3, 'mar': 3,
-    'april': 4, 'apr': 4,
-    'mei': 5, 'may': 5,
-    'juni': 6, 'jun': 6,
-    'juli': 7, 'jul': 7,
-    'agustus': 8, 'aug': 8, 'agu': 8,
-    'september': 9, 'sep': 9,
-    'oktober': 10, 'oct': 10, 'okt': 10,
-    'november': 11, 'nov': 11,
-    'desember': 12, 'dec': 12, 'des': 12
-  };
-
-  function getPeriodWeight(str) {
-    const parts = str.split(/[-_/ ]+/);
-    const mStr = (parts[0] || '').toLowerCase();
-    let y = parseInt(parts[1] || '26', 10);
-    if (y < 100) y += 2000;
-    const m = monthWeights[mStr] || 0;
-    return y * 100 + m;
-  }
-
-  const sortedPeriods = Array.from(uniquePeriods).sort((a, b) => getPeriodWeight(b) - getPeriodWeight(a));
   const newestPeriod = sortedPeriods[0];
 
   let chosenVal = 'ALL';
-  if (currentVal && currentVal !== 'Oktober-26' && (currentVal === 'ALL' || uniquePeriods.has(currentVal))) {
+  if (currentVal && currentVal !== 'ALL' && sortedPeriods.some(p => p.raw.toLowerCase() === currentVal.toLowerCase())) {
     chosenVal = currentVal;
   } else if (newestPeriod) {
-    chosenVal = newestPeriod;
+    chosenVal = newestPeriod.raw;
   }
 
   select.innerHTML = '<option value="ALL">Semua Periode</option>' + 
     sortedPeriods.map(p => {
-      const isNewest = (p === newestPeriod) ? ' (Terbaru)' : '';
-      return `<option value="${p}">${p}${isNewest}</option>`;
+      const isNewest = (p.raw === newestPeriod.raw) ? ' (Terbaru)' : '';
+      return `<option value="${p.raw}">${p.label}${isNewest}</option>`;
     }).join('');
 
   select.value = chosenVal;
@@ -2207,46 +2345,23 @@ function populateAuditPeriodeDropdown() {
   if (!select || !rawKeepRows || rawKeepRows.length === 0) return;
 
   const currentVal = select.value;
-  const uniquePeriods = new Set();
-  rawKeepRows.forEach(r => {
-    const p = String(r['PERIODE'] || '').trim();
-    if (p && p !== 'undefined' && p !== 'null' && p !== '-') {
-      uniquePeriods.add(p);
-    }
-  });
+  const sortedPeriods = getSortedValidKeepPeriods(rawKeepRows);
 
-  if (uniquePeriods.size === 0) return;
+  if (sortedPeriods.length === 0) return;
 
-  const monthWeights = {
-    'januari': 1, 'jan': 1, 'februari': 2, 'feb': 2, 'maret': 3, 'mar': 3,
-    'april': 4, 'apr': 4, 'mei': 5, 'may': 5, 'juni': 6, 'jun': 6,
-    'juli': 7, 'jul': 7, 'agustus': 8, 'aug': 8, 'agu': 8, 'september': 9, 'sep': 9,
-    'oktober': 10, 'oct': 10, 'okt': 10, 'november': 11, 'nov': 11, 'desember': 12, 'dec': 12, 'des': 12
-  };
-
-  function getPeriodWeight(str) {
-    const parts = str.split(/[-_/ ]+/);
-    const mStr = (parts[0] || '').toLowerCase();
-    let y = parseInt(parts[1] || '26', 10);
-    if (y < 100) y += 2000;
-    const m = monthWeights[mStr] || 0;
-    return y * 100 + m;
-  }
-
-  const sortedPeriods = Array.from(uniquePeriods).sort((a, b) => getPeriodWeight(b) - getPeriodWeight(a));
   const newestPeriod = sortedPeriods[0];
 
   let chosenVal = 'ALL';
-  if (currentVal && currentVal !== 'Oktober-26' && (currentVal === 'ALL' || uniquePeriods.has(currentVal))) {
+  if (currentVal && currentVal !== 'ALL' && sortedPeriods.some(p => p.raw.toLowerCase() === currentVal.toLowerCase())) {
     chosenVal = currentVal;
   } else if (newestPeriod) {
-    chosenVal = newestPeriod;
+    chosenVal = newestPeriod.raw;
   }
 
   select.innerHTML = '<option value="ALL">Semua Periode</option>' + 
     sortedPeriods.map(p => {
-      const isNewest = (p === newestPeriod) ? ' (Bulan ini)' : '';
-      return `<option value="${p}">${p}${isNewest}</option>`;
+      const isNewest = (p.raw === newestPeriod.raw) ? ' (Bulan ini)' : '';
+      return `<option value="${p.raw}">${p.label}${isNewest}</option>`;
     }).join('');
 
   select.value = chosenVal;
@@ -2405,21 +2520,52 @@ function formatKeepDisplayDate(ts) {
   if (!ts) return '-';
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   if (typeof ts === 'number') {
-    const d = XLSX.SSF.parse_date_code(ts);
-    if (d) {
-      const mStr = months[(d.m - 1) % 12] || 'Jan';
-      return `${d.d} ${mStr} ${d.y}`;
+    if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+      const d = XLSX.SSF.parse_date_code(ts);
+      if (d) {
+        const mStr = months[(d.m - 1) % 12] || 'Jan';
+        return `${d.d} ${mStr} ${d.y}`;
+      }
     }
   }
+  if (ts instanceof Date) {
+    return `${ts.getDate()} ${months[ts.getMonth()]} ${ts.getFullYear()}`;
+  }
   if (typeof ts === 'string') {
-    const parts = ts.trim().split(/[\/\-\s]/);
-    if (parts.length >= 3) {
-      const day = parseInt(parts[0], 10);
-      const m = parseInt(parts[1], 10);
-      let y = parts[2].trim();
-      if (y.length === 2) y = '20' + y;
+    const trimmed = ts.trim();
+    // 1. ISO format: 2026-11-05 or 2026-11-05T21:10:56... or 2026-11-05 21:10:56
+    const datePart = trimmed.split('T')[0].split(' ')[0];
+    const isoParts = datePart.split('-');
+    if (isoParts.length === 3 && isoParts[0].length === 4) {
+      const y = isoParts[0];
+      const m = parseInt(isoParts[1], 10);
+      const day = parseInt(isoParts[2], 10);
       if (!isNaN(day) && !isNaN(m) && m >= 1 && m <= 12) {
         return `${day} ${months[m - 1]} ${y}`;
+      }
+    }
+    // 2. Slash format: 11/1/2026 or 1/11/2026 or 11/01/2026
+    const slashParts = datePart.split('/');
+    if (slashParts.length >= 3) {
+      const p0 = parseInt(slashParts[0], 10);
+      const p1 = parseInt(slashParts[1], 10);
+      let y = slashParts[2].trim();
+      if (y.length === 2) y = '20' + y;
+      if (!isNaN(p0) && !isNaN(p1)) {
+        let day, m;
+        if (p0 > 12) {
+          day = p0;
+          m = p1;
+        } else if (p1 > 12) {
+          day = p1;
+          m = p0;
+        } else {
+          m = p0;
+          day = p1;
+        }
+        if (m >= 1 && m <= 12) {
+          return `${day} ${months[m - 1]} ${y}`;
+        }
       }
     }
     return ts;
@@ -2438,17 +2584,46 @@ function formatPickupDate(val) {
 
 function getModernStatusPill(st) {
   const norm = String(st || '').trim().toUpperCase();
-  if (norm === 'WIN') return `<span class="modern-status-pill status-pill-green"><span class="status-dot"></span>Win</span>`;
-  if (norm === 'ON PROGRESS LOW' || norm === 'LOW') return `<span class="modern-status-pill status-pill-green"><span class="status-dot"></span>Low</span>`;
-  if (norm.includes('PROGRESS')) return `<span class="modern-status-pill status-pill-orange"><span class="status-dot"></span>On Progress</span>`;
-  if (norm === 'LOSE' || norm === 'TAKE OUT') return `<span class="modern-status-pill status-pill-red"><span class="status-dot"></span>Lose</span>`;
-  return `<span class="modern-status-pill status-pill-gray"><span class="status-dot"></span>${st || '-'}</span>`;
+  if (norm === 'WIN') {
+    return `<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200/80 shadow-xs"><span class="size-1.5 rounded-full bg-emerald-500"></span>Win</span>`;
+  }
+  if (norm === 'ON PROGRESS LOW' || norm === 'LOW') {
+    return `<span class="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-700 border border-sky-200/80 shadow-xs"><span class="size-1.5 rounded-full bg-sky-500"></span>Low</span>`;
+  }
+  if (norm.includes('PROGRESS')) {
+    return `<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 border border-amber-200/80 shadow-xs"><span class="size-1.5 rounded-full bg-amber-500"></span>On Progress</span>`;
+  }
+  if (norm === 'LOSE' || norm === 'TAKE OUT') {
+    return `<span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 border border-rose-200/80 shadow-xs"><span class="size-1.5 rounded-full bg-rose-500"></span>Lose</span>`;
+  }
+  return `<span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 border border-slate-200/80 shadow-xs"><span class="size-1.5 rounded-full bg-slate-400"></span>${st || '-'}</span>`;
 }
 
+let currentKeepStatusContext = null;
 function openStatusChangeQuickModal(rawWA, keepRowIdx, currentStatus) {
-  const newStatus = prompt(`Ubah Status Customer:\nKetik: WIN, ON PROGRESS LOW, ON PROGRESS MEDIUM, ON PROGRESS HOT, atau LOSE`, currentStatus || 'WIN');
-  if (newStatus && newStatus.trim() && newStatus.trim().toUpperCase() !== currentStatus) {
-    const cleanSt = newStatus.trim().toUpperCase();
+  const row = filteredKeepRows[keepRowIdx];
+  currentKeepStatusContext = { rawWA, keepRowIdx, currentStatus, row };
+  const modal = document.getElementById('keepStatusModal');
+  if (!modal) return;
+  const nameEl = document.getElementById('keepStatusModalCustName');
+  if (nameEl && row) {
+    nameEl.innerText = row['Nama'] ? `Customer: ${row['Nama']}` : '-';
+  }
+  modal.style.display = 'flex';
+}
+
+function closeKeepStatusModal() {
+  const modal = document.getElementById('keepStatusModal');
+  if (modal) modal.style.display = 'none';
+  currentKeepStatusContext = null;
+}
+
+function selectQuickKeepStatus(newStatus) {
+  if (!currentKeepStatusContext) return;
+  const { rawWA, keepRowIdx, currentStatus } = currentKeepStatusContext;
+  const cleanSt = String(newStatus).trim().toUpperCase();
+
+  if (cleanSt !== currentStatus) {
     if (filteredKeepRows[keepRowIdx]) {
       const oldSt = filteredKeepRows[keepRowIdx]['Status'];
       filteredKeepRows[keepRowIdx]['Status'] = cleanSt;
@@ -2459,7 +2634,11 @@ function openStatusChangeQuickModal(rawWA, keepRowIdx, currentStatus) {
       });
     }
   }
+  closeKeepStatusModal();
 }
+window.openStatusChangeQuickModal = openStatusChangeQuickModal;
+window.closeKeepStatusModal = closeKeepStatusModal;
+window.selectQuickKeepStatus = selectQuickKeepStatus;
 
 function renderKeepPage() {
   const tbody = document.getElementById('keepTableBody');
@@ -2475,7 +2654,7 @@ function renderKeepPage() {
   // Update hero subtitle and pagination info
   const heroSub = document.getElementById('customerHeroSub');
   if (heroSub) {
-    heroSub.innerText = `${total.toLocaleString('id-ID')} customer dari Google Sheets Live`;
+    heroSub.innerText = `${total.toLocaleString('id-ID')} Data Realtime`;
   }
 
   const paginationInfoEl = document.getElementById('keepPaginationInfo');
@@ -2492,7 +2671,7 @@ function renderKeepPage() {
   if (btnNext) btnNext.disabled = keepCurrentPage >= maxPage;
 
   if (pageRows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="text-center" style="padding: 40px; color: var(--text-muted); font-size: 0.9rem;">Tidak ada data customer untuk filter yang dipilih.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-xs font-medium text-slate-400 bg-white">Tidak ada data customer untuk filter yang dipilih.</td></tr>`;
     return;
   }
 
@@ -2504,85 +2683,207 @@ function renderKeepPage() {
     const initials = getCustomerInitials(custName);
     const keepRowIdx = startIdx + i;
 
-    // 1. CUSTOMER CELL: Avatar Circle + Name Bold + Phone Subtext (Persis Gambar 1)
+    // 1. CUSTOMER CELL: Avatar Circle + Name Bold + Phone Subtext
     const custHtml = `
-      <div class="customer-cell-flex">
-        <div class="avatar-circle-sm" title="${custName}">${initials}</div>
-        <div class="customer-info-box">
-          <span class="customer-name-bold">${custName}</span>
+      <div class="flex items-center gap-3">
+        <div class="size-9 rounded-xl bg-brand-500/10 text-brand-700 border border-brand-500/20 font-black text-xs flex items-center justify-center shrink-0 tracking-wider shadow-xs" title="${custName}">
+          ${initials}
+        </div>
+        <div class="min-w-0">
+          <div class="font-bold text-slate-900 text-xs truncate max-w-[170px]" title="${custName}">${custName}</div>
           ${(normWA && normWA.length >= 8) ? `
-            <a href="https://wa.me/${normWA}" target="_blank" class="customer-phone-sub" title="Hubungi customer di WhatsApp">
-              📞 ${displayWA}
+            <a href="https://wa.me/${normWA}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition" title="Hubungi customer di WhatsApp">
+              <span class="size-1.5 rounded-full bg-emerald-500"></span>
+              <span>${displayWA}</span>
             </a>
-          ` : `<span class="customer-phone-sub">${displayWA || '-'}</span>`}
+          ` : `<span class="text-[11px] text-slate-400 font-mono">${displayWA || '-'}</span>`}
         </div>
       </div>
     `;
 
-    // 2. REPORT AR CELL: Dashed button "+ Input AR" atau nomor merah tebal (Persis Gambar 1)
+    // 2. REPORT AR CELL
     const arDoc = String(r['REPORT AR'] || '').trim();
     const arHtml = arDoc ? `
-      <div class="cell-report-ar-wrapper" data-wa="${rawWA}" data-keep-idx="${keepRowIdx}" data-current-ar="${arDoc}">
-        <span class="text-ar-number-bold" onclick="openARDetailModalFromKeep(${keepRowIdx})" title="Klik untuk cek detail faktur AR">
+      <div class="inline-flex items-center gap-1.5 bg-brand-50 border border-brand-200 rounded-lg px-2.5 py-1" data-wa="${rawWA}" data-keep-idx="${keepRowIdx}" data-current-ar="${arDoc}">
+        <span class="font-mono text-xs font-bold text-brand-700 cursor-pointer hover:underline" onclick="openARDetailModalFromKeep(${keepRowIdx})" title="Klik untuk cek detail faktur AR">
           ${arDoc}
         </span>
-        <button type="button" class="btn-edit-inline-ar" onclick="event.stopPropagation(); startEditKeepReportAR(this.parentElement, '${rawWA}', ${keepRowIdx})" title="Ubah nomor AR">✏️</button>
+        <button type="button" class="text-slate-400 hover:text-brand-600 transition cursor-pointer" onclick="event.stopPropagation(); openKeepInputARModal(${keepRowIdx})" title="Ubah nomor AR">
+          <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"/></svg>
+        </button>
       </div>
     ` : `
-      <div class="cell-report-ar-wrapper" data-wa="${rawWA}" data-keep-idx="${keepRowIdx}" data-current-ar="">
-        <button type="button" class="btn-input-new-ar" onclick="startEditKeepReportAR(this.parentElement, '${rawWA}', ${keepRowIdx})" title="Klik untuk menginput nomor AR">
-          <span>📄</span> Input AR
+      <div class="inline-block" data-wa="${rawWA}" data-keep-idx="${keepRowIdx}" data-current-ar="">
+        <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-500 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50/50 transition cursor-pointer" onclick="openKeepInputARModal(${keepRowIdx})" title="Klik untuk menginput nomor AR">
+          <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg> Input AR
         </button>
       </div>
     `;
 
-    // 3. STATUS PILL: Pill dengan dot warna (Win, Low, On Progress, Lose)
+    // 3. STATUS PILL
     const rawSt = String(r['Status'] || '').trim().toUpperCase();
     const statusPillHtml = `
-      <div class="cursor-pointer" onclick="openStatusChangeQuickModal('${rawWA}', ${keepRowIdx}, '${rawSt}')" title="Klik untuk mengubah status customer">
+      <div class="inline-block cursor-pointer transition hover:scale-105" onclick="openStatusChangeQuickModal('${rawWA}', ${keepRowIdx}, '${rawSt}')" title="Klik untuk mengubah status customer">
         ${getModernStatusPill(rawSt)}
       </div>
     `;
 
     const tr = document.createElement('tr');
-    if (rawSt === 'LOSE' || rawSt === 'TAKE OUT') {
-      tr.classList.add('row-lose-tint');
-    }
+    tr.className = `border-b border-slate-100 hover:bg-slate-50/80 transition ${ (rawSt === 'LOSE' || rawSt === 'TAKE OUT') ? 'bg-rose-50/30' : '' }`;
 
     tr.innerHTML = `
-      <td class="text-left">${custHtml}</td>
-      <td class="text-center font-bold" style="color:#0f172a; white-space:nowrap;">${formatKeepDisplayDate(r['Timestamp'])}</td>
-      <td class="text-left font-bold" style="color:#0f172a;">${r['Barang Keep'] || '-'}</td>
-      <td class="text-center" style="font-size:0.80rem; white-space:nowrap;">${formatPickupDate(r['Tanggal Ambil'])}</td>
-      <td class="text-left" style="font-size:0.80rem; color:#334155; line-height:1.35;">${r['Catatan'] || '-'}</td>
-      <td class="text-center"><span class="badge-sosmed-pill">${r['Kode Sosmed'] || '-'}</span></td>
-      <td class="text-center">${arHtml}</td>
-      <td class="text-center">${statusPillHtml}</td>
-      <td class="text-left" style="font-size:0.80rem; color:#475569; line-height:1.35;">${r['Feedback Tim FU'] || '-'}</td>
-      <td class="text-center">
-        <button type="button" class="btn-circle-action" onclick="openARDetailModalFromKeep(${keepRowIdx})" title="Buka Detail">➔</button>
+      <td class="px-5 py-3.5 align-middle text-left">${custHtml}</td>
+      <td class="px-3 py-3.5 align-middle text-center font-bold text-slate-700 whitespace-nowrap">${formatKeepDisplayDate(r['Timestamp'])}</td>
+      <td class="px-4 py-3.5 align-middle text-left font-bold text-slate-900">${r['Barang Keep'] || '-'}</td>
+      <td class="px-3 py-3.5 align-middle text-center text-slate-600 whitespace-nowrap">${formatPickupDate(r['Tanggal Ambil'])}</td>
+      <td class="px-4 py-3.5 align-middle text-left text-slate-600 leading-snug">${r['Catatan'] || '-'}</td>
+      <td class="px-3 py-3.5 align-middle text-center"><span class="inline-flex items-center rounded-lg bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700 font-mono tracking-tight">${r['Kode Sosmed'] || '-'}</span></td>
+      <td class="px-3 py-3.5 align-middle text-center">${arHtml}</td>
+      <td class="px-3 py-3.5 align-middle text-center">${statusPillHtml}</td>
+      <td class="px-4 py-3 align-middle text-left">
+        <input 
+          type="text" 
+          class="w-full min-w-[150px] max-w-[280px] rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10 shadow-xs transition"
+          value="${escapeHtml(r['Feedback Tim FU'] || '')}"
+          placeholder="Tulis feedback FU..."
+          title="Ketik feedback lalu klik di luar atau tekan Enter untuk menyimpan"
+          onchange="saveKeepFeedbackInline(this, '${rawWA}', ${keepRowIdx})"
+          onkeydown="if(event.key==='Enter'){this.blur();}"
+        />
+      </td>
+      <td class="px-3 py-3.5 align-middle text-center">
+        <button type="button" class="grid size-7 mx-auto place-items-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:border-brand-500 hover:bg-brand-50 hover:text-brand-600 transition shadow-xs cursor-pointer" onclick="openARDetailModalFromKeep(${keepRowIdx})" title="Buka Detail Faktur">
+          <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+        </button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
+async function saveKeepFeedbackInline(inputEl, rawWA, keepRowIdx) {
+  if (!inputEl) return;
+  const newFeedback = inputEl.value.trim();
+  const row = filteredKeepRows[keepRowIdx];
+  const oldFeedback = row ? (row['Feedback Tim FU'] || '') : '';
+
+  if (newFeedback === oldFeedback) return;
+
+  // Optimistic update in-memory
+  if (row) {
+    row['Feedback Tim FU'] = newFeedback;
+  }
+  const cleanWA = String(rawWA || '').replace(/\D/g, '');
+  if (typeof rawKeepRows !== 'undefined' && Array.isArray(rawKeepRows)) {
+    rawKeepRows.forEach(k => {
+      if (String(k['Nomor WA'] || '').replace(/\D/g, '') === cleanWA) {
+        k['Feedback Tim FU'] = newFeedback;
+      }
+    });
+  }
+
+  // Visual save indicator
+  inputEl.classList.add('!border-emerald-500', '!bg-emerald-50/50');
+  setTimeout(() => {
+    inputEl.classList.remove('!border-emerald-500', '!bg-emerald-50/50');
+  }, 1200);
+
+  // Sync ke database SQL & Google Apps Script
+  try {
+    await fetch('/api/update-keep-status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        nomorWA: cleanWA,
+        status: row ? (row['Status'] || '') : '',
+        feedback: newFeedback,
+        feedbackTimFU: newFeedback
+      })
+    });
+  } catch (err) {
+    console.warn('Gagal sync feedback ke backend:', err);
+  }
+}
+window.saveKeepFeedbackInline = saveKeepFeedbackInline;
+
+let currentKeepInputARContext = null;
+
+function openKeepInputARModal(keepIndex) {
+  const row = filteredKeepRows[keepIndex];
+  if (!row) return;
+  const rawWA = String(row['Nomor WA'] || '').replace(/\D/g, '');
+  currentKeepInputARContext = { keepIndex, rawWA, row };
+
+  const modal = document.getElementById('keepInputARModal');
+  if (!modal) return;
+  const custNameEl = document.getElementById('keepInputARCustName');
+  const custPhoneEl = document.getElementById('keepInputARCustPhone');
+  const barangEl = document.getElementById('keepInputARBarang');
+  const field = document.getElementById('keepInputARField');
+
+  if (custNameEl) custNameEl.innerText = row['Nama'] || '-';
+  if (custPhoneEl) custPhoneEl.innerText = (rawWA ? formatPhoneDisplay(rawWA) : '-');
+  if (barangEl) barangEl.innerText = row['Barang Keep'] ? `Barang: ${row['Barang Keep']}` : '-';
+  if (field) {
+    field.value = row['REPORT AR'] || '';
+    setTimeout(() => {
+      field.focus();
+      field.select();
+    }, 60);
+  }
+  modal.style.display = 'flex';
+}
+
+function closeKeepInputARModal() {
+  const modal = document.getElementById('keepInputARModal');
+  if (modal) modal.style.display = 'none';
+  currentKeepInputARContext = null;
+}
+
+function submitKeepInputARModal() {
+  if (!currentKeepInputARContext) return;
+  const field = document.getElementById('keepInputARField');
+  const cleanAR = field ? field.value.trim().replace(/\D/g, '') : '';
+  if (!cleanAR) {
+    if (field) {
+      field.focus();
+      field.classList.add('border-rose-500');
+      setTimeout(() => field.classList.remove('border-rose-500'), 1500);
+    }
+    return;
+  }
+
+  const { keepIndex, rawWA, row } = currentKeepInputARContext;
+  row['REPORT AR'] = cleanAR;
+
+  if (typeof rawKeepRows !== 'undefined' && Array.isArray(rawKeepRows)) {
+    rawKeepRows.forEach(k => {
+      if (String(k['Nomor WA'] || '').replace(/\D/g, '') === rawWA) {
+        k['REPORT AR'] = cleanAR;
+      }
+    });
+  }
+
+  renderKeepPage();
+  closeKeepInputARModal();
+
+  triggerBackgroundReportARSync(rawWA, cleanAR, '', () => {
+    row['REPORT AR'] = '';
+    renderKeepPage();
+  });
+}
+window.openKeepInputARModal = openKeepInputARModal;
+window.closeKeepInputARModal = closeKeepInputARModal;
+window.submitKeepInputARModal = submitKeepInputARModal;
+
 function openARDetailModalFromKeep(keepIndex) {
   const row = filteredKeepRows[keepIndex];
   if (!row) return;
   const arDoc = row['REPORT AR'];
   if (!arDoc) {
-    const rawWA = String(row['Nomor WA'] || '').replace(/\D/g, '');
-    const promptAR = prompt(`Customer "${row['Nama']}" belum memiliki nomor AR.\nMasukkan nomor faktur AR (misal: 260278899):`, '');
-    if (promptAR && promptAR.trim()) {
-      const cleanAR = promptAR.trim();
-      row['REPORT AR'] = cleanAR;
-      renderKeepPage();
-      triggerBackgroundReportARSync(rawWA, cleanAR, '', () => {
-        row['REPORT AR'] = '';
-        renderKeepPage();
-      });
-    }
+    openKeepInputARModal(keepIndex);
     return;
   }
   openARDetailModal(arDoc, row);
@@ -5929,7 +6230,16 @@ function onModalTargetMonthChange() {
   const key = getMonthlyTargetKey(m, y);
   const monthData = cachedMonthlyTargets[key] || {};
 
-  const masterList = getMasterSales().filter(x => x.active);
+  const masterList = getMasterSales()
+    .filter(x => x.active)
+    .sort((a, b) => {
+      const levelA = (a.level || 'Karyawan').trim().toLowerCase();
+      const levelB = (b.level || 'Karyawan').trim().toLowerCase();
+      if (levelA !== levelB) {
+        return levelA === 'karyawan' ? -1 : 1;
+      }
+      return 0;
+    });
   let defaultTeam = 0;
   masterList.forEach(x => { defaultTeam += (Number(x.target) || 867261886); });
   if (defaultTeam <= 0) defaultTeam = 8447356034;
@@ -5949,18 +6259,24 @@ function onModalTargetMonthChange() {
         }
       }
       const gpVal = Math.round(currentVal * 0.05);
+      const isIntern = (item.level || '').toLowerCase() === 'internship';
+      const levelBadge = isIntern
+        ? `<span style="display:inline-block; font-size:10px; font-weight:700; color:#7c3aed; background:#f3e8ff; border:1px solid #ddd6fe; border-radius:4px; padding:1px 6px; margin-left:6px;">Internship</span>`
+        : `<span style="display:inline-block; font-size:10px; font-weight:700; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:1px 6px; margin-left:6px;">Karyawan</span>`;
       return `
-        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-          <div style="min-width: 160px; flex: 1;">
-            <div style="font-weight: 800; font-size: 0.85rem; color: #0f172a;">${item.name}</div>
-            <div style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${item.code} &bull; Cabang ${item.cabang || '-'}</div>
+        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: nowrap; box-shadow: 0 1px 2px rgba(15,23,42,0.03);">
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-weight: 800; font-size: 0.88rem; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;">${item.name} ${levelBadge}</div>
+            <div style="font-size: 0.73rem; color: #64748b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">
+              <span style="font-family: monospace; font-weight: 700; color: #475569;">${item.code}</span> &bull; Cabang ${item.cabang || '-'}
+            </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <div style="font-size: 0.72rem; font-weight: 700; color: #059669; min-width: 120px; text-align: right;" id="modalRowGP_${item.code}">
+          <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+            <div style="font-size: 0.72rem; font-weight: 700; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 3px 8px; text-align: right; white-space: nowrap;" id="modalRowGP_${item.code}">
               GP: ${formatRupiah(gpVal)}
             </div>
-            <div style="position: relative; width: 170px;">
-              <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 0.72rem; font-weight: 700; color: #94a3b8;">Rp</span>
+            <div style="position: relative; width: 200px;">
+              <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.74rem; font-weight: 700; color: #94a3b8; pointer-events: none;">Rp</span>
               <input type="number" 
                      id="modalSalesInput_${item.code}" 
                      data-code="${item.code}" 
@@ -5968,7 +6284,7 @@ function onModalTargetMonthChange() {
                      value="${currentVal}" 
                      oninput="onModalSalesRowChange('${item.code}')" 
                      class="form-input modal-sales-target-input" 
-                     style="padding-left: 28px; text-align: right; font-weight: 700; font-size: 0.85rem;">
+                     style="padding-left: 32px; padding-right: 12px; text-align: right; font-weight: 700; font-size: 0.88rem; width: 100%; border-radius: 8px; font-family: monospace;">
             </div>
           </div>
         </div>
@@ -6541,51 +6857,22 @@ function handleFileSelect(e) {
 
 const dropZone = document.getElementById('dropZone');
 if (dropZone) {
-  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+  dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); });
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    if (e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      const reader = new FileReader();
-      reader.onload = (evt) => parseExcelFile(evt.target.result, file.name);
-      reader.readAsArrayBuffer(file);
-    }
+    alert('ℹ️ Seluruh upload file data SAP (Cross-Selling & Turnover) kini dipusatkan di 1 Pintu: Pusat Unggah Data.\nSilakan gunakan menu Pusat Unggah Data.');
   });
 }
 
-// Dedicated Cross Selling dropzone
+// Dedicated Cross Selling dropzone (diarahkan ke Pusat Unggah Data)
 const crosellingDropZone = document.getElementById('crosellingDropZone');
 if (crosellingDropZone) {
-  crosellingDropZone.addEventListener('dragover', (e) => { e.preventDefault(); crosellingDropZone.classList.add('drag-over'); });
-  crosellingDropZone.addEventListener('dragleave', () => crosellingDropZone.classList.remove('drag-over'));
+  crosellingDropZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+  crosellingDropZone.addEventListener('dragleave', (e) => { e.preventDefault(); });
   crosellingDropZone.addEventListener('drop', (e) => {
     e.preventDefault();
-    crosellingDropZone.classList.remove('drag-over');
-    if (e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        try {
-          const buffer = evt.target.result;
-          const workbook = XLSX.read(buffer, { type: 'array' });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(sheet);
-          if (!jsonData || jsonData.length === 0) return;
-          rawCrosellingRows = jsonData;
-          const updateTs = getFormattedTimestamp();
-          await saveFileToIndexedDB('croselling_file', buffer);
-          localStorage.setItem('gadgetmart_croselling_timestamp', updateTs);
-          updateCrosellingIndicator(`File Cross Selling terupdate per ${updateTs}`);
-          saveExcelToServer(buffer, 'croselling');
-          alert(`✅ Berhasil mengimpor file Cross Selling (${jsonData.length.toLocaleString('id-ID')} baris data)!`);
-        } catch (err) {
-          console.error(err);
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    }
+    alert('ℹ️ Seluruh upload file data SAP (Cross-Selling & Turnover) kini dipusatkan di 1 Pintu: Pusat Unggah Data.\nSilakan gunakan menu Pusat Unggah Data.');
   });
 }
 
@@ -8762,9 +9049,15 @@ async function initSosmedApp() {
   try { await loadAllDefaultFiles(); } catch (e) { console.error('loadAllDefaultFiles error:', e); }
   try { populateDashboardFilterDropdowns(); } catch (e) { console.warn('populateDashboardFilterDropdowns error:', e); }
   try { applyDashboardFilters(); } catch (e) { console.warn('applyDashboardFilters error:', e); }
-  try { loadKeepData(); } catch (e) { console.warn('loadKeepData error:', e); }
+  try { await loadKeepData(); } catch (e) { console.warn('loadKeepData error:', e); }
   try { startRealtimeSyncEngine(); } catch (e) { console.warn('startRealtimeSyncEngine error:', e); }
+
+  const initialActiveTab = (typeof window.WORKSPACE_ACTIVE_TAB === 'number') ? window.WORKSPACE_ACTIVE_TAB : 1;
+  if (initialActiveTab > 1 && typeof switchTab === 'function') {
+    switchTab(initialActiveTab);
+  }
 }
+window.initSosmedApp = initSosmedApp;
 
 if (document.readyState === 'loading') {
   window.addEventListener('DOMContentLoaded', initSosmedApp);
