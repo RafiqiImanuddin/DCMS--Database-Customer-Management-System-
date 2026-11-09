@@ -87,13 +87,15 @@
 
 1. **🔔 Notifikasi Otomatis WhatsApp via Watzap Gateway (Trigger Closing WIN):**
    - Mengirimkan pesan konfirmasi otomatis ke nomor pelanggan dan notifikasi ke kepala toko saat status Keep diubah menjadi *Closing WIN*.
-2. **🏢 Granular Multi-Branch Role & Permission Hierarchy:**
+2. **🔌 Integrasi Real-Time SAP ERP API Gateway:**
+   - Sinkronisasi API langsung dengan ERP SAP perusahaan untuk data cross-selling dan faktur turnover tanpa unduh/unggah file Excel manual.
+3. **🏢 Granular Multi-Branch Role & Permission Hierarchy:**
    - Pembagian hak akses berjenjang yang lebih spesifik antara *Superadmin*, *Manager Area*, *Kepala Toko Cabang*, *Admin Sales*, dan *Finance*.
-3. **🧠 AI Smart Cross-Selling Recommendation Engine:**
+4. **🧠 AI Smart Cross-Selling Recommendation Engine:**
    - Rekomendasi produk aksesoris pendukung cerdas (*upselling / cross-selling*) berdasarkan profil transaksi dan kategori unit yang dibeli pelanggan.
-4. **📊 Automated PDF / Excel Report Scheduler:**
+5. **📊 Automated PDF / Excel Report Scheduler:**
    - Penjadwalan pengiriman otomatis Rapor Matrix Mingguan dan Bulanan ke email Direksi dan grup WhatsApp Manajerial.
-5. **📱 Mobile-Optimized Executive View:**
+6. **📱 Mobile-Optimized Executive View:**
    - Pengoptimalan tampilan antarmuka seluler untuk dashboard monitoring manajer saat berada di luar toko.
 
 ---

@@ -76,6 +76,10 @@ class RouteCipher
             'controller' => \App\Http\Controllers\BroadcastReportController::class,
             'method' => 'downloadBatch',
         ],
+        'pricelist.index' => [
+            'controller' => \App\Http\Controllers\PricelistController::class,
+            'method' => 'index',
+        ],
         'settings.watzap.index' => [
             'controller' => \App\Http\Controllers\WatzapSettingController::class,
             'method' => 'index',

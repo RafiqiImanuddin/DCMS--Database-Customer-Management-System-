@@ -29,10 +29,85 @@
                         </button>
                         <div><div class="text-sm font-bold text-slate-900">@yield('title')</div><div class="hidden text-xs text-slate-400 sm:block">DCMS Gadgetmart</div></div>
                     </div>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 17l5-5-5-5m5 5H3m11 9h4a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3h-4"/></svg><span class="hidden sm:inline">Keluar</span></button>
-                    </form>
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        <!-- Notification Bell & Auto-Sync Center -->
+                        <div class="relative" id="dcmsNotificationWrapper">
+                            <button type="button" id="dcmsNotificationBtn" onclick="window.toggleDcmsNotificationDropdown()" class="relative grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs cursor-pointer focus:outline-none" aria-label="Pusat Notifikasi & Auto-Sync" title="Pusat Notifikasi & Auto-Sync Google Sheets">
+                                <svg class="size-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                </svg>
+                                <!-- Pulsing Notification Badge Indicator -->
+                                <span id="dcmsNotificationBadge" class="absolute -top-1 -right-1 flex size-3.5">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full size-3.5 bg-emerald-500 border-2 border-white"></span>
+                                </span>
+                            </button>
+
+                            <!-- Dropdown Panel (Modern Glassmorphism Card) -->
+                            <div id="dcmsNotificationMenu" class="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-4 z-50 hidden transition-all duration-200 transform origin-top-right scale-95 opacity-0">
+                                <!-- Header -->
+                                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                    <div class="flex items-center gap-2">
+                                        <div class="size-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="23 4 23 10 17 10"></polyline>
+                                                <polyline points="1 20 1 14 7 14"></polyline>
+                                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-xs font-black text-slate-900 tracking-tight">Auto-Sync & Notifikasi</h4>
+                                            <span class="text-[10px] text-slate-400 font-medium">Google Sheets Live Data</span>
+                                        </div>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        Realtime
+                                    </span>
+                                </div>
+
+                                <!-- Sync Status Card -->
+                                <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-500 text-[11px]">Database Format Keep:</span>
+                                        <span id="dcmsKeepCountText" class="font-extrabold text-slate-900">13.184 Transaksi</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-500 text-[11px]">Pembaruan Terakhir:</span>
+                                        <span id="dcmsLastSyncText" class="font-semibold text-slate-700 text-[11px]">Memuat...</span>
+                                    </div>
+                                    <div class="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                                        <span class="text-[10px] text-slate-400">Sync otomatis tiap 3 menit</span>
+                                        <button type="button" id="btnHeaderGlobalSync" onclick="window.triggerManualSyncKeep()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm shadow-emerald-600/20 transition cursor-pointer">
+                                            <svg id="syncIconSpin" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="23 4 23 10 17 10"></polyline>
+                                                <polyline points="1 20 1 14 7 14"></polyline>
+                                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                            </svg>
+                                            <span id="syncBtnLabel">Sync Sekarang</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Notification Activity Feed -->
+                                <div class="mt-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Aktivitas Pembaruan</span>
+                                        <button type="button" onclick="window.clearDcmsNotifications()" class="text-[10px] font-semibold text-slate-400 hover:text-rose-600 transition cursor-pointer">Bersihkan</button>
+                                    </div>
+                                    <div id="dcmsNotificationList" class="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar text-xs">
+                                        <!-- Items will be dynamically inserted here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 17l5-5-5-5m5 5H3m11 9h4a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3h-4"/></svg><span class="hidden sm:inline">Keluar</span></button>
+                        </form>
+                    </div>
                 </div>
             </header>
             <div class="@yield('container-class', 'mx-auto max-w-[1600px] p-4 md:p-8')">
@@ -48,14 +123,14 @@
     </div>
 
     <!-- Reusable Confirmation Modal (Modern UI) -->
-    <div id="dcms-confirm-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" aria-modal="true" role="dialog">
+    <div id="dcms-confirm-modal" class="fixed inset-0 z-[999999] hidden items-center justify-center p-4" aria-modal="true" role="dialog">
         <!-- Backdrop with Blur -->
-        <div id="dcms-confirm-backdrop" onclick="closeConfirmModal()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200 opacity-0"></div>
+        <div id="dcms-confirm-backdrop" onclick="closeConfirmModal()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200 opacity-0 cursor-pointer"></div>
 
         <!-- Modal Box -->
-        <div id="dcms-confirm-panel" class="relative w-full max-w-md transform overflow-hidden rounded-3xl bg-white p-6 shadow-2xl transition-all duration-200 scale-95 opacity-0 border border-slate-100">
+        <div id="dcms-confirm-panel" class="relative z-10 w-full max-w-md transform overflow-hidden rounded-3xl bg-white p-6 shadow-2xl transition-all duration-200 scale-95 opacity-0 border border-slate-100">
             <!-- Close button -->
-            <button type="button" onclick="closeConfirmModal()" class="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" aria-label="Tutup">
+            <button type="button" onclick="closeConfirmModal()" class="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer" aria-label="Tutup">
                 <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
 
@@ -190,22 +265,30 @@
         const form = buttonOrForm.tagName === 'FORM' ? buttonOrForm : buttonOrForm.closest('form');
         if (!form) return;
 
-        openConfirmModal({
-            title: options.title || 'Konfirmasi Hapus Data',
-            message: options.message || 'Apakah Anda yakin ingin menghapus data ini secara permanen dari sistem?',
-            itemName: options.item || options.itemName || '',
-            confirmText: options.confirmText || 'Ya, Hapus Sekarang',
-            type: options.type || 'danger',
-            onConfirm: () => {
-                const btn = form.querySelector('button[type="button"], button[type="submit"]') || (buttonOrForm.tagName === 'BUTTON' ? buttonOrForm : null);
-                if (btn) {
-                    btn.disabled = true;
-                    btn.classList.add('opacity-60', 'cursor-not-allowed');
-                    btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><svg class="animate-spin size-3.5" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Menghapus...</span>';
+        try {
+            openConfirmModal({
+                title: options.title || 'Konfirmasi Hapus Data',
+                message: options.message || 'Apakah Anda yakin ingin menghapus data ini secara permanen dari sistem?',
+                itemName: options.item || options.itemName || '',
+                confirmText: options.confirmText || 'Ya, Hapus Sekarang',
+                type: options.type || 'danger',
+                onConfirm: () => {
+                    const btn = form.querySelector('button[type="button"], button[type="submit"]') || (buttonOrForm.tagName === 'BUTTON' ? buttonOrForm : null);
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-60', 'cursor-not-allowed');
+                        btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><svg class="animate-spin size-3.5" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Menghapus...</span>';
+                    }
+                    form.submit();
                 }
+            });
+        } catch (err) {
+            console.error('Modal error, using fallback confirm:', err);
+            const promptText = (options.title ? options.title + '\n' : '') + (options.itemName ? 'Item: ' + options.itemName + '\n' : '') + (options.message || 'Apakah Anda yakin?');
+            if (window.confirm(promptText)) {
                 form.submit();
             }
-        });
+        }
     }
     </script>
     @if (session('show_login_guidance') && auth()->check())
@@ -214,6 +297,12 @@
 
     {{-- Live WhatsApp Floating Chat Widget --}}
     @include('layouts.live-chat-widget')
+
+    {{-- Floating Pop-up Toast Container (Pojok Kanan Atas) --}}
+    <div id="dcmsTopRightToastContainer" class="fixed top-5 right-5 z-[9999999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-full pointer-events-none pr-2"></div>
+
+    {{-- DCMS Background Auto-Sync & Realtime Notification Script --}}
+    <script src="{{ asset('js/dcms-notification-sync.js') }}"></script>
 
 </body>
 </html>

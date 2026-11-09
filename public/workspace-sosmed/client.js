@@ -705,11 +705,6 @@ function processAllReports() {
     totalSosmedAchieve += amount;
     totalSosmedGP += gp;
 
-    // Report 1: Daily Matrix accumulation for total day
-    if (parsedDailyMatrix[day]) {
-      parsedDailyMatrix[day].totalDay += amount;
-    }
-
     // Identify sales PIC
     let matchedPIC = null;
     const empUpper = emp.toUpperCase();
@@ -821,9 +816,21 @@ function processAllReports() {
     }
   }
 
-  // Calculate AVG for Report 1
+  // Calculate day total and AVG for Report 1 strictly based on active PIC sales day-by-day
+  let grandActiveAchieve = 0;
+  let grandActiveGP = 0;
+  activePICs.forEach(pic => {
+    grandActiveAchieve += (picStats[pic] ? picStats[pic].pencapaian : 0);
+    grandActiveGP += (picStats[pic] ? picStats[pic].acvGP : 0);
+  });
+
   for (let day = 1; day <= daysInMonth; day++) {
-    parsedDailyMatrix[day].avg = parsedDailyMatrix[day].totalDay / activePICs.length;
+    let daySum = 0;
+    activePICs.forEach(pic => {
+      daySum += (parsedDailyMatrix[day].sales[pic] || 0);
+    });
+    parsedDailyMatrix[day].totalDay = daySum;
+    parsedDailyMatrix[day].avg = activePICs.length > 0 ? Math.round(daySum / activePICs.length) : 0;
   }
 
   // Calculate Timegone based on max active day (e.g. 13 / 31 = 42%)
@@ -834,8 +841,8 @@ function processAllReports() {
   lastProcessedPicStats = picStats;
   lastActivePICs = activePICs;
   lastDocTransactions = docTransactions;
-  lastTotalSosmedAchieve = totalSosmedAchieve;
-  lastTotalSosmedGP = totalSosmedGP;
+  lastTotalSosmedAchieve = grandActiveAchieve > 0 ? grandActiveAchieve : totalSosmedAchieve;
+  lastTotalSosmedGP = grandActiveGP !== 0 ? grandActiveGP : totalSosmedGP;
   lastTotalSosmedGadget = totalSosmedGadget;
   lastTotalSosmedCross = totalSosmedCross;
 
@@ -870,9 +877,9 @@ function renderReport1Table(activePICs) {
     const emp = masterList.find(x => x.name === pic);
     const isIntern = emp && (emp.level || '').toLowerCase() === 'internship';
     const badge = isIntern 
-      ? ` <span class="matrix-intern-badge" style="display:inline-block; font-size:9px; font-weight:700; color:#7c3aed; background:#f3e8ff; border:1px solid #ddd6fe; border-radius:4px; padding:0 4px; margin-left:3px; vertical-align:middle;">INTERN</span>` 
+      ? ` <span class="matrix-intern-badge">INTERNSHIP</span>` 
       : '';
-    headerHtml += `<th>${pic}${badge}</th>`;
+    headerHtml += `<th class="col-pic"><div class="matrix-pic-head"><span class="pic-name">${pic}</span>${badge}</div></th>`;
   });
   headerHtml += `<th class="col-achieve">ACHIEVE DAY</th><th class="col-week">WEEK</th><th class="col-avg">AVG</th>`;
   theadRow.innerHTML = headerHtml;
@@ -886,32 +893,49 @@ function renderReport1Table(activePICs) {
     const row = parsedDailyMatrix[day];
     const tr = document.createElement('tr');
     tr.id = `row-date-${day}`;
-    if (day === lastActiveDay) tr.classList.add('row-today');
+    const isToday = day === lastActiveDay;
+    if (isToday) tr.classList.add('row-today');
 
-    let trHtml = `<td class="col-sticky">${row.dateStr}</td>`;
+    let trHtml = `<td class="col-sticky">
+      <div class="date-cell-inner">
+        <span class="date-text">${row.dateStr}</span>
+        ${isToday ? '<span class="today-tag" title="Tanggal Berjalan">HARI INI</span>' : ''}
+      </div>
+    </td>`;
+
+    let daySum = 0;
     activePICs.forEach(pic => {
       const val = row.sales[pic] || 0;
+      daySum += val;
       colTotals[pic] += val;
-      const valClass = val === 0 ? 'cell-zero' : '';
-      trHtml += `<td class="${valClass}">${formatRupiah(val)}</td>`;
+      const isZero = val === 0;
+      const valDisplay = isZero ? '<span class="val-dash">-</span>' : formatRupiah(val);
+      const valClass = isZero ? 'cell-zero' : 'cell-value';
+      trHtml += `<td class="${valClass}">${valDisplay}</td>`;
     });
 
-    grandTotalAchieve += row.totalDay;
-    const achieveClass = row.totalDay === 0 ? 'cell-zero' : '';
-    trHtml += `<td class="col-achieve ${achieveClass}">${formatRupiah(row.totalDay)}</td>`;
-    trHtml += `<td class="col-week">${row.weekLabel}</td>`;
-    trHtml += `<td class="col-avg ${row.avg === 0 ? 'cell-zero' : ''}">${formatRupiah(row.avg)}</td>`;
+    row.totalDay = daySum;
+    row.avg = activePICs.length > 0 ? Math.round(daySum / activePICs.length) : 0;
+    grandTotalAchieve += daySum;
+
+    const isTotalZero = daySum === 0;
+    const totalDisplay = isTotalZero ? '<span class="val-dash">-</span>' : formatRupiah(daySum);
+    const achieveClass = isTotalZero ? 'cell-zero' : 'font-bold';
+    trHtml += `<td class="col-achieve ${achieveClass}">${totalDisplay}</td>`;
+    trHtml += `<td class="col-week"><span class="week-pill">${row.weekLabel}</span></td>`;
+    const isAvgZero = row.avg === 0;
+    const avgDisplay = isAvgZero ? '<span class="val-dash">-</span>' : formatRupiah(row.avg);
+    trHtml += `<td class="col-avg ${isAvgZero ? 'cell-zero' : ''}">${avgDisplay}</td>`;
 
     tr.innerHTML = trHtml;
     tbody.appendChild(tr);
   }
 
   // Footer: TOTAL, SISA, TARGET, PROGRESS
-  const masterList = getMasterSales();
-  let totalHtml = `<tr class="row-total"><td class="col-sticky">TOTAL</td>`;
-  let sisaHtml = `<tr class="row-sisa"><td class="col-sticky">SISA</td>`;
-  let targetHtml = `<tr class="row-target"><td class="col-sticky">TARGET</td>`;
-  let progressHtml = `<tr class="row-progress"><td class="col-sticky">PROGRESS</td>`;
+  let totalHtml = `<tr class="row-total"><td class="col-sticky"><span class="footer-label">TOTAL</span></td>`;
+  let sisaHtml = `<tr class="row-sisa"><td class="col-sticky"><span class="footer-label">SISA</span></td>`;
+  let targetHtml = `<tr class="row-target"><td class="col-sticky"><span class="footer-label">TARGET</span></td>`;
+  let progressHtml = `<tr class="row-progress"><td class="col-sticky"><span class="footer-label">PROGRESS</span></td>`;
 
   let sumTarget = 0;
   activePICs.forEach(pic => {
@@ -921,9 +945,10 @@ function renderReport1Table(activePICs) {
     const total = colTotals[pic];
     const sisa = total - target;
     const pct = target > 0 ? (total / target) * 100 : 0;
+    const sisaClass = sisa >= 0 ? 'text-positive' : 'text-negative';
 
     totalHtml += `<td>${formatRupiah(total)}</td>`;
-    sisaHtml += `<td>${formatRupiah(sisa)}</td>`;
+    sisaHtml += `<td class="${sisaClass}">${formatRupiah(sisa)}</td>`;
     targetHtml += `<td>${formatRupiah(target)}</td>`;
     progressHtml += `<td>
       <div class="progress-cell-inner">
@@ -937,9 +962,10 @@ function renderReport1Table(activePICs) {
 
   const grandSisa = grandTotalAchieve - sumTarget;
   const grandPct = sumTarget > 0 ? (grandTotalAchieve / sumTarget) * 100 : 0;
+  const grandSisaClass = grandSisa >= 0 ? 'text-positive' : 'text-negative';
 
   totalHtml += `<td class="col-achieve">${formatRupiah(grandTotalAchieve)}</td><td class="col-week text-center">-</td><td class="col-avg text-center">-</td></tr>`;
-  sisaHtml += `<td class="col-achieve">${formatRupiah(grandSisa)}</td><td class="col-week text-center">-</td><td class="col-avg text-center">-</td></tr>`;
+  sisaHtml += `<td class="col-achieve ${grandSisaClass}">${formatRupiah(grandSisa)}</td><td class="col-week text-center">-</td><td class="col-avg text-center">-</td></tr>`;
   targetHtml += `<td class="col-achieve">${formatRupiah(sumTarget)}</td><td class="col-week text-center">-</td><td class="col-avg text-center">-</td></tr>`;
   progressHtml += `<td class="col-achieve">
     <div class="progress-cell-inner">
@@ -1505,7 +1531,7 @@ function startSmoothProgress({
   id = `smooth-${Date.now()}`, 
   title = 'Menyimpan ke Google Sheets...', 
   detail = 'Menghubungkan ke server...',
-  timeoutMs = 15000,
+  timeoutMs = 45000,
   onTimeout
 } = {}) {
   const ctrl = showProgressNotification({ id, title, detail, initialPct: 10 });
@@ -1533,7 +1559,7 @@ function startSmoothProgress({
       clearInterval(interval);
       ctrl.fail({
         title: '⚠️ Batas Waktu Terlampaui (Timeout)',
-        detail: 'Koneksi jaringan terlalu lama (15 detik). Silakan coba lagi atau pastikan server lokal aktif.'
+        detail: `Koneksi jaringan melebihi batas (${Math.round(timeoutMs / 1000)} detik). Silakan coba lagi atau pastikan server aktif.`
       });
       if (typeof onTimeout === 'function') {
         try { onTimeout(); } catch (_) {}
@@ -2180,53 +2206,65 @@ async function syncLiveKeepData() {
   const prog = startSmoothProgress({
     id: 'sync-live-keep-progress',
     title: '🔄 Sinkronisasi Data Google Sheets',
-    detail: 'Menghubungkan & mengunduh data keep terbaru...'
+    detail: 'Menghubungkan & mengunduh data keep terbaru...',
+    timeoutMs: 60000
   });
 
   try {
-    let csvData = null;
+    let syncSucceeded = false;
     try {
-      const res = await fetch('/api/sync-keep', { signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined });
+      const res = await fetch('/api/sync-keep?force=1', { signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined });
       const text = await res.text();
       if (text.trim().startsWith('{')) {
         const data = JSON.parse(text);
         if (data.success) {
-          if (data.csvText) {
-            csvData = data.csvText;
-          } else {
-            const localRes = await fetch(`keep-data.csv?t=${Date.now()}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined });
-            if (localRes.ok) {
-              csvData = await localRes.text();
-            }
-          }
+          syncSucceeded = true;
+          prog.update({ pct: 80, detail: 'Memproses baris data keep ke memori...' });
+          await loadKeepData();
+          applyKeepFilters();
+          prog.complete({
+            title: '✅ Sinkronisasi Google Sheets Berhasil!',
+            detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data berhasil dimuat`
+          });
         }
       }
     } catch (e) {
       console.warn("Backend sync-keep warning:", e);
     }
 
-    // Direct browser fallback to Google Sheets CSV export
-    if (!csvData) {
+    // Direct browser fallback to Google Sheets CSV export if backend sync didn't complete
+    if (!syncSucceeded) {
       prog.update({ pct: 45, detail: 'Mengunduh langsung dari server Google Sheets...' });
-      const directRes = await fetch('https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/export?format=csv&gid=1014933310', { signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined });
+      const directRes = await fetch('https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/export?format=csv&gid=1014933310', { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
       if (directRes.ok) {
-        csvData = await directRes.text();
+        const csvData = await directRes.text();
+        prog.update({ pct: 80, detail: 'Memproses baris data keep ke memori...' });
+        await loadKeepData();
+        applyKeepFilters();
+        prog.complete({
+          title: '✅ Sinkronisasi Google Sheets Berhasil!',
+          detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data berhasil dimuat`
+        });
+        syncSucceeded = true;
       }
     }
 
-    if (csvData) {
-      prog.update({ pct: 80, detail: 'Memproses baris data keep ke memori...' });
-      parseKeepCSV(csvData);
-      try {
-        localStorage.setItem('gadgetmart_sosmed_keep_cache', csvData);
-      } catch (storageErr) {
-        console.warn("Storage quota exceeded for localStorage keep cache:", storageErr);
+    if (syncSucceeded) {
+
+      if (typeof window.showDcmsToast === 'function') {
+        window.showDcmsToast({
+          title: 'Google Sheets Berhasil Disinkronkan!',
+          message: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data berhasil dimuat ke sistem.`,
+          type: 'success'
+        });
       }
-      applyKeepFilters();
-      prog.complete({
-        title: '✅ Sinkronisasi Google Sheets Berhasil!',
-        detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data berhasil dimuat`
-      });
+      if (typeof window.addDcmsNotification === 'function') {
+        window.addDcmsNotification({
+          title: 'Sinkronisasi Google Sheets Berhasil',
+          message: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data transaksi terbaru berhasil dimuat.`,
+          type: 'success'
+        });
+      }
     } else {
       await loadKeepData();
       prog.complete({
@@ -2247,6 +2285,21 @@ async function syncLiveKeepData() {
   }
 }
 window.syncLiveKeepData = syncLiveKeepData;
+
+// Global listener saat background auto-sync selesai memperbarui data
+window.addEventListener('dcms:keep-synced', async (e) => {
+  console.log('🔄 [Workspace Sosmed] Sinyal dcms:keep-synced diterima dari background sync:', e.detail);
+  try {
+    if (typeof loadKeepData === 'function') {
+      await loadKeepData();
+      if (typeof applyKeepFilters === 'function') {
+        applyKeepFilters();
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal memperbarui tampilan keep:', err);
+  }
+});
 
 const KEEP_MONTH_WEIGHTS = {
   'januari': 1, 'jan': 1,
@@ -6219,6 +6272,17 @@ function closeMonthlyTargetModal() {
   if (modal) modal.style.display = 'none';
 }
 
+function formatRupiahMask(val) {
+  const digits = String(val ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  return parseInt(digits, 10).toLocaleString('id-ID');
+}
+
+function parseRupiahMask(val) {
+  const digits = String(val ?? '').replace(/\D/g, '');
+  return digits === '' ? 0 : parseInt(digits, 10);
+}
+
 function onModalTargetMonthChange() {
   const mSelect = document.getElementById('modalTargetMonthSelect');
   const yInput = document.getElementById('modalTargetYearInput');
@@ -6245,7 +6309,7 @@ function onModalTargetMonthChange() {
   if (defaultTeam <= 0) defaultTeam = 8447356034;
 
   const teamTarget = monthData.teamTarget !== undefined ? Number(monthData.teamTarget) : defaultTeam;
-  if (teamInput) teamInput.value = teamTarget;
+  if (teamInput) teamInput.value = formatRupiahMask(teamTarget);
 
   const container = document.getElementById('modalSalesTargetListContainer');
   if (container) {
@@ -6277,12 +6341,13 @@ function onModalTargetMonthChange() {
             </div>
             <div style="position: relative; width: 200px;">
               <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.74rem; font-weight: 700; color: #94a3b8; pointer-events: none;">Rp</span>
-              <input type="number" 
+              <input type="text" 
                      id="modalSalesInput_${item.code}" 
                      data-code="${item.code}" 
                      data-name="${item.name}" 
-                     value="${currentVal}" 
-                     oninput="onModalSalesRowChange('${item.code}')" 
+                     value="${formatRupiahMask(currentVal)}" 
+                     placeholder="867.261.886"
+                     oninput="onModalSalesRowChange('${item.code}', this)" 
                      class="form-input modal-sales-target-input" 
                      style="padding-left: 32px; padding-right: 12px; text-align: right; font-weight: 700; font-size: 0.88rem; width: 100%; border-radius: 8px; font-family: monospace;">
             </div>
@@ -6295,17 +6360,22 @@ function onModalTargetMonthChange() {
   updateModalTargetSummary();
 }
 
-function onModalTeamInputChange() {
+function onModalTeamInputChange(inp) {
+  if (inp) {
+    const num = parseRupiahMask(inp.value);
+    inp.value = num > 0 ? num.toLocaleString('id-ID') : '';
+  }
   updateModalTargetSummary();
 }
 
-function onModalSalesRowChange(code) {
-  const inp = document.getElementById(`modalSalesInput_${code}`);
-  if (inp) {
-    const val = parseFloat(inp.value) || 0;
+function onModalSalesRowChange(code, inp) {
+  const el = inp || document.getElementById(`modalSalesInput_${code}`);
+  if (el) {
+    const num = parseRupiahMask(el.value);
+    el.value = num > 0 ? num.toLocaleString('id-ID') : '';
     const gpEl = document.getElementById(`modalRowGP_${code}`);
     if (gpEl) {
-      gpEl.innerText = `GP: ${formatRupiah(Math.round(val * 0.05))}`;
+      gpEl.innerText = `GP: ${formatRupiah(Math.round(num * 0.05))}`;
     }
   }
   updateModalTargetSummary();
@@ -6313,7 +6383,7 @@ function onModalSalesRowChange(code) {
 
 function updateModalTargetSummary() {
   const teamInput = document.getElementById('modalTeamTargetInput');
-  const teamVal = teamInput ? (parseFloat(teamInput.value) || 0) : 0;
+  const teamVal = teamInput ? parseRupiahMask(teamInput.value) : 0;
 
   const teamGPEl = document.getElementById('modalTeamGPPreview');
   if (teamGPEl) {
@@ -6323,7 +6393,7 @@ function updateModalTargetSummary() {
   let sumSales = 0;
   const inputs = document.querySelectorAll('.modal-sales-target-input');
   inputs.forEach(inp => {
-    sumSales += (parseFloat(inp.value) || 0);
+    sumSales += parseRupiahMask(inp.value);
   });
 
   const footerTotalEl = document.getElementById('modalFooterTotalSales');
@@ -6349,7 +6419,7 @@ function updateModalTargetSummary() {
 
 function modalBagiRataSales() {
   const teamInput = document.getElementById('modalTeamTargetInput');
-  const teamVal = teamInput ? (parseFloat(teamInput.value) || 0) : 0;
+  const teamVal = teamInput ? parseRupiahMask(teamInput.value) : 0;
   const inputs = document.querySelectorAll('.modal-sales-target-input');
   if (inputs.length === 0 || teamVal <= 0) {
     alert('Isi Target Tim terlebih dahulu.');
@@ -6357,7 +6427,7 @@ function modalBagiRataSales() {
   }
   const perSales = Math.round(teamVal / inputs.length);
   inputs.forEach(inp => {
-    inp.value = perSales;
+    inp.value = formatRupiahMask(perSales);
     const code = inp.getAttribute('data-code');
     const gpEl = document.getElementById(`modalRowGP_${code}`);
     if (gpEl) gpEl.innerText = `GP: ${formatRupiah(Math.round(perSales * 0.05))}`;
@@ -6369,11 +6439,11 @@ function modalHitungTotalSales() {
   let sumSales = 0;
   const inputs = document.querySelectorAll('.modal-sales-target-input');
   inputs.forEach(inp => {
-    sumSales += (parseFloat(inp.value) || 0);
+    sumSales += parseRupiahMask(inp.value);
   });
   const teamInput = document.getElementById('modalTeamTargetInput');
   if (teamInput) {
-    teamInput.value = sumSales;
+    teamInput.value = formatRupiahMask(sumSales);
   }
   updateModalTargetSummary();
 }
@@ -6387,7 +6457,7 @@ async function saveModalMonthlyTargets() {
   const y = yInput ? parseInt(yInput.value, 10) : (activeYear || 2026);
   const key = getMonthlyTargetKey(m, y);
 
-  const teamTarget = teamInput ? (parseFloat(teamInput.value) || 8447356034) : 8447356034;
+  const teamTarget = teamInput ? (parseRupiahMask(teamInput.value) || 8447356034) : 8447356034;
   const salesTargets = {};
   const masterList = getMasterSales();
 
@@ -6395,7 +6465,7 @@ async function saveModalMonthlyTargets() {
   inputs.forEach(inp => {
     const code = inp.getAttribute('data-code');
     const name = inp.getAttribute('data-name');
-    const val = parseFloat(inp.value) || 0;
+    const val = parseRupiahMask(inp.value);
     if (code) salesTargets[code] = val;
     if (name) salesTargets[name] = val;
 
@@ -6478,55 +6548,84 @@ function downloadReportAsPNG() {
   }
 }
 
-function downloadElementAsPNG(elementId, filePrefix) {
+async function downloadElementAsPNG(elementId, filePrefix) {
   const el = document.getElementById(elementId);
   if (!el) {
     alert("Elemen report tidak ditemukan.");
     return;
   }
 
-  const btn = document.getElementById('btnDownloadPNG');
-  const originalText = btn ? btn.innerHTML : '';
-  if (btn) btn.innerHTML = '⏳ Menyiapkan Gambar Lengkap...';
+  // Visual button feedback without mutating layout or page structure
+  const btn = (typeof event !== 'undefined' && event && event.currentTarget) 
+    ? event.currentTarget 
+    : (el.querySelector('.btn-download-themed') || document.getElementById('btnDownloadPNG'));
+  const origBtnContent = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>⏳ Menyiapkan Gambar...</span>`;
+  }
 
-  // Ensure full width and height are completely unfolded without clipping
-  const scrollContainers = el.querySelectorAll('.table-responsive');
-  const originalStyles = [];
+  try {
+    // We strictly use onclone hook so the LIVE DOM on user screen is NEVER touched or shifted
+    const canvas = await html2canvas(el, {
+      scale: 2, // High resolution Retina quality
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      onclone: (clonedDoc) => {
+        const clonedEl = clonedDoc.getElementById(elementId);
+        if (!clonedEl) return;
 
-  scrollContainers.forEach(sc => {
-    originalStyles.push({ el: sc, maxH: sc.style.maxHeight, overflow: sc.style.overflow });
-    sc.style.maxHeight = 'none';
-    sc.style.overflow = 'visible';
-  });
+        // 1. Hide all interactive buttons in the exported image
+        clonedEl.querySelectorAll('button, .btn, .btn-download-themed, [data-html2canvas-ignore="true"]').forEach(b => {
+          b.style.display = 'none';
+        });
 
-  html2canvas(el, {
-    scale: 2, // High resolution Retina
-    useCORS: true,
-    backgroundColor: '#ffffff',
-    windowWidth: Math.max(document.documentElement.scrollWidth, 1400),
-    width: el.scrollWidth,
-    height: el.scrollHeight
-  }).then(canvas => {
-    // Restore styles
-    originalStyles.forEach(s => {
-      s.el.style.maxHeight = s.maxH;
-      s.el.style.overflow = s.overflow;
+        // 2. Unroll scroll area completely in the cloned document so all 31 days are visible
+        clonedEl.querySelectorAll('.table-responsive, .report1-scroll-area').forEach(sc => {
+          sc.style.setProperty('max-height', 'none', 'important');
+          sc.style.setProperty('height', 'auto', 'important');
+          sc.style.setProperty('overflow', 'visible', 'important');
+          sc.style.setProperty('overflow-x', 'visible', 'important');
+          sc.style.setProperty('overflow-y', 'visible', 'important');
+        });
+
+        // 3. Set sticky elements to static positioning in clone only so html2canvas renders natural order
+        clonedEl.querySelectorAll('.col-sticky, thead, thead th, tfoot, tfoot tr, tfoot td').forEach(st => {
+          st.style.setProperty('position', 'static', 'important');
+          st.style.setProperty('top', 'auto', 'important');
+          st.style.setProperty('bottom', 'auto', 'important');
+          st.style.setProperty('left', 'auto', 'important');
+          st.style.setProperty('box-shadow', 'none', 'important');
+        });
+
+        // 4. Force clone container width and remove clipping
+        clonedEl.style.setProperty('overflow', 'visible', 'important');
+        clonedEl.style.setProperty('width', 'max-content', 'important');
+        clonedEl.style.setProperty('max-width', 'none', 'important');
+
+        // 5. Sembunyikan label Nilai DPP, INTERNSHIP, dan HARI INI pada hasil unduh gambar
+        clonedEl.querySelectorAll('#modeIndicatorTag, .pill-badge-red, .matrix-intern-badge, .today-tag').forEach(b => {
+          b.style.setProperty('display', 'none', 'important');
+        });
+      }
     });
 
+    const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const mStr = monthNames[Number(activeMonth)] || activeMonth;
     const link = document.createElement('a');
-    link.download = `GadgetMart_${filePrefix}_${new Date().toISOString().slice(0,10)}.png`;
+    link.download = `GadgetMart_${filePrefix}_${mStr}_${activeYear}_${new Date().toISOString().slice(0,10)}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-    if (btn) btn.innerHTML = originalText;
-  }).catch(err => {
-    originalStyles.forEach(s => {
-      s.el.style.maxHeight = s.maxH;
-      s.el.style.overflow = s.overflow;
-    });
+  } catch (err) {
     console.error("Gagal membuat PNG:", err);
     alert("Gagal mengunduh gambar PNG. Pastikan tabel ditampilkan.");
-    if (btn) btn.innerHTML = originalText;
-  });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origBtnContent;
+    }
+  }
 }
 
 // 12. CALCULATION MODE TOGGLE (DPP VS GROSS)
@@ -6893,30 +6992,58 @@ async function loadAllDefaultFiles() {
   const statusTitle = document.getElementById('fileStatusTitle');
   if (statusTitle) statusTitle.innerText = 'Menghubungkan ke Server Database...';
   
-  // 1. Fetch turnover.xlsx:
+  // 1. Fetch turnover.xlsx / SQL Database Records:
   let turnoverLoaded = false;
 
-  // A. Prioritaskan ambil dari Database Server (/api/get-excel?type=turnover) agar data upload terbaru selalu masuk
+  // A0. Prioritas Utama: Ambil langsung dari Database SQL MySQL (/api/turnover-records) untuk kecepatan maksimal & anti-kosong
   try {
-    const resTurnover = await fetch(`/api/get-excel?type=turnover&t=${Date.now()}`);
-    if (resTurnover.ok) {
-      const isDbCustom = resTurnover.headers.get('X-Custom-File') === 'true';
-      const serverTs = resTurnover.headers.get('X-File-Timestamp');
-      const uploader = resTurnover.headers.get('X-File-Uploader') || 'Superadmin';
-      const buf1 = await resTurnover.arrayBuffer();
-      if (buf1 && buf1.byteLength > 100) {
-        parseTurnoverBuffer(buf1);
+    const resTurnoverJson = await fetch(`/api/turnover-records?format=client&sosmed_only=1&t=${Date.now()}`);
+    if (resTurnoverJson.ok) {
+      const dataTurnover = await resTurnoverJson.json();
+      if (dataTurnover && dataTurnover.success && Array.isArray(dataTurnover.rows) && dataTurnover.rows.length > 0) {
+        rawTurnoverRows = dataTurnover.rows;
         turnoverLoaded = true;
-        await saveFileToIndexedDB('turnover_file', buf1);
-        localStorage.setItem('gadgetmart_turnover_is_custom', 'true');
-        const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : getFormattedTimestamp();
-        localStorage.setItem('gadgetmart_turnover_timestamp', ts);
-        updateTurnoverIndicator(`File turnover terupdate per ${ts} (Sinkron dari ${uploader})`);
-        console.log('✅ turnover.xlsx dimuat dari database server!');
+        const detected = autoDetectTurnoverMonth(dataTurnover.rows);
+        if (detected) {
+          activeMonth = detected.month;
+          activeYear = detected.year;
+          daysInMonth = new Date(activeYear, activeMonth, 0).getDate();
+          const dashSel = document.getElementById('dashFilterMonth');
+          if (dashSel) dashSel.value = String(activeMonth);
+        }
+        processAllReports();
+        updateDatabaseStatus();
+        updateTurnoverIndicator(`Database Turnover Realtime (${dataTurnover.rows.length.toLocaleString('id-ID')} transaksi SOSMED)`);
+        console.log(`✅ ${dataTurnover.rows.length} transaksi turnover dimuat langsung dari Database SQL!`);
       }
     }
   } catch (e) {
-    console.warn('Gagal fetch turnover dari server:', e);
+    console.warn('Gagal fetch turnover JSON dari database server:', e);
+  }
+
+  // A. Fallback jika API JSON gagal: Ambil dari Database Server (/api/get-excel?type=turnover)
+  if (!turnoverLoaded) {
+    try {
+      const resTurnover = await fetch(`/api/get-excel?type=turnover&t=${Date.now()}`);
+      if (resTurnover.ok) {
+        const isDbCustom = resTurnover.headers.get('X-Custom-File') === 'true';
+        const serverTs = resTurnover.headers.get('X-File-Timestamp');
+        const uploader = resTurnover.headers.get('X-File-Uploader') || 'Superadmin';
+        const buf1 = await resTurnover.arrayBuffer();
+        if (buf1 && buf1.byteLength > 100) {
+          parseTurnoverBuffer(buf1);
+          turnoverLoaded = true;
+          await saveFileToIndexedDB('turnover_file', buf1);
+          localStorage.setItem('gadgetmart_turnover_is_custom', 'true');
+          const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : getFormattedTimestamp();
+          localStorage.setItem('gadgetmart_turnover_timestamp', ts);
+          updateTurnoverIndicator(`File turnover terupdate per ${ts} (Sinkron dari ${uploader})`);
+          console.log('✅ turnover.xlsx dimuat dari database server!');
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal fetch turnover dari server:', e);
+    }
   }
 
   // B. Fallback ke IndexedDB jika koneksi server gagal/offline
@@ -6949,12 +7076,30 @@ async function loadAllDefaultFiles() {
     } catch (e) {}
   }
 
-  // 2. Fetch CROSSELLING-12102026.xlsx
+  // 2. Fetch CROSSELLING in Background (Async Non-blocking agar Report Matrix langsung tampil instan)
+  loadCrosellingDataAsync();
+
+  // Inisialisasi status sync server baseline
+  try {
+    const resStatus = await fetch(`/api/database-status?t=${Date.now()}`, { cache: 'no-store' });
+    if (resStatus.ok) {
+      const s = await resStatus.json();
+      if (s.turnover && s.turnover.mtimeMs) lastKnownSyncStatus.turnoverMtime = s.turnover.mtimeMs;
+      if (s.archives && s.archives.mtimeMs) lastKnownSyncStatus.archivesMtime = s.archives.mtimeMs;
+      if (s.croselling && s.croselling.mtimeMs) lastKnownSyncStatus.crosellingMtime = s.croselling.mtimeMs;
+      if (s.targets && s.targets.mtimeMs) lastKnownSyncStatus.targetsMtime = s.targets.mtimeMs;
+      if (s.photos && s.photos.mtimeMs) lastKnownSyncStatus.photosMtime = s.photos.mtimeMs;
+      if (s.keep && s.keep.mtimeMs) lastKnownSyncStatus.keepMtime = s.keep.mtimeMs;
+    }
+  } catch(e) {}
+}
+
+// Background Loader untuk Google Sheets / Croselling XLSX (tidak memblokir render Report Matrix)
+async function loadCrosellingDataAsync() {
   let crosellingLoaded = false;
   try {
     const resCroselling = await fetch(`/api/get-excel?type=croselling&t=${Date.now()}`);
     if (resCroselling.ok) {
-      const isDbCustom = resCroselling.headers.get('X-Custom-File') === 'true';
       const uploader = resCroselling.headers.get('X-File-Uploader') || 'Superadmin';
       const serverTs = resCroselling.headers.get('X-File-Timestamp');
       const buf2 = await resCroselling.arrayBuffer();
@@ -6995,20 +7140,6 @@ async function loadAllDefaultFiles() {
   if (!crosellingLoaded) {
     updateCrosellingIndicator('Belum diunggah di browser ini');
   }
-
-  // Inisialisasi status sync server baseline
-  try {
-    const resStatus = await fetch(`/api/database-status?t=${Date.now()}`, { cache: 'no-store' });
-    if (resStatus.ok) {
-      const s = await resStatus.json();
-      if (s.turnover && s.turnover.mtimeMs) lastKnownSyncStatus.turnoverMtime = s.turnover.mtimeMs;
-      if (s.archives && s.archives.mtimeMs) lastKnownSyncStatus.archivesMtime = s.archives.mtimeMs;
-      if (s.croselling && s.croselling.mtimeMs) lastKnownSyncStatus.crosellingMtime = s.croselling.mtimeMs;
-      if (s.targets && s.targets.mtimeMs) lastKnownSyncStatus.targetsMtime = s.targets.mtimeMs;
-      if (s.photos && s.photos.mtimeMs) lastKnownSyncStatus.photosMtime = s.photos.mtimeMs;
-      if (s.keep && s.keep.mtimeMs) lastKnownSyncStatus.keepMtime = s.keep.mtimeMs;
-    }
-  } catch(e) {}
 }
 
 // REALTIME POLLING: MENDETEKSI PERUBAHAN & EDIT DARI LAPTOP LAIN SECARA LIVE
@@ -7110,18 +7241,17 @@ async function pollServerSyncStatus() {
     // F. Deteksi jika Data Keep Google Sheets diperbarui otomatis dari server
     if (status.keep && status.keep.exists && status.keep.mtimeMs) {
       if (lastKnownSyncStatus.keepMtime && status.keep.mtimeMs > lastKnownSyncStatus.keepMtime) {
-        console.log('🔄 [Sync Engine] Data Keep Google Sheets baru terdeteksi!');
+        console.log('🔄 [Sync Engine] Data Keep Google Sheets baru terdeteksi dari background sync!');
         lastKnownSyncStatus.keepMtime = status.keep.mtimeMs;
-        const prog = startSmoothProgress({
-          id: 'auto-sync-keep-progress',
-          title: '📡 Auto-Sync Data Google Sheets',
-          detail: 'Data keep diperbarui di server, memuat...'
-        });
         await loadKeepData(true);
-        prog.complete({
-          title: '✅ Data Google Sheets Tersinkronisasi!',
-          detail: `${rawKeepRows.length.toLocaleString('id-ID')} baris data live terupdate`
-        });
+        if (typeof window.showDcmsToast === 'function') {
+          window.showDcmsToast({
+            title: 'Google Sheets Diperbarui!',
+            message: `Data transaksi berhasil dimuat (${rawKeepRows.length.toLocaleString('id-ID')} data).`,
+            type: 'success',
+            duration: 4000
+          });
+        }
       } else if (!lastKnownSyncStatus.keepMtime) {
         lastKnownSyncStatus.keepMtime = status.keep.mtimeMs;
       }
@@ -9036,26 +9166,38 @@ function changeClaimsPage(delta) {
   }
 }
 
-// Auto init on page load with state resilience
+// Auto init on page load with state resilience (Super fast priority rendering for Report Matrix)
 async function initSosmedApp() {
+  // 1. Tampilkan tab target segera tanpa menunggu network
+  const initialActiveTab = (typeof window.WORKSPACE_ACTIVE_TAB === 'number') ? window.WORKSPACE_ACTIVE_TAB : 1;
+  if (typeof switchTab === 'function') {
+    try { switchTab(initialActiveTab); } catch (e) { console.warn('switchTab init error:', e); }
+  }
+
   try { initLiveClock(); } catch (e) { console.warn('initLiveClock error:', e); }
-  try { await loadMonthlyTargets(); } catch (e) { console.warn('loadMonthlyTargets error:', e); }
-  try { await loadSalesPhotos(); } catch (e) { console.warn('loadSalesPhotos error:', e); }
-  try { await loadMonthlyArchives(); } catch (e) { console.warn('loadMonthlyArchives error:', e); }
-  try { await loadARClaimsData(); } catch (e) { console.warn('loadARClaimsData error:', e); }
+
+  // 2. Muat metadata esensial secara paralel (non-blocking)
+  await Promise.allSettled([
+    loadMonthlyTargets(),
+    loadSalesPhotos(),
+    loadMonthlyArchives(),
+    loadARClaimsData()
+  ]);
+
   try { populateAdminPanel(getMasterSales()); } catch (e) { console.warn('populateAdminPanel error:', e); }
   try { onAdminTargetMonthChange(); } catch (e) { console.warn('onAdminTargetMonthChange error:', e); }
   try { renderArchiveGrid(); } catch (e) { console.warn('renderArchiveGrid error:', e); }
+
+  // 3. Muat data turnover SQL (cepat ~50ms) & langsung render Report 1 dan 2
   try { await loadAllDefaultFiles(); } catch (e) { console.error('loadAllDefaultFiles error:', e); }
   try { populateDashboardFilterDropdowns(); } catch (e) { console.warn('populateDashboardFilterDropdowns error:', e); }
   try { applyDashboardFilters(); } catch (e) { console.warn('applyDashboardFilters error:', e); }
-  try { await loadKeepData(); } catch (e) { console.warn('loadKeepData error:', e); }
-  try { startRealtimeSyncEngine(); } catch (e) { console.warn('startRealtimeSyncEngine error:', e); }
 
-  const initialActiveTab = (typeof window.WORKSPACE_ACTIVE_TAB === 'number') ? window.WORKSPACE_ACTIVE_TAB : 1;
-  if (initialActiveTab > 1 && typeof switchTab === 'function') {
-    switchTab(initialActiveTab);
-  }
+  // 4. Muat data sekunder berukuran besar (Keep Google Sheets & Realtime Poller) di background
+  setTimeout(() => {
+    try { loadKeepData(true); } catch (e) { console.warn('loadKeepData background error:', e); }
+    try { startRealtimeSyncEngine(); } catch (e) { console.warn('startRealtimeSyncEngine error:', e); }
+  }, 100);
 }
 window.initSosmedApp = initSosmedApp;
 

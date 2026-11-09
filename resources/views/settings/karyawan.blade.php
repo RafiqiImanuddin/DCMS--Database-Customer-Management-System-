@@ -31,26 +31,47 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="flex border-b border-slate-200">
+    <div class="flex border-b border-slate-200 flex-wrap gap-1">
         <a href="{{ route('settings.karyawan.index', ['tab' => 'employees']) }}" 
-           class="inline-flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition {{ $activeTab === 'employees' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800' }}">
+           class="inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition {{ $activeTab === 'employees' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800' }}">
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
             <span>Data Karyawan Sales</span>
             <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{{ $employees->total() }}</span>
         </a>
 
         <a href="{{ route('settings.karyawan.index', ['tab' => 'weights']) }}" 
-           class="inline-flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition {{ $activeTab === 'weights' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800' }}">
+           class="inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition {{ $activeTab === 'weights' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800' }}">
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z"/></svg>
             <span>Bobot & Kriteria Penilaian</span>
             <span class="rounded-full {{ abs($totalMatrixWeight - 100) < 0.1 && abs($totalWeight - 100) < 0.1 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }} px-2 py-0.5 text-xs font-bold">Matrix {{ $totalMatrixWeight }}% | Layanan {{ $totalWeight }}%</span>
         </a>
 
         <a href="{{ route('settings.karyawan.index', ['tab' => 'monthly_targets']) }}" 
-           class="inline-flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition {{ $activeTab === 'monthly_targets' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800' }}">
+           class="inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition {{ $activeTab === 'monthly_targets' ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800' }}">
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
             <span>Target Omzet Bulanan</span>
             <span class="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-bold">Periode Bulanan</span>
+        </a>
+
+        <!-- Menu dari Simbol Setting: Akses Cepat Pengaturan Admin Workspace (Tab 8) -->
+        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 8]) }}" 
+           class="inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold border-transparent text-slate-500 hover:text-indigo-600 transition">
+            <svg class="size-4 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+            <span>Pengaturan Admin (Foto Profil)</span>
+        </a>
+
+        <!-- Menu dari Simbol Setting: Arsip Pencapaian Bulanan (Tab 7) -->
+        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 7]) }}" 
+           class="inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold border-transparent text-slate-500 hover:text-cyan-600 transition">
+            <svg class="size-4 text-cyan-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+            <span>Arsip Pencapaian Bulanan</span>
+        </a>
+
+        <!-- Menu dari Simbol Setting: Kandidat Gadgetmart (Eksternal) -->
+        <a href="https://kandidatgadgetmart.my.id" target="_blank" rel="noopener noreferrer" 
+           class="inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold border-transparent text-slate-500 hover:text-violet-600 transition">
+            <svg class="size-4 text-violet-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.58-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/></svg>
+            <span>Kandidat Gadgetmart ↗</span>
         </a>
     </div>
 
@@ -751,8 +772,12 @@
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs font-bold text-slate-700">Target Omzet Bulanan (Rp) <span class="text-red-500">*</span></label>
-                    <input type="number" id="empTarget" name="target" required value="867261886" min="0" step="1000" placeholder="867261886" class="dcms-input mt-1 font-mono font-bold">
-                    <span class="text-[10px] text-slate-400">Target sales untuk Report Matrix (Rp 867.261.886 / Rp 1.081.261.572).</span>
+                    <div class="relative mt-1">
+                        <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-bold text-slate-400">Rp</span>
+                        <input type="text" id="empTargetDisplay" placeholder="867.261.886" oninput="onEmpTargetDisplayInput(this)" class="dcms-input pl-9 font-mono font-bold" required>
+                        <input type="hidden" id="empTarget" name="target" value="867261886">
+                    </div>
+                    <span class="text-[10px] text-slate-400">Bebas diisi angka berapa pun (otomatis terformat rupiah).</span>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700">Status Karyawan <span class="text-red-500">*</span></label>
@@ -827,6 +852,29 @@
 </div>
 
 <script>
+function setEmployeeTargetValue(val) {
+    const rawDigits = String(val ?? '').replace(/\D/g, '');
+    const num = rawDigits === '' ? 0 : parseInt(rawDigits, 10);
+    const hiddenEl = document.getElementById('empTarget');
+    const displayEl = document.getElementById('empTargetDisplay');
+    if (hiddenEl) hiddenEl.value = num;
+    if (displayEl) {
+        displayEl.value = num > 0 ? num.toLocaleString('id-ID') : (rawDigits === '' ? '' : '0');
+    }
+}
+
+function onEmpTargetDisplayInput(input) {
+    const rawDigits = input.value.replace(/\D/g, '');
+    const num = rawDigits === '' ? 0 : parseInt(rawDigits, 10);
+    const hiddenEl = document.getElementById('empTarget');
+    if (hiddenEl) hiddenEl.value = num;
+    if (rawDigits === '') {
+        input.value = '';
+    } else {
+        input.value = num.toLocaleString('id-ID');
+    }
+}
+
 function openCreateEmployeeModal() {
     document.getElementById('employeeModalTitle').innerText = 'Tambah Data Karyawan Sales';
     const form = document.getElementById('employeeForm');
@@ -837,7 +885,7 @@ function openCreateEmployeeModal() {
     document.getElementById('empName').value = '';
     document.getElementById('empLevel').value = 'Karyawan';
     document.getElementById('empRole').value = 'Admin Sales';
-    document.getElementById('empTarget').value = '867261886';
+    setEmployeeTargetValue(867261886);
     document.getElementById('empPhone').value = '';
     document.getElementById('empEmail').value = '';
     document.getElementById('empStatus').value = 'active';
@@ -856,7 +904,7 @@ function openEditEmployeeModal(emp) {
     document.getElementById('empName').value = emp.name || '';
     document.getElementById('empLevel').value = emp.level || 'Karyawan';
     document.getElementById('empRole').value = emp.role || 'Admin Sales';
-    document.getElementById('empTarget').value = emp.target || '867261886';
+    setEmployeeTargetValue(emp.target || 867261886);
     document.getElementById('empPhone').value = emp.phone || '';
     document.getElementById('empEmail').value = emp.email || '';
     document.getElementById('empStatus').value = emp.status || 'active';

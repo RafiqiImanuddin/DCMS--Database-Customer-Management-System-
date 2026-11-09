@@ -48,6 +48,11 @@ use Illuminate\Database\Eloquent\Model;
     'no_po',
     'source_file',
     'source_row',
+    'cross_selling_import_id',
+    'period_start',
+    'period_end',
+    'period_label',
+    'cleaning_hash',
 ])]
 class CrossSelling extends Model
 {

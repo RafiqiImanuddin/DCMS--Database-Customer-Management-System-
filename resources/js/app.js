@@ -73,6 +73,16 @@ importUploadForm?.addEventListener('submit', (event) => {
         return;
     }
 
+    const MAX_FILE_SIZE_BYTES = 40 * 1024 * 1024; // 40 MB
+    if (importFileInput?.files?.[0]?.size > MAX_FILE_SIZE_BYTES) {
+        alert(`Ukuran berkas Cross-Selling (${(importFileInput.files[0].size / 1024 / 1024).toFixed(1)} MB) melebihi batas maksimal 40 MB.`);
+        return;
+    }
+    if (turnoverFileInput?.files?.[0]?.size > MAX_FILE_SIZE_BYTES) {
+        alert(`Ukuran berkas Turnover (${(turnoverFileInput.files[0].size / 1024 / 1024).toFixed(1)} MB) melebihi batas maksimal 40 MB.`);
+        return;
+    }
+
     if (importSubmitButton) {
         importSubmitButton.disabled = true;
         importSubmitButton.textContent = 'Mengunggah data...';
@@ -111,13 +121,15 @@ importUploadForm?.addEventListener('submit', (event) => {
             if (uploadProgressLabel) uploadProgressLabel.textContent = 'Sinkronisasi berhasil! Memuat ulang...';
             setTimeout(() => window.location.reload(), 600);
         } else {
-            let errorMsg = 'Gagal mengunggah data.';
+            let errorMsg = xhr.status === 413
+                ? 'Ukuran berkas terlalu besar melebihi batas server (maksimal 40 MB).'
+                : 'Gagal mengunggah data.';
             try {
                 const res = JSON.parse(xhr.responseText);
-                if (res.message) {
+                if (res.errors && Object.keys(res.errors).length > 0) {
+                    errorMsg = Object.values(res.errors).flat().join('\n');
+                } else if (res.message) {
                     errorMsg = res.message;
-                } else if (res.errors) {
-                    errorMsg = Object.values(res.errors).flat().join(' ');
                 }
             } catch {}
             alert(errorMsg);

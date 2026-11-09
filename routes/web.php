@@ -45,6 +45,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/imports', [CrossSellingImportController::class, 'index'])->name('imports.index');
     Route::post('/imports', [CrossSellingImportController::class, 'store'])->name('imports.store');
     Route::get('/imports/{import}/status', [CrossSellingImportController::class, 'status'])->name('imports.status');
+    Route::delete('/imports/bulk', [CrossSellingImportController::class, 'bulkDestroy'])->name('imports.bulk_destroy');
+    Route::delete('/imports/turnover-bulk', [CrossSellingImportController::class, 'bulkDestroyTurnover'])->name('imports.bulk_destroy_turnover');
     Route::delete('/imports/{import}', [CrossSellingImportController::class, 'destroy'])->name('imports.destroy');
     Route::delete('/imports/turnover/{import}', [CrossSellingImportController::class, 'destroyTurnover'])->name('imports.destroy_turnover');
     Route::get('/imports/{import}', fn () => redirect()->route('imports.index'));
@@ -72,6 +74,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/broadcasts/download', [BroadcastReportController::class, 'download'])->name('broadcasts.download');
     Route::get('/broadcasts/batches/{batch}', [BroadcastReportController::class, 'showBatch'])->name('broadcasts.batches.show');
     Route::get('/broadcasts/batches/{batch}/download', [BroadcastReportController::class, 'downloadBatch'])->name('broadcasts.batches.download');
+
+    // Menu Pricelist & Skema Gadget (Superadmin View-Only)
+    Route::get('/pricelist', [\App\Http\Controllers\PricelistController::class, 'index'])->name('pricelist.index');
+    Route::post('/pricelist/refresh', [\App\Http\Controllers\PricelistController::class, 'updateFromExcel'])->name('pricelist.refresh');
+    Route::post('/pricelist/sync-dropbox', [\App\Http\Controllers\PricelistController::class, 'syncDropbox'])->name('pricelist.sync_dropbox');
+    Route::get('/pricelist/check-status', [\App\Http\Controllers\PricelistController::class, 'checkDropboxStatus'])->name('pricelist.check_status');
     Route::delete('/broadcasts/batches/{batch}', [BroadcastReportController::class, 'destroyBatch'])->name('broadcasts.batches.destroy');
     Route::post('/broadcasts/bulk', [BroadcastReportController::class, 'bulkStore'])->name('broadcasts.bulk');
     Route::post('/broadcasts/settings', [BroadcastReportController::class, 'updateSettings'])->name('broadcasts.settings.update');
@@ -149,18 +157,25 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
         abort(403, 'Akses Ditolak. Gunakan parameter key yang benar: ?key=dcms2026');
     }
 
-    \Illuminate\Support\Facades\Artisan::call('migrate --force');
-    $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
 
-    \Illuminate\Support\Facades\Artisan::call('optimize:clear');
-    $clearOutput = \Illuminate\Support\Facades\Artisan::output();
+        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+        $clearOutput = \Illuminate\Support\Facades\Artisan::output();
 
-    return response('<pre style="background:#0f172a; color:#10b981; padding:24px; font-family:monospace; font-size:14px; border-radius:10px; line-height:1.6;">'
-        . "🚀 === DCMS DATABASE MIGRATION SYSTEM ===\n\n"
-        . htmlspecialchars($migrateOutput ?: "Semua tabel database sudah yang terbaru (Nothing to migrate).\n")
-        . "\n🧹 === CLEAR CACHE & OPTIMIZATION ===\n\n"
-        . htmlspecialchars($clearOutput)
-        . "\n✅ PROSES SELESAI DENGAN SUKSES!"
-        . '</pre>');
-})->name('system.migrate');
+        return response('<pre style="background:#0f172a; color:#10b981; padding:24px; font-family:monospace; font-size:14px; border-radius:10px; line-height:1.6;">'
+            . "🚀 === DCMS DATABASE MIGRATION SYSTEM ===\n\n"
+            . htmlspecialchars($migrateOutput ?: "Semua tabel database sudah yang terbaru (Nothing to migrate).\n")
+            . "\n🧹 === CLEAR CACHE & OPTIMIZATION ===\n\n"
+            . htmlspecialchars($clearOutput)
+            . "\n✅ PROSES SELESAI DENGAN SUKSES!"
+            . '</pre>');
+    } catch (\Throwable $e) {
+        return response('<pre style="background:#0f172a; color:#ef4444; padding:24px; font-family:monospace; font-size:14px; border-radius:10px; line-height:1.6;">'
+            . "❌ === TERJADI KESALAHAN SAAT MIGRASI ===\n\n"
+            . htmlspecialchars($e->getMessage())
+            . '</pre>', 500);
+    }
+})->withoutMiddleware([\Illuminate\Session\Middleware\StartSession::class])->name('system.migrate');
 

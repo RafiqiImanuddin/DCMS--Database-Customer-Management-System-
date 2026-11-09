@@ -117,29 +117,67 @@
     </form>
 </section>
 
+@php
+    $activeTab = (request('tab') === 'turnover' || request()->has('turnover_page')) ? 'turnover' : 'cross';
+@endphp
+
 {{-- Import History with Tabs --}}
-<section class="dcms-card overflow-hidden border border-slate-200/80 shadow-sm" x-data="{ activeTab: 'cross' }">
+<section class="dcms-card overflow-hidden border border-slate-200/80 shadow-sm">
     <div class="border-b border-slate-200 bg-slate-50/80 px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
             <h2 class="font-black text-slate-900 text-sm">Riwayat Batch Data Tersimpan (Supabase Cloud)</h2>
-            <p class="text-xs text-slate-500">Seluruh periode historis tersimpan permanen dan dapat dilihat kapan saja.</p>
+            <p class="text-xs text-slate-500">Klik tab di sebelah kanan untuk beralih antara Riwayat Cross-Selling &amp; Turnover.</p>
         </div>
-        <div class="inline-flex rounded-xl bg-slate-200/80 p-1 text-xs font-bold">
-            <button type="button" @click="activeTab = 'cross'" :class="activeTab === 'cross' ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'" class="rounded-lg px-3.5 py-1.5 transition">
-                Riwayat Cross-Selling ({{ $imports->total() }})
-            </button>
-            <button type="button" @click="activeTab = 'turnover'" :class="activeTab === 'turnover' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'" class="rounded-lg px-3.5 py-1.5 transition">
-                Riwayat Turnover ({{ $turnoverImports->total() }})
-            </button>
+        <div class="flex flex-wrap items-center gap-3">
+            {{-- Bulk Delete Actions for Cross-Selling --}}
+            <div id="bulk-bar-cross" class="hidden items-center gap-2 bg-red-50 border border-red-200 px-3 py-1 rounded-xl">
+                <span class="text-xs font-bold text-red-800"><span id="bulk-count-cross">0</span> batch dipilih</span>
+                <form id="form-bulk-cross" method="POST" action="{{ route('imports.bulk_destroy') }}">
+                    @csrf
+                    @method('DELETE')
+                    <div id="bulk-inputs-cross"></div>
+                    <button type="button" onclick="confirmForm(this, { title: 'Hapus Batch Cross-Selling Terpilih?', message: 'Seluruh transaksi dari batch terpilih akan dihapus secara permanen dari sistem.', confirmText: 'Ya, Hapus Data Terpilih' })" class="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <span>Hapus Terpilih</span>
+                    </button>
+                </form>
+            </div>
+
+            {{-- Bulk Delete Actions for Turnover --}}
+            <div id="bulk-bar-turnover" class="hidden items-center gap-2 bg-red-50 border border-red-200 px-3 py-1 rounded-xl">
+                <span class="text-xs font-bold text-red-800"><span id="bulk-count-turnover">0</span> batch dipilih</span>
+                <form id="form-bulk-turnover" method="POST" action="{{ route('imports.bulk_destroy_turnover') }}">
+                    @csrf
+                    @method('DELETE')
+                    <div id="bulk-inputs-turnover"></div>
+                    <button type="button" onclick="confirmForm(this, { title: 'Hapus Batch Turnover Terpilih?', message: 'Seluruh baris transaksi turnover dari batch terpilih akan dihapus secara permanen.', confirmText: 'Ya, Hapus Data Terpilih' })" class="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition cursor-pointer">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <span>Hapus Terpilih</span>
+                    </button>
+                </form>
+            </div>
+
+            {{-- Tab Switcher Pills --}}
+            <div class="inline-flex rounded-xl bg-slate-200/80 p-1 text-xs font-bold">
+                <button type="button" id="tab-btn-cross" onclick="switchImportTab('cross')" class="rounded-lg px-3.5 py-1.5 transition cursor-pointer {{ $activeTab === 'cross' ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}">
+                    Riwayat Cross-Selling ({{ $imports->total() }})
+                </button>
+                <button type="button" id="tab-btn-turnover" onclick="switchImportTab('turnover')" class="rounded-lg px-3.5 py-1.5 transition cursor-pointer {{ $activeTab === 'turnover' ? 'bg-white text-blue-800 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}">
+                    Riwayat Turnover ({{ $turnoverImports->total() }})
+                </button>
+            </div>
         </div>
     </div>
 
     {{-- Tab 1: Cross Selling Table --}}
-    <div x-show="activeTab === 'cross'" class="overflow-x-auto">
+    <div id="tab-panel-cross" class="overflow-x-auto {{ $activeTab === 'cross' ? '' : 'hidden' }}">
         <table class="w-full min-w-[900px] text-left text-sm">
             <thead class="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-5 py-3.5">File & ID</th>
+                    <th class="w-10 px-4 py-3.5 text-center">
+                        <input type="checkbox" id="check-all-cross" onchange="toggleSelectAll('cross')" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" title="Pilih Semua">
+                    </th>
+                    <th class="px-5 py-3.5">File &amp; ID</th>
                     <th class="px-3 py-3.5">Periode Terdeteksi</th>
                     <th class="px-3 py-3.5">Status Cloud</th>
                     <th class="px-3 py-3.5 text-right">Total Baris</th>
@@ -151,7 +189,10 @@
             </thead>
             <tbody>
             @forelse($imports as $import)
-                <tr class="border-b border-slate-100 transition hover:bg-slate-50/70">
+                <tr id="row-cross-{{ $import->id }}" class="border-b border-slate-100 transition hover:bg-slate-50/70">
+                    <td class="w-10 px-4 py-4 text-center">
+                        <input type="checkbox" value="{{ $import->id }}" onchange="updateSelectedBulk('cross')" class="cross-cb rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                    </td>
                     <td class="px-5 py-4">
                         <div class="max-w-64 truncate font-bold text-slate-900">{{ $import->original_name }}</div>
                         <div class="mt-1 flex items-center gap-2 text-xs text-slate-400">
@@ -183,12 +224,15 @@
                         <form method="POST" action="{{ route('imports.destroy', ['import' => $import->id]) }}">
                             @csrf
                             @method('DELETE')
-                            <button type="button" onclick="confirmForm(this, { title: 'Hapus Batch Cross-Selling?', message: 'Data riwayat import ini beserta seluruh transaksi terkait akan dihapus secara permanen.', itemName: 'Import #{{ $import->id }} ({{ $import->original_name }})' })" class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 transition">Hapus</button>
+                            <button type="button" onclick="confirmForm(this, { title: 'Hapus Batch Cross-Selling?', message: 'Data riwayat import ini beserta seluruh transaksi terkait akan dihapus secara permanen.', itemName: 'Import #{{ $import->id }} ({{ addslashes($import->original_name) }})' })" class="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-2xs hover:bg-red-50 hover:border-red-300 transition cursor-pointer">
+                                <svg class="size-3.5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                <span>Hapus</span>
+                            </button>
                         </form>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="px-5 py-8 text-center text-slate-500">Belum ada import.</td></tr>
+                <tr><td colspan="9" class="px-5 py-8 text-center text-slate-500">Belum ada import.</td></tr>
             @endforelse
             </tbody>
         </table>
@@ -196,11 +240,14 @@
     </div>
 
     {{-- Tab 2: Turnover Table --}}
-    <div x-show="activeTab === 'turnover'" class="overflow-x-auto" style="display: none;">
+    <div id="tab-panel-turnover" class="overflow-x-auto {{ $activeTab === 'turnover' ? '' : 'hidden' }}">
         <table class="w-full min-w-[900px] text-left text-sm">
             <thead class="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-5 py-3.5">File & ID</th>
+                    <th class="w-10 px-4 py-3.5 text-center">
+                        <input type="checkbox" id="check-all-turnover" onchange="toggleSelectAll('turnover')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" title="Pilih Semua">
+                    </th>
+                    <th class="px-5 py-3.5">File &amp; ID</th>
                     <th class="px-3 py-3.5">Periode Terdeteksi</th>
                     <th class="px-3 py-3.5">Status Cloud</th>
                     <th class="px-3 py-3.5 text-right">Total Baris</th>
@@ -212,7 +259,10 @@
             </thead>
             <tbody>
             @forelse($turnoverImports as $tImport)
-                <tr class="border-b border-slate-100 transition hover:bg-slate-50/70">
+                <tr id="row-turnover-{{ $tImport->id }}" class="border-b border-slate-100 transition hover:bg-slate-50/70">
+                    <td class="w-10 px-4 py-4 text-center">
+                        <input type="checkbox" value="{{ $tImport->id }}" onchange="updateSelectedBulk('turnover')" class="turnover-cb rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    </td>
                     <td class="px-5 py-4">
                         <div class="max-w-64 truncate font-bold text-slate-900">{{ $tImport->original_name }}</div>
                         <div class="mt-1 flex items-center gap-2 text-xs text-slate-400">
@@ -236,18 +286,118 @@
                         <form method="POST" action="{{ route('imports.destroy_turnover', ['import' => $tImport->id]) }}">
                             @csrf
                             @method('DELETE')
-                            <button type="button" onclick="confirmForm(this, { title: 'Hapus Batch Turnover?', message: 'Data riwayat turnover ini beserta seluruh baris terkait akan dihapus secara permanen.', itemName: 'Turnover #{{ $tImport->id }} ({{ $tImport->original_name }})' })" class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 transition">Hapus</button>
+                            <button type="button" onclick="confirmForm(this, { title: 'Hapus Batch Turnover?', message: 'Data riwayat turnover ini beserta seluruh baris terkait akan dihapus secara permanen.', itemName: 'Turnover #{{ $tImport->id }} ({{ addslashes($tImport->original_name) }})' })" class="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-700 shadow-2xs hover:bg-red-50 hover:border-red-300 transition cursor-pointer">
+                                <svg class="size-3.5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                <span>Hapus</span>
+                            </button>
                         </form>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="px-5 py-8 text-center text-slate-500">Belum ada riwayat import Turnover.</td></tr>
+                <tr><td colspan="9" class="px-5 py-8 text-center text-slate-500">Belum ada riwayat import Turnover.</td></tr>
             @endforelse
             </tbody>
         </table>
         <div class="p-3">{{ $turnoverImports->links() }}</div>
     </div>
 </section>
+
+<script>
+window.currentImportTab = '{{ $activeTab }}';
+
+function switchImportTab(tabName) {
+    window.currentImportTab = tabName;
+    const btnCross = document.getElementById('tab-btn-cross');
+    const btnTurnover = document.getElementById('tab-btn-turnover');
+    const panelCross = document.getElementById('tab-panel-cross');
+    const panelTurnover = document.getElementById('tab-panel-turnover');
+    const bulkCross = document.getElementById('bulk-bar-cross');
+    const bulkTurnover = document.getElementById('bulk-bar-turnover');
+
+    if (tabName === 'turnover') {
+        panelCross?.classList.add('hidden');
+        panelTurnover?.classList.remove('hidden');
+
+        btnCross?.classList.remove('bg-white', 'text-emerald-800', 'shadow-sm');
+        btnCross?.classList.add('text-slate-600', 'hover:text-slate-900');
+
+        btnTurnover?.classList.remove('text-slate-600', 'hover:text-slate-900');
+        btnTurnover?.classList.add('bg-white', 'text-blue-800', 'shadow-sm');
+
+        if (bulkCross) bulkCross.classList.add('hidden');
+        updateSelectedBulk('turnover');
+    } else {
+        panelTurnover?.classList.add('hidden');
+        panelCross?.classList.remove('hidden');
+
+        btnTurnover?.classList.remove('bg-white', 'text-blue-800', 'shadow-sm');
+        btnTurnover?.classList.add('text-slate-600', 'hover:text-slate-900');
+
+        btnCross?.classList.remove('text-slate-600', 'hover:text-slate-900');
+        btnCross?.classList.add('bg-white', 'text-emerald-800', 'shadow-sm');
+
+        if (bulkTurnover) bulkTurnover.classList.add('hidden');
+        updateSelectedBulk('cross');
+    }
+}
+
+function toggleSelectAll(type) {
+    const master = document.getElementById('check-all-' + type);
+    const checkboxes = document.querySelectorAll('.' + (type === 'cross' ? 'cross-cb' : 'turnover-cb'));
+    if (!master) return;
+    checkboxes.forEach(cb => {
+        cb.checked = master.checked;
+    });
+    updateSelectedBulk(type);
+}
+
+function updateSelectedBulk(type) {
+    const checkboxes = document.querySelectorAll('.' + (type === 'cross' ? 'cross-cb' : 'turnover-cb'));
+    const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+    const master = document.getElementById('check-all-' + type);
+    const bulkBar = document.getElementById('bulk-bar-' + type);
+    const countSpan = document.getElementById('bulk-count-' + type);
+    const inputsContainer = document.getElementById('bulk-inputs-' + type);
+
+    if (master) {
+        master.checked = checkboxes.length > 0 && selected.length === checkboxes.length;
+    }
+
+    checkboxes.forEach(cb => {
+        const row = document.getElementById('row-' + type + '-' + cb.value);
+        if (row) {
+            if (cb.checked) {
+                row.classList.add(type === 'cross' ? 'bg-emerald-50/50' : 'bg-blue-50/50');
+            } else {
+                row.classList.remove('bg-emerald-50/50', 'bg-blue-50/50');
+            }
+        }
+    });
+
+    if (countSpan) countSpan.textContent = selected.length;
+
+    if (inputsContainer) {
+        inputsContainer.innerHTML = '';
+        selected.forEach(id => {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'ids[]';
+            hidden.value = id;
+            inputsContainer.appendChild(hidden);
+        });
+    }
+
+    if (bulkBar) {
+        if (selected.length > 0 && window.currentImportTab === type) {
+            bulkBar.classList.remove('hidden');
+            bulkBar.classList.add('flex');
+        } else {
+            bulkBar.classList.add('hidden');
+            bulkBar.classList.remove('flex');
+        }
+    }
+}
+</script>
 
 {{-- Loading Overlay --}}
 <div id="import-loading-overlay" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="import-loading-title">

@@ -9,6 +9,7 @@ use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class EmployeeSettingController extends Controller
@@ -43,12 +44,16 @@ class EmployeeSettingController extends Controller
             $employeeQuery->where('status', $status);
         }
 
-        if ($level !== '') {
+        $hasLevel = Schema::hasColumn('employees', 'level');
+        if ($hasLevel && $level !== '') {
             $employeeQuery->where('level', $level);
         }
 
+        if ($hasLevel) {
+            $employeeQuery->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END");
+        }
+
         $employees = $employeeQuery
-            ->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END")
             ->orderBy('cabang')
             ->orderBy('name')
             ->paginate(25)
@@ -98,9 +103,12 @@ class EmployeeSettingController extends Controller
         $periodTeamTarget = (float) ($periodTargetData['teamTarget'] ?? 0);
 
         // Active sales employees for monthly targets (Karyawan first, then Internship)
-        $activeSalesEmployees = Employee::query()
-            ->where('status', 'active')
-            ->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END")
+        $activeEmployeesQuery = Employee::query()->where('status', 'active');
+        if ($hasLevel) {
+            $activeEmployeesQuery->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END");
+        }
+
+        $activeSalesEmployees = $activeEmployeesQuery
             ->orderBy('cabang')
             ->orderBy('name')
             ->get();
@@ -140,6 +148,14 @@ class EmployeeSettingController extends Controller
     public function storeEmployee(Request $request): RedirectResponse
     {
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang menambah data karyawan.');
+
+        if ($request->has('target')) {
+            $rawTarget = (string) $request->input('target');
+            $cleanedTarget = preg_replace('/[^\d]/', '', $rawTarget);
+            $request->merge([
+                'target' => $cleanedTarget !== '' ? (float) $cleanedTarget : null,
+            ]);
+        }
 
         $validated = $request->validate([
             'nik' => ['required', 'string', 'max:50', 'unique:employees,nik'],
@@ -181,6 +197,14 @@ class EmployeeSettingController extends Controller
     public function updateEmployee(Request $request, Employee $employee): RedirectResponse
     {
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang mengubah data karyawan.');
+
+        if ($request->has('target')) {
+            $rawTarget = (string) $request->input('target');
+            $cleanedTarget = preg_replace('/[^\d]/', '', $rawTarget);
+            $request->merge([
+                'target' => $cleanedTarget !== '' ? (float) $cleanedTarget : null,
+            ]);
+        }
 
         $validated = $request->validate([
             'nik' => ['required', 'string', 'max:50', 'unique:employees,nik,' . $employee->id],

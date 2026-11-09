@@ -26,7 +26,7 @@ class CrossSellingImportDeleteTest extends TestCase
         Queue::fake();
         Storage::fake('local');
         $user = User::factory()->create();
-        $file = UploadedFile::fake()->create('cross-selling.xlsx', 3585, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $file = UploadedFile::fake()->create('cross-selling.xlsx', 40961, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
         $this->actingAs($user)
             ->post('/imports', ['file' => $file])

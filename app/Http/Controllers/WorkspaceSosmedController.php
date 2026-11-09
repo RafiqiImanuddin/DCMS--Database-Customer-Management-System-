@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -71,8 +72,12 @@ class WorkspaceSosmedController extends Controller
             $monthlyTargets = [];
         }
 
-        $employees = Employee::query()
-            ->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END")
+        $employeeQuery = Employee::query();
+        if (Schema::hasColumn('employees', 'level')) {
+            $employeeQuery->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END");
+        }
+
+        $employees = $employeeQuery
             ->orderBy('id')
             ->get()
             ->map(function ($emp) {
@@ -152,10 +157,17 @@ class WorkspaceSosmedController extends Controller
         }
         $crossStatus['uploader'] = $dbCrossUploader;
 
+        $keepStatus = $check('keep-data.csv');
+        $keepLastSync = Setting::where('key', 'workspace_keep_last_sync')->value('value');
+        $keepLastCount = Setting::where('key', 'workspace_keep_last_count')->value('value');
+        $keepStatus['totalRows'] = (int) ($keepLastCount ?? \App\Models\SosmedKeep::count());
+        $keepStatus['lastSync'] = $keepLastSync;
+        $keepStatus['lastSyncFormatted'] = $keepLastSync ? \Carbon\Carbon::parse($keepLastSync)->timezone('Asia/Makassar')->format('d M Y, H:i').' WITA' : 'Baru saja';
+
         return response()->json([
             'turnover' => $turnoverStatus,
             'croselling' => $crossStatus,
-            'keep' => $check('keep-data.csv'),
+            'keep' => $keepStatus,
             'archives' => $check('monthly_archives.json'),
             'targets' => $check('monthly_targets.json'),
             'photos' => $check('sales_photos.json'),
@@ -294,30 +306,60 @@ class WorkspaceSosmedController extends Controller
         return response()->json(['error' => 'Data kosong.'], 400);
     }
 
-    public function syncKeep(): JsonResponse
+    public function syncKeep(Request $request): JsonResponse
     {
         $url = 'https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/export?format=csv&gid=1014933310';
 
         try {
-            $res = Http::timeout(20)->withoutVerifying()->get($url);
+            $res = Http::timeout(25)->withoutVerifying()->get($url);
             if ($res->successful()) {
                 $csv = $res->body();
                 $localFile = $this->storagePath.DIRECTORY_SEPARATOR.'keep-data.csv';
+
+                $currentMd5 = File::exists($localFile) ? md5_file($localFile) : '';
+                $newMd5 = md5($csv);
+                $hasChanged = ($currentMd5 !== $newMd5);
+                $force = filter_var($request->input('force', false), FILTER_VALIDATE_BOOLEAN);
+
                 @File::put($localFile, $csv);
 
-                // Otomatis sinkronkan juga ke database SQL MySQL
-                try {
-                    Artisan::call('keep:import-csv');
-                } catch (\Throwable $e) {
-                    Log::warning('Auto import keep CSV to MySQL failed: '.$e->getMessage());
+                $imported = false;
+                // Jalankan import jika ada perubahan data, force sync, atau jika database masih kosong
+                if ($hasChanged || $force || \App\Models\SosmedKeep::count() === 0) {
+                    try {
+                        Artisan::call('keep:import-csv', ['--truncate' => true]);
+                        $imported = true;
+                    } catch (\Throwable $e) {
+                        Log::warning('Auto import keep CSV to MySQL failed: '.$e->getMessage());
+                    }
                 }
 
-                return response()->json([
+                $rowCount = \App\Models\SosmedKeep::count();
+                $syncedAt = now();
+                $formattedTime = $syncedAt->timezone('Asia/Makassar')->format('d M Y, H:i').' WITA';
+
+                Setting::updateOrCreate(['key' => 'workspace_keep_last_sync'], ['value' => $syncedAt->toIso8601String()]);
+                Setting::updateOrCreate(['key' => 'workspace_keep_last_count'], ['value' => (string) $rowCount]);
+
+                $responseData = [
                     'success' => true,
-                    'message' => 'Data keep berhasil disinkronkan langsung dari Google Sheets dan database SQL!',
-                    'csvText' => $csv,
+                    'has_changed' => $hasChanged,
+                    'imported' => $imported,
+                    'total_rows' => $rowCount,
+                    'total_rows_formatted' => number_format($rowCount, 0, ',', '.'),
+                    'synced_at' => $syncedAt->toIso8601String(),
+                    'synced_at_formatted' => $formattedTime,
+                    'message' => $hasChanged
+                        ? "Data baru dari Google Sheets berhasil disinkronkan ke database! ({$rowCount} data)"
+                        : "Data Google Sheets sudah sesuai ({$rowCount} data), tidak ada transaksi baru.",
                     'rowsSample' => substr($csv, 0, 150),
-                ]);
+                ];
+
+                if ($request->boolean('include_csv')) {
+                    $responseData['csvText'] = $csv;
+                }
+
+                return response()->json($responseData);
             }
 
             return response()->json(['error' => 'Gagal mengambil data dari Google Sheets. HTTP: '.$res->status()], 502);
@@ -1382,9 +1424,22 @@ class WorkspaceSosmedController extends Controller
         $month = $request->query('month');
         $date = $request->query('date');
         $sales = $request->query('sales');
+        $format = $request->query('format');
+        $sosmedOnly = $request->boolean('sosmed_only') || $request->query('sosmed_only') === '1';
         $limit = min((int) ($request->query('limit', 100)), 500);
 
         $query = DB::table('turnovers');
+
+        // Pastikan hanya membaca batch turnover terbaru per periode/label agar tidak terjadi dobel perhitungan
+        $activeTurnoverImportIds = DB::table('turnover_imports')
+            ->where('status', 'completed')
+            ->groupBy('batch_label')
+            ->selectRaw('MAX(id) as id')
+            ->pluck('id');
+
+        if ($activeTurnoverImportIds->isNotEmpty()) {
+            $query->whereIn('turnover_import_id', $activeTurnoverImportIds);
+        }
 
         if ($date) {
             $query->whereDate('posting_date', $date);
@@ -1396,9 +1451,45 @@ class WorkspaceSosmedController extends Controller
             }
         }
 
+        $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
         if ($sales && $sales !== 'all') {
-            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
             $query->where('slp_name', $likeOp, "%{$sales}%");
+        }
+
+        if ($sosmedOnly) {
+            $query->where(function ($sub) use ($likeOp) {
+                $sub->where('slp_name', $likeOp, '%bjm.sos%')
+                    ->orWhere('remarks', $likeOp, '%bjm.sos%')
+                    ->orWhere('sales_cabang', $likeOp, '%bjm.sos%');
+            });
+        }
+
+        if ($format === 'client') {
+            $clientLimit = (int) $request->query('limit', 0);
+            if ($clientLimit > 0) {
+                $query->limit(min($clientLimit, 50000));
+            }
+
+            $rows = $query->orderBy('posting_date', 'asc')->get()->map(function ($r) {
+                return [
+                    'Cabang' => $r->cabang ?? '',
+                    'Posting Date' => $r->posting_date,
+                    'Document Number' => $r->document_number,
+                    'Sales Employee Name' => $r->slp_name,
+                    'Remarks' => $r->remarks ?? '',
+                    'SalesCabang' => $r->sales_cabang ?? '',
+                    'DPP' => (float) $r->dpp,
+                    'GrossProfit' => (float) $r->gross_profit,
+                    'Total' => (float) $r->total,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'total_count' => $rows->count(),
+                'rows' => $rows,
+            ]);
         }
 
         $totalCount = (clone $query)->count();

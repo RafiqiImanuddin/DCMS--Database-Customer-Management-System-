@@ -184,7 +184,16 @@ class SosmedKeepWebhookController extends Controller
         if ($limit <= 0 || $limit > 50000) {
             $limit = 25000;
         }
-        $keeps = $query->latest('id')->limit($limit)->get();
+
+        $fields = [
+            'id', 'keep_timestamp', 'nomor_sender', 'grup_id', 'sender', 'grup', 'jenis_chat',
+            'nama', 'nomor_wa', 'barang_keep', 'tanggal_ambil', 'catatan', 'remarks',
+            'kode_sosmed', 'report_ar', 'tanggal_input_ar', 'ar_vlookup', 'tanggal_vlookup',
+            'cabang', 'evidence', 'nomor_follow_up', 'nama_tim_follow_up', 'status',
+            'feedback_tim_fu', 'nama_toko_kompetitor', 'user_kredit', 'periode', 'item', 'nomor_fu'
+        ];
+
+        $keeps = $query->latest('id')->limit($limit)->toBase()->get($fields);
 
         return response()->json([
             'success' => true,

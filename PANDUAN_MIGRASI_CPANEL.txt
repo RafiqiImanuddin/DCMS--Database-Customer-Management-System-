@@ -1,0 +1,80 @@
+# PANDUAN LENGKAP MIGRASI DARI 0 KE CPANEL (DCMS GADGETMART)
+Waktu Rilis: 09 November 2026, 17:22 WITA
+
+Paket ini sudah disiapkan khusus untuk migrasi dari 0 di hosting cPanel (MySQL / MariaDB).
+
+================================================================================
+ARSIP UTAMA:
+1. File Source Code & Vendor:
+   dcms_cpanel_deploy.zip (Lengkap dengan vendor, public/build, dan storage)
+   
+2. File Database MySQL (Pilih salah satu untuk phpMyAdmin):
+   - database/dumps/dcms_cpanel_full.sql.zip (21.39 MB) -> SANGAT DIREKOMENDASIKAN
+     Berisi seluruh tabel, akun superadmin, 146k transaksi, turnover, dan master setting.
+   - database/dumps/dcms_cpanel_core.sql (13.73 MB) -> Opsi ringan jika ingin impor cepat.
+
+================================================================================
+LANGKAH 1: BUAT DATABASE DI CPANEL
+1. Buka cPanel -> MySQL Databases (atau MySQL Database Wizard).
+2. Buat database baru, contoh: `usernamecpanel_dcms`.
+3. Buat user MySQL baru, contoh: `usernamecpanel_dcmsuser` dan password yang kuat.
+4. Hubungkan User ke Database dengan mencentang "ALL PRIVILEGES".
+
+================================================================================
+LANGKAH 2: IMPOR DATABASE KE PHPMYADMIN
+1. Buka cPanel -> phpMyAdmin.
+2. Klik nama database baru Anda di sebelah kiri.
+3. Klik tab "Import".
+4. Pilih file: `dcms_cpanel_full.sql.zip` (phpMyAdmin bisa membaca langsung file .zip ini).
+5. Klik "Go" / "Kirim" dan tunggu hingga centang hijau berhasil muncul.
+
+================================================================================
+LANGKAH 3: UPLOAD & EKSTRAK SOURCE CODE DI FILE MANAGER
+1. Buka cPanel -> File Manager.
+2. Masuk ke folder root aplikasi Anda:
+   - Jika domain utama: folder `public_html/`
+   - Jika subdomain (misal dcms.domain.com): folder `dcms.domain.com/`
+3. Upload file `dcms_cpanel_deploy.zip`.
+4. Klik kanan file `dcms_cpanel_deploy.zip` -> Extract.
+
+================================================================================
+LANGKAH 4: KONFIGURASI FILE .ENV DI CPANEL
+1. Di File Manager, cari file `.env.cpanel`.
+2. Ganti nama (Rename) `.env.cpanel` menjadi `.env`.
+   (Pastikan opsi "Show Hidden Files" aktif di pengaturan File Manager jika file berawalan titik tidak terlihat).
+3. Edit file `.env` tersebut dan sesuaikan:
+   APP_URL=https://namadomainanda.com
+   DB_DATABASE=usernamecpanel_dcms
+   DB_USERNAME=usernamecpanel_dcmsuser
+   DB_PASSWORD=PasswordMySQLAndaTadi
+
+================================================================================
+LANGKAH 5: EKSEKUSI FINALISASI VIA BROWSER (1 KLIK)
+Buka peramban browser Anda dan ketik URL:
+https://namadomainanda.com/system/migrate?key=dcms2026
+
+Halaman akan menampilkan:
+"Semua tabel database sudah yang terbaru" dan "CLEAR CACHE & OPTIMIZATION SELESAI DENGAN SUKSES!"
+
+================================================================================
+CATATAN PENTING & SOLUSI ERROR SQL DI CPANEL:
+1. Sinkronisasi Nama Database:
+   Nama database lokal dan cPanel telah disamakan: `dcmssosm_gadgemart`.
+
+2. Error 1054: Unknown column 'level' in 'ORDER BY' / 'INSERT INTO employees':
+   Penyebab: Tabel `employees` lama belum memiliki kolom `level` dari migrasi terbaru.
+   Solusi Otomatis: Buka URL:
+   https://dcms-sosmed.my.id/system/migrate?key=dcms2026
+   
+   Solusi Manual via phpMyAdmin (Tab SQL):
+   ALTER TABLE employees ADD COLUMN level VARCHAR(50) NOT NULL DEFAULT 'Staff' AFTER role;
+
+3. Error 500 saat pertama kali buka /system/migrate:
+   Penyebab: SESSION_DRIVER=database mencari tabel `sessions` sebelum dimigrasi.
+   Solusi: Kode route /system/migrate sudah diproteksi dengan withoutMiddleware(StartSession)
+   dan try-catch sehingga aman dieksekusi kapan saja.
+
+================================================================================
+LOGIN APLIKASI:
+Email: superadmin@gmail.com
+(Gunakan password akun superadmin Anda yang biasa)

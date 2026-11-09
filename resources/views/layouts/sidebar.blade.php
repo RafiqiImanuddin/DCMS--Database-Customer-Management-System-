@@ -74,12 +74,12 @@
             $activeWorkspaceTab = \App\Support\RouteCipher::resolveWorkspaceTab(request());
 
             $isCustomerActive = in_array($activeTarget, [
-                'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index'
+                'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index', 'pricelist.index'
             ]);
-            $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index');
+            $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index' && !in_array($activeWorkspaceTab, [7, 8]));
             $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index']);
             $isGuidanceActive = ($activeTarget === 'guidance.index');
-            $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index']);
+            $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
         @endphp
 
         <!-- GROUP 1: CUSTOMER & OUTREACH CRM -->
@@ -122,6 +122,18 @@
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>
                     <span>Laporan Broadcast</span>
                 </a>
+
+                @if (auth()->check() && auth()->user()->isSuperAdmin())
+                <a href="{{ \App\Support\RouteCipher::url('pricelist.index') }}" class="flex items-center justify-between rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'pricelist.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <span class="flex items-center gap-3">
+                        <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                        <span>Pricelist Gadget</span>
+                    </span>
+                    <span class="rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">Superadmin</span>
+                </a>
+                @endif
             </div>
         </div>
 
@@ -155,7 +167,7 @@
                 <!-- 2. Report Matrix -->
                 <div class="space-y-1" id="report-matrix-nav-container">
                     <div id="wrap-report-matrix-btn" class="flex items-center justify-between rounded-xl transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" data-tab="2" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);}if(window.toggleReportMatrixSubmenu){window.toggleReportMatrixSubmenu(null, true);}if(window.setReportViewMode && (window.currentReportViewMode === 'all' || !window.currentReportViewMode)){window.setReportViewMode('r1');}return false;" class="workspace-sidebar-link flex-1 flex items-center gap-3 px-3.5 py-2.5 font-semibold transition min-w-0 {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? 'text-white' : 'text-slate-300 hover:text-white' }}">
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" data-tab="2" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);if(window.toggleReportMatrixSubmenu){window.toggleReportMatrixSubmenu(null, true);}if(window.setReportViewMode && (window.currentReportViewMode === 'all' || !window.currentReportViewMode)){window.setReportViewMode('r1');}return false;}" class="workspace-sidebar-link flex-1 flex items-center gap-3 px-3.5 py-2.5 font-semibold transition min-w-0 {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? 'text-white' : 'text-slate-300 hover:text-white' }}">
                             <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625a1.125 1.125 0 0 0 1.125-1.125m-1.125 1.125h-7.5a1.125 1.125 0 0 1-1.125-1.125m8.625 0V5.625m0 12.75v-1.5c0-.621-.504-1.125-1.125-1.125m0 0h-7.5m7.5 0V3.375m0 19.5a1.125 1.125 0 0 1-1.125 1.125"/></svg>
                             <span class="truncate">Report Matrix</span>
                         </a>
@@ -166,11 +178,11 @@
 
                     <!-- Sub Bar / Sub Menu: Report Matrix Views -->
                     <div id="submenu-report-matrix" class="pl-4 pr-1 space-y-1 {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? '' : 'hidden' }}">
-                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);}if(window.setReportViewMode){window.setReportViewMode('r1');}if(window.updateReportSubmenuActive){window.updateReportSubmenuActive('r1');}return false;" id="subitem-report-r1" class="report-matrix-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition bg-white/15 text-white">
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);if(window.setReportViewMode){window.setReportViewMode('r1');}if(window.updateReportSubmenuActive){window.updateReportSubmenuActive('r1');}return false;}" id="subitem-report-r1" class="report-matrix-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition bg-white/15 text-white">
                             <span class="shrink-0 text-sky-400">📅</span>
                             <span class="truncate">Report 1: Daily Matrix</span>
                         </a>
-                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);}if(window.setReportViewMode){window.setReportViewMode('r2');}if(window.updateReportSubmenuActive){window.updateReportSubmenuActive('r2');}return false;" id="subitem-report-r2" class="report-matrix-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition">
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 2]) }}" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(2);if(window.setReportViewMode){window.setReportViewMode('r2');}if(window.updateReportSubmenuActive){window.updateReportSubmenuActive('r2');}return false;}" id="subitem-report-r2" class="report-matrix-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition">
                             <span class="shrink-0 text-rose-400">🎯</span>
                             <span class="truncate">Report 2: Omzet & GP</span>
                         </a>
@@ -313,10 +325,38 @@
                     <span class="ml-auto rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">Gateway</span>
                 </a>
 
-                <a href="{{ \App\Support\RouteCipher::url('settings.karyawan.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'settings.karyawan.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                <a href="{{ \App\Support\RouteCipher::url('settings.karyawan.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'settings.karyawan.index' && request('tab') !== 'monthly_targets') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
                     <span>Karyawan & Bobot KPI</span>
                     <span class="ml-auto rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">Data</span>
+                </a>
+
+                <!-- Target Omzet Bulanan -->
+                <a href="{{ route('settings.karyawan.index', ['tab' => 'monthly_targets']) }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'settings.karyawan.index' && request('tab') === 'monthly_targets') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                    <span>Target Omzet Bulanan</span>
+                    <span class="ml-auto rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-300">Target</span>
+                </a>
+
+                <!-- Pengaturan Admin (Tab 8) -->
+                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 8]) }}" data-tab="8" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(8);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 8) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                    <span>Pengaturan Admin</span>
+                    <span class="ml-auto rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">Foto & Target</span>
+                </a>
+
+                <!-- Arsip Pencapaian Bulanan (Tab 7) -->
+                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 7]) }}" data-tab="7" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(7);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 7) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+                    <span>Arsip Pencapaian</span>
+                    <span class="ml-auto rounded-full bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-bold text-cyan-300">Bulanan</span>
+                </a>
+
+                <!-- Kandidat Gadgetmart (Eksternal) -->
+                <a href="https://kandidatgadgetmart.my.id" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition">
+                    <svg class="size-5 shrink-0 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.58-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/></svg>
+                    <span>Kandidat Gadgetmart</span>
+                    <span class="ml-auto text-slate-400 text-xs">↗</span>
                 </a>
             </div>
         </div>

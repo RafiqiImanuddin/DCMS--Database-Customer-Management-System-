@@ -147,17 +147,25 @@ class CrossSellingImportController extends Controller
 
         $rules = [];
         if ($hasCross) {
-            $rules['file'] = ['file', 'mimes:xlsx,xls,csv', 'max:3584'];
+            $rules['file'] = ['file', 'mimes:xlsx,xls,csv', 'max:40960'];
         }
         if ($hasTurnover) {
-            $rules['turnover_file'] = ['file', 'mimes:xlsx,xls,csv', 'max:3584'];
+            $rules['turnover_file'] = ['file', 'mimes:xlsx,xls,csv', 'max:40960'];
         }
 
+        $messages = [
+            'file.max' => 'Ukuran berkas Cross-Selling terlalu besar (maksimal 40 MB).',
+            'file.mimes' => 'Format berkas Cross-Selling harus berupa .xlsx, .xls, atau .csv.',
+            'turnover_file.max' => 'Ukuran berkas Turnover terlalu besar (maksimal 40 MB).',
+            'turnover_file.mimes' => 'Format berkas Turnover harus berupa .xlsx, .xls, atau .csv.',
+        ];
+
         try {
-            $validated = $request->validate($rules);
+            $validated = $request->validate($rules, $messages);
         } catch (ValidationException $e) {
             if ($request->expectsJson()) {
-                return response()->json(['message' => $e->getMessage(), 'errors' => $e->errors()], 422);
+                $firstError = collect($e->errors())->flatten()->first() ?? $e->getMessage();
+                return response()->json(['message' => $firstError, 'errors' => $e->errors()], 422);
             }
             throw $e;
         }
@@ -305,38 +313,55 @@ class CrossSellingImportController extends Controller
         @set_time_limit(300);
         @ini_set('memory_limit', '512M');
 
-        $storedPath = $import->stored_path;
         $isMySql = str_contains(DB::getDriverName(), 'mysql');
-
         if ($isMySql) {
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         }
 
         try {
-            // Hapus data prediksi terkait batch import ini terlebih dahulu
-            RepeatOrderPrediction::where('cross_selling_import_id', $import->id)->delete();
-
-            // Hapus data transaksi cross_selling secara chunked untuk kecepatan maksimal tanpa lock tabel
-            if ($isMySql) {
-                do {
-                    $deleted = DB::delete('DELETE FROM cross_sellings WHERE cross_selling_import_id = ? LIMIT 25000', [$import->id]);
-                } while ($deleted > 0);
-            } else {
-                CrossSelling::where('cross_selling_import_id', $import->id)->delete();
-            }
-
-            $import->delete();
+            $this->deleteSingleCrossImport($import, $isMySql);
+            $this->syncRemainingCrossSelling();
         } finally {
             if ($isMySql) {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1;');
             }
         }
 
-        if ($storedPath) {
-            Storage::disk('local')->delete($storedPath);
+        return redirect()->route('imports.index')->with('success', 'Data import berhasil dihapus.');
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat menghapus data import.');
+
+        $ids = $request->input('ids', []);
+        if (empty($ids) || ! is_array($ids)) {
+            return back()->with('error', 'Pilih minimal satu data import untuk dihapus.');
         }
 
-        return redirect()->route('imports.index')->with('success', 'Data import berhasil dihapus.');
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
+
+        $isMySql = str_contains(DB::getDriverName(), 'mysql');
+        if ($isMySql) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
+
+        $deletedCount = 0;
+        try {
+            $imports = CrossSellingImport::whereIn('id', $ids)->get();
+            foreach ($imports as $import) {
+                $this->deleteSingleCrossImport($import, $isMySql);
+                $deletedCount++;
+            }
+            $this->syncRemainingCrossSelling();
+        } finally {
+            if ($isMySql) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            }
+        }
+
+        return redirect()->route('imports.index')->with('success', "{$deletedCount} batch data Cross-Selling berhasil dihapus.");
     }
 
     public function destroyTurnover(Request $request, TurnoverImport $import): RedirectResponse
@@ -346,34 +371,148 @@ class CrossSellingImportController extends Controller
         @set_time_limit(300);
         @ini_set('memory_limit', '512M');
 
-        $storedPath = $import->stored_path;
         $isMySql = str_contains(DB::getDriverName(), 'mysql');
-
         if ($isMySql) {
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         }
 
         try {
-            // Hapus baris turnover secara chunked untuk kecepatan maksimal
-            if ($isMySql) {
-                do {
-                    $deleted = DB::delete('DELETE FROM turnovers WHERE turnover_import_id = ? LIMIT 25000', [$import->id]);
-                } while ($deleted > 0);
-            } else {
-                Turnover::where('turnover_import_id', $import->id)->delete();
-            }
-
-            $import->delete();
+            $this->deleteSingleTurnoverImport($import, $isMySql);
+            $this->syncRemainingTurnover();
         } finally {
             if ($isMySql) {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1;');
             }
         }
 
+        return redirect()->route('imports.index')->with('success', 'Data import turnover berhasil dihapus.');
+    }
+
+    public function bulkDestroyTurnover(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat menghapus data turnover.');
+
+        $ids = $request->input('ids', []);
+        if (empty($ids) || ! is_array($ids)) {
+            return back()->with('error', 'Pilih minimal satu data turnover untuk dihapus.');
+        }
+
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
+
+        $isMySql = str_contains(DB::getDriverName(), 'mysql');
+        if ($isMySql) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
+
+        $deletedCount = 0;
+        try {
+            $imports = TurnoverImport::whereIn('id', $ids)->get();
+            foreach ($imports as $import) {
+                $this->deleteSingleTurnoverImport($import, $isMySql);
+                $deletedCount++;
+            }
+            $this->syncRemainingTurnover();
+        } finally {
+            if ($isMySql) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            }
+        }
+
+        return redirect()->route('imports.index')->with('success', "{$deletedCount} batch data Turnover berhasil dihapus.");
+    }
+
+    protected function deleteSingleCrossImport(CrossSellingImport $import, bool $isMySql): void
+    {
+        $storedPath = $import->stored_path;
+
+        RepeatOrderPrediction::where('cross_selling_import_id', $import->id)->delete();
+
+        if ($isMySql) {
+            do {
+                $deleted = DB::delete('DELETE FROM cross_sellings WHERE cross_selling_import_id = ? LIMIT 25000', [$import->id]);
+            } while ($deleted > 0);
+        } else {
+            CrossSelling::where('cross_selling_import_id', $import->id)->delete();
+        }
+
+        $import->delete();
+
         if ($storedPath) {
             Storage::disk('local')->delete($storedPath);
         }
+    }
 
-        return redirect()->route('imports.index')->with('success', 'Data import turnover berhasil dihapus.');
+    protected function syncRemainingCrossSelling(): void
+    {
+        $latestRemaining = CrossSellingImport::where('status', 'completed')->latest()->first();
+        if ($latestRemaining && $latestRemaining->stored_path && Storage::disk('local')->exists($latestRemaining->stored_path)) {
+            try {
+                $bytes = Storage::disk('local')->get($latestRemaining->stored_path);
+                $nowMs = (string) round(microtime(true) * 1000);
+                Setting::updateOrCreate(['key' => 'workspace_croselling_mtime'], ['value' => $nowMs]);
+                Setting::updateOrCreate(['key' => 'workspace_croselling_filename'], ['value' => $latestRemaining->original_name]);
+                Setting::updateOrCreate(['key' => 'workspace_croselling_filesize'], ['value' => (string) strlen($bytes)]);
+                Setting::updateOrCreate(['key' => 'workspace_croselling_file_base64'], ['value' => base64_encode($bytes)]);
+                $targetCross = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'CROSSELLING-12102026.xlsx');
+                if (is_dir(dirname($targetCross))) {
+                    @file_put_contents($targetCross, $bytes);
+                }
+            } catch (\Throwable $e) {}
+        } elseif (! $latestRemaining) {
+            Setting::whereIn('key', [
+                'workspace_croselling_mtime',
+                'workspace_croselling_uploader',
+                'workspace_croselling_filename',
+                'workspace_croselling_filesize',
+                'workspace_croselling_file_base64',
+            ])->delete();
+        }
+    }
+
+    protected function deleteSingleTurnoverImport(TurnoverImport $import, bool $isMySql): void
+    {
+        $storedPath = $import->stored_path;
+
+        if ($isMySql) {
+            do {
+                $deleted = DB::delete('DELETE FROM turnovers WHERE turnover_import_id = ? LIMIT 25000', [$import->id]);
+            } while ($deleted > 0);
+        } else {
+            Turnover::where('turnover_import_id', $import->id)->delete();
+        }
+
+        $import->delete();
+
+        if ($storedPath) {
+            Storage::disk('local')->delete($storedPath);
+        }
+    }
+
+    protected function syncRemainingTurnover(): void
+    {
+        $latestRemaining = TurnoverImport::where('status', 'completed')->latest()->first();
+        if ($latestRemaining && $latestRemaining->stored_path && Storage::disk('local')->exists($latestRemaining->stored_path)) {
+            try {
+                $bytes = Storage::disk('local')->get($latestRemaining->stored_path);
+                $nowMs = (string) round(microtime(true) * 1000);
+                Setting::updateOrCreate(['key' => 'workspace_turnover_mtime'], ['value' => $nowMs]);
+                Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $latestRemaining->original_name]);
+                Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($bytes)]);
+                Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($bytes)]);
+                $targetTurnover = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'turnover.xlsx');
+                if (is_dir(dirname($targetTurnover))) {
+                    @file_put_contents($targetTurnover, $bytes);
+                }
+            } catch (\Throwable $e) {}
+        } elseif (! $latestRemaining) {
+            Setting::whereIn('key', [
+                'workspace_turnover_mtime',
+                'workspace_turnover_uploader',
+                'workspace_turnover_filename',
+                'workspace_turnover_filesize',
+                'workspace_turnover_file_base64',
+            ])->delete();
+        }
     }
 }

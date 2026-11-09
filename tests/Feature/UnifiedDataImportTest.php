@@ -217,5 +217,126 @@ class UnifiedDataImportTest extends TestCase
         $response->assertRedirect(route('imports.index'));
         $this->assertDatabaseMissing('cross_selling_imports', ['id' => $import->id]);
     }
+
+    public function test_cross_selling_file_larger_than_old_3_5mb_limit_is_accepted(): void
+    {
+        Storage::fake('local');
+        $superadmin = User::factory()->superadmin()->create();
+
+        // 10 MB fake file (previously failed with max:3584)
+        $file = UploadedFile::fake()->create('large_cross.csv', 10240, 'text/csv');
+
+        $response = $this->actingAs($superadmin)->post(route('imports.store'), [
+            'file' => $file,
+        ]);
+
+        // Should NOT fail validation
+        $response->assertSessionDoesntHaveErrors(['file']);
+    }
+
+    public function test_cross_selling_file_exceeding_40mb_returns_custom_error(): void
+    {
+        Storage::fake('local');
+        $superadmin = User::factory()->superadmin()->create();
+
+        // 45 MB fake file (exceeds max:40960)
+        $file = UploadedFile::fake()->create('huge_cross.csv', 46080, 'text/csv');
+
+        $response = $this->actingAs($superadmin)->postJson(route('imports.store'), [
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['file']);
+        $response->assertJsonFragment([
+            'message' => 'Ukuran berkas Cross-Selling terlalu besar (maksimal 40 MB).',
+        ]);
+    }
+
+    public function test_superadmin_can_bulk_delete_cross_selling_imports(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+
+        $import1 = CrossSellingImport::create([
+            'user_id' => $superadmin->id,
+            'original_name' => 'batch1.csv',
+            'stored_path' => 'cross-selling-imports/batch1.csv',
+            'status' => 'completed',
+        ]);
+        CrossSelling::create([
+            'cross_selling_import_id' => $import1->id,
+            'document_number' => 'DOC-B1',
+            'posting_date' => '2026-11-01',
+        ]);
+
+        $import2 = CrossSellingImport::create([
+            'user_id' => $superadmin->id,
+            'original_name' => 'batch2.csv',
+            'stored_path' => 'cross-selling-imports/batch2.csv',
+            'status' => 'completed',
+        ]);
+        CrossSelling::create([
+            'cross_selling_import_id' => $import2->id,
+            'document_number' => 'DOC-B2',
+            'posting_date' => '2026-11-02',
+        ]);
+
+        $this->assertDatabaseCount('cross_selling_imports', 2);
+        $this->assertDatabaseCount('cross_sellings', 2);
+
+        $response = $this->actingAs($superadmin)->delete(route('imports.bulk_destroy'), [
+            'ids' => [$import1->id, $import2->id],
+        ]);
+
+        $response->assertRedirect(route('imports.index'));
+        $response->assertSessionHas('success');
+        $this->assertDatabaseCount('cross_selling_imports', 0);
+        $this->assertDatabaseCount('cross_sellings', 0);
+    }
+
+    public function test_superadmin_can_bulk_delete_turnover_imports(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+
+        $t1 = TurnoverImport::create([
+            'user_id' => $superadmin->id,
+            'original_name' => 'turnover1.csv',
+            'stored_path' => 'turnover-imports/turnover1.csv',
+            'status' => 'completed',
+        ]);
+        Turnover::create([
+            'turnover_import_id' => $t1->id,
+            'document_number' => 'T-DOC-1',
+            'slp_name' => 'Sales Test 1',
+            'posting_date' => '2026-11-01',
+            'cleaning_hash' => 'hash_t1',
+        ]);
+
+        $t2 = TurnoverImport::create([
+            'user_id' => $superadmin->id,
+            'original_name' => 'turnover2.csv',
+            'stored_path' => 'turnover-imports/turnover2.csv',
+            'status' => 'completed',
+        ]);
+        Turnover::create([
+            'turnover_import_id' => $t2->id,
+            'document_number' => 'T-DOC-2',
+            'slp_name' => 'Sales Test 2',
+            'posting_date' => '2026-11-02',
+            'cleaning_hash' => 'hash_t2',
+        ]);
+
+        $this->assertDatabaseCount('turnover_imports', 2);
+        $this->assertDatabaseCount('turnovers', 2);
+
+        $response = $this->actingAs($superadmin)->delete(route('imports.bulk_destroy_turnover'), [
+            'ids' => [$t1->id, $t2->id],
+        ]);
+
+        $response->assertRedirect(route('imports.index'));
+        $response->assertSessionHas('success');
+        $this->assertDatabaseCount('turnover_imports', 0);
+        $this->assertDatabaseCount('turnovers', 0);
+    }
 }
 

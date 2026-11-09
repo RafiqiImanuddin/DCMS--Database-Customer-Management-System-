@@ -2,28 +2,46 @@
                     <!-- Turnover Timestamp Indicator Banner in Tab 2 -->
                     <div class="turnover-report-banner" id="turnoverReportBanner">
                         <div class="banner-left">
-                            <span class="banner-icon">📁</span>
-                            <span id="turnoverBannerText">File turnover terupdate per: Memuat status...</span>
+                            <span class="banner-icon">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                </svg>
+                            </span>
+                            <span id="turnoverBannerText" class="banner-text">File turnover terupdate per: Memuat status...</span>
                         </div>
                         <div class="banner-right">
-                            <button type="button" class="btn btn-xs"
+                            <button type="button" class="btn-banner-action btn-target-action"
                                 onclick="openMonthlyTargetModal()"
-                                style="font-weight: 700; display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid #2563eb; color: #1d4ed8; background: #eff6ff; padding: 4px 10px; border-radius: 6px; cursor: pointer;"
                                 title="Atur target omzet tim dan sales untuk bulan ini">
-                                🎯 Update Target Omzet
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <circle cx="12" cy="12" r="6"></circle>
+                                    <circle cx="12" cy="12" r="2"></circle>
+                                </svg>
+                                <span>Target Omzet</span>
                             </button>
-                            <button class="btn btn-xs btn-outline-dark" id="btnResetTurnover"
+                            <button type="button" class="btn-banner-action btn-reset-action" id="btnResetTurnover"
                                 onclick="resetTurnoverToDefault()"
-                                title="Hapus cache file upload dan kembali ke data bawaan">Kembali ke Default</button>
+                                title="Hapus cache file upload dan kembali ke data bawaan">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                    <path d="M3 3v5h5"></path>
+                                </svg>
+                                <span>Reset Data</span>
+                            </button>
                         </div>
                     </div>
 
                     <!-- Section Report 1: Daily Achievement Matrix -->
                     <div id="report1ViewWrap">
-                        <div class="card-tegas table-card" id="report1Container">
+                        <div class="card-tegas table-card report1-card-wrapper" id="report1Container">
                             <div class="table-toolbar report1-toolbar-themed">
                                 <div class="toolbar-brand-section">
-                                    <img src="logo.png" alt="GadgetMart" class="report-header-logo">
+                                    <img src="{{ asset('workspace-sosmed/logo.png') }}" onerror="this.onerror=null; this.src='{{ asset('images/gadgetmart-logo.png') }}';" alt="GadgetMart" class="report-header-logo">
                                     <div class="toolbar-divider-v"></div>
                                     <div class="toolbar-title">
                                         <h2 id="report1MainTitle">REPORT 1: DAILY ACHIEVEMENT SOSMED OKTOBER 2026</h2>
@@ -44,7 +62,8 @@
                                         <span class="clock-dot-sep">•</span>
                                         <span id="liveClockTime" class="clock-time-val">00:00:00 WITA</span>
                                     </div>
-                                    <button class="btn btn-sm btn-crimson btn-download-themed"
+                                    <button class="btn btn-sm btn-download-themed"
+                                        data-html2canvas-ignore="true"
                                         onclick="downloadElementAsPNG('report1Container', 'Report1_Daily_Achievement_Sosmed')">
                                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
@@ -58,7 +77,7 @@
                                 </div>
                             </div>
 
-                            <div class="table-responsive" id="tableScrollArea">
+                            <div class="table-responsive report1-scroll-area" id="tableScrollArea">
                                 <table class="kpi-matrix-table" id="matrixTable">
                                     <thead>
                                         <tr id="matrixHeaderRow">
@@ -102,6 +121,7 @@
                                         <span>TIMEGONE:</span>
                                         <strong class="timegone-tag" id="timegoneHeaderTag">42%</strong>
                                         <button class="btn btn-sm btn-crimson ml-10"
+                                            data-html2canvas-ignore="true"
                                             onclick="downloadElementAsPNG('report2Container', 'Report2_KPI_Summary_Timegone')">📷
                                             Unduh Gambar Lengkap</button>
                                     </div>

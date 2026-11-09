@@ -83,7 +83,7 @@
                                 <label for="modalTeamTargetInput" style="font-size: 0.74rem; font-weight: 800; color: #475569; text-transform: uppercase;">Target Tim Bulan Ini (Rp):</label>
                                 <span id="modalTeamGPPreview" style="font-size: 0.72rem; font-weight: 700; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 6px; border: 1px solid #a7f3d0;">GP 5%: Rp 0</span>
                             </div>
-                            <input type="number" id="modalTeamTargetInput" class="form-input" oninput="onModalTeamInputChange()" style="font-weight: 800; font-size: 1.05rem; color: #c8102e; width: 100%;">
+                            <input type="text" id="modalTeamTargetInput" class="form-input" oninput="onModalTeamInputChange(this)" placeholder="8.672.618.860" style="font-weight: 800; font-size: 1.05rem; color: #c8102e; width: 100%; font-family: monospace;">
                         </div>
                     </div>
                 </div>

@@ -35,7 +35,9 @@ Project Yahya.zip
 /scratch/
 dcms-deploy*.zip
 *.zip
+/*.sql
 database/dumps/dcms_cpanel_full.sql
 /public/workspace-sosmed/omni_resolved_chats.json
+public/dcms_core_database.sql
 
 

@@ -1,0 +1,16 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Cegah akses ke file rahasia (.env, git, composer, artisan)
+    <FilesMatch "^\.(env|git)|composer\.(json|lock)|package(-lock)?\.json|artisan">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+
+    # Blokir akses langsung ke folder internal Laravel
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests)/ - [F,L,NC]
+
+    # Kirim request ke folder public/
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L,QSA]
+</IfModule>
