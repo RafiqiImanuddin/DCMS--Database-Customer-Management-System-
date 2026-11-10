@@ -68,6 +68,16 @@ class SosmedKeepWebhookController extends Controller
         }
 
         // =========================================================================
+        // 4B. FITUR HAPUS BARIS KEEP (KOMPATIBEL DENGAN TRIGGER ONEDIT SHEET)
+        // =========================================================================
+        if ($action === 'DELETE_KEEP' || $action === 'HAPUS_KEEP') {
+            $custPhone = $request->input('customerPhone') ?? $request->input('customer_phone') ?? $request->input('nomorWA');
+            $id = $request->input('id');
+
+            return response()->json($this->deleteKeep($custPhone, $id));
+        }
+
+        // =========================================================================
         // 5. FORMAT KEEP / KREDIT DARI FONNTE + INPUT MESSAGE ID
         // =========================================================================
         $message = trim((string) $request->input('message', ''));
@@ -386,6 +396,40 @@ class SosmedKeepWebhookController extends Controller
         return [
             'success' => true,
             'message' => "Nomor FU untuk baris ID {$keep->id} berhasil dikosongkan.",
+        ];
+    }
+
+    /**
+     * Hapus Baris Keep (Kompatibel dengan aksi Hapus di Google Spreadsheet)
+     */
+    private function deleteKeep(?string $customerPhone, mixed $id = null): array
+    {
+        $query = SosmedKeep::query();
+
+        if ($id) {
+            $keep = $query->find($id);
+        } elseif ($customerPhone) {
+            $cleanPhone = preg_replace('/\D/', '', (string) $customerPhone);
+            $last9 = substr($cleanPhone, -9);
+            $keep = $query->where(function ($q) use ($cleanPhone, $last9) {
+                $q->where('nomor_wa', $cleanPhone)
+                    ->orWhere('nomor_wa', 'like', "%{$last9}");
+            })->latest('id')->first();
+        } else {
+            return ['success' => false, 'message' => 'Parameter ID atau nomorWA kosong'];
+        }
+
+        if (! $keep) {
+            return ['success' => false, 'message' => 'Data keep tidak ditemukan'];
+        }
+
+        $rowId = $keep->id;
+        $keep->delete();
+
+        return [
+            'success' => true,
+            'message' => "Data keep ID {$rowId} berhasil dihapus dari database SQL.",
+            'deletedId' => $rowId,
         ];
     }
 

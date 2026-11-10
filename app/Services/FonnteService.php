@@ -13,7 +13,7 @@ class FonnteService
      */
     public function getToken(): string
     {
-        return trim((string) Setting::get('fonnte_token', config('services.fonnte.token', 'UjuTUowTBsUR1mzWhKFj')));
+        return trim((string) Setting::get('fonnte_token', config('services.fonnte.token', 'NMGid9rgBKYAAyZ7wmSn')));
     }
 
     /**

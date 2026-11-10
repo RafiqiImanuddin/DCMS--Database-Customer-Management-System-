@@ -45,7 +45,7 @@ class WatzapSettingController extends Controller
         $wahaStatus = $watzap->getWahaStatus();
 
         // Kredensial Fonnte (Bot Keep & Webhook Migrasi Spreadsheet)
-        $fonnteToken = Setting::get('fonnte_token', 'UjuTUowTBsUR1mzWhKFj');
+        $fonnteToken = Setting::get('fonnte_token', 'NMGid9rgBKYAAyZ7wmSn');
         $fonnteAutoreply = Setting::get('fonnte_autoreply_enabled', '1');
         $fonnteAutoreplyMsg = Setting::get('fonnte_autoreply_message', "✅ Data KEEP berhasil direkap.\n\nNama : {nama}\nNomor WA : {nomor}\nBarang : {barang}\nTanggal Pengambilan : {tanggal}\nRemaks : {remaks}");
         $fonnteWebhookUrl = url('/api/fonnte-webhook');

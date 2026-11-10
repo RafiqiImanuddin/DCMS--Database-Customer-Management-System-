@@ -583,6 +583,11 @@
                             <td class="p-2.5 font-mono text-[11px]">action=CLEAR_REACTION_FU&customerPhone=...</td>
                             <td class="p-2.5 text-slate-600">Fitur batal jempol: mengosongkan kolom <code>nomor_fu</code> di SQL.</td>
                         </tr>
+                        <tr>
+                            <td class="p-2.5 font-bold text-rose-700 font-mono">DELETE_KEEP / HAPUS_KEEP</td>
+                            <td class="p-2.5 font-mono text-[11px]">action=DELETE_KEEP&customerPhone=...</td>
+                            <td class="p-2.5 text-slate-600">Kompatibel trigger onEdit: menghapus baris transaksi keep fisik dari database SQL.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

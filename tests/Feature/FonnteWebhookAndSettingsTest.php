@@ -184,4 +184,30 @@ class FonnteWebhookAndSettingsTest extends TestCase
             'nomor_fu' => null,
         ]);
     }
+
+    public function test_fonnte_webhook_action_delete_keep(): void
+    {
+        $keep = SosmedKeep::create([
+            'nama' => 'Rian Hidayat',
+            'nomor_wa' => '6281122334455',
+            'barang_keep' => 'MacBook Air M2',
+            'remarks' => 'SOSMED 4',
+        ]);
+
+        $payload = [
+            'action' => 'DELETE_KEEP',
+            'customerPhone' => '081122334455',
+        ];
+
+        $response = $this->post(route('api.fonnte_webhook'), $payload);
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'deletedId' => $keep->id,
+        ]);
+
+        $this->assertDatabaseMissing('sosmed_keeps', [
+            'id' => $keep->id,
+        ]);
+    }
 }
