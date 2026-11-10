@@ -16,6 +16,7 @@ class GuidanceController extends Controller
      */
     public function index(Request $request): View
     {
+        abort_unless($request->user()?->canAccessFeature('guidance'), 403, 'Akses terbatas: Fitur Panduan & SOP tidak diaktifkan untuk akun Anda.');
         $user = $request->user();
         $isSuperAdmin = $user && $user->isSuperAdmin();
 

@@ -43,16 +43,53 @@ const importFileInput = document.getElementById('file');
 const turnoverFileInput = document.getElementById('turnover_file');
 const importSubmitButton = document.getElementById('import-submit-button');
 
-function updateImportSubmitButton() {
-    if (!importSubmitButton) return;
-    const hasCross = importFileInput?.files?.length > 0;
-    const hasTurnover = turnoverFileInput?.files?.length > 0;
+function formatFileSize(bytes) {
+    if (!bytes || bytes <= 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
 
-    if (hasCross && hasTurnover) {
+function updateImportSubmitButton() {
+    const crossFile = importFileInput?.files?.[0];
+    const turnoverFile = turnoverFileInput?.files?.[0];
+
+    const infoCross = document.getElementById('file-info-cross');
+    const nameCross = document.getElementById('file-name-cross');
+    const sizeCross = document.getElementById('file-size-cross');
+
+    const infoTurnover = document.getElementById('file-info-turnover');
+    const nameTurnover = document.getElementById('file-name-turnover');
+    const sizeTurnover = document.getElementById('file-size-turnover');
+
+    if (crossFile) {
+        if (nameCross) nameCross.textContent = crossFile.name;
+        if (sizeCross) sizeCross.textContent = formatFileSize(crossFile.size);
+        infoCross?.classList.remove('hidden');
+        infoCross?.classList.add('flex');
+    } else {
+        infoCross?.classList.add('hidden');
+        infoCross?.classList.remove('flex');
+    }
+
+    if (turnoverFile) {
+        if (nameTurnover) nameTurnover.textContent = turnoverFile.name;
+        if (sizeTurnover) sizeTurnover.textContent = formatFileSize(turnoverFile.size);
+        infoTurnover?.classList.remove('hidden');
+        infoTurnover?.classList.add('flex');
+    } else {
+        infoTurnover?.classList.add('hidden');
+        infoTurnover?.classList.remove('flex');
+    }
+
+    if (!importSubmitButton) return;
+
+    if (crossFile && turnoverFile) {
         importSubmitButton.textContent = '🚀 Unggah & Sinkronkan Semua (Dual Engine)';
-    } else if (hasTurnover) {
+    } else if (turnoverFile) {
         importSubmitButton.textContent = '📊 Unggah File Turnover';
-    } else if (hasCross) {
+    } else if (crossFile) {
         importSubmitButton.textContent = '🎯 Unggah File Cross-Selling';
     } else {
         importSubmitButton.textContent = 'Mulai Import';
@@ -95,6 +132,13 @@ importUploadForm?.addEventListener('submit', (event) => {
     if (uploadProgressLabel) uploadProgressLabel.textContent = 'Menyiapkan berkas...';
 
     const formData = new FormData(importUploadForm);
+    // Hapus berkas yang tidak dipilih agar tidak mengirim boundary berkas kosong
+    if (!importFileInput?.files?.[0]) {
+        formData.delete('file');
+    }
+    if (!turnoverFileInput?.files?.[0]) {
+        formData.delete('turnover_file');
+    }
     const xhr = new XMLHttpRequest();
     xhr.open('POST', importUploadForm.action, true);
     xhr.setRequestHeader('Accept', 'application/json');

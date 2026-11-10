@@ -19,7 +19,11 @@ class EmployeeSettingController extends Controller
      */
     public function index(Request $request): View
     {
-        abort_unless($request->user()->isAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang mengakses Pengaturan Karyawan.');
+        if ($request->string('tab')->toString() === 'monthly_targets') {
+            abort_unless($request->user()->canAccessFeature('monthly_targets'), 403, 'Akses terbatas: Fitur Target Omzet Bulanan tidak diaktifkan untuk akun Anda.');
+        } else {
+            abort_unless($request->user()->canAccessFeature('employee_settings'), 403, 'Akses terbatas: Fitur Pengaturan Karyawan & Bobot KPI tidak diaktifkan untuk akun Anda.');
+        }
 
         $search = $request->string('search')->trim()->toString();
         $cabang = $request->string('cabang')->trim()->toString();

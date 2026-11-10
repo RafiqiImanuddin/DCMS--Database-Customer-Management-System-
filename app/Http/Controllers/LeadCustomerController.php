@@ -17,6 +17,7 @@ class LeadCustomerController extends Controller
 {
     public function index(Request $request): View
     {
+        abort_unless($request->user()?->canAccessFeature('leads'), 403, 'Akses terbatas: Fitur Leads Customer tidak diaktifkan untuk akun Anda.');
         $query = $this->buildFilteredQuery($request);
 
         return view('leads.index', [
@@ -122,6 +123,7 @@ class LeadCustomerController extends Controller
 
     public function assign(Request $request): RedirectResponse
     {
+        abort_unless($request->user()?->canAccessFeature('predictions_assign'), 403, 'Akses terbatas: Fitur Assign Leads Customer tidak diaktifkan untuk akun Anda.');
         $validated = $request->validate([
             'prediction_ids' => ['required', 'array', 'min:1'],
             'prediction_ids.*' => ['required', 'integer', 'distinct', 'exists:repeat_order_predictions,id'],

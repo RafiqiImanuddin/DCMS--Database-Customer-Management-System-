@@ -72,16 +72,22 @@
         @php
             $activeTarget = \App\Support\RouteCipher::resolveTarget(request());
             $activeWorkspaceTab = \App\Support\RouteCipher::resolveWorkspaceTab(request());
+            $currentUser = auth()->user();
 
             $isCustomerActive = in_array($activeTarget, [
                 'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index', 'pricelist.index'
             ]);
             $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index' && !in_array($activeWorkspaceTab, [7, 8]));
-            $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index']);
+            $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index', 'quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show', 'quotations.print']);
             $isGuidanceActive = ($activeTarget === 'guidance.index');
-            $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index', 'profile.edit']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
+            $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index', 'profile.edit', 'settings.users.index']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
+
+            $canSeeCustomerGroup = $currentUser && ($currentUser->canAccessFeature('dashboard') || $currentUser->canAccessFeature('predictions') || $currentUser->canAccessFeature('leads') || $currentUser->canAccessFeature('broadcasts') || $currentUser->canAccessFeature('pricelist'));
+            $canSeeWorkspaceGroup = $currentUser && ($currentUser->canAccessFeature('workspace_dashboard') || $currentUser->canAccessFeature('workspace_matrix') || $currentUser->canAccessFeature('workspace_cek_ar') || $currentUser->canAccessFeature('workspace_format_keep') || $currentUser->canAccessFeature('workspace_tracking_ar') || $currentUser->canAccessFeature('workspace_klaim_ar') || $currentUser->canAccessFeature('workspace_inbox_fu'));
+            $canSeeMonitoringGroup = $currentUser && ($currentUser->canAccessFeature('monitoring_sales') || $currentUser->canAccessFeature('quotations'));
         @endphp
 
+        @if ($canSeeCustomerGroup)
         <!-- GROUP 1: CUSTOMER & OUTREACH CRM -->
         <div class="pt-1">
             <button type="button" 
@@ -103,40 +109,47 @@
             </button>
             
             <div id="sidebar-group-customer" class="sidebar-group-content space-y-1 pt-1 is-expanded">
+                @if ($currentUser->canAccessFeature('dashboard'))
                 <a href="{{ \App\Support\RouteCipher::url('dashboard') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'dashboard' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 13h6V4H4v9Zm10 7h6v-9h-6v9ZM4 20h6v-3H4v3Zm10-13h6V4h-6v3Z"/></svg>
                     <span>Dashboard</span>
                 </a>
+                @endif
 
+                @if ($currentUser->canAccessFeature('predictions'))
                 <a href="{{ \App\Support\RouteCipher::url('predictions.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'predictions.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 2v6m3-3h-6"/></svg>
                     <span>Master Customer</span>
                 </a>
+                @endif
 
+                @if ($currentUser->canAccessFeature('leads'))
                 <a href="{{ \App\Support\RouteCipher::url('leads.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'leads.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                     <span>Leads Customer</span>
                 </a>
+                @endif
 
+                @if ($currentUser->canAccessFeature('broadcasts'))
                 <a href="{{ \App\Support\RouteCipher::url('broadcasts.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'broadcasts.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>
                     <span>Laporan Broadcast</span>
                 </a>
+                @endif
 
-                @if (auth()->check() && auth()->user()->isSuperAdmin())
-                <a href="{{ \App\Support\RouteCipher::url('pricelist.index') }}" class="flex items-center justify-between rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'pricelist.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <span class="flex items-center gap-3">
-                        <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                        </svg>
-                        <span>Pricelist Gadget</span>
-                    </span>
-                    <span class="rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">Superadmin</span>
+                @if ($currentUser->canAccessFeature('pricelist'))
+                <a href="{{ \App\Support\RouteCipher::url('pricelist.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'pricelist.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    <span>Pricelist Gadget</span>
                 </a>
                 @endif
             </div>
         </div>
+        @endif
 
+        @if ($canSeeWorkspaceGroup)
         <!-- GROUP 2: WORKSPACE SOSMED (INTEGRASI PENUH) -->
         <div class="pt-2">
             <button type="button" 
@@ -158,12 +171,15 @@
             </button>
 
             <div id="sidebar-group-workspace" class="sidebar-group-content space-y-1 pt-1 is-expanded">
+                @if ($currentUser->canAccessFeature('workspace_dashboard'))
                 <!-- 1. Dashboard KPI -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 1]) }}" data-tab="1" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(1);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 1) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
                     <span>Dashboard Sosmed</span>
                 </a>
+                @endif
 
+                @if ($currentUser->canAccessFeature('workspace_matrix'))
                 <!-- 2. Report Matrix -->
                 <div class="space-y-1" id="report-matrix-nav-container">
                     <div id="wrap-report-matrix-btn" class="flex items-center justify-between rounded-xl transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 2) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
@@ -188,44 +204,53 @@
                         </a>
                     </div>
                 </div>
+                @endif
 
-                @if (auth()->check() && auth()->user()->isAdmin())
+                @if ($currentUser->canAccessFeature('workspace_cek_ar'))
                 <!-- 3. Cek Status AR -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 3]) }}" data-tab="3" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(3);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 3) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
                     <span>Cek Status AR</span>
                 </a>
+                @endif
 
+                @if ($currentUser->canAccessFeature('workspace_format_keep'))
                 <!-- 4. Format Keep -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]) }}" data-tab="4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 4) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
                     <span>Format Keep</span>
                 </a>
+                @endif
 
+                @if ($currentUser->canAccessFeature('workspace_tracking_ar'))
                 <!-- 5. Tracking AR -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 5]) }}" data-tab="5" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(5);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 5) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg>
                     <span>Tracking AR</span>
                 </a>
+                @endif
 
+                @if ($currentUser->canAccessFeature('workspace_klaim_ar'))
                 <!-- 6. Klaim AR -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 6]) }}" data-tab="6" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(6);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 6) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     <span>Klaim AR</span>
                 </a>
+                @endif
 
+                @if ($currentUser->canAccessFeature('workspace_inbox_fu'))
                 <!-- 7. Inbox FU -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 9]) }}" data-tab="9" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(9);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 9) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.75.75 0 0 1-.84-.84c.125-.68.39-1.53.844-2.228C4.015 16.544 3 14.39 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/></svg>
                     <span>Inbox Follow-Up</span>
-                    <span class="ml-auto rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">FU</span>
                 </a>
                 @endif
             </div>
         </div>
+        @endif
 
-        @if (auth()->check() && auth()->user()->isAdmin())
-        <!-- GROUP 3: MONITORING (MANAGER & SUPERADMIN) -->
+        @if ($canSeeMonitoringGroup)
+        <!-- GROUP 3: DASHBOARD MANAGER -->
         <div class="pt-2">
             <button type="button" 
                     id="btn-sidebar-group-monitoring"
@@ -235,8 +260,7 @@
                     aria-controls="sidebar-group-monitoring"
                     title="Klik untuk collapse / expand">
                 <span class="flex items-center gap-1.5">
-                    <span>Monitoring Kinerja</span>
-                    <span class="rounded-full bg-indigo-500/20 px-1.5 py-0.2 text-[8px] font-bold text-indigo-300">Manager</span>
+                    <span>Dashboard Manager</span>
                     @if ($isMonitoringActive)
                         <span id="dot-active-monitoring" class="size-1.5 rounded-full bg-brand-400 ring-2 ring-brand-400/20" style="display: none;" title="Menu aktif di grup ini"></span>
                     @endif
@@ -247,15 +271,27 @@
             </button>
 
             <div id="sidebar-group-monitoring" class="sidebar-group-content space-y-1 pt-1 is-expanded">
+                @if ($currentUser->canAccessFeature('monitoring_sales'))
                 <a href="{{ \App\Support\RouteCipher::url('monitoring.sales.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'monitoring.sales.index' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
                     <span>Monitoring Admin Sales</span>
-                    <span class="ml-auto rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">KPI</span>
                 </a>
+                @endif
+
+                @if ($currentUser->canAccessFeature('quotations'))
+                <a href="{{ \App\Support\RouteCipher::url('quotations.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ in_array($activeTarget, ['quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show']) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 13.5h6m-6 3h4"/>
+                    </svg>
+                    <span>Surat Penawaran</span>
+                </a>
+                @endif
             </div>
         </div>
         @endif
 
+        @if ($currentUser && $currentUser->canAccessFeature('guidance'))
         <!-- GROUP 4: PANDUAN & SOP -->
         <div class="pt-2">
             <button type="button" 
@@ -267,11 +303,6 @@
                     title="Klik untuk collapse / expand">
                 <span class="flex items-center gap-1.5">
                     <span>Panduan & SOP</span>
-                    @if (auth()->check() && auth()->user()->isSuperAdmin())
-                        <span class="rounded-full bg-purple-500/20 px-1.5 py-0.2 text-[8px] font-bold text-purple-300">Rumus</span>
-                    @else
-                        <span class="rounded-full bg-sky-500/20 px-1.5 py-0.2 text-[8px] font-bold text-sky-300">SOP</span>
-                    @endif
                     @if ($isGuidanceActive)
                         <span id="dot-active-guidance" class="size-1.5 rounded-full bg-brand-400 ring-2 ring-brand-400/20" style="display: none;" title="Menu aktif di grup ini"></span>
                     @endif
@@ -287,14 +318,12 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
                     </svg>
                     <span>{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Rumus & Panduan' : 'Panduan & SOP Sales' }}</span>
-                    <span class="ml-auto rounded-full {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'bg-purple-500/20 text-purple-300' : 'bg-sky-500/20 text-sky-300' }} px-1.5 py-0.5 text-[9px] font-bold">
-                        {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Rumus' : 'SOP' }}
-                    </span>
                 </a>
             </div>
         </div>
+        @endif
 
-        <!-- GROUP 5: SETTING -->
+        <!-- GROUP 5: PENGATURAN -->
         <div class="pt-2">
             <button type="button" 
                     id="btn-sidebar-group-setting"
@@ -304,7 +333,7 @@
                     aria-controls="sidebar-group-setting"
                     title="Klik untuk collapse / expand">
                 <span class="flex items-center gap-1.5">
-                    <span>Setting</span>
+                    <span>Pengaturan</span>
                     @if ($isSettingActive)
                         <span id="dot-active-setting" class="size-1.5 rounded-full bg-brand-400 ring-2 ring-brand-400/20" style="display: none;" title="Menu aktif di grup ini"></span>
                     @endif
@@ -315,49 +344,58 @@
             </button>
 
             <div id="sidebar-group-setting" class="sidebar-group-content space-y-1 pt-1 is-expanded">
-                @if (auth()->check() && auth()->user()->isSuperAdmin())
+                @if ($currentUser && $currentUser->canAccessFeature('imports'))
                 <a href="{{ \App\Support\RouteCipher::url('imports.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'imports.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg>
                     <span>Pusat Unggah Data</span>
-                    <span class="ml-auto rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-bold text-blue-300">SAP</span>
                 </a>
                 @endif
 
-                @if (auth()->check() && auth()->user()->isAdmin())
+                @if ($currentUser && $currentUser->canAccessFeature('watzap_settings'))
                 <a href="{{ \App\Support\RouteCipher::url('settings.watzap.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index']) ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
-                    <span>Setup WhatsApp</span>
-                    <span class="ml-auto rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">Gateway</span>
+                    <span>Pengaturan WhatsApp</span>
                 </a>
                 @endif
 
-                @if (auth()->check() && auth()->user()->isSuperAdmin())
-
+                @if ($currentUser && $currentUser->canAccessFeature('employee_settings'))
                 <a href="{{ \App\Support\RouteCipher::url('settings.karyawan.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'settings.karyawan.index' && request('tab') !== 'monthly_targets') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
                     <span>Karyawan & Bobot KPI</span>
-                    <span class="ml-auto rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">Data</span>
                 </a>
+                @endif
 
+                @if ($currentUser && $currentUser->canAccessFeature('monthly_targets'))
                 <!-- Target Omzet Bulanan -->
                 <a href="{{ route('settings.karyawan.index', ['tab' => 'monthly_targets']) }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'settings.karyawan.index' && request('tab') === 'monthly_targets') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     <span>Target Omzet Bulanan</span>
-                    <span class="ml-auto rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold text-rose-300">Target</span>
                 </a>
+                @endif
 
+                @if ($currentUser && $currentUser->canAccessFeature('workspace_admin_settings'))
                 <!-- Pengaturan Admin (Tab 8) -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 8]) }}" data-tab="8" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(8);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 8) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                     <span>Pengaturan Admin</span>
-                    <span class="ml-auto rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">Foto & Target</span>
                 </a>
+                @endif
 
+                @if ($currentUser && $currentUser->canAccessFeature('workspace_archives'))
                 <!-- Arsip Pencapaian Bulanan (Tab 7) -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 7]) }}" data-tab="7" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(7);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 7) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
                     <span>Arsip Pencapaian</span>
-                    <span class="ml-auto rounded-full bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-bold text-cyan-300">Bulanan</span>
+                </a>
+                @endif
+
+                @if ($currentUser && $currentUser->isSuperAdmin())
+                <!-- Kelola Akun & Hak Akses Fitur (Khusus Superadmin) -->
+                <a href="{{ \App\Support\RouteCipher::url('settings.users.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'settings.users.index' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/>
+                    </svg>
+                    <span>Hak Akses & Akun</span>
                 </a>
 
                 <!-- Kandidat Gadgetmart (Eksternal) -->
@@ -372,7 +410,6 @@
                 <a href="{{ \App\Support\RouteCipher::url('profile.edit') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'profile.edit' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                     <span>Pengaturan Akun</span>
-                    <span class="ml-auto rounded-full bg-teal-500/20 px-1.5 py-0.5 text-[9px] font-bold text-teal-300">Profil</span>
                 </a>
             </div>
         </div>

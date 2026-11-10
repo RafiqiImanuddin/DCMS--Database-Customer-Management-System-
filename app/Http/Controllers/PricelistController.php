@@ -27,7 +27,7 @@ class PricelistController extends Controller
      */
     public function index(Request $request): View
     {
-        abort_unless($request->user() && $request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengakses menu Pricelist.');
+        abort_unless($request->user() && $request->user()->canAccessFeature('pricelist'), 403, 'Akses terbatas: Fitur Pricelist Gadget tidak diaktifkan untuk akun Anda.');
 
         $data = $this->loadPricelistData();
 
@@ -44,7 +44,7 @@ class PricelistController extends Controller
      */
     public function syncDropbox(Request $request): JsonResponse
     {
-        abort_unless($request->user() && $request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+        abort_unless($request->user() && $request->user()->canAccessFeature('pricelist'), 403, 'Akses terbatas.');
 
         try {
             ini_set('memory_limit', '1024M');
@@ -90,7 +90,7 @@ class PricelistController extends Controller
      */
     public function checkDropboxStatus(Request $request): JsonResponse
     {
-        abort_unless($request->user() && $request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+        abort_unless($request->user() && $request->user()->canAccessFeature('pricelist'), 403, 'Akses terbatas.');
 
         $data = $this->loadPricelistData();
 
@@ -106,7 +106,7 @@ class PricelistController extends Controller
      */
     public function updateFromExcel(Request $request): JsonResponse
     {
-        abort_unless($request->user() && $request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+        abort_unless($request->user() && $request->user()->canAccessFeature('pricelist'), 403, 'Akses terbatas.');
 
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:51200'], // max 50MB

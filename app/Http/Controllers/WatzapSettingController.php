@@ -13,7 +13,7 @@ class WatzapSettingController extends Controller
 {
     public function index(Request $request, WatzapService $watzap): View
     {
-        abort_unless($request->user()->isAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang mengakses Pengaturan WhatsApp.');
+        abort_unless($request->user()->canAccessFeature('watzap_settings'), 403, 'Akses terbatas: Fitur Setup WhatsApp Gateway tidak diaktifkan untuk akun Anda.');
 
         $isSuperAdmin = $request->user()->isSuperAdmin();
 

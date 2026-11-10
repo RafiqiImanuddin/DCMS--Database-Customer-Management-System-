@@ -92,6 +92,53 @@ class UnifiedDataImportTest extends TestCase
         $this->assertDatabaseHas('turnovers', ['document_number' => 'DOC-201', 'dpp' => 10000000]);
     }
 
+    public function test_server_upload_limit_error_on_turnover_file_returns_clear_actionable_message(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+
+        // Simulate a file rejected by PHP ini directive (UPLOAD_ERR_INI_SIZE = 1)
+        $brokenFile = new UploadedFile(
+            path: tempnam(sys_get_temp_dir(), 'test_'),
+            originalName: 'turnover_besar.xlsx',
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            error: UPLOAD_ERR_INI_SIZE,
+            test: true
+        );
+
+        $response = $this->actingAs($superadmin)->postJson(route('imports.store'), [
+            'turnover_file' => $brokenFile,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonStructure(['message']);
+        $message = $response->json('message');
+        $this->assertStringContainsString('upload_max_filesize', $message);
+        $this->assertStringContainsString('turnover_besar.xlsx', $message);
+    }
+
+    public function test_server_upload_limit_error_on_cross_file_returns_clear_actionable_message(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+
+        $brokenFile = new UploadedFile(
+            path: tempnam(sys_get_temp_dir(), 'test_'),
+            originalName: 'cross_besar.xlsx',
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            error: UPLOAD_ERR_INI_SIZE,
+            test: true
+        );
+
+        $response = $this->actingAs($superadmin)->postJson(route('imports.store'), [
+            'file' => $brokenFile,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonStructure(['message']);
+        $message = $response->json('message');
+        $this->assertStringContainsString('upload_max_filesize', $message);
+        $this->assertStringContainsString('cross_besar.xlsx', $message);
+    }
+
     public function test_superadmin_can_upload_both_files_together_in_single_submission(): void
     {
         Storage::fake('local');

@@ -53,6 +53,17 @@
             <span class="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-bold">Periode Bulanan</span>
         </a>
 
+        @if ($isSuperAdmin)
+        <a href="{{ \App\Support\RouteCipher::url('settings.users.index') }}" 
+           class="inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold border-transparent text-slate-500 hover:text-purple-600 transition">
+            <svg class="size-4 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/>
+            </svg>
+            <span>Hak Akses & Akun</span>
+            <span class="rounded-full bg-purple-100 text-purple-700 px-2 py-0.5 text-xs font-bold">Checklist Fitur</span>
+        </a>
+        @endif
+
         <!-- Menu dari Simbol Setting: Akses Cepat Pengaturan Admin Workspace (Tab 8) -->
         <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 8]) }}" 
            class="inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold border-transparent text-slate-500 hover:text-indigo-600 transition">

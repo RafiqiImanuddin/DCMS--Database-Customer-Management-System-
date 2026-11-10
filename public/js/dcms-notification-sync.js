@@ -145,45 +145,92 @@
   window.showDcmsToast = showDcmsToast;
 
   // =========================================================================
-  // 2. NOTIFICATION HISTORY STORE (LOCALSTORAGE)
+  // 2. TEAM ACTIVITY NOTIFICATION STORE & SYNC ENGINE
   // =========================================================================
-  function getStoredNotifications() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const arr = JSON.parse(raw);
-        if (Array.isArray(arr)) return arr;
-      }
-    } catch (e) {}
-    return [];
+  let cachedTeamNotifications = [];
+  const LAST_SEEN_STORAGE_KEY = 'dcms_last_seen_activity_id_v2';
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
-  function saveStoredNotifications(list) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, 20)));
-    } catch (e) {}
+  function getUserBadgeStyle(name) {
+    const lower = (name || '').toLowerCase();
+    if (lower.includes('superadmin')) {
+      return 'bg-purple-100 text-purple-800 border border-purple-200';
+    }
+    if (lower.includes('sistem')) {
+      return 'bg-slate-100 text-slate-700 border border-slate-200';
+    }
+    return 'bg-blue-100 text-blue-800 border border-blue-200';
   }
+
+  async function fetchTeamNotifications(isUserInitiated = false) {
+    try {
+      const res = await fetch(`/api/notifications?t=${Date.now()}`, {
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (data && Array.isArray(data.notifications)) {
+        const prevList = cachedTeamNotifications;
+        cachedTeamNotifications = data.notifications;
+
+        const lastSeenId = parseInt(localStorage.getItem(LAST_SEEN_STORAGE_KEY) || '0', 10);
+        const topNotif = cachedTeamNotifications[0];
+
+        // Jika ada notifikasi baru yang belum dilihat
+        if (topNotif && topNotif.id > lastSeenId) {
+          updateBellBadge(true);
+
+          // Jika ini background polling (bukan buka dropdown sendiri) dan ada notifikasi baru
+          if (!isUserInitiated && prevList.length > 0 && topNotif.id !== prevList[0]?.id) {
+            showDcmsToast({
+              title: topNotif.title,
+              message: topNotif.message,
+              type: topNotif.type || 'success',
+              duration: 6000
+            });
+          }
+        } else if (!topNotif) {
+          updateBellBadge(false);
+        }
+
+        renderNotificationList();
+      }
+    } catch (e) {
+      console.warn('[Notifications Fetch Error]', e);
+    }
+  }
+  window.fetchTeamNotifications = fetchTeamNotifications;
 
   function addDcmsNotification({ title, message, type = 'success' }) {
-    const list = getStoredNotifications();
-    const item = {
-      id: 'notif-' + Date.now(),
-      title,
-      message,
-      type,
-      time: formatCurrentTime(),
-      dateFormatted: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
-      timestamp: Date.now(),
-    };
-    list.unshift(item);
-    saveStoredNotifications(list);
-    renderNotificationList();
-    updateBellBadge(true);
+    fetchTeamNotifications(true);
   }
   window.addDcmsNotification = addDcmsNotification;
 
-  function clearDcmsNotifications() {
-    saveStoredNotifications([]);
+  async function clearDcmsNotifications() {
+    try {
+      const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': token || ''
+        }
+      });
+    } catch (e) {}
+
+    cachedTeamNotifications = [];
+    localStorage.setItem(LAST_SEEN_STORAGE_KEY, '999999999');
     renderNotificationList();
     updateBellBadge(false);
   }
@@ -195,40 +242,58 @@
     if (hasNew) {
       badge.classList.remove('hidden');
       badge.style.display = 'flex';
+      const ping = badge.querySelector('.animate-ping');
+      if (ping) ping.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+      badge.style.display = 'none';
     }
   }
 
   function renderNotificationList() {
     const container = document.getElementById('dcmsNotificationList');
     if (!container) return;
-    const list = getStoredNotifications();
 
-    if (list.length === 0) {
+    if (cachedTeamNotifications.length === 0) {
       container.innerHTML = `
         <div class="py-6 text-center text-slate-400">
           <svg class="size-7 mx-auto mb-1.5 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
           </svg>
-          <p class="text-xs font-medium">Belum ada pembaruan data baru</p>
-          <span class="text-[10px] text-slate-400">Auto-sync aktif memantau Google Sheets</span>
+          <p class="text-xs font-semibold text-slate-500">Belum ada aktivitas pembaruan</p>
+          <span class="text-[10px] text-slate-400">Aktivitas upload & perubahan dari tim akan tampil di sini</span>
         </div>
       `;
       return;
     }
 
-    container.innerHTML = list.map(item => `
-      <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5 hover:bg-slate-100/70 transition">
-        <div class="size-2 rounded-full ${item.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} mt-1.5 shrink-0 animate-pulse"></div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between gap-1">
-            <h6 class="text-[11px] font-bold text-slate-900 truncate">${item.title}</h6>
-            <span class="text-[10px] text-slate-400 shrink-0 font-medium">${item.time}</span>
+    container.innerHTML = cachedTeamNotifications.map(item => {
+      let dotColor = 'bg-emerald-500';
+      if (item.type === 'error' || item.type === 'danger') dotColor = 'bg-rose-500';
+      else if (item.type === 'warning') dotColor = 'bg-amber-500';
+      else if (item.type === 'info') dotColor = 'bg-sky-500';
+
+      const badgeStyle = getUserBadgeStyle(item.user_name);
+
+      return `
+        <div class="p-2.5 rounded-xl bg-slate-50/90 border border-slate-100 flex items-start gap-2.5 hover:bg-slate-100/80 transition">
+          <div class="size-2 rounded-full ${dotColor} mt-1.5 shrink-0 animate-pulse"></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-1 mb-0.5">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-tight shrink-0 ${badgeStyle}">
+                  ${escapeHtml(item.user_name)}
+                </span>
+                <h6 class="text-[11px] font-bold text-slate-900 truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</h6>
+              </div>
+              <span class="text-[10px] text-slate-400 shrink-0 font-medium" title="${escapeHtml(item.time_formatted || '')}">${escapeHtml(item.time_ago)}</span>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug break-words">${escapeHtml(item.message)}</p>
           </div>
-          <p class="text-[11px] text-slate-600 mt-0.5 leading-snug">${item.message}</p>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   // =========================================================================
@@ -242,13 +307,17 @@
     const shouldShow = forceState !== undefined ? forceState : isHidden;
 
     if (shouldShow) {
-      renderNotificationList();
+      fetchTeamNotifications(true);
       menu.classList.remove('hidden');
       requestAnimationFrame(() => {
         menu.classList.remove('scale-95', 'opacity-0');
         menu.classList.add('scale-100', 'opacity-100');
       });
-      // Mark as seen: hide ping ring
+
+      // Tandai sudah dilihat
+      if (cachedTeamNotifications.length > 0) {
+        localStorage.setItem(LAST_SEEN_STORAGE_KEY, String(cachedTeamNotifications[0].id));
+      }
       const badgePing = document.querySelector('#dcmsNotificationBadge .animate-ping');
       if (badgePing) badgePing.classList.add('hidden');
     } else {
@@ -402,17 +471,21 @@
   function startBackgroundAutoSync() {
     if (syncTimer) clearInterval(syncTimer);
 
-    // Initial status fetch after 2s
-    setTimeout(fetchInitialStatus, 2000);
+    // Initial notifications & status fetch
+    setTimeout(() => {
+      fetchTeamNotifications(false);
+      fetchInitialStatus();
+    }, 1000);
 
     // Initial background check after 10s if on workspace
     setTimeout(() => {
       runKeepSync({ isManual: false, force: false });
     }, 10000);
 
-    // Periodic check every 3 minutes
+    // Periodic check every 3 minutes for sheets & team notifications
     syncTimer = setInterval(() => {
       if (!document.hidden) {
+        fetchTeamNotifications(false);
         runKeepSync({ isManual: false, force: false });
       }
     }, SYNC_INTERVAL_MS);
@@ -420,6 +493,7 @@
     // Catch up when user switches back to tab if it was hidden
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
+        fetchTeamNotifications(false);
         fetchInitialStatus();
       }
     });
@@ -428,11 +502,11 @@
   // Boot on DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      renderNotificationList();
+      fetchTeamNotifications(false);
       startBackgroundAutoSync();
     });
   } else {
-    renderNotificationList();
+    fetchTeamNotifications(false);
     startBackgroundAutoSync();
   }
 })();

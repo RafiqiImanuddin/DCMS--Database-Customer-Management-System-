@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') - DCMS Gadgetmart</title>
     @yield('head')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -21,7 +22,7 @@
         @include('layouts.sidebar')
         <div id="sidebar-overlay" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar(false)}" class="fixed inset-0 z-30 hidden bg-slate-950/50 backdrop-blur-sm md:hidden"></div>
         <main class="min-w-0 flex-1">
-            <header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur md:px-8">
+            <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur md:px-8">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
                         <button id="sidebar-toggle" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar()}" type="button" class="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs cursor-pointer" aria-label="Toggle Sidebar" title="Sembunyikan / Tampilkan Sidebar (Ctrl+B)">
@@ -45,7 +46,7 @@
                             </button>
 
                             <!-- Dropdown Panel (Modern Glassmorphism Card) -->
-                            <div id="dcmsNotificationMenu" class="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-4 z-50 hidden transition-all duration-200 transform origin-top-right scale-95 opacity-0">
+                            <div id="dcmsNotificationMenu" class="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-4 z-[999999] hidden transition-all duration-200 transform origin-top-right scale-95 opacity-0">
                                 <!-- Header -->
                                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                                     <div class="flex items-center gap-2">
@@ -304,7 +305,7 @@
     <div id="dcmsTopRightToastContainer" class="fixed top-5 right-5 z-[9999999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-full pointer-events-none pr-2"></div>
 
     {{-- DCMS Background Auto-Sync & Realtime Notification Script --}}
-    <script src="{{ asset('js/dcms-notification-sync.js') }}"></script>
+    <script src="{{ asset('js/dcms-notification-sync.js') }}?v={{ file_exists(public_path('js/dcms-notification-sync.js')) ? filemtime(public_path('js/dcms-notification-sync.js')) : time() }}"></script>
 
 </body>
 </html>

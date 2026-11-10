@@ -77,6 +77,11 @@
                 </div>
                 <p class="mb-3 text-xs text-slate-600">Detail nomor faktur, no. WhatsApp, nama pelanggan, item produk, & nama sales.</p>
                 <input id="file" name="file" type="file" accept=".xlsx,.xls,.csv" class="dcms-input block w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-emerald-700 cursor-pointer">
+                <div id="file-info-cross" class="mt-2 hidden items-center gap-2 rounded-lg bg-emerald-100/70 px-2.5 py-1 text-xs font-semibold text-emerald-900">
+                    <svg class="size-3.5 shrink-0 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="truncate" id="file-name-cross"></span>
+                    <span class="ml-auto text-[10px] text-emerald-700 shrink-0 font-bold" id="file-size-cross"></span>
+                </div>
                 <div class="mt-2.5 flex flex-wrap gap-1.5">
                     <span class="rounded-md bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">🎯 Customer Dashboard</span>
                     <span class="rounded-md bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">🤖 Repeat Order AI</span>
@@ -96,6 +101,11 @@
                 </div>
                 <p class="mb-3 text-xs text-slate-600">Omset DPP pencapaian sales, gross profit, cabang, & tanggal transaksi SAP.</p>
                 <input id="turnover_file" name="turnover_file" type="file" accept=".xlsx,.xls,.csv" class="dcms-input block w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-blue-700 cursor-pointer">
+                <div id="file-info-turnover" class="mt-2 hidden items-center gap-2 rounded-lg bg-blue-100/70 px-2.5 py-1 text-xs font-semibold text-blue-900">
+                    <svg class="size-3.5 shrink-0 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="truncate" id="file-name-turnover"></span>
+                    <span class="ml-auto text-[10px] text-blue-700 shrink-0 font-bold" id="file-size-turnover"></span>
+                </div>
                 <div class="mt-2.5 flex flex-wrap gap-1.5">
                     <span class="rounded-md bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">📊 Report 1: Daily Matrix</span>
                     <span class="rounded-md bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-slate-200">🏆 Report 2: KPI & GP Timegone</span>

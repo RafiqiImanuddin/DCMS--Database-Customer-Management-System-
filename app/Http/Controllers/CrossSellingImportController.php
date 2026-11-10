@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityNotification;
 use App\Models\CrossSelling;
 use App\Models\CrossSellingImport;
 use App\Models\RepeatOrderPrediction;
@@ -26,7 +27,7 @@ class CrossSellingImportController extends Controller
 {
     public function index(Request $request): View
     {
-        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengelola import data.');
+        abort_unless($request->user()?->canAccessFeature('imports'), 403, 'Akses terbatas: Fitur Pusat Unggah Data tidak diaktifkan untuk akun Anda.');
 
         return view('imports.index', [
             'imports' => CrossSellingImport::with('user')->latest()->paginate(10, ['*'], 'cross_page'),
@@ -133,7 +134,61 @@ class CrossSellingImportController extends Controller
         TurnoverImporter $turnoverImporter,
         RepeatOrderPredictor $predictor
     ): JsonResponse|RedirectResponse {
-        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengimpor data.');
+        abort_unless($request->user()?->canAccessFeature('imports'), 403, 'Akses terbatas: Fitur Pusat Unggah Data tidak diaktifkan untuk akun Anda.');
+
+        // 0. Deteksi jika request POST terpotong akibat melebihi post_max_size server hosting
+        if (
+            empty($_FILES) && empty($_POST)
+            && isset($_SERVER['REQUEST_METHOD']) && strtolower($_SERVER['REQUEST_METHOD']) === 'post'
+            && isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 0
+        ) {
+            $postLimit = ini_get('post_max_size') ?: 'unknown';
+            $msg = "Ukuran total berkas unggahan melebihi batas post_max_size server hosting (saat ini: {$postLimit}). Silakan naikkan batas post_max_size di cPanel -> MultiPHP INI Editor.";
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $msg], 422);
+            }
+            return back()->withErrors(['file' => $msg]);
+        }
+
+        // 1. Deteksi apakah ada berkas yang dikirim tetapi ditolak oleh PHP (upload_max_filesize, partial, dsb)
+        $detectUploadError = function (string $key, string $label) use ($request): ?string {
+            $file = $request->file($key);
+            if ($file instanceof \Symfony\Component\HttpFoundation\File\UploadedFile && ! $file->isValid()) {
+                $errCode = $file->getError();
+                // Jika error 4 (UPLOAD_ERR_NO_FILE), berarti slot ini sengaja dikosongkan oleh user
+                if ($errCode === UPLOAD_ERR_NO_FILE) {
+                    return null;
+                }
+
+                $origName = $file->getClientOriginalName() ?: $label;
+                $iniLimit = ini_get('upload_max_filesize') ?: '2M';
+
+                return match ($errCode) {
+                    UPLOAD_ERR_INI_SIZE => "Berkas {$label} ('{$origName}') gagal diunggah karena ukurannya melebihi batas upload PHP server hosting (upload_max_filesize saat ini: {$iniLimit}). Silakan naikkan upload_max_filesize & post_max_size di cPanel -> MultiPHP INI Editor.",
+                    UPLOAD_ERR_FORM_SIZE => "Berkas {$label} ('{$origName}') melebihi batas ukuran form yang diizinkan.",
+                    UPLOAD_ERR_PARTIAL => "Berkas {$label} ('{$origName}') hanya terunggah sebagian (koneksi terputus saat upload). Silakan coba unggah ulang.",
+                    UPLOAD_ERR_NO_TMP_DIR => "Direktori penampung sementara (tmp folder) di server hosting tidak ditemukan.",
+                    UPLOAD_ERR_CANT_WRITE => "Server hosting gagal menulis berkas {$label} ke disk penyimpanan.",
+                    UPLOAD_ERR_EXTENSION => "Unggahan berkas {$label} dihentikan oleh ekstensi PHP server.",
+                    default => "Gagal mengunggah berkas {$label} (Error PHP: {$errCode}).",
+                };
+            }
+            return null;
+        };
+
+        if ($errorTurnover = $detectUploadError('turnover_file', 'Turnover')) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $errorTurnover], 422);
+            }
+            return back()->withErrors(['turnover_file' => $errorTurnover]);
+        }
+
+        if ($errorCross = $detectUploadError('file', 'Cross-Selling')) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $errorCross], 422);
+            }
+            return back()->withErrors(['file' => $errorCross]);
+        }
 
         $hasCross = $request->hasFile('file');
         $hasTurnover = $request->hasFile('turnover_file');
@@ -205,6 +260,21 @@ class CrossSellingImportController extends Controller
                 'failed_count' => $cImport->failed_count,
             ];
 
+            // Catat notifikasi aktivitas perubahan untuk seluruh tim
+            try {
+                $cUser = $request->user();
+                $cUserName = $cUser ? $cUser->name : 'Superadmin';
+                $cCount = number_format($cImport->row_count ?: 0, 0, ',', '.');
+                ActivityNotification::log(
+                    title: 'Upload Cross-Selling SAP',
+                    message: "{$cUserName} berhasil mengunggah {$cCount} data Cross-Selling ({$cImport->original_name})",
+                    user: $cUser,
+                    type: 'success',
+                    action: 'upload_cross_selling',
+                    icon: 'upload'
+                );
+            } catch (\Throwable $e) {}
+
             // Sync langsung ke Workspace Sosmed
             try {
                 $crossBytes = file_get_contents($validated['file']->getRealPath());
@@ -250,6 +320,21 @@ class CrossSellingImportController extends Controller
                 'success_count' => $tImport->success_count,
                 'failed_count' => $tImport->failed_count,
             ];
+
+            // Catat notifikasi aktivitas perubahan untuk seluruh tim
+            try {
+                $tUser = $request->user();
+                $tUserName = $tUser ? $tUser->name : 'Superadmin';
+                $tCount = number_format($tImport->row_count ?: 0, 0, ',', '.');
+                ActivityNotification::log(
+                    title: 'Upload Turnover SAP',
+                    message: "{$tUserName} berhasil mengunggah {$tCount} data Turnover SAP ({$tImport->original_name})",
+                    user: $tUser,
+                    type: 'success',
+                    action: 'upload_turnover',
+                    icon: 'upload'
+                );
+            } catch (\Throwable $e) {}
 
             // Sync langsung ke Workspace Sosmed
             try {
@@ -319,8 +404,22 @@ class CrossSellingImportController extends Controller
         }
 
         try {
+            $deletedName = $import->original_name;
+            $deletedId = $import->id;
             $this->deleteSingleCrossImport($import, $isMySql);
             $this->syncRemainingCrossSelling();
+
+            try {
+                $actorName = $request->user()?->name ?? 'Superadmin';
+                ActivityNotification::log(
+                    title: 'Hapus Batch Cross-Selling',
+                    message: "{$actorName} menghapus batch Cross-Selling #{$deletedId} ({$deletedName})",
+                    user: $request->user(),
+                    type: 'warning',
+                    action: 'delete_cross_selling',
+                    icon: 'trash'
+                );
+            } catch (\Throwable $e) {}
         } finally {
             if ($isMySql) {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1;');
@@ -355,6 +454,18 @@ class CrossSellingImportController extends Controller
                 $deletedCount++;
             }
             $this->syncRemainingCrossSelling();
+
+            try {
+                $actorName = $request->user()?->name ?? 'Superadmin';
+                ActivityNotification::log(
+                    title: 'Hapus Batch Cross-Selling',
+                    message: "{$actorName} menghapus {$deletedCount} batch Cross-Selling secara massal",
+                    user: $request->user(),
+                    type: 'warning',
+                    action: 'delete_cross_selling',
+                    icon: 'trash'
+                );
+            } catch (\Throwable $e) {}
         } finally {
             if ($isMySql) {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1;');
@@ -377,8 +488,22 @@ class CrossSellingImportController extends Controller
         }
 
         try {
+            $deletedName = $import->original_name;
+            $deletedId = $import->id;
             $this->deleteSingleTurnoverImport($import, $isMySql);
             $this->syncRemainingTurnover();
+
+            try {
+                $actorName = $request->user()?->name ?? 'Superadmin';
+                ActivityNotification::log(
+                    title: 'Hapus Batch Turnover',
+                    message: "{$actorName} menghapus batch Turnover #{$deletedId} ({$deletedName})",
+                    user: $request->user(),
+                    type: 'warning',
+                    action: 'delete_turnover',
+                    icon: 'trash'
+                );
+            } catch (\Throwable $e) {}
         } finally {
             if ($isMySql) {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1;');
@@ -413,6 +538,18 @@ class CrossSellingImportController extends Controller
                 $deletedCount++;
             }
             $this->syncRemainingTurnover();
+
+            try {
+                $actorName = $request->user()?->name ?? 'Superadmin';
+                ActivityNotification::log(
+                    title: 'Hapus Batch Turnover',
+                    message: "{$actorName} menghapus {$deletedCount} batch Turnover secara massal",
+                    user: $request->user(),
+                    type: 'warning',
+                    action: 'delete_turnover',
+                    icon: 'trash'
+                );
+            } catch (\Throwable $e) {}
         } finally {
             if ($isMySql) {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1;');

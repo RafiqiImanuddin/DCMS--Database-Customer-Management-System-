@@ -21,6 +21,7 @@ class BroadcastReportController extends Controller
 {
     public function index(Request $request, BroadcastService $broadcastService): View
     {
+        abort_unless($request->user()?->canAccessFeature('broadcasts'), 403, 'Akses terbatas: Fitur Laporan Broadcast tidak diaktifkan untuk akun Anda.');
         $userId = $request->user()->id;
         $tab = $request->query('tab', 'batches');
 

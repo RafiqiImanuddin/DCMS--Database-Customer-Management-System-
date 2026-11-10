@@ -24,19 +24,42 @@
     @include('workspace-sosmed.partials.kpi-summary')
 
     @php
-        $isAdminOrSuperAdmin = auth()->check() && auth()->user()->isAdmin();
+        $user = auth()->user();
     @endphp
 
-    @include('workspace-sosmed.partials.tab1-dashboard')
-    @include('workspace-sosmed.partials.tab2-report-matrix')
+    @if ($user?->canAccessFeature('workspace_dashboard'))
+        @include('workspace-sosmed.partials.tab1-dashboard')
+    @endif
 
-    @if ($isAdminOrSuperAdmin)
+    @if ($user?->canAccessFeature('workspace_matrix'))
+        @include('workspace-sosmed.partials.tab2-report-matrix')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_cek_ar'))
         @include('workspace-sosmed.partials.tab3-cek-status-ar')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_format_keep'))
         @include('workspace-sosmed.partials.tab4-format-keep')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_tracking_ar'))
         @include('workspace-sosmed.partials.tab5-tracking-ar')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_klaim_ar'))
         @include('workspace-sosmed.partials.tab6-klaim-ar')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_archives'))
         @include('workspace-sosmed.partials.tab7-arsip')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_admin_settings'))
         @include('workspace-sosmed.partials.tab8-settings')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_inbox_fu'))
         @include('workspace-sosmed.partials.tab9-inbox-fu')
     @endif
 

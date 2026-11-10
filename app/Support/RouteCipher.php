@@ -88,9 +88,33 @@ class RouteCipher
             'controller' => \App\Http\Controllers\EmployeeSettingController::class,
             'method' => 'index',
         ],
+        'settings.users.index' => [
+            'controller' => \App\Http\Controllers\UserController::class,
+            'method' => 'manageUsers',
+        ],
         'monitoring.sales.index' => [
             'controller' => \App\Http\Controllers\SalesMonitoringController::class,
             'method' => 'index',
+        ],
+        'quotations.index' => [
+            'controller' => \App\Http\Controllers\QuotationController::class,
+            'method' => 'index',
+        ],
+        'quotations.create' => [
+            'controller' => \App\Http\Controllers\QuotationController::class,
+            'method' => 'create',
+        ],
+        'quotations.show' => [
+            'controller' => \App\Http\Controllers\QuotationController::class,
+            'method' => 'show',
+        ],
+        'quotations.edit' => [
+            'controller' => \App\Http\Controllers\QuotationController::class,
+            'method' => 'edit',
+        ],
+        'quotations.print' => [
+            'controller' => \App\Http\Controllers\QuotationController::class,
+            'method' => 'print',
         ],
         'guidance.index' => [
             'controller' => \App\Http\Controllers\GuidanceController::class,

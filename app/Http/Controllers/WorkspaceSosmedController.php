@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityNotification;
 use App\Models\BroadcastMedia;
 use App\Models\Employee;
 use App\Models\Setting;
@@ -44,9 +45,35 @@ class WorkspaceSosmedController extends Controller
         $activeTab = RouteCipher::resolveWorkspaceTab($request)
             ?? WorkspaceUrlCipher::resolveTab($request);
 
-        $isAdminOrSuperAdmin = $request->user()?->isAdmin();
-        if (! $isAdminOrSuperAdmin && ! in_array($activeTab, [1, 2], true)) {
-            $activeTab = 1;
+        $tabFeatureMap = [
+            1 => 'workspace_dashboard',
+            2 => 'workspace_matrix',
+            3 => 'workspace_cek_ar',
+            4 => 'workspace_format_keep',
+            5 => 'workspace_tracking_ar',
+            6 => 'workspace_klaim_ar',
+            7 => 'workspace_archives',
+            8 => 'workspace_admin_settings',
+            9 => 'workspace_inbox_fu',
+        ];
+
+        $user = $request->user();
+        $targetFeature = $tabFeatureMap[$activeTab] ?? 'workspace_dashboard';
+
+        if ($user && ! $user->canAccessFeature($targetFeature)) {
+            $firstAllowedTab = null;
+            foreach ($tabFeatureMap as $tabNum => $featureKey) {
+                if ($user->canAccessFeature($featureKey)) {
+                    $firstAllowedTab = $tabNum;
+                    break;
+                }
+            }
+
+            if ($firstAllowedTab !== null) {
+                $activeTab = $firstAllowedTab;
+            } else {
+                abort(403, 'Akses terbatas: Fitur Workspace Sosmed tidak diaktifkan untuk akun Anda.');
+            }
         }
 
         $initialWorkspaceSettings = $this->getWorkspaceSettingsData();
@@ -227,6 +254,19 @@ class WorkspaceSosmedController extends Controller
             @File::put($file, $json);
             Setting::updateOrCreate(['key' => 'workspace_monthly_targets'], ['value' => $json]);
 
+            try {
+                $actor = $request->user();
+                $actorName = $actor ? $actor->name : 'Superadmin';
+                ActivityNotification::log(
+                    title: 'Pembaruan Target Bulanan',
+                    message: "{$actorName} memperbarui target pencapaian bulanan Sosmed",
+                    user: $actor,
+                    type: 'info',
+                    action: 'update_target',
+                    icon: 'edit'
+                );
+            } catch (\Throwable $e) {}
+
             return response()->json([
                 'success' => true,
                 'message' => 'Monthly targets berhasil disimpan!',
@@ -345,6 +385,23 @@ class WorkspaceSosmedController extends Controller
 
                 Setting::updateOrCreate(['key' => 'workspace_keep_last_sync'], ['value' => $syncedAt->toIso8601String()]);
                 Setting::updateOrCreate(['key' => 'workspace_keep_last_count'], ['value' => (string) $rowCount]);
+
+                // Catat aktivitas perubahan jika data sheets baru atau sinkronisasi manual berhasil
+                if ($hasChanged || ($force && $imported)) {
+                    try {
+                        $actor = $request->user();
+                        $actorName = $actor ? $actor->name : 'Sistem Auto-Sync';
+                        $fCount = number_format($rowCount, 0, ',', '.');
+                        ActivityNotification::log(
+                            title: 'Sinkronisasi Format Keep',
+                            message: "{$actorName} berhasil menyinkronkan {$fCount} transaksi dari Google Sheets",
+                            user: $actor,
+                            type: 'success',
+                            action: 'sync_keep',
+                            icon: 'sync'
+                        );
+                    } catch (\Throwable $e) {}
+                }
 
                 $responseData = [
                     'success' => true,

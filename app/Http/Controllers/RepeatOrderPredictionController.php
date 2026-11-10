@@ -19,6 +19,7 @@ class RepeatOrderPredictionController extends Controller
 {
     public function __invoke(Request $request): View
     {
+        abort_unless($request->user()?->canAccessFeature('predictions'), 403, 'Akses terbatas: Fitur Master Customer tidak diaktifkan untuk akun Anda.');
         $query = $this->buildFilteredQuery($request);
         $chartQuery = $this->buildFilteredQuery($request, false);
 
@@ -169,6 +170,7 @@ class RepeatOrderPredictionController extends Controller
 
     public function download(Request $request): BinaryFileResponse
     {
+        abort_unless($request->user()?->canAccessFeature('predictions_download'), 403, 'Akses terbatas: Fitur Download Data Customer tidak diaktifkan untuk akun Anda.');
         $query = $this->buildFilteredQuery($request);
 
         $perBatch = 25000;

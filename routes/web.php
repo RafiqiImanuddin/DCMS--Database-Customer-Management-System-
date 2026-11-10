@@ -10,6 +10,7 @@ use App\Http\Controllers\EmployeeSettingController;
 use App\Http\Controllers\EncryptedRouteController;
 use App\Http\Controllers\GuidanceController;
 use App\Http\Controllers\LeadCustomerController;
+use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\RepeatOrderPredictionController;
 use App\Http\Controllers\SalesMonitoringController;
 use App\Http\Controllers\WatzapSettingController;
@@ -99,12 +100,24 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings/watzap/get-webhook', [WatzapSettingController::class, 'getWebhookStatus'])->name('settings.watzap.get_webhook');
     Route::post('/settings/watzap/check-waha', [WatzapSettingController::class, 'checkWaha'])->name('settings.watzap.check_waha');
 
-    // Monitoring Kinerja Admin Sales (Manager & Admin)
+    // Dashboard Manager: Monitoring Kinerja Admin Sales (Manager & Admin)
     Route::get('/monitoring/sales', [SalesMonitoringController::class, 'index'])->name('monitoring.sales.index');
     Route::post('/monitoring/sales/assessments', [SalesMonitoringController::class, 'storeAssessment'])->name('monitoring.sales.assessment.store');
     Route::get('/monitoring/sales/assessments/{assessment}', [SalesMonitoringController::class, 'showAssessment'])->name('monitoring.sales.assessment.show');
     Route::get('/monitoring/sales/export', [SalesMonitoringController::class, 'export'])->name('monitoring.sales.export');
     Route::post('/monitoring/sales/auto-sync', [SalesMonitoringController::class, 'autoSyncMetrics'])->name('monitoring.sales.auto_sync');
+
+    // Dashboard Manager: Pembuat Surat Penawaran Harga
+    Route::get('/quotations', [QuotationController::class, 'index'])->name('quotations.index');
+    Route::get('/quotations/create', [QuotationController::class, 'create'])->name('quotations.create');
+    Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');
+    Route::get('/quotations/pricelist/search', [QuotationController::class, 'searchPricelist'])->name('quotations.pricelist.search');
+    Route::get('/quotations/{quotation}', [QuotationController::class, 'show'])->name('quotations.show');
+    Route::get('/quotations/{quotation}/edit', [QuotationController::class, 'edit'])->name('quotations.edit');
+    Route::put('/quotations/{quotation}', [QuotationController::class, 'update'])->name('quotations.update');
+    Route::delete('/quotations/{quotation}', [QuotationController::class, 'destroy'])->name('quotations.destroy');
+    Route::post('/quotations/{quotation}/duplicate', [QuotationController::class, 'duplicate'])->name('quotations.duplicate');
+    Route::get('/quotations/{quotation}/print', [QuotationController::class, 'print'])->name('quotations.print');
 
     // Pengaturan Data Karyawan & Bobot Penilaian KPI
     Route::get('/settings/karyawan', [EmployeeSettingController::class, 'index'])->name('settings.karyawan.index');
@@ -119,6 +132,12 @@ Route::middleware('auth')->group(function () {
     // Guidance & SOP (Rumus Potensi & Penilaian untuk Superadmin, Guidance Umum untuk Staff)
     Route::get('/guidance', [GuidanceController::class, 'index'])->name('guidance.index');
     Route::post('/guidance/dismiss', [GuidanceController::class, 'dismissLoginPrompt'])->name('guidance.dismiss');
+
+    // Manajemen Akun & Checklist Hak Akses Fitur (Khusus Superadmin)
+    Route::get('/settings/users', [\App\Http\Controllers\UserController::class, 'manageUsers'])->name('settings.users.index');
+    Route::post('/settings/users', [\App\Http\Controllers\UserController::class, 'storeByAdmin'])->name('settings.users.store');
+    Route::put('/settings/users/{user}/permissions', [\App\Http\Controllers\UserController::class, 'updatePermissions'])->name('settings.users.permissions.update');
+    Route::delete('/settings/users/{user}', [\App\Http\Controllers\UserController::class, 'destroy'])->name('settings.users.destroy');
 
     // Pengaturan Akun Sendiri (Untuk semua user yang login)
     Route::get('/settings/profile', [\App\Http\Controllers\UserController::class, 'profile'])->name('profile.edit');
@@ -153,10 +172,16 @@ $registerSosmedApiRoutes = function () {
     Route::post('/upload-excel-chunk', [WorkspaceSosmedController::class, 'uploadExcelChunk'])->name('api.sosmed.upload_excel_chunk');
     Route::get('/search-ar', [WorkspaceSosmedController::class, 'searchAr'])->name('api.sosmed.search_ar');
     Route::get('/turnover-records', [WorkspaceSosmedController::class, 'turnoverRecords'])->name('api.sosmed.turnover_records');
+    Route::get('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.index');
+    Route::delete('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.clear');
 };
 
 Route::prefix('api')->group($registerSosmedApiRoutes);
 $registerSosmedApiRoutes();
+
+// Direct notification endpoint for global navbar
+Route::get('/api/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.direct_index');
+Route::delete('/api/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.direct_clear');
 
 // Route Helper untuk migrasi database & clear cache via browser (solusi cPanel tanpa Terminal)
 Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
@@ -171,12 +196,23 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
         \Illuminate\Support\Facades\Artisan::call('optimize:clear');
         $clearOutput = \Illuminate\Support\Facades\Artisan::output();
 
+        $phpInfo = sprintf(
+            "PHP Version       : %s\nupload_max_filesize: %s\npost_max_size      : %s\nmemory_limit       : %s\nmax_execution_time : %ss",
+            PHP_VERSION,
+            ini_get('upload_max_filesize') ?: 'N/A',
+            ini_get('post_max_size') ?: 'N/A',
+            ini_get('memory_limit') ?: 'N/A',
+            ini_get('max_execution_time') ?: 'N/A'
+        );
+
         return response('<pre style="background:#0f172a; color:#10b981; padding:24px; font-family:monospace; font-size:14px; border-radius:10px; line-height:1.6;">'
             . "🚀 === DCMS DATABASE MIGRATION SYSTEM ===\n\n"
             . htmlspecialchars($migrateOutput ?: "Semua tabel database sudah yang terbaru (Nothing to migrate).\n")
             . "\n🧹 === CLEAR CACHE & OPTIMIZATION ===\n\n"
             . htmlspecialchars($clearOutput)
-            . "\n✅ PROSES SELESAI DENGAN SUKSES!"
+            . "\n⚙️ === PHP ENVIRONMENT & UPLOAD LIMITS ===\n\n"
+            . htmlspecialchars($phpInfo)
+            . "\n\n✅ PROSES SELESAI DENGAN SUKSES!"
             . '</pre>');
     } catch (\Throwable $e) {
         return response('<pre style="background:#0f172a; color:#ef4444; padding:24px; font-family:monospace; font-size:14px; border-radius:10px; line-height:1.6;">'

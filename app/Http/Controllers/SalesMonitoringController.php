@@ -22,7 +22,7 @@ class SalesMonitoringController extends Controller
      */
     public function index(Request $request): View
     {
-        abort_unless($request->user()?->isAdmin(), 403, 'Akses terbatas: Menu Monitoring Kinerja hanya dapat diakses oleh Admin & Superadmin.');
+        abort_unless($request->user()?->canAccessFeature('monitoring_sales'), 403, 'Akses terbatas: Fitur Monitoring Admin Sales tidak diaktifkan untuk akun Anda.');
 
         // Support Daily Date (YYYY-MM-DD) as default or Monthly Period (YYYY-MM)
         $selectedPeriod = $request->string('date')->trim()->toString();
@@ -338,6 +338,7 @@ class SalesMonitoringController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
+        abort_unless($request->user()?->canAccessFeature('monitoring_sales_export'), 403, 'Akses terbatas: Fitur Export Rekap Monitoring tidak diaktifkan untuk akun Anda.');
         $period = $request->string('period', Carbon::now()->format('Y-m'))->toString();
         $cabang = $request->string('cabang')->toString();
 

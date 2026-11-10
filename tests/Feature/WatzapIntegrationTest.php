@@ -269,8 +269,8 @@ class WatzapIntegrationTest extends TestCase
         $response->assertOk();
         $response->assertSee('Customer & Outreach', false);
         $response->assertSee('Workspace Sosmed');
-        $response->assertSee('Setting');
-        $response->assertSee('Setup WhatsApp');
+        $response->assertSee('Pengaturan');
+        $response->assertSee('Pengaturan WhatsApp');
     }
 
     public function test_superadmin_can_register_webhook_via_api(): void

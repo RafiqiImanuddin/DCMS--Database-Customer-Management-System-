@@ -8,13 +8,17 @@ use App\Models\CrossSellingImport;
 use App\Models\RepeatOrderPrediction;
 use App\Support\BrandCategory;
 use App\Support\PhoneNumberSql;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request): View|RedirectResponse
     {
+        if ($request->user() && ! $request->user()->canAccessFeature('dashboard')) {
+            return redirect()->to($request->user()->getFirstAccessibleRoute());
+        }
         $selectedBrand = $request->string('brand')->trim()->toString();
         $selectedPhoneStatus = $request->string('phone_status')->trim()->toString();
         if (! in_array($selectedPhoneStatus, ['valid', 'invalid', 'missing'], true)) {
