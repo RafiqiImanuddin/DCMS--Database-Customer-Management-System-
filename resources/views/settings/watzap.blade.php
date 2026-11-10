@@ -55,7 +55,7 @@
 </div>
 @endif
 
-<!-- TAB NAVIGATION: WA BROADCAST vs WA INBOX FOLLOW UP -->
+<!-- TAB NAVIGATION: WA BROADCAST vs WA INBOX FOLLOW UP vs FONNTE -->
 <div class="mb-6 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
     <a href="{{ route('settings.watzap.index', ['tab' => 'broadcast']) }}" class="inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-2xs {{ $activeTab === 'broadcast' ? 'bg-emerald-600 text-white shadow-emerald-600/20' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50' }}">
         <svg class="size-4 {{ $activeTab === 'broadcast' ? 'text-white' : 'text-emerald-600' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 0 1-3.417.592l-2.147-6.15M18 13a3 3 0 1 0 0-6M5.436 13.683A4.001 4.001 0 0 1 7 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 0 1-1.564-.317z"/></svg>
@@ -70,6 +70,14 @@
         <span>WA Inbox Follow Up (CS & PIC)</span>
         <span class="rounded-full px-2 py-0.5 text-[10px] font-extrabold {{ $activeTab === 'inbox' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' }}">
             {{ $isConfiguredInbox ? 'Aktif' : 'Belum Set' }}
+        </span>
+    </a>
+
+    <a href="{{ route('settings.watzap.index', ['tab' => 'fonnte']) }}" class="inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-2xs {{ $activeTab === 'fonnte' ? 'bg-emerald-600 text-white shadow-emerald-600/20' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50' }}">
+        <svg class="size-4 {{ $activeTab === 'fonnte' ? 'text-white' : 'text-emerald-600' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/></svg>
+        <span>Fonnte (Bot Keep & Webhook)</span>
+        <span class="rounded-full px-2 py-0.5 text-[10px] font-extrabold {{ $activeTab === 'fonnte' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' }}">
+            {{ $fonnteIsConfigured ? 'Aktif' : 'Belum Set' }}
         </span>
     </a>
 </div>
@@ -244,7 +252,7 @@
     </div>
 </div>
 
-@else
+@elseif($activeTab === 'inbox')
 <!-- ========================================================================= -->
 <!-- TAB 2: PENGATURAN WA INBOX FOLLOW UP -->
 <!-- ========================================================================= -->
@@ -401,6 +409,247 @@
                 </li>
             </ul>
         </section>
+    </div>
+</div>
+
+@else
+<!-- ========================================================================= -->
+<!-- TAB 3: PENGATURAN FONNTE (BOT KEEP & WEBHOOK REALTIME SQL) -->
+<!-- ========================================================================= -->
+<div class="grid gap-6 lg:grid-cols-3">
+    <!-- Kolom Kiri: Form Konfigurasi Token & Webhook Fonnte (2 kolom span) -->
+    <div class="space-y-6 lg:col-span-2">
+        <!-- 1. Form Kredensial Token Fonnte -->
+        <section class="dcms-card p-6">
+            <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                    <h2 class="font-black text-slate-900">Kredensial API Fonnte (Bot Keep WhatsApp)</h2>
+                    <p class="mt-1 text-xs text-slate-500">Kredensial ini digunakan untuk integrasi bot WhatsApp keep dan pengiriman balasan otomatis saat data format KEEP masuk.</p>
+                </div>
+                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold {{ $fonnteIsConfigured ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }}">
+                    <span class="size-2 rounded-full {{ $fonnteIsConfigured ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
+                    {{ $fonnteIsConfigured ? 'Terkonfigurasi' : 'Belum Lengkap' }}
+                </span>
+            </div>
+
+            <form method="POST" action="{{ route('settings.watzap.update') }}" class="space-y-5">
+                @csrf
+                <input type="hidden" name="target_tab" value="fonnte">
+
+                <!-- Token Fonnte -->
+                <div>
+                    <label for="fonnte_token" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
+                        Token Fonnte <span class="text-rose-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="fonnte_token" name="fonnte_token" value="{{ old('fonnte_token', $fonnteToken) }}" required placeholder="Contoh: UjuTUowTBsUR1mzWhKFj" class="dcms-input pr-24 font-mono text-xs font-semibold" {{ ! $isSuperAdmin ? 'disabled' : '' }}>
+                        <div class="absolute inset-y-0 right-1 flex items-center gap-1 pr-1">
+                            <button type="button" onclick="togglePasswordVisibility('fonnte_token')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" title="Lihat/Sembunyikan Token">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            </button>
+                            <button type="button" id="btn-check-fonnte" onclick="checkFonnteConnection()" class="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 transition">
+                                Cek Device
+                            </button>
+                        </div>
+                    </div>
+                    <p class="mt-1.5 text-[11px] text-slate-500">Dapatkan token device ini dari dashboard <a href="https://md.fonnte.com/device" target="_blank" class="font-bold text-emerald-600 underline">Fonnte Device</a>.</p>
+                    <div id="fonnte-check-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
+                </div>
+
+                <!-- Toggle Auto-Reply Konfirmasi Keep -->
+                <div class="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-slate-800">Auto-Reply Konfirmasi Rekap Keep</span>
+                            <p class="text-[11px] text-slate-500">Kirim pesan balasan otomatis via Fonnte ke pengirim/grup saat format KEEP berhasil direkap ke database SQL.</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="hidden" name="fonnte_autoreply_enabled" value="0">
+                            <input type="checkbox" name="fonnte_autoreply_enabled" value="1" class="sr-only peer" {{ $fonnteAutoreply === '1' ? 'checked' : '' }} {{ ! $isSuperAdmin ? 'disabled' : '' }}>
+                            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Template Pesan Balasan -->
+                    <div class="pt-2 border-t border-slate-200/60">
+                        <label for="fonnte_autoreply_message" class="mb-1 block text-xs font-bold text-slate-700">
+                            Template Teks Pesan Balasan:
+                        </label>
+                        <textarea id="fonnte_autoreply_message" name="fonnte_autoreply_message" rows="5" class="dcms-input text-xs font-mono" {{ ! $isSuperAdmin ? 'disabled' : '' }}>{{ old('fonnte_autoreply_message', $fonnteAutoreplyMsg) }}</textarea>
+                        <div class="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                            <span class="text-slate-500 font-medium">Tag yang tersedia:</span>
+                            <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-mono font-bold text-emerald-800">{nama}</span>
+                            <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-mono font-bold text-emerald-800">{nomor}</span>
+                            <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-mono font-bold text-emerald-800">{barang}</span>
+                            <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-mono font-bold text-emerald-800">{tanggal}</span>
+                            <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-mono font-bold text-emerald-800">{remaks}</span>
+                        </div>
+                    </div>
+                </div>
+
+                @if($isSuperAdmin)
+                <div class="flex items-center justify-end pt-3 border-t border-slate-100">
+                    <button type="submit" class="dcms-primary-button px-6 py-2.5 text-xs font-bold">
+                        Simpan Pengaturan Fonnte
+                    </button>
+                </div>
+                @endif
+            </form>
+        </section>
+
+        <!-- 2. Card URL Webhook Fonnte (Siap Pakai untuk Migrasi) -->
+        <section class="dcms-card p-6 border-2 border-indigo-500/20 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50">
+            <div class="flex items-start gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white font-black text-sm shadow-sm">
+                    ⚡
+                </span>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                        <h2 class="font-black text-slate-900">URL Webhook Fonnte (Migrasi Realtime ke SQL)</h2>
+                        <span class="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-black text-indigo-800">Endpoint Aktif</span>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-600 leading-relaxed">
+                        Pasang URL ini pada pengaturan webhook di akun Fonnte Anda agar setiap pesan format KEEP yang dikirim ke nomor WhatsApp Anda <strong>langsung tersimpan otomatis dan realtime ke tabel SQL <code>sosmed_keeps</code></strong> (menggantikan Google Spreadsheet).
+                    </p>
+
+                    <div class="mt-4">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                            Webhook URL Fonnte
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="fonnte-webhook-url-input" value="{{ $fonnteWebhookUrl }}" readonly class="dcms-input font-mono text-xs bg-slate-100 font-bold select-all flex-1 text-indigo-950">
+                            <button type="button" onclick="copyFonnteWebhookUrl()" id="btn-copy-fonnte-webhook" class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-500 shrink-0">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                <span>Salin Webhook URL</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Langkah Pemasangan di Dashboard Fonnte -->
+                    <div class="mt-5 rounded-xl border border-indigo-100 bg-white p-4 space-y-2.5 text-xs text-slate-700">
+                        <p class="font-bold text-slate-900 flex items-center gap-1.5">
+                            <svg class="size-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                            Cara Pemasangan di Dashboard Fonnte:
+                        </p>
+                        <ol class="list-decimal pl-5 space-y-1.5 text-slate-600">
+                            <li>Buka menu <a href="https://md.fonnte.com/device" target="_blank" class="font-bold text-indigo-600 underline">Fonnte Device</a> dan pilih device WhatsApp Anda.</li>
+                            <li>Buka tab / menu <strong>Webhook</strong>.</li>
+                            <li>Tempel (Paste) URL Webhook di atas ke kolom input URL Webhook Fonnte.</li>
+                            <li>Pada pilihan Event, pastikan mencentang <strong>Incoming Message</strong>.</li>
+                            <li>Klik <strong>Save / Simpan</strong>. Selesai! Pesan format KEEP akan otomatis masuk realtime ke SQL.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Tabel Dokumentasi API Action Webhook -->
+        <section class="dcms-card p-6">
+            <h2 class="font-black text-slate-900">Spesifikasi Action Webhook Fonnte (Kompatibel Google Apps Script)</h2>
+            <p class="mt-1 text-xs text-slate-500">Endpoint webhook di atas juga mendukung seluruh parameter GET & POST dari script Apps Script lama Anda:</p>
+
+            <div class="mt-4 overflow-x-auto">
+                <table class="w-full text-left text-xs border border-slate-100 rounded-xl overflow-hidden">
+                    <thead class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                        <tr>
+                            <th class="p-2.5">Action / Tipe</th>
+                            <th class="p-2.5">Parameter Utama</th>
+                            <th class="p-2.5">Fungsi ke Database SQL</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr>
+                            <td class="p-2.5 font-bold text-emerald-700 font-mono">Format Pesan KEEP</td>
+                            <td class="p-2.5 font-mono text-[11px]">message, sender, isgroup</td>
+                            <td class="p-2.5 text-slate-600">Merekap transaksi keep baru otomatis ke tabel SQL <code>sosmed_keeps</code> & kirim konfirmasi balasan.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-2.5 font-bold text-indigo-700 font-mono">UPDATE_STATUS</td>
+                            <td class="p-2.5 font-mono text-[11px]">action=UPDATE_STATUS&nomorWA=...&status=...</td>
+                            <td class="p-2.5 text-slate-600">Memperbarui status transaksi keep (WIN, LOSE, ON PROGRESS) di SQL.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-2.5 font-bold text-indigo-700 font-mono">UPDATE_REPORT_AR</td>
+                            <td class="p-2.5 font-mono text-[11px]">action=UPDATE_REPORT_AR&nomorWA=...&arDoc=...</td>
+                            <td class="p-2.5 text-slate-600">Mencatat nomor dokumen Report AR dan tanggal input AR ke SQL.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-2.5 font-bold text-indigo-700 font-mono">UPDATE_REACTION_FU</td>
+                            <td class="p-2.5 font-mono text-[11px]">action=UPDATE_REACTION_FU&customerPhone=...&nomorFU=...</td>
+                            <td class="p-2.5 text-slate-600">Pencarian bottom-up & input kode PIC FU ke kolom <code>nomor_fu</code> di SQL.</td>
+                        </tr>
+                        <tr>
+                            <td class="p-2.5 font-bold text-indigo-700 font-mono">CLEAR_REACTION_FU</td>
+                            <td class="p-2.5 font-mono text-[11px]">action=CLEAR_REACTION_FU&customerPhone=...</td>
+                            <td class="p-2.5 text-slate-600">Fitur batal jempol: mengosongkan kolom <code>nomor_fu</code> di SQL.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Kolom Kanan: Status Device & Tes Kirim Fonnte -->
+    <div class="space-y-6">
+        <!-- Status Device Fonnte -->
+        <section class="dcms-card p-6 border-2 border-emerald-500/20">
+            <div class="flex items-center justify-between">
+                <h2 class="font-black text-slate-900">Status Device Fonnte</h2>
+                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold {{ ($fonnteDeviceStatus['status'] ?? '') === 'Connected' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">
+                    <span class="size-2 rounded-full {{ ($fonnteDeviceStatus['status'] ?? '') === 'Connected' ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
+                    {{ $fonnteDeviceStatus['status'] ?? 'Unknown' }}
+                </span>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">Status koneksi nomor WhatsApp yang terdaftar di Fonnte.</p>
+
+            <div class="mt-4 space-y-3">
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <span class="text-xs text-slate-500">Nomor WhatsApp</span>
+                    <span class="text-xs font-mono font-bold text-slate-900">{{ $fonnteDeviceStatus['device'] ?? '-' }}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <span class="text-xs text-slate-500">Nama Device</span>
+                    <span class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['name'] ?? '-' }}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <span class="text-xs text-slate-500">Paket & Kuota</span>
+                    <span class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['package'] ?? 'Free' }}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                    <span class="text-xs text-slate-500">Masa Aktif</span>
+                    <span class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['expired'] ?? '-' }}</span>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100">
+                <a href="https://md.fonnte.com" target="_blank" rel="noopener" class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-2xs">
+                    <span>Buka Dashboard Fonnte ↗</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- Form Tes Kirim Pesan via Fonnte -->
+        @if($isSuperAdmin)
+        <section class="dcms-card p-6">
+            <h2 class="font-black text-slate-900">Uji Coba Kirim Pesan (Fonnte)</h2>
+            <p class="mt-1 text-xs text-slate-500">Kirim pesan WhatsApp tes untuk memverifikasi apakah token Fonnte aktif.</p>
+
+            <form method="POST" action="{{ route('settings.watzap.test_send_fonnte') }}" class="mt-4 space-y-3">
+                @csrf
+                <div>
+                    <label for="test_phone_fonnte" class="mb-1 block text-xs font-bold text-slate-700">Nomor WhatsApp Tujuan</label>
+                    <input type="text" id="test_phone_fonnte" name="phone" required placeholder="08xxxxxxxxxx atau 628xxxxxxxxxx" class="dcms-input text-xs font-mono">
+                </div>
+                <div>
+                    <label for="test_msg_fonnte" class="mb-1 block text-xs font-bold text-slate-700">Isi Pesan Uji Coba</label>
+                    <textarea id="test_msg_fonnte" name="message" rows="3" required class="dcms-input text-xs">Halo! Ini adalah pesan uji coba dari DCMS via Gateway Fonnte.</textarea>
+                </div>
+                <button type="submit" class="dcms-primary-button w-full py-2.5 text-xs font-bold">
+                    Kirim Pesan Tes via Fonnte
+                </button>
+            </form>
+        </section>
+        @endif
     </div>
 </div>
 @endif
@@ -647,6 +896,85 @@ async function checkWahaConnection() {
             } else {
                 fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 leading-relaxed';
                 fb.innerHTML = '❌ <strong>Gagal:</strong> ' + (data.message || 'Koneksi ke WAHA VPS gagal.');
+            }
+        } else {
+            alert(data.message || (data.success ? 'Koneksi Berhasil' : 'Koneksi Gagal'));
+        }
+    } catch (err) {
+        if (fb) {
+            fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3';
+            fb.textContent = 'Koneksi gagal: ' + err.message;
+        } else {
+            alert('Koneksi gagal: ' + err.message);
+        }
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+function copyFonnteWebhookUrl() {
+    const input = document.getElementById('fonnte-webhook-url-input');
+    const btn = document.getElementById('btn-copy-fonnte-webhook');
+    if (!input) return;
+
+    input.select();
+    input.setSelectionRange(0, 99999);
+
+    navigator.clipboard.writeText(input.value).then(() => {
+        if (btn) {
+            const originalHTML = btn.innerHTML;
+            btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
+            btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+            btn.innerHTML = '<span>✓ Webhook Tersalin!</span>';
+            setTimeout(() => {
+                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                btn.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+                btn.innerHTML = originalHTML;
+            }, 2500);
+        }
+    }).catch(err => {
+        alert('Gagal menyalin: ' + err);
+    });
+}
+
+async function checkFonnteConnection() {
+    const btn = document.getElementById('btn-check-fonnte');
+    const fb = document.getElementById('fonnte-check-feedback');
+    if (!btn) return;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Memeriksa Akun Fonnte...';
+
+    if (fb) {
+        fb.className = 'mt-2.5 text-xs font-semibold text-slate-500';
+        fb.textContent = 'Menghubungi API Fonnte...';
+        fb.classList.remove('hidden');
+    }
+
+    try {
+        const response = await fetch('{{ route("settings.watzap.check_fonnte") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                token: document.getElementById('fonnte_token')?.value || ''
+            })
+        });
+
+        const data = await response.json();
+        if (fb) {
+            if (data.success && data.connected) {
+                fb.className = 'mt-2.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '✅ <strong>Koneksi Sukses:</strong> Akun Fonnte Terhubung! Device: <strong>' + (data.device || '-') + '</strong> | Nama: <strong>' + (data.name || '-') + '</strong> | Paket: ' + (data.package || '-');
+            } else if (data.success) {
+                fb.className = 'mt-2.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '⚠️ <strong>Perhatian:</strong> ' + (data.message || 'Token valid namun device belum terhubung (Disconnect).');
+            } else {
+                fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '❌ <strong>Gagal:</strong> ' + (data.message || 'Koneksi ke Fonnte gagal.');
             }
         } else {
             alert(data.message || (data.success ? 'Koneksi Berhasil' : 'Koneksi Gagal'));

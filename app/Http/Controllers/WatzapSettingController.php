@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Services\FonnteService;
 use App\Services\WatzapService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -11,14 +12,14 @@ use Illuminate\View\View;
 
 class WatzapSettingController extends Controller
 {
-    public function index(Request $request, WatzapService $watzap): View
+    public function index(Request $request, WatzapService $watzap, FonnteService $fonnte): View
     {
         abort_unless($request->user()->canAccessFeature('watzap_settings'), 403, 'Akses terbatas: Fitur Setup WhatsApp Gateway tidak diaktifkan untuk akun Anda.');
 
         $isSuperAdmin = $request->user()->isSuperAdmin();
 
         $activeTab = $request->query('tab', 'broadcast');
-        if (! in_array($activeTab, ['broadcast', 'inbox'], true)) {
+        if (! in_array($activeTab, ['broadcast', 'inbox', 'fonnte'], true)) {
             $activeTab = 'broadcast';
         }
 
@@ -43,6 +44,14 @@ class WatzapSettingController extends Controller
         $wahaSession = $watzap->getWahaSession();
         $wahaStatus = $watzap->getWahaStatus();
 
+        // Kredensial Fonnte (Bot Keep & Webhook Migrasi Spreadsheet)
+        $fonnteToken = Setting::get('fonnte_token', 'UjuTUowTBsUR1mzWhKFj');
+        $fonnteAutoreply = Setting::get('fonnte_autoreply_enabled', '1');
+        $fonnteAutoreplyMsg = Setting::get('fonnte_autoreply_message', "✅ Data KEEP berhasil direkap.\n\nNama : {nama}\nNomor WA : {nomor}\nBarang : {barang}\nTanggal Pengambilan : {tanggal}\nRemaks : {remaks}");
+        $fonnteWebhookUrl = url('/api/fonnte-webhook');
+        $fonnteIsConfigured = ! empty($fonnteToken);
+        $fonnteDeviceStatus = ($activeTab === 'fonnte' && $fonnteIsConfigured) ? $fonnte->getDeviceStatus($fonnteToken) : null;
+
         $webhookUrl = url('/api/watzap-webhook');
         $availableSenders = $isConfiguredBroadcast ? $watzap->getAvailableSenders($apiKey) : [];
 
@@ -65,6 +74,12 @@ class WatzapSettingController extends Controller
             'wahaApiKey' => $wahaApiKey,
             'wahaSession' => $wahaSession,
             'wahaStatus' => $wahaStatus,
+            'fonnteToken' => $fonnteToken,
+            'fonnteAutoreply' => $fonnteAutoreply,
+            'fonnteAutoreplyMsg' => $fonnteAutoreplyMsg,
+            'fonnteWebhookUrl' => $fonnteWebhookUrl,
+            'fonnteIsConfigured' => $fonnteIsConfigured,
+            'fonnteDeviceStatus' => $fonnteDeviceStatus,
             'availableSenders' => $availableSenders,
             'webhookUrl' => $webhookUrl,
             'isSuperAdmin' => $isSuperAdmin,
@@ -76,7 +91,7 @@ class WatzapSettingController extends Controller
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mengubah pengaturan ini.');
 
         $targetTab = $request->input('target_tab', 'broadcast');
-        if (! in_array($targetTab, ['broadcast', 'inbox'], true)) {
+        if (! in_array($targetTab, ['broadcast', 'inbox', 'fonnte'], true)) {
             $targetTab = 'broadcast';
         }
 
@@ -91,6 +106,9 @@ class WatzapSettingController extends Controller
             'waha_vps_url' => ['nullable', 'url', 'max:255'],
             'waha_api_key' => ['nullable', 'string', 'max:255'],
             'waha_session' => ['nullable', 'string', 'max:255'],
+            'fonnte_token' => ['nullable', 'string', 'max:255'],
+            'fonnte_autoreply_enabled' => ['nullable', 'in:0,1'],
+            'fonnte_autoreply_message' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $masterApiKey = trim($validated['watzap_api_key'] ?? Setting::get('watzap_api_key', ''));
@@ -134,10 +152,25 @@ class WatzapSettingController extends Controller
             Setting::set('waha_session', trim($validated['waha_session'] ?? 'default'));
         }
 
-        $label = $targetTab === 'inbox' ? 'WA Inbox Follow Up' : 'WA Broadcast';
-        $redirectUrl = $targetTab === 'inbox'
-            ? route('settings.watzap.index', ['tab' => 'inbox'])
-            : route('settings.watzap.index');
+        // Simpan Konfigurasi Fonnte (Bot Keep & Webhook Migrasi Spreadsheet)
+        if ($request->has('fonnte_token')) {
+            Setting::set('fonnte_token', trim($validated['fonnte_token'] ?? ''));
+        }
+        if ($request->has('fonnte_autoreply_enabled')) {
+            Setting::set('fonnte_autoreply_enabled', $validated['fonnte_autoreply_enabled'] ?? '1');
+        }
+        if ($request->has('fonnte_autoreply_message')) {
+            Setting::set('fonnte_autoreply_message', trim($validated['fonnte_autoreply_message'] ?? ''));
+        }
+
+        $label = match ($targetTab) {
+            'inbox' => 'WA Inbox Follow Up',
+            'fonnte' => 'Fonnte (Bot Keep & Webhook)',
+            default => 'WA Broadcast',
+        };
+        $redirectUrl = $targetTab === 'broadcast'
+            ? route('settings.watzap.index')
+            : route('settings.watzap.index', ['tab' => $targetTab]);
 
         return redirect()->to($redirectUrl)->with(
             'success',
@@ -246,5 +279,39 @@ class WatzapSettingController extends Controller
             'me' => $res['me'],
             'message' => $res['message'],
         ]);
+    }
+
+    public function checkFonnte(Request $request, FonnteService $fonnte): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $token = $request->string('token')->trim()->toString();
+        $res = $fonnte->getDeviceStatus($token ?: null);
+
+        return response()->json($res);
+    }
+
+    public function testSendFonnte(Request $request, FonnteService $fonnte): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'min:9', 'max:20'],
+            'message' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $res = $fonnte->sendMessage($validated['phone'], $validated['message']);
+
+        if (! empty($res['success'])) {
+            return redirect()->route('settings.watzap.index', ['tab' => 'fonnte'])->with(
+                'success',
+                "Pesan tes berhasil dikirim ke {$validated['phone']} via Fonnte."
+            );
+        }
+
+        return redirect()->route('settings.watzap.index', ['tab' => 'fonnte'])->with(
+            'error',
+            'Pengiriman pesan tes via Fonnte gagal: ' . ($res['message'] ?? 'Periksa token Fonnte Anda.')
+        );
     }
 }

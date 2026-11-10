@@ -3,24 +3,25 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
 use App\Models\SosmedKeep;
+use App\Services\FonnteService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class SosmedKeepWebhookController extends Controller
 {
-    /**
-     * Token Fonnte
-     */
-    private const FONNTE_TOKEN = 'NMGid9rgBKYAAyZ7wmSn';
+    public function __construct(
+        protected FonnteService $fonnteService
+    ) {}
 
     /**
      * Webhook Handler Fonnte & Direct API (GET / POST compatible)
-     * Menggantikan doGet dan doPost dari Google Apps Script.
+     * Menggantikan doGet dan doPost dari Google Apps Script secara realtime ke SQL.
      */
     public function handle(Request $request): Response|JsonResponse
     {
@@ -110,6 +111,7 @@ class SosmedKeepWebhookController extends Controller
         ];
         $now = now();
         $periode = ($monthNames[$now->month] ?? 'Bulan').'-'.substr((string) $now->year, -2);
+        $cabang = $this->fonnteService->detectCabangFromRemarks($keep['remaks'] ?? '');
 
         $newKeep = SosmedKeep::create([
             'message_id' => $messageId,
@@ -126,19 +128,67 @@ class SosmedKeepWebhookController extends Controller
             'catatan' => $keep['catatan'] ?? '',
             'remarks' => $keep['remaks'] ?? '',
             'kode_sosmed' => $keep['remaks'] ?? '',
+            'cabang' => $cabang,
             'periode' => $periode,
             'status' => 'PENDING',
         ]);
 
-        // Kirim konfirmasi balasan WA via Fonnte
-        $balasan = "✅ Data KEEP berhasil direkap ke Database DCMS.\n\n"
-            ."Nama : ".($keep['nama'] ?: '-')."\n"
-            ."Nomor WA : ".($keep['nomor'] ?: '-')."\n"
-            ."Barang : ".($keep['barang'] ?: '-')."\n"
-            ."Tanggal Pengambilan : ".($keep['tanggal'] ?: '-')."\n"
-            ."Remaks : ".($keep['remaks'] ?: '-');
+        // Simpan juga ke file CSV keep-data.csv untuk backward compatibility
+        try {
+            $csvFile = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'keep-data.csv');
+            if (File::exists($csvFile)) {
+                $fp = fopen($csvFile, 'a');
+                if ($fp) {
+                    fputcsv($fp, [
+                        $now->format('Y-m-d H:i:s'),
+                        (string) $nomorPengirim,
+                        (string) $groupId,
+                        (string) $senderName,
+                        $request->input('group_name') ?: ($isGroup ? 'GRUP' : ''),
+                        $jenisChat,
+                        $keep['nama'] ?? '',
+                        $keep['nomor'] ?? '',
+                        $keep['barang'] ?? '',
+                        $keep['tanggal'] ?? '',
+                        $keep['catatan'] ?? '',
+                        $keep['remaks'] ?? '',
+                        $keep['remaks'] ?? '',
+                        '', // report ar
+                        '', // tanggal input ar
+                        '', // ar vlookup
+                        '', // tanggal vlookup
+                        $cabang,
+                        '', // evidence
+                        '', // nomor fu
+                        '', // nama tim fu
+                        'PENDING',
+                        '', // feedback
+                        '', // toko kompetitor
+                        '', // user kredit
+                        $periode,
+                        '', // item
+                        '', // nomor fu
+                    ]);
+                    fclose($fp);
+                }
+            }
+        } catch (\Throwable) {}
 
-        $this->kirimWA((string) $request->input('sender'), $balasan, $isGroup);
+        // Kirim konfirmasi balasan WA via Fonnte jika fitur diaktifkan
+        $autoReplyEnabled = (string) Setting::get('fonnte_autoreply_enabled', '1') !== '0';
+        $senderTarget = (string) ($request->input('sender') ?: $nomorPengirim);
+
+        if ($autoReplyEnabled && $senderTarget !== '') {
+            $defaultTpl = "✅ Data KEEP berhasil direkap.\n\nNama : {nama}\nNomor WA : {nomor}\nBarang : {barang}\nTanggal Pengambilan : {tanggal}\nRemaks : {remaks}";
+            $template = Setting::get('fonnte_autoreply_message', $defaultTpl);
+            $balasan = str_replace(
+                ['{nama}', '{nomor}', '{barang}', '{tanggal}', '{remaks}'],
+                [$keep['nama'] ?: '-', $keep['nomor'] ?: '-', $keep['barang'] ?: '-', $keep['tanggal'] ?: '-', $keep['remaks'] ?: '-'],
+                $template
+            );
+
+            $this->fonnteService->sendMessage($senderTarget, $balasan, $isGroup);
+        }
 
         return response('OK', 200)->header('Content-Type', 'text/plain');
     }
@@ -429,25 +479,6 @@ class SosmedKeepWebhookController extends Controller
      */
     private function kirimWA(string $target, string $pesan, bool $isGroup = false): void
     {
-        if ($target === '') {
-            return;
-        }
-
-        try {
-            $payload = [
-                'target' => $target,
-                'message' => $pesan,
-            ];
-            if ($isGroup) {
-                $payload['group'] = 'true';
-            }
-
-            Http::timeout(10)
-                ->withHeaders(['Authorization' => self::FONNTE_TOKEN])
-                ->withoutVerifying()
-                ->post('https://api.fonnte.com/send', $payload);
-        } catch (\Throwable $e) {
-            Log::error('Fonnte send error: '.$e->getMessage());
-        }
+        $this->fonnteService->sendMessage($target, $pesan, $isGroup);
     }
 }
