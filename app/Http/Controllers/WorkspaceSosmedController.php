@@ -729,8 +729,11 @@ class WorkspaceSosmedController extends Controller
 
             // Sinkronisasi otomatis dari WAHA VPS jika aktif
             if ($watzapService->isWahaEnabled()) {
-                $shouldSync = $forceSync || empty($since) || (int) $since === 0 || (time() % 3 === 0);
+                // Throttle sinkronisasi ke WAHA VPS minimal 3 detik antar pemanggilan agar responsif & tidak flooding
+                $lastWahaSync = (int) cache()->get('waha_last_sync_timestamp', 0);
+                $shouldSync = $forceSync || (time() - $lastWahaSync) >= 3;
                 if ($shouldSync) {
+                    cache()->put('waha_last_sync_timestamp', time(), 120);
                     try {
                         $synced = $watzapService->syncWahaMessages(30, 20);
                         if (! empty($synced)) {
@@ -774,7 +777,8 @@ class WorkspaceSosmedController extends Controller
                 if ($since) {
                     $mTime = is_numeric($m['timestamp'] ?? null) ? (int) $m['timestamp'] : (isset($m['timestamp']) ? strtotime((string) $m['timestamp']) * 1000 : 0);
                     $sTime = is_numeric($since) ? (int) ($since < 1e11 ? $since * 1000 : $since) : strtotime((string) $since) * 1000;
-                    if ($mTime <= $sTime) {
+                    // Buffer toleransi 30 detik untuk mengantisipasi perbedaan clock server vs browser
+                    if ($mTime <= ($sTime - 30000)) {
                         return false;
                     }
                 }
@@ -782,8 +786,18 @@ class WorkspaceSosmedController extends Controller
                 return true;
             }));
 
+            $gatewayPhone = '6285111426699';
+            try {
+                $wahaStatus = $watzapService->getWahaStatus();
+                if (! empty($wahaStatus['me']['id'])) {
+                    $gatewayPhone = preg_replace('/\D/', '', (string) $wahaStatus['me']['id']);
+                }
+            } catch (\Throwable) {
+            }
+
             return response()->json([
                 'success' => true,
+                'gateway_phone' => $gatewayPhone,
                 'messages' => $filtered,
                 'total' => count($filtered),
             ]);

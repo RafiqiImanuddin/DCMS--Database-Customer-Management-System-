@@ -571,7 +571,7 @@
                 <span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:#10b981; box-shadow:0 0 8px #10b981;"></span>
                 <div>
                     <div style="font-weight:800; font-size:13px; letter-spacing:-0.2px; line-height:1.2;">Live WhatsApp Inbox</div>
-                    <div style="font-size:10px; color:#94a3b8;">WAHA VPS Live Gateway</div>
+                    <div id="dcmsLwGatewaySub" style="font-size:10px; color:#94a3b8;">WA Bot: 0851-1142-6699</div>
                 </div>
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
@@ -914,10 +914,19 @@
 
     async function loadDcmsLiveWidgetData(isAuto) {
         try {
-            const res = await fetch('/api/watzap-webhook?since=' + dcmsLwLastSync);
+            const res = await fetch('/api/watzap-webhook?sync=1');
             if (!res.ok) return;
             const data = await res.json();
             if (!data.success) return;
+
+            if (data.gateway_phone) {
+                const sub = document.getElementById('dcmsLwGatewaySub');
+                if (sub) {
+                    let formatted = String(data.gateway_phone);
+                    if (formatted.startsWith('62')) formatted = '0' + formatted.slice(2);
+                    sub.innerHTML = 'WA Bot: <strong style="color:#a7f3d0;">' + formatted + '</strong>';
+                }
+            }
 
             const newMessages = data.messages || [];
             if (newMessages.length > 0) {
@@ -1193,7 +1202,7 @@
         dcmsLwPollingTimer = setInterval(function() {
             checkTabVisibility();
             loadDcmsLiveWidgetData(true);
-        }, 12000);
+        }, 5000);
     });
 })();
 </script>
