@@ -30,6 +30,13 @@
             </label>
             <button class="dcms-primary-button w-full py-3.5">Masuk ke Dashboard</button>
         </form>
+
+        <div class="mt-6 pt-5 border-t border-slate-100 text-center">
+            <p class="text-xs text-slate-500">
+                Belum memiliki akun?
+                <a href="{{ route('register') }}" class="font-bold text-brand-600 hover:text-brand-700 transition">Daftar Akun Baru</a>
+            </p>
+        </div>
     </main>
 </body>
 </html>

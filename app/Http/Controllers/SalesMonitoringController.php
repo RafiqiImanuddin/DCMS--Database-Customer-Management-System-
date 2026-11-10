@@ -22,6 +22,8 @@ class SalesMonitoringController extends Controller
      */
     public function index(Request $request): View
     {
+        abort_unless($request->user()?->isAdmin(), 403, 'Akses terbatas: Menu Monitoring Kinerja hanya dapat diakses oleh Admin & Superadmin.');
+
         // Support Daily Date (YYYY-MM-DD) as default or Monthly Period (YYYY-MM)
         $selectedPeriod = $request->string('date')->trim()->toString();
         if ($selectedPeriod === '') {

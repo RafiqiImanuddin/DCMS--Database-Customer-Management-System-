@@ -23,15 +23,22 @@
     @include('workspace-sosmed.partials.subbar')
     @include('workspace-sosmed.partials.kpi-summary')
 
+    @php
+        $isAdminOrSuperAdmin = auth()->check() && auth()->user()->isAdmin();
+    @endphp
+
     @include('workspace-sosmed.partials.tab1-dashboard')
     @include('workspace-sosmed.partials.tab2-report-matrix')
-    @include('workspace-sosmed.partials.tab3-cek-status-ar')
-    @include('workspace-sosmed.partials.tab4-format-keep')
-    @include('workspace-sosmed.partials.tab5-tracking-ar')
-    @include('workspace-sosmed.partials.tab6-klaim-ar')
-    @include('workspace-sosmed.partials.tab7-arsip')
-    @include('workspace-sosmed.partials.tab8-settings')
-    @include('workspace-sosmed.partials.tab9-inbox-fu')
+
+    @if ($isAdminOrSuperAdmin)
+        @include('workspace-sosmed.partials.tab3-cek-status-ar')
+        @include('workspace-sosmed.partials.tab4-format-keep')
+        @include('workspace-sosmed.partials.tab5-tracking-ar')
+        @include('workspace-sosmed.partials.tab6-klaim-ar')
+        @include('workspace-sosmed.partials.tab7-arsip')
+        @include('workspace-sosmed.partials.tab8-settings')
+        @include('workspace-sosmed.partials.tab9-inbox-fu')
+    @endif
 
     @include('workspace-sosmed.partials.modals')
     @include('workspace-sosmed.partials.scripts')

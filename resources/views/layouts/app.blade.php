@@ -295,8 +295,10 @@
         @include('guidance._login_modal')
     @endif
 
-    {{-- Live WhatsApp Floating Chat Widget --}}
-    @include('layouts.live-chat-widget')
+    {{-- Live WhatsApp Floating Chat Widget (Hanya Admin & Superadmin) --}}
+    @if (auth()->check() && auth()->user()->isAdmin())
+        @include('layouts.live-chat-widget')
+    @endif
 
     {{-- Floating Pop-up Toast Container (Pojok Kanan Atas) --}}
     <div id="dcmsTopRightToastContainer" class="fixed top-5 right-5 z-[9999999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-full pointer-events-none pr-2"></div>

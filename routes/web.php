@@ -26,6 +26,8 @@ Route::get('/media/broadcasts/{media}/{filename?}', [BroadcastMediaController::c
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:5,1');
+    Route::get('/register', [\App\Http\Controllers\UserController::class, 'create'])->name('register');
+    Route::post('/register', [\App\Http\Controllers\UserController::class, 'store'])->name('register.store')->middleware('throttle:5,1');
 });
 
 Route::middleware('auth')->group(function () {
@@ -117,6 +119,11 @@ Route::middleware('auth')->group(function () {
     // Guidance & SOP (Rumus Potensi & Penilaian untuk Superadmin, Guidance Umum untuk Staff)
     Route::get('/guidance', [GuidanceController::class, 'index'])->name('guidance.index');
     Route::post('/guidance/dismiss', [GuidanceController::class, 'dismissLoginPrompt'])->name('guidance.dismiss');
+
+    // Pengaturan Akun Sendiri (Untuk semua user yang login)
+    Route::get('/settings/profile', [\App\Http\Controllers\UserController::class, 'profile'])->name('profile.edit');
+    Route::put('/settings/profile', [\App\Http\Controllers\UserController::class, 'updateProfile'])->name('profile.update');
+    Route::put('/settings/profile/password', [\App\Http\Controllers\UserController::class, 'updatePassword'])->name('profile.password');
 
     // Modul Terintegrasi: Workspace Sosmed (Sosmed KPI, Report, Cek AR, Keep & Follow-Up)
     Route::get('/workspace-sosmed/{token?}', [WorkspaceSosmedController::class, 'index'])->name('workspace-sosmed.index');

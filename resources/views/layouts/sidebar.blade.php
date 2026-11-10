@@ -79,7 +79,7 @@
             $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index' && !in_array($activeWorkspaceTab, [7, 8]));
             $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index']);
             $isGuidanceActive = ($activeTarget === 'guidance.index');
-            $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
+            $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index', 'profile.edit']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
         @endphp
 
         <!-- GROUP 1: CUSTOMER & OUTREACH CRM -->
@@ -189,6 +189,7 @@
                     </div>
                 </div>
 
+                @if (auth()->check() && auth()->user()->isAdmin())
                 <!-- 3. Cek Status AR -->
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 3]) }}" data-tab="3" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(3);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 3) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
@@ -219,9 +220,11 @@
                     <span>Inbox Follow-Up</span>
                     <span class="ml-auto rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">FU</span>
                 </a>
+                @endif
             </div>
         </div>
 
+        @if (auth()->check() && auth()->user()->isAdmin())
         <!-- GROUP 3: MONITORING (MANAGER & SUPERADMIN) -->
         <div class="pt-2">
             <button type="button" 
@@ -251,6 +254,7 @@
                 </a>
             </div>
         </div>
+        @endif
 
         <!-- GROUP 4: PANDUAN & SOP -->
         <div class="pt-2">
@@ -319,11 +323,15 @@
                 </a>
                 @endif
 
+                @if (auth()->check() && auth()->user()->isAdmin())
                 <a href="{{ \App\Support\RouteCipher::url('settings.watzap.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index']) ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a4 4 0 0 0 5 5"/></svg>
                     <span>Setup WhatsApp</span>
                     <span class="ml-auto rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">Gateway</span>
                 </a>
+                @endif
+
+                @if (auth()->check() && auth()->user()->isSuperAdmin())
 
                 <a href="{{ \App\Support\RouteCipher::url('settings.karyawan.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'settings.karyawan.index' && request('tab') !== 'monthly_targets') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
@@ -358,12 +366,20 @@
                     <span>Kandidat Gadgetmart</span>
                     <span class="ml-auto text-slate-400 text-xs">↗</span>
                 </a>
+                @endif
+
+                <!-- Pengaturan Akun Sendiri (Untuk semua user) -->
+                <a href="{{ \App\Support\RouteCipher::url('profile.edit') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'profile.edit' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                    <span>Pengaturan Akun</span>
+                    <span class="ml-auto rounded-full bg-teal-500/20 px-1.5 py-0.5 text-[9px] font-bold text-teal-300">Profil</span>
+                </a>
             </div>
         </div>
     </nav>
 
     <div class="shrink-0 p-4 border-t border-white/10 bg-white/5">
-        <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'text-amber-300' : 'text-emerald-300' }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : 'Admin' }}</span></div>
+        <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'text-amber-300' : (auth()->user()->role === 'admin' ? 'text-emerald-300' : 'text-sky-300') }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()->role === 'admin' ? 'Admin' : 'Staff') }}</span></div>
         <div class="mt-1 truncate text-sm font-bold">{{ auth()->user()->name ?? 'User' }}</div>
         <div class="truncate text-xs text-slate-400">{{ auth()->user()->email ?? '' }}</div>
     </div>

@@ -104,6 +104,14 @@ class RouteCipher
             'controller' => \App\Http\Controllers\WorkspaceSosmedController::class,
             'method' => 'index',
         ],
+        'profile.edit' => [
+            'controller' => \App\Http\Controllers\UserController::class,
+            'method' => 'profile',
+        ],
+        'register' => [
+            'controller' => \App\Http\Controllers\UserController::class,
+            'method' => 'create',
+        ],
     ];
 
     private static function getKey(): string

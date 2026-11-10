@@ -19,6 +19,8 @@ class EmployeeSettingController extends Controller
      */
     public function index(Request $request): View
     {
+        abort_unless($request->user()->isAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang berwenang mengakses Pengaturan Karyawan.');
+
         $search = $request->string('search')->trim()->toString();
         $cabang = $request->string('cabang')->trim()->toString();
         $status = $request->string('status')->trim()->toString();

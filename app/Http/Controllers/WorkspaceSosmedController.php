@@ -44,6 +44,11 @@ class WorkspaceSosmedController extends Controller
         $activeTab = RouteCipher::resolveWorkspaceTab($request)
             ?? WorkspaceUrlCipher::resolveTab($request);
 
+        $isAdminOrSuperAdmin = $request->user()?->isAdmin();
+        if (! $isAdminOrSuperAdmin && ! in_array($activeTab, [1, 2], true)) {
+            $activeTab = 1;
+        }
+
         $initialWorkspaceSettings = $this->getWorkspaceSettingsData();
 
         return view('workspace-sosmed.index', [
