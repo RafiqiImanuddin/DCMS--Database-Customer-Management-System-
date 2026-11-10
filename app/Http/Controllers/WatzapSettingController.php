@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Models\SosmedKeep;
 use App\Services\FonnteService;
 use App\Services\WatzapService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\View\View;
 
 class WatzapSettingController extends Controller
@@ -80,6 +82,7 @@ class WatzapSettingController extends Controller
             'fonnteWebhookUrl' => $fonnteWebhookUrl,
             'fonnteIsConfigured' => $fonnteIsConfigured,
             'fonnteDeviceStatus' => $fonnteDeviceStatus,
+            'totalSosmedKeeps' => SosmedKeep::count(),
             'availableSenders' => $availableSenders,
             'webhookUrl' => $webhookUrl,
             'isSuperAdmin' => $isSuperAdmin,
@@ -312,6 +315,42 @@ class WatzapSettingController extends Controller
         return redirect()->route('settings.watzap.index', ['tab' => 'fonnte'])->with(
             'error',
             'Pengiriman pesan tes via Fonnte gagal: ' . ($res['message'] ?? 'Periksa token Fonnte Anda.')
+        );
+    }
+
+    public function syncGoogleSheetKeep(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $url = $request->string('spreadsheet_url')->trim()->toString()
+            ?: 'https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/edit?gid=848355344#gid=848355344';
+
+        $sheetName = $request->string('sheet_name')->trim()->toString() ?: 'DATA KEEP';
+
+        try {
+            $exitCode = Artisan::call('keep:sync-google-sheet', [
+                '--url' => $url,
+                '--sheet' => $sheetName,
+                '--truncate' => $request->boolean('truncate', true),
+            ]);
+
+            if ($exitCode === 0) {
+                $total = SosmedKeep::count();
+                return redirect()->route('settings.watzap.index', ['tab' => 'fonnte'])->with(
+                    'success',
+                    "Sinkronisasi data Google Spreadsheet berhasil! Total {$total} data keep tersimpan di database MySQL."
+                );
+            }
+        } catch (\Throwable $e) {
+            return redirect()->route('settings.watzap.index', ['tab' => 'fonnte'])->with(
+                'error',
+                'Terjadi kesalahan saat sinkronisasi: ' . $e->getMessage()
+            );
+        }
+
+        return redirect()->route('settings.watzap.index', ['tab' => 'fonnte'])->with(
+            'error',
+            'Sinkronisasi Google Spreadsheet gagal. Periksa koneksi internet atau hak akses sheet.'
         );
     }
 }

@@ -543,6 +543,63 @@
             </div>
         </section>
 
+        <!-- 2B. Card Sinkronisasi Google Spreadsheet ke SQL -->
+        <section class="dcms-card p-6 border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-50/30 via-white to-slate-50">
+            <div class="flex items-start gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-emerald-600 text-white font-black text-sm shadow-sm">
+                    📊
+                </span>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="font-black text-slate-900">Sinkronisasi Data Google Spreadsheet ke SQL</h2>
+                            <p class="mt-0.5 text-xs text-slate-500">Tarik riwayat transaksi keep dari Google Spreadsheet real ke tabel MySQL <code>sosmed_keeps</code>.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800 border border-emerald-200">
+                                Total di SQL: {{ number_format($totalSosmedKeeps ?? 0, 0, ',', '.') }} data
+                            </span>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="{{ route('settings.watzap.sync_google_sheet') }}" class="mt-4 space-y-3.5" onsubmit="return confirm('Mulai sinkronisasi data dari Google Spreadsheet ke database SQL? Tindakan ini akan memperbarui data tabel sosmed_keeps.')">
+                        @csrf
+                        <div class="grid gap-3 sm:grid-cols-3">
+                            <div class="sm:col-span-2">
+                                <label for="spreadsheet_url" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                                    URL / ID Google Spreadsheet
+                                </label>
+                                <input type="text" id="spreadsheet_url" name="spreadsheet_url" value="https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/edit?gid=848355344#gid=848355344" required class="dcms-input font-mono text-xs" {{ ! $isSuperAdmin ? 'disabled' : '' }}>
+                            </div>
+                            <div>
+                                <label for="sheet_name" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                                    Nama Sheet Target
+                                </label>
+                                <input type="text" id="sheet_name" name="sheet_name" value="DATA KEEP" required class="dcms-input font-mono text-xs font-bold" {{ ! $isSuperAdmin ? 'disabled' : '' }}>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                            <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                                <input type="checkbox" name="truncate" value="1" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" {{ ! $isSuperAdmin ? 'disabled' : '' }}>
+                                <span>Gantikan data lama di SQL (Truncate & Replace agar data sama persis dengan Spreadsheet)</span>
+                            </label>
+
+                            <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500 {{ ! $isSuperAdmin ? 'opacity-50 cursor-not-allowed' : '' }}" {{ ! $isSuperAdmin ? 'disabled' : '' }}>
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                                <span>Sinkronkan Sekarang</span>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-600">
+                        <span class="font-bold text-slate-800">Perintah Terminal / CLI:</span> Anda juga dapat menjalankan sinkronisasi kapan saja melalui command line:
+                        <code class="mt-1 block rounded bg-slate-900 px-3 py-1.5 font-mono text-emerald-400 text-[11px] select-all">php artisan keep:sync-google-sheet --truncate</code>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- 3. Tabel Dokumentasi API Action Webhook -->
         <section class="dcms-card p-6">
             <h2 class="font-black text-slate-900">Spesifikasi Action Webhook Fonnte (Kompatibel Google Apps Script)</h2>

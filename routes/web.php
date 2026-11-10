@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/watzap/check-waha', [WatzapSettingController::class, 'checkWaha'])->name('settings.watzap.check_waha');
     Route::post('/settings/watzap/check-fonnte', [WatzapSettingController::class, 'checkFonnte'])->name('settings.watzap.check_fonnte');
     Route::post('/settings/watzap/test-send-fonnte', [WatzapSettingController::class, 'testSendFonnte'])->name('settings.watzap.test_send_fonnte');
+    Route::post('/settings/watzap/sync-google-sheet', [WatzapSettingController::class, 'syncGoogleSheetKeep'])->name('settings.watzap.sync_google_sheet');
 
     // Dashboard Manager: Monitoring Kinerja Admin Sales (Manager & Admin)
     Route::get('/monitoring/sales', [SalesMonitoringController::class, 'index'])->name('monitoring.sales.index');
