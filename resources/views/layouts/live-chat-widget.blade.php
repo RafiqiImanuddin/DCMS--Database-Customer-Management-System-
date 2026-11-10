@@ -366,9 +366,189 @@
     from { opacity: 0; transform: translate(-50%, -8px); }
     to { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* Notifikasi Pop-Up Chat Baru Mengambang */
+.dcms-lw-notify-popup {
+    position: fixed;
+    bottom: 96px;
+    right: 24px;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #10b981;
+    border-radius: 16px;
+    box-shadow: 0 20px 35px -8px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    padding: 12px 14px;
+    cursor: pointer;
+    z-index: 99998;
+    overflow: hidden;
+    animation: dcmsLwSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.15s, box-shadow 0.15s, right 0.2s, bottom 0.2s;
+}
+.dcms-lw-notify-popup:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 25px 40px -8px rgba(15, 23, 42, 0.28);
+}
+@keyframes dcmsLwSlideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.dcms-lw-notify-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.dcms-lw-notify-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 3px 8px rgba(16, 185, 129, 0.35);
+}
+.dcms-lw-notify-body {
+    flex: 1;
+    min-width: 0;
+}
+.dcms-lw-notify-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+    padding-right: 20px;
+}
+.dcms-lw-notify-badge {
+    background: #ecfdf5;
+    color: #047857;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    border: 1px solid #a7f3d0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.dcms-lw-notify-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: dcmsLwPulse 1.5s infinite;
+}
+@keyframes dcmsLwPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+}
+.dcms-lw-notify-time {
+    font-size: 10px;
+    color: #94a3b8;
+}
+.dcms-lw-notify-sender {
+    font-weight: 700;
+    font-size: 13px;
+    color: #0f172a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 3px;
+}
+.dcms-lw-notify-text {
+    font-size: 11.5px;
+    color: #475569;
+    line-height: 1.45;
+    margin-top: 3px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+}
+.dcms-lw-notify-hint {
+    font-size: 10px;
+    color: #10b981;
+    font-weight: 600;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.dcms-lw-notify-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    outline: none;
+    z-index: 2;
+}
+.dcms-lw-notify-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+.dcms-lw-notify-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #047857);
+    width: 100%;
+    transform-origin: left;
+    animation: dcmsLwProgress 7s linear forwards;
+}
+@keyframes dcmsLwProgress {
+    from { width: 100%; }
+    to { width: 0%; }
+}
 </style>
 
 <div id="dcmsLiveWidgetContainer">
+    {{-- Pop-Up Notifikasi Pesan Masuk Mengambang --}}
+    <div id="dcmsLwNotifyPopup" class="dcms-lw-notify-popup" style="display:none;" onclick="handleDcmsLwPopupClick()" title="Klik untuk membuka pesan">
+        <button type="button" class="dcms-lw-notify-close" onclick="closeDcmsLwNotifyPopup(event)" title="Tutup Notifikasi">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+        <div class="dcms-lw-notify-content">
+            <div class="dcms-lw-notify-avatar" id="dcmsLwNotifyAvatar">WA</div>
+            <div class="dcms-lw-notify-body">
+                <div class="dcms-lw-notify-header">
+                    <span class="dcms-lw-notify-badge">
+                        <span class="dcms-lw-notify-badge-dot"></span>
+                        Chat WhatsApp Baru
+                    </span>
+                    <span class="dcms-lw-notify-time" id="dcmsLwNotifyTime">Baru saja</span>
+                </div>
+                <div class="dcms-lw-notify-sender" id="dcmsLwNotifySender">Customer</div>
+                <div class="dcms-lw-notify-text" id="dcmsLwNotifyText">Pesan baru masuk...</div>
+                <div class="dcms-lw-notify-hint">
+                    <span>Klik untuk membalas</span>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="dcms-lw-notify-progress" id="dcmsLwNotifyProgress"></div>
+    </div>
     {{-- Floating Action Button (FAB) --}}
     <button type="button" id="dcmsLwFab" class="dcms-lw-fab" onclick="toggleDcmsLiveWidget()" title="Live WhatsApp Inbox (Follow-Up)" aria-label="Buka Live Chat WhatsApp">
         <span id="dcmsLwBadge" class="dcms-lw-fab-badge">0</span>
@@ -490,15 +670,19 @@
     let dcmsLwMessages = [];
     let dcmsLwLastSync = 0;
     let dcmsLwPollingTimer = null;
+    let dcmsLwPopupTimeout = null;
+    let dcmsLwLastPopupMsg = null;
 
     // Sembunyikan FAB jika sedang berada di Tab 9 (Inbox FU) pada halaman Workspace Sosmed
     function checkTabVisibility() {
         const fab = document.getElementById('dcmsLwFab');
         const win = document.getElementById('dcmsLwWindow');
+        const popup = document.getElementById('dcmsLwNotifyPopup');
         if (!fab) return;
         if (typeof window.currentActiveTab !== 'undefined' && window.currentActiveTab === 9) {
             fab.style.display = 'none';
             if (win) win.style.display = 'none';
+            if (popup) popup.style.display = 'none';
         } else {
             fab.style.display = 'flex';
         }
@@ -508,19 +692,30 @@
         const win = document.getElementById('dcmsLwWindow');
         const iconChat = document.getElementById('dcmsLwFabIconChat');
         const iconClose = document.getElementById('dcmsLwFabIconClose');
+        const popup = document.getElementById('dcmsLwNotifyPopup');
         if (!win) return;
 
         dcmsLwIsOpen = (typeof force === 'boolean') ? force : !dcmsLwIsOpen;
+
+        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
 
         if (dcmsLwIsOpen) {
             win.style.display = 'flex';
             if (iconChat) iconChat.style.display = 'none';
             if (iconClose) iconClose.style.display = 'block';
+            if (popup && popup.style.display !== 'none') {
+                popup.style.right = '440px';
+            }
             loadDcmsLiveWidgetData();
         } else {
             win.style.display = 'none';
             if (iconChat) iconChat.style.display = 'block';
             if (iconClose) iconClose.style.display = 'none';
+            if (popup && popup.style.display !== 'none') {
+                popup.style.right = '24px';
+            }
         }
     };
 
@@ -624,6 +819,99 @@
         return escaped;
     }
 
+    function triggerDcmsLwPopup(msg) {
+        if (!msg) return;
+
+        const normPhone = normalizePhone(msg.phone);
+        const win = document.getElementById('dcmsLwWindow');
+        const isWinOpen = win && win.style.display === 'flex';
+
+        // Jika room chat dengan pengirim ini sedang dibuka langsung, jangan tampilkan popup agar tidak mengganggu
+        if (isWinOpen && dcmsLwActivePhone === normPhone) {
+            return;
+        }
+
+        dcmsLwLastPopupMsg = msg;
+
+        const popup = document.getElementById('dcmsLwNotifyPopup');
+        const senderEl = document.getElementById('dcmsLwNotifySender');
+        const textEl = document.getElementById('dcmsLwNotifyText');
+        const avatarEl = document.getElementById('dcmsLwNotifyAvatar');
+        const timeEl = document.getElementById('dcmsLwNotifyTime');
+        const progressEl = document.getElementById('dcmsLwNotifyProgress');
+        if (!popup) return;
+
+        const senderName = msg.senderName || ('PIC ' + (msg.phone || 'WhatsApp'));
+        const cleanMsg = (msg.message || (msg.media_type ? ('[' + msg.media_type.toUpperCase() + ' Foto/Dokumen]') : 'Pesan baru masuk'))
+            .replace(/[\r\n]+/g, ' ')
+            .replace(/[*_~`]/g, '');
+
+        if (senderEl) senderEl.innerText = senderName;
+        if (textEl) textEl.innerText = cleanMsg;
+        if (avatarEl) avatarEl.innerText = (senderName || 'WA').slice(0, 2).toUpperCase();
+        if (timeEl) timeEl.innerText = formatTime(msg.timestamp) || 'Baru saja';
+
+        // Sesuaikan posisi jika window chat sedang terbuka
+        if (isWinOpen) {
+            popup.style.right = '440px';
+        } else {
+            popup.style.right = '24px';
+        }
+
+        // Reset progress bar animation
+        if (progressEl) {
+            progressEl.style.animation = 'none';
+            void progressEl.offsetWidth; // trigger reflow
+            progressEl.style.animation = 'dcmsLwProgress 7s linear forwards';
+        }
+
+        popup.style.display = 'block';
+
+        // Auto close setelah 7 detik
+        if (dcmsLwPopupTimeout) clearTimeout(dcmsLwPopupTimeout);
+        dcmsLwPopupTimeout = setTimeout(() => {
+            closeDcmsLwNotifyPopup();
+        }, 7000);
+
+        // Web Notification browser jika diizinkan
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            try {
+                const notif = new Notification('Chat Masuk: ' + senderName, {
+                    body: cleanMsg,
+                    icon: '/favicon.ico'
+                });
+                notif.onclick = function() {
+                    window.focus();
+                    handleDcmsLwPopupClick();
+                };
+            } catch (e) {}
+        }
+    }
+
+    window.closeDcmsLwNotifyPopup = function(e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        const popup = document.getElementById('dcmsLwNotifyPopup');
+        if (popup) popup.style.display = 'none';
+        if (dcmsLwPopupTimeout) clearTimeout(dcmsLwPopupTimeout);
+    };
+
+    window.handleDcmsLwPopupClick = function() {
+        if (!dcmsLwLastPopupMsg) return;
+        const phone = normalizePhone(dcmsLwLastPopupMsg.phone);
+        const name = dcmsLwLastPopupMsg.senderName || ('PIC ' + phone);
+
+        closeDcmsLwNotifyPopup();
+
+        // Buka widget window jika belum terbuka
+        const win = document.getElementById('dcmsLwWindow');
+        if (win && win.style.display !== 'flex') {
+            toggleDcmsLiveWidget(true);
+        }
+
+        // Buka chat room pengirim
+        openDcmsLiveWidgetRoom(phone, name);
+    };
+
     async function loadDcmsLiveWidgetData(isAuto) {
         try {
             const res = await fetch('/api/watzap-webhook?since=' + dcmsLwLastSync);
@@ -637,16 +925,23 @@
                 dcmsLwMessages.forEach(m => { if (m.messageId) existingMap[m.messageId] = true; });
 
                 let hasNewInbound = false;
+                let latestInboundMsg = null;
                 newMessages.forEach(m => {
                     if (m.messageId && !existingMap[m.messageId]) {
                         dcmsLwMessages.push(m);
-                        if (m.direction === 'inbound') hasNewInbound = true;
+                        if (m.direction === 'inbound') {
+                            hasNewInbound = true;
+                            latestInboundMsg = m;
+                        }
                     }
                 });
 
                 dcmsLwLastSync = Date.now();
                 if (hasNewInbound && isAuto) {
                     playLiveWidgetChime();
+                    if (latestInboundMsg) {
+                        triggerDcmsLwPopup(latestInboundMsg);
+                    }
                 }
             }
 
