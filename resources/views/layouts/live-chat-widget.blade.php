@@ -61,9 +61,9 @@
     position: fixed;
     bottom: 96px;
     right: 24px;
-    width: 390px;
+    width: 410px;
     max-width: calc(100vw - 32px);
-    height: 560px;
+    height: 580px;
     max-height: calc(100vh - 120px);
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -217,11 +217,11 @@
     gap: 8px;
 }
 .dcms-lw-bubble {
-    max-width: 82%;
-    padding: 7px 12px;
-    border-radius: 12px;
+    max-width: 86%;
+    padding: 8px 12px;
+    border-radius: 13px;
     font-size: 12.5px;
-    line-height: 1.45;
+    line-height: 1.5;
     word-break: break-word;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     position: relative;
@@ -231,12 +231,65 @@
     background: #ffffff;
     color: #1e293b;
     border-bottom-left-radius: 3px;
+    border: 1px solid #f1f5f9;
 }
 .dcms-lw-bubble-out {
     align-self: flex-end;
     background: #d9fdd3;
     color: #0f172a;
     border-bottom-right-radius: 3px;
+}
+.dcms-lw-bubble-text {
+    line-height: 1.55;
+    word-break: break-word;
+    letter-spacing: 0.01em;
+}
+.dcms-lw-bubble-text strong {
+    font-weight: 700;
+}
+.dcms-lw-bubble-text em {
+    font-style: italic;
+}
+.dcms-lw-bubble-text del {
+    text-decoration: line-through;
+    opacity: 0.75;
+}
+.dcms-lw-msg-label {
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    display: inline;
+}
+.dcms-lw-bubble-out .dcms-lw-msg-label {
+    color: #065f46;
+}
+.dcms-lw-bubble-in .dcms-lw-msg-label {
+    color: #0369a1;
+}
+.dcms-lw-msg-link {
+    color: #0284c7;
+    text-decoration: underline;
+    word-break: break-all;
+}
+.dcms-lw-msg-link:hover {
+    color: #0369a1;
+}
+.dcms-lw-code-inline {
+    background: rgba(0, 0, 0, 0.06);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11.5px;
+}
+.dcms-lw-code-block {
+    background: rgba(0, 0, 0, 0.07);
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 11px;
+    overflow-x: auto;
+    margin: 4px 0;
+    white-space: pre-wrap;
 }
 .dcms-lw-bubble-meta {
     font-size: 9.5px;
@@ -523,6 +576,54 @@
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    function formatDcmsLiveMessage(rawText) {
+        if (!rawText) return '';
+        let text = String(rawText);
+
+        // Sisipkan newline jika ada label template keep yang terhimpit tanpa enter di depannya
+        text = text.replace(/([^\n\r])\s*(tanggal\s*keep|nama\s*customer|nomor\s*whatsapp|nomor\s*wa|barang\s*keep|barang|catatan|remaks|remarks|cabang|customer|handover|pesan\s*terakhir):/gi, '$1\n$2:');
+
+        // Escape HTML untuk mencegah XSS
+        let escaped = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        // Monospace code blocks ```code```
+        escaped = escaped.replace(/```([\s\S]*?)```/g, function(match, code) {
+            return '<pre class="dcms-lw-code-block">' + code.trim() + '</pre>';
+        });
+
+        // Inline code `code`
+        escaped = escaped.replace(/`([^`\n]+)`/g, '<code class="dcms-lw-code-inline">$1</code>');
+
+        // WhatsApp Bold: *text*
+        escaped = escaped.replace(/(^|[^\w*])\*([^*\n\r]+?)\*(?=[^\w*]|$)/g, '$1<strong>$2</strong>');
+
+        // WhatsApp Italic: _text_
+        escaped = escaped.replace(/(^|[^\w_])_([^_\n\r]+?)_(?=[^\w_]|$)/g, '$1<em>$2</em>');
+
+        // WhatsApp Strikethrough: ~text~
+        escaped = escaped.replace(/(^|[^\w~])~([^~\n\r]+?)~(?=[^\w~]|$)/g, '$1<del>$2</del>');
+
+        // Auto-link URLs
+        escaped = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="dcms-lw-msg-link">$1</a>');
+
+        // Format label field agar tampak tebal & terstruktur rapi
+        escaped = escaped.replace(/(^|\n|\r)(tanggal\s*keep|nama\s*customer|nomor\s*whatsapp|nomor\s*wa|barang\s*keep|barang|catatan|remaks|remarks|cabang|customer|handover|pesan\s*terakhir):\s*/gi, function(match, prefix, label) {
+            return prefix + '<span class="dcms-lw-msg-label">' + label.toUpperCase() + ':</span> ';
+        });
+
+        // Konversi newline (\n) menjadi <br>
+        escaped = escaped.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        escaped = escaped.replace(/\n{3,}/g, '\n\n');
+        escaped = escaped.replace(/\n/g, '<br>');
+
+        return escaped;
+    }
+
     async function loadDcmsLiveWidgetData(isAuto) {
         try {
             const res = await fetch('/api/watzap-webhook?since=' + dcmsLwLastSync);
@@ -631,6 +732,12 @@
         chats.forEach(c => {
             const isPending = c.lastDirection === 'inbound';
             const initials = (c.name || 'WA').slice(0, 2).toUpperCase();
+            const previewText = (c.lastMessage || 'Tidak ada pesan')
+                .replace(/[\r\n]+/g, ' ')
+                .replace(/[*_~`]/g, '')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
             html += '<div class="dcms-lw-chat-card" onclick="openDcmsLiveWidgetRoom(\'' + c.phone + '\', \'' + (c.name.replace(/'/g, "\\'")) + '\')">' +
                 '<div class="dcms-lw-avatar">' + initials + '</div>' +
                 '<div style="flex:1; min-width:0;">' +
@@ -641,7 +748,7 @@
                     '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">' +
                         '<div style="font-size:11.5px; color:' + (isPending ? '#0f172a; font-weight:600;' : '#64748b;') + ' overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px;">' +
                             (c.lastDirection === 'outbound' ? '<span style="color:#10b981;">✓ </span>' : '') +
-                            (c.lastMessage || 'Tidak ada pesan') +
+                            previewText +
                         '</div>' +
                         (isPending ? '<span style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; border-radius:10px; padding:1px 6px;">Baru</span>' : '') +
                     '</div>' +
@@ -704,7 +811,7 @@
 
             html += '<div class="dcms-lw-bubble ' + (isOut ? 'dcms-lw-bubble-out' : 'dcms-lw-bubble-in') + '">' +
                 mediaTag +
-                '<div>' + (m.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+                '<div class="dcms-lw-bubble-text">' + formatDcmsLiveMessage(m.message) + '</div>' +
                 '<div class="dcms-lw-bubble-meta">' + timeStr + tick + '</div>' +
             '</div>';
         });
