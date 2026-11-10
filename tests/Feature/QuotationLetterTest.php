@@ -44,6 +44,26 @@ class QuotationLetterTest extends TestCase
         $response->assertOk();
         $response->assertSee('Surat Penawaran Harga');
         $response->assertSee('Dashboard Manager');
+        $response->assertSee('Nama Pembuat');
+
+        // Create a quotation with specific creator
+        Quotation::create([
+            'user_id' => $this->adminUser->id,
+            'quotation_number' => 'SPH/GM/202611/999',
+            'customer_name' => 'PT. Multiusers Test',
+            'customer_destination' => 'di-tempat',
+            'letter_date' => '2026-11-10',
+            'letter_city' => 'Banjarmasin',
+            'items' => [['description' => 'Test Barang', 'price' => 100000, 'qty' => 1, 'total' => 100000]],
+            'subtotal' => 100000,
+            'total_amount' => 100000,
+            'signer_name' => 'RAFIQI IMANUDDIN',
+            'signer_title' => 'Marketing Gadget Mart',
+        ]);
+
+        $responseWithData = $this->actingAs($this->superadmin)->get(route('quotations.index'));
+        $responseWithData->assertOk();
+        $responseWithData->assertSee($this->adminUser->name);
 
         $responseAdmin = $this->actingAs($this->adminUser)->get(route('quotations.index'));
         $responseAdmin->assertOk();

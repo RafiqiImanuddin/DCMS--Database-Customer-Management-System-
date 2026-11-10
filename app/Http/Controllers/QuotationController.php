@@ -29,7 +29,11 @@ class QuotationController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('quotation_number', 'like', "%{$search}%")
                     ->orWhere('customer_name', 'like', "%{$search}%")
-                    ->orWhere('signer_name', 'like', "%{$search}%");
+                    ->orWhere('signer_name', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($uq) use ($search) {
+                        $uq->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
             });
         }
 
