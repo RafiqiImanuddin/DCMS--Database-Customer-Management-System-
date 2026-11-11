@@ -2112,8 +2112,8 @@ async function loadKeepData(isSilent = false) {
   const pill = document.getElementById('keepStatusPill');
   if (pill && !isSilent) pill.innerHTML = '<span>⏳ Membaca Data Keep MySQL...</span>';
 
+  // 1. Coba baca langsung dari Database SQL DCMS
   try {
-    // 1. Coba baca langsung dari Database SQL DCMS
     const resSql = await fetch(`/api/sosmed-keeps?t=${Date.now()}`);
     if (resSql.ok) {
       const json = await resSql.json();
@@ -2180,15 +2180,54 @@ async function loadKeepData(isSilent = false) {
         return;
       }
     }
+  } catch (sqlErr) {
+    console.warn("Koneksi SQL sosmed-keeps belum siap:", sqlErr);
+  }
 
-    // 2. Fallback baca dari CSV lokal jika endpoint SQL belum siap
-    const res = await fetch(`keep-data.csv?t=${Date.now()}`);
-    if (!res.ok) throw new Error("File keep-data.csv tidak ditemukan");
-    const csvText = await res.text();
-    parseKeepCSV(csvText, isSilent);
-  } catch (err) {
-    console.warn("Gagal memuat data keep:", err);
-    if (pill && !isSilent) pill.innerHTML = '<span style="color:#e11d48;">❌ Gagal memuat data keep</span>';
+  // 2. Fallback baca dari CSV lokal jika endpoint SQL kosong / belum siap
+  try {
+    const candidatePaths = [
+      `/workspace-sosmed/keep-data.csv?t=${Date.now()}`,
+      `keep-data.csv?t=${Date.now()}`,
+      `workspace-sosmed/keep-data.csv?t=${Date.now()}`
+    ];
+
+    let csvRes = null;
+    for (const p of candidatePaths) {
+      try {
+        const testRes = await fetch(p);
+        if (testRes.ok) {
+          csvRes = testRes;
+          break;
+        }
+      } catch (e) {}
+    }
+
+    if (csvRes && csvRes.ok) {
+      const csvText = await csvRes.text();
+      if (csvText && csvText.trim().length > 100) {
+        parseKeepCSV(csvText, isSilent);
+        if (pill) {
+          pill.innerHTML = `<span>📂 Sumber: CSV Lokal (${rawKeepRows.length.toLocaleString('id-ID')} Data)</span>`;
+        }
+        return;
+      }
+    }
+  } catch (csvErr) {
+    console.warn("Fallback CSV gagal:", csvErr);
+  }
+
+  // 3. Jika database memang masih kosong (0 data) dan CSV belum tersedia
+  rawKeepRows = [];
+  filteredKeepRows = [];
+  populateKeepPeriodeDropdown();
+  populateKeepSosmedDropdown();
+  populateAuditPeriodeDropdown();
+  applyKeepFilters();
+  renderKeepPage();
+
+  if (pill && !isSilent) {
+    pill.innerHTML = '<span>⚡ Sumber: Realtime MySQL (0 Data)</span>';
   }
 }
 window.loadKeepData = loadKeepData;
@@ -2210,14 +2249,38 @@ async function syncLiveKeepData() {
     id: 'sync-live-keep-progress',
     title: '🔄 Muat Ulang Data Realtime',
     detail: 'Menghubungkan & mengambil data format keep dari database DCMS...',
-    timeoutMs: 15000
+    timeoutMs: 30000
   });
 
   try {
+    // 1. Panggil syncKeep di backend (jika tabel sosmed_keeps masih 0, backend otomatis mengimpor 13k+ baris CSV lokal)
+    try {
+      const syncRes = await fetch('/api/sync-keep?t=' + Date.now());
+      if (syncRes.ok) {
+        const syncJson = await syncRes.json();
+        if (syncJson && syncJson.imported) {
+          console.info("Auto-import CSV berhasil:", syncJson.total_rows);
+        }
+      }
+    } catch (e) {
+      console.warn("Sync keep API check skipped:", e);
+    }
+
+    // 2. Muat ulang data keep
     await loadKeepData();
     applyKeepFilters();
     prog.complete({
       title: '✅ Data Realtime Berhasil Dimuat!',
+      detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data transaksi siap digunakan`
+    });
+
+    if (typeof window.showDcmsToast === 'function') {
+      window.showDcmsToast({
+        title: 'Database Realtime Terkini',
+        message: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris transaksi termuat langsung dari database.`,
+        type: 'success'
+      });
+    }
       detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data transaksi siap digunakan`
     });
 

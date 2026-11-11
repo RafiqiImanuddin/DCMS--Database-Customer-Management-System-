@@ -354,7 +354,26 @@ class WorkspaceSosmedController extends Controller
 
     public function syncKeep(Request $request): JsonResponse
     {
-        $rowCount = \App\Models\SosmedKeep::count();
+        $rowCount = 0;
+        $imported = false;
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('sosmed_keeps')) {
+            $rowCount = \App\Models\SosmedKeep::count();
+            if ($rowCount === 0) {
+                $csvPath = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'keep-data.csv');
+                if (file_exists($csvPath)) {
+                    try {
+                        @set_time_limit(180);
+                        \Illuminate\Support\Facades\Artisan::call('keep:import-csv');
+                        $rowCount = \App\Models\SosmedKeep::count();
+                        $imported = $rowCount > 0;
+                    } catch (\Throwable $impErr) {
+                        \Illuminate\Support\Facades\Log::warning('Auto import CSV in syncKeep error: ' . $impErr->getMessage());
+                    }
+                }
+            }
+        }
+
         $syncedAt = now();
         $formattedTime = $syncedAt->timezone('Asia/Makassar')->format('d M Y, H:i').' WITA';
 
@@ -364,7 +383,7 @@ class WorkspaceSosmedController extends Controller
         return response()->json([
             'success' => true,
             'has_changed' => false,
-            'imported' => false,
+            'imported' => $imported,
             'total_rows' => $rowCount,
             'total_rows_formatted' => number_format($rowCount, 0, ',', '.'),
             'synced_at' => $syncedAt->toIso8601String(),

@@ -256,58 +256,90 @@ class SosmedKeepWebhookController extends Controller
      */
     public function getKeeps(Request $request): JsonResponse
     {
-        $query = SosmedKeep::query();
-
-        if ($periode = $request->input('periode')) {
-            if ($periode !== 'ALL') {
-                $query->where('periode', $periode);
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('sosmed_keeps')) {
+                return response()->json([
+                    'success' => true,
+                    'total' => 0,
+                    'data' => [],
+                    'message' => 'Tabel sosmed_keeps belum dibuat.',
+                ]);
             }
-        }
 
-        if ($cabang = $request->input('cabang')) {
-            if ($cabang !== 'ALL') {
-                $query->where('cabang', $cabang);
-            }
-        }
-
-        if ($status = $request->input('status')) {
-            if ($status !== 'ALL') {
-                $query->where('status', $status);
-            }
-        }
-
-        if ($search = $request->input('q')) {
-            $digits = preg_replace('/\D/', '', $search);
-            $query->where(function ($q) use ($search, $digits) {
-                $q->where('nama', 'like', "%{$search}%")
-                    ->orWhere('barang_keep', 'like', "%{$search}%")
-                    ->orWhere('report_ar', 'like', "%{$search}%");
-                if ($digits !== '') {
-                    $q->orWhere('nomor_wa', 'like', "%{$digits}%");
+            $count = SosmedKeep::count();
+            if ($count === 0 && file_exists(public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'keep-data.csv'))) {
+                try {
+                    @set_time_limit(180);
+                    \Illuminate\Support\Facades\Artisan::call('keep:import-csv');
+                } catch (\Throwable $impErr) {
+                    \Illuminate\Support\Facades\Log::warning('Auto import CSV in getKeeps error: ' . $impErr->getMessage());
                 }
-            });
+            }
+
+            $query = SosmedKeep::query();
+
+            if ($periode = $request->input('periode')) {
+                if ($periode !== 'ALL') {
+                    $query->where('periode', $periode);
+                }
+            }
+
+            if ($cabang = $request->input('cabang')) {
+                if ($cabang !== 'ALL') {
+                    $query->where('cabang', $cabang);
+                }
+            }
+
+            if ($status = $request->input('status')) {
+                if ($status !== 'ALL') {
+                    $query->where('status', $status);
+                }
+            }
+
+            if ($search = $request->input('q')) {
+                $digits = preg_replace('/\D/', '', $search);
+                $query->where(function ($q) use ($search, $digits) {
+                    $q->where('nama', 'like', "%{$search}%")
+                        ->orWhere('barang_keep', 'like', "%{$search}%")
+                        ->orWhere('report_ar', 'like', "%{$search}%");
+                    if ($digits !== '') {
+                        $q->orWhere('nomor_wa', 'like', "%{$digits}%");
+                    }
+                });
+            }
+
+            $limit = (int) $request->input('limit', 25000);
+            if ($limit <= 0 || $limit > 50000) {
+                $limit = 25000;
+            }
+
+            $fields = [
+                'id', 'keep_timestamp', 'nomor_sender', 'grup_id', 'sender', 'grup', 'jenis_chat',
+                'nama', 'nomor_wa', 'barang_keep', 'tanggal_ambil', 'catatan', 'remarks',
+                'kode_sosmed', 'report_ar', 'tanggal_input_ar', 'ar_vlookup', 'tanggal_vlookup',
+                'cabang', 'evidence', 'nomor_follow_up', 'nama_tim_follow_up', 'status',
+                'feedback_tim_fu', 'nama_toko_kompetitor', 'user_kredit', 'periode', 'item', 'nomor_fu'
+            ];
+
+            $existingCols = \Illuminate\Support\Facades\Schema::getColumnListing('sosmed_keeps');
+            $validFields = ! empty($existingCols) ? array_values(array_intersect($fields, $existingCols)) : ['*'];
+
+            $keeps = $query->latest('id')->limit($limit)->toBase()->get($validFields);
+
+            return response()->json([
+                'success' => true,
+                'total' => $keeps->count(),
+                'data' => $keeps,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('getKeeps error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'total' => 0,
+                'data' => [],
+            ]);
         }
-
-        $limit = (int) $request->input('limit', 25000);
-        if ($limit <= 0 || $limit > 50000) {
-            $limit = 25000;
-        }
-
-        $fields = [
-            'id', 'keep_timestamp', 'nomor_sender', 'grup_id', 'sender', 'grup', 'jenis_chat',
-            'nama', 'nomor_wa', 'barang_keep', 'tanggal_ambil', 'catatan', 'remarks',
-            'kode_sosmed', 'report_ar', 'tanggal_input_ar', 'ar_vlookup', 'tanggal_vlookup',
-            'cabang', 'evidence', 'nomor_follow_up', 'nama_tim_follow_up', 'status',
-            'feedback_tim_fu', 'nama_toko_kompetitor', 'user_kredit', 'periode', 'item', 'nomor_fu'
-        ];
-
-        $keeps = $query->latest('id')->limit($limit)->toBase()->get($fields);
-
-        return response()->json([
-            'success' => true,
-            'total' => $keeps->count(),
-            'data' => $keeps,
-        ]);
     }
 
     /**
