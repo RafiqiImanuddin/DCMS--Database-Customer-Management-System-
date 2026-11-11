@@ -2162,7 +2162,7 @@ async function loadKeepData(isSilent = false) {
         }
 
         if (pill) {
-          pill.innerHTML = `<span>⚡ Sumber: Database SQL MySQL (${rawKeepRows.length.toLocaleString('id-ID')} Data Realtime)</span>`;
+          pill.innerHTML = `<span>⚡ Sumber: Realtime MySQL (${rawKeepRows.length.toLocaleString('id-ID')} Data dari Fonnte)</span>`;
         }
 
         populateKeepPeriodeDropdown();
@@ -2200,96 +2200,39 @@ window.renderKeepTable = renderKeepTable;
 
 async function syncLiveKeepData() {
   const btn = document.getElementById('btnSyncKeepData');
-  const originalText = btn ? btn.innerHTML : '';
-  if (btn) btn.innerHTML = '⏳ Menyinkronkan...';
-
   const headerBtn = document.getElementById('headerBtnSyncSheets');
+  const originalText = btn ? btn.innerHTML : '';
   const originalHeaderText = headerBtn ? headerBtn.innerHTML : '';
-  if (headerBtn) {
-    headerBtn.innerHTML = `
-      <svg class="spin-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="23 4 23 10 17 10"></polyline>
-        <polyline points="1 20 1 14 7 14"></polyline>
-        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-      </svg>
-      <span>Syncing...</span>
-    `;
-  }
+  if (btn) btn.innerHTML = '⏳ Menyegarkan...';
+  if (headerBtn) headerBtn.innerHTML = '<span>Refreshing...</span>';
 
   const prog = startSmoothProgress({
     id: 'sync-live-keep-progress',
-    title: '🔄 Sinkronisasi Data Google Sheets',
-    detail: 'Menghubungkan & mengunduh data keep terbaru...',
-    timeoutMs: 60000
+    title: '🔄 Muat Ulang Data Realtime',
+    detail: 'Menghubungkan & mengambil data format keep dari database DCMS...',
+    timeoutMs: 15000
   });
 
   try {
-    let syncSucceeded = false;
-    try {
-      const res = await fetch('/api/sync-keep?force=1', { signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined });
-      const text = await res.text();
-      if (text.trim().startsWith('{')) {
-        const data = JSON.parse(text);
-        if (data.success) {
-          syncSucceeded = true;
-          prog.update({ pct: 80, detail: 'Memproses baris data keep ke memori...' });
-          await loadKeepData();
-          applyKeepFilters();
-          prog.complete({
-            title: '✅ Sinkronisasi Google Sheets Berhasil!',
-            detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data berhasil dimuat`
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("Backend sync-keep warning:", e);
-    }
+    await loadKeepData();
+    applyKeepFilters();
+    prog.complete({
+      title: '✅ Data Realtime Berhasil Dimuat!',
+      detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data transaksi siap digunakan`
+    });
 
-    // Direct browser fallback to Google Sheets CSV export if backend sync didn't complete
-    if (!syncSucceeded) {
-      prog.update({ pct: 45, detail: 'Mengunduh langsung dari server Google Sheets...' });
-      const directRes = await fetch('https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/export?format=csv&gid=1014933310', { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
-      if (directRes.ok) {
-        const csvData = await directRes.text();
-        prog.update({ pct: 80, detail: 'Memproses baris data keep ke memori...' });
-        await loadKeepData();
-        applyKeepFilters();
-        prog.complete({
-          title: '✅ Sinkronisasi Google Sheets Berhasil!',
-          detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data berhasil dimuat`
-        });
-        syncSucceeded = true;
-      }
-    }
-
-    if (syncSucceeded) {
-
-      if (typeof window.showDcmsToast === 'function') {
-        window.showDcmsToast({
-          title: 'Google Sheets Berhasil Disinkronkan!',
-          message: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data berhasil dimuat ke sistem.`,
-          type: 'success'
-        });
-      }
-      if (typeof window.addDcmsNotification === 'function') {
-        window.addDcmsNotification({
-          title: 'Sinkronisasi Google Sheets Berhasil',
-          message: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data transaksi terbaru berhasil dimuat.`,
-          type: 'success'
-        });
-      }
-    } else {
-      await loadKeepData();
-      prog.complete({
-        title: '✅ Sinkronisasi Selesai!',
-        detail: 'Data keep terbaru berhasil dimuat'
+    if (typeof window.showDcmsToast === 'function') {
+      window.showDcmsToast({
+        title: 'Database Realtime Terkini',
+        message: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris transaksi termuat langsung dari database.`,
+        type: 'success'
       });
     }
   } catch (err) {
-    console.error("Sync error:", err);
+    console.error("Refresh error:", err);
     prog.fail({
-      title: '❌ Gagal Sinkronisasi Google Sheets',
-      detail: err.message
+      title: '❌ Gagal Muat Data Realtime',
+      detail: err.message || 'Koneksi ke database DCMS terganggu'
     });
     await loadKeepData();
   } finally {
@@ -4320,46 +4263,30 @@ async function updateKeepStatusInGoogleSheets(rawWA, newStatus, keepId = null) {
   const normWA = String(rawWA || '').replace(/\D/g, '');
   if (!normWA && !keepId) throw new Error('Nomor WhatsApp atau ID tidak valid untuk update status.');
 
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
+  // Langsung simpan ke Database SQL DCMS secara realtime
+  const res = await fetch('/api/update-keep-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: keepId,
+      nomorWA: normWA,
+      status: newStatus
+    }),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+  });
 
-  let result = null;
-  // 1. Coba lewat backend local-server proxy
-  try {
-    const res = await fetch('/api/update-keep-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: keepId,
-        nomorWA: normWA,
-        status: newStatus
-      }),
-      signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
-    });
-    if (res.ok) {
-      result = await res.json();
+  if (res.ok) {
+    const result = await res.json();
+    if (result && result.success) {
+      return result;
     }
-  } catch (e) {
-    console.warn('Backend proxy update-keep-status gagal, mencoba direct fetch:', e);
+    throw new Error((result && result.message) || 'Gagal menyimpan status ke database.');
   }
 
-  // 2. Fallback direct fetch ke Apps Script Web App jika normWA tersedia
-  if ((!result || !result.success) && normWA) {
-    try {
-      const directUrl = `${APPS_SCRIPT_URL}?action=UPDATE_STATUS&nomorWA=${encodeURIComponent(normWA)}&status=${encodeURIComponent(newStatus)}`;
-      const directRes = await fetch(directUrl, { redirect: 'follow', signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
-      result = await directRes.json();
-    } catch (directErr) {
-      console.error('Direct fetch Apps Script error:', directErr);
-    }
-  }
-
-  if (result && result.success) {
-    return result;
-  }
-  throw new Error((result && result.message) || 'Gagal menyimpan status ke database.');
+  throw new Error(`HTTP Error ${res.status}: Gagal menyimpan status ke server database.`);
 }
 
-// Antrean update status Google Sheets di background (non-blocking)
+// Antrean update status Database DCMS di background (non-blocking)
 const pendingKeepStatusUpdates = new Map();
 
 async function triggerBackgroundKeepStatusSync(rawWA, newVal, oldVal, onRollback, keepId = null) {
@@ -4374,7 +4301,7 @@ async function triggerBackgroundKeepStatusSync(rawWA, newVal, oldVal, onRollback
   const prog = startSmoothProgress({
     id: `prog-keep-${syncKey}`,
     title: `⚡ Simpan Status ${phoneDisplay}`,
-    detail: `Mengirim status "${newVal || 'KOSONG'}" ke database...`
+    detail: `Menyimpan status "${newVal || 'KOSONG'}" ke database DCMS...`
   });
 
   try {
@@ -4382,13 +4309,13 @@ async function triggerBackgroundKeepStatusSync(rawWA, newVal, oldVal, onRollback
     pendingKeepStatusUpdates.delete(syncKey);
     prog.complete({
       title: `✅ Status ${phoneDisplay} Berhasil Disimpan!`,
-      detail: `Status "${newVal || 'KOSONG'}" sukses tersinkronisasi di database SQL`
+      detail: `Status "${newVal || 'KOSONG'}" sukses tersimpan di database MySQL`
     });
   } catch (err) {
-    console.error('Background sync status keep gagal:', err);
+    console.error('Realtime update status keep gagal:', err);
     prog.fail({
       title: `❌ Gagal Simpan ${phoneDisplay}`,
-      detail: err.message || 'Koneksi database/Google Sheets terganggu'
+      detail: err.message || 'Koneksi database DCMS terganggu'
     });
     if (pendingKeepStatusUpdates.get(syncKey) === newVal) {
       pendingKeepStatusUpdates.delete(syncKey);
@@ -4403,46 +4330,30 @@ async function updateReportARInGoogleSheets(rawWA, arDoc, keepId = null) {
   const normWA = String(rawWA || '').replace(/\D/g, '');
   if (!normWA && !keepId) throw new Error('Nomor WhatsApp atau ID tidak valid untuk update Report AR.');
 
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
+  // Langsung simpan ke Database SQL DCMS secara realtime
+  const res = await fetch('/api/update-report-ar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: keepId,
+      nomorWA: normWA,
+      arDoc: arDoc
+    }),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+  });
 
-  let result = null;
-  // 1. Coba lewat backend local-server proxy
-  try {
-    const res = await fetch('/api/update-report-ar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: keepId,
-        nomorWA: normWA,
-        arDoc: arDoc
-      }),
-      signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
-    });
-    if (res.ok) {
-      result = await res.json();
+  if (res.ok) {
+    const result = await res.json();
+    if (result && result.success) {
+      return result;
     }
-  } catch (e) {
-    console.warn('Backend proxy update-report-ar gagal, mencoba direct fetch:', e);
+    throw new Error((result && result.message) || 'Gagal menyimpan nomor AR ke database.');
   }
 
-  // 2. Fallback direct fetch ke Apps Script Web App jika normWA tersedia
-  if ((!result || !result.success) && normWA) {
-    try {
-      const directUrl = `${APPS_SCRIPT_URL}?action=UPDATE_REPORT_AR&nomorWA=${encodeURIComponent(normWA)}&arDoc=${encodeURIComponent(arDoc)}`;
-      const directRes = await fetch(directUrl, { redirect: 'follow', signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
-      result = await directRes.json();
-    } catch (directErr) {
-      console.error('Direct fetch Apps Script error:', directErr);
-    }
-  }
-
-  if (result && result.success) {
-    return result;
-  }
-  throw new Error((result && result.message) || 'Gagal menyimpan nomor AR ke database.');
+  throw new Error(`HTTP Error ${res.status}: Gagal menyimpan nomor AR ke server database.`);
 }
 
-// Antrean update REPORT AR Google Sheets di background (non-blocking)
+// Antrean update REPORT AR Database DCMS di background (non-blocking)
 async function triggerBackgroundReportARSync(rawWA, newAR, oldAR, onRollback, keepId = null) {
   const normWA = String(rawWA || '').replace(/\D/g, '');
   if (!normWA && !keepId) return;
@@ -4452,20 +4363,20 @@ async function triggerBackgroundReportARSync(rawWA, newAR, oldAR, onRollback, ke
   const prog = startSmoothProgress({
     id: `prog-ar-${syncKey}`,
     title: `⚡ Simpan Report AR ${phoneDisplay}`,
-    detail: `Mengirim nomor AR "${newAR || '-'}" ke database...`
+    detail: `Menyimpan nomor AR "${newAR || '-'}" ke database DCMS...`
   });
 
   try {
     await updateReportARInGoogleSheets(rawWA, newAR, keepId);
     prog.complete({
       title: `✅ Report AR Berhasil Disimpan!`,
-      detail: `Nomor AR "${newAR || '-'}" sukses tersinkronisasi ke database SQL.`
+      detail: `Nomor AR "${newAR || '-'}" sukses tersimpan di database MySQL.`
     });
   } catch (err) {
-    console.error('Background sync Report AR gagal:', err);
+    console.error('Realtime update Report AR gagal:', err);
     prog.fail({
       title: `❌ Gagal Simpan AR ${phoneDisplay}`,
-      detail: err.message || 'Koneksi database/Google Sheets terganggu'
+      detail: err.message || 'Koneksi database DCMS terganggu'
     });
     if (typeof onRollback === 'function') {
       onRollback(err);
@@ -12147,19 +12058,7 @@ async function saveSingleKeepFeedback(customerWA, picKey) {
         if (j && j.success) success = true;
       }
     } catch (e) {
-      console.warn('API /api/update-keep-status gagal, fallback direct GAS:', e);
-    }
-
-    // 2. Fallback direct Apps Script jika backend gagal / 404
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbybKV-XtULQW6ct4GCNCCgk2f84AD4CVsSGCOOzweskJFaZtPk0jnEut8tJ80Aq1naoXA/exec';
-    if (!success) {
-      try {
-        let gasUrl = `${APPS_SCRIPT_URL}?action=UPDATE_STATUS&nomorWA=${encodeURIComponent(customerWA)}&status=${encodeURIComponent(newStatus || '')}`;
-        if (newFeedback) gasUrl += `&feedback=${encodeURIComponent(newFeedback)}`;
-        await fetch(gasUrl, { redirect: 'follow' });
-      } catch (gasErr) {
-        console.error('Direct GAS update status gagal:', gasErr);
-      }
+      console.warn('API /api/update-keep-status gagal:', e);
     }
 
     if (newReportAR) {
@@ -12173,13 +12072,7 @@ async function saveSingleKeepFeedback(customerWA, picKey) {
           })
         });
       } catch (e) {
-        // Fallback direct GAS
-        try {
-          const arUrl = `${APPS_SCRIPT_URL}?action=UPDATE_REPORT_AR&nomorWA=${encodeURIComponent(customerWA)}&arDoc=${encodeURIComponent(newReportAR)}`;
-          await fetch(arUrl, { redirect: 'follow' });
-        } catch (arErr) {
-          console.error('Direct GAS update report AR gagal:', arErr);
-        }
+        console.warn('API /api/update-report-ar gagal:', e);
       }
     }
   } catch (err) {

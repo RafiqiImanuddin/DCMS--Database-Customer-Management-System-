@@ -354,81 +354,23 @@ class WorkspaceSosmedController extends Controller
 
     public function syncKeep(Request $request): JsonResponse
     {
-        $url = 'https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/export?format=csv&gid=1014933310';
+        $rowCount = \App\Models\SosmedKeep::count();
+        $syncedAt = now();
+        $formattedTime = $syncedAt->timezone('Asia/Makassar')->format('d M Y, H:i').' WITA';
 
-        try {
-            $res = Http::timeout(25)->withoutVerifying()->get($url);
-            if ($res->successful()) {
-                $csv = $res->body();
-                $localFile = $this->storagePath.DIRECTORY_SEPARATOR.'keep-data.csv';
+        Setting::updateOrCreate(['key' => 'workspace_keep_last_sync'], ['value' => $syncedAt->toIso8601String()]);
+        Setting::updateOrCreate(['key' => 'workspace_keep_last_count'], ['value' => (string) $rowCount]);
 
-                $currentMd5 = File::exists($localFile) ? md5_file($localFile) : '';
-                $newMd5 = md5($csv);
-                $hasChanged = ($currentMd5 !== $newMd5);
-                $force = filter_var($request->input('force', false), FILTER_VALIDATE_BOOLEAN);
-
-                @File::put($localFile, $csv);
-
-                $imported = false;
-                // Jalankan import jika ada perubahan data, force sync, atau jika database masih kosong
-                if ($hasChanged || $force || \App\Models\SosmedKeep::count() === 0) {
-                    try {
-                        Artisan::call('keep:import-csv', ['--truncate' => true]);
-                        $imported = true;
-                    } catch (\Throwable $e) {
-                        Log::warning('Auto import keep CSV to MySQL failed: '.$e->getMessage());
-                    }
-                }
-
-                $rowCount = \App\Models\SosmedKeep::count();
-                $syncedAt = now();
-                $formattedTime = $syncedAt->timezone('Asia/Makassar')->format('d M Y, H:i').' WITA';
-
-                Setting::updateOrCreate(['key' => 'workspace_keep_last_sync'], ['value' => $syncedAt->toIso8601String()]);
-                Setting::updateOrCreate(['key' => 'workspace_keep_last_count'], ['value' => (string) $rowCount]);
-
-                // Catat aktivitas perubahan jika data sheets baru atau sinkronisasi manual berhasil
-                if ($hasChanged || ($force && $imported)) {
-                    try {
-                        $actor = $request->user();
-                        $actorName = $actor ? $actor->name : 'Sistem Auto-Sync';
-                        $fCount = number_format($rowCount, 0, ',', '.');
-                        ActivityNotification::log(
-                            title: 'Sinkronisasi Format Keep',
-                            message: "{$actorName} berhasil menyinkronkan {$fCount} transaksi dari Google Sheets",
-                            user: $actor,
-                            type: 'success',
-                            action: 'sync_keep',
-                            icon: 'sync'
-                        );
-                    } catch (\Throwable $e) {}
-                }
-
-                $responseData = [
-                    'success' => true,
-                    'has_changed' => $hasChanged,
-                    'imported' => $imported,
-                    'total_rows' => $rowCount,
-                    'total_rows_formatted' => number_format($rowCount, 0, ',', '.'),
-                    'synced_at' => $syncedAt->toIso8601String(),
-                    'synced_at_formatted' => $formattedTime,
-                    'message' => $hasChanged
-                        ? "Data baru dari Google Sheets berhasil disinkronkan ke database! ({$rowCount} data)"
-                        : "Data Google Sheets sudah sesuai ({$rowCount} data), tidak ada transaksi baru.",
-                    'rowsSample' => substr($csv, 0, 150),
-                ];
-
-                if ($request->boolean('include_csv')) {
-                    $responseData['csvText'] = $csv;
-                }
-
-                return response()->json($responseData);
-            }
-
-            return response()->json(['error' => 'Gagal mengambil data dari Google Sheets. HTTP: '.$res->status()], 502);
-        } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'has_changed' => false,
+            'imported' => false,
+            'total_rows' => $rowCount,
+            'total_rows_formatted' => number_format($rowCount, 0, ',', '.'),
+            'synced_at' => $syncedAt->toIso8601String(),
+            'synced_at_formatted' => $formattedTime,
+            'message' => "Data transaksi aktif dari database DCMS MySQL ({$rowCount} data realtime).",
+        ]);
     }
 
     public function updateKeepStatus(Request $request): JsonResponse
@@ -468,27 +410,11 @@ class WorkspaceSosmedController extends Controller
             $keep->save();
         }
 
-        // 2. Background sync ke Google Apps Script (asynchronous fallback)
-        $appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
-        $syncPhone = $nomorWA ?: ($keep ? $keep->nomor_wa : '');
-
-        if ($syncPhone !== '') {
-            try {
-                Http::timeout(5)->withoutVerifying()->get($appsScriptUrl, [
-                    'nomorWA' => $syncPhone,
-                    'status' => $status,
-                    'feedback' => $feedback,
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning('WorkspaceSosmed updateKeepStatus Google Apps Script warning: '.$e->getMessage());
-            }
-        }
-
         return response()->json([
             'success' => true,
             'message' => 'Status keep berhasil diperbarui di database SQL!',
             'id' => $keep ? $keep->id : $id,
-            'nomorWA' => $syncPhone,
+            'nomorWA' => $keep ? $keep->nomor_wa : $nomorWA,
             'status' => $status,
             'mysql_updated' => (bool) $keep,
         ]);
@@ -527,26 +453,11 @@ class WorkspaceSosmedController extends Controller
             $keep->save();
         }
 
-        // 2. Background sync ke Google Apps Script (asynchronous fallback)
-        $appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
-        $syncPhone = $nomorWA ?: ($keep ? $keep->nomor_wa : '');
-
-        if ($syncPhone !== '') {
-            try {
-                Http::timeout(5)->withoutVerifying()->get($appsScriptUrl, [
-                    'nomorWA' => $syncPhone,
-                    'arDoc' => $arDoc,
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning('WorkspaceSosmed updateReportAr Google Apps Script warning: '.$e->getMessage());
-            }
-        }
-
         return response()->json([
             'success' => true,
             'message' => 'Dokumen AR berhasil diperbarui di database SQL!',
             'id' => $keep ? $keep->id : $id,
-            'nomorWA' => $syncPhone,
+            'nomorWA' => $keep ? $keep->nomor_wa : $nomorWA,
             'arDoc' => $arDoc,
             'mysql_updated' => (bool) $keep,
         ]);

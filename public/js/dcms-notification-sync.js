@@ -393,15 +393,15 @@
         // Check if there was actual change or if it was manually triggered
         if (data.has_changed) {
           showDcmsToast({
-            title: 'Google Sheets Diperbarui!',
+            title: 'Database Diperbarui!',
             message: `Ditemukan transaksi baru (${formattedCount} data). Database berhasil disinkronkan otomatis.`,
             type: 'success',
             duration: 6000,
           });
 
           addDcmsNotification({
-            title: 'Update Google Sheets Diterapkan',
-            message: `Sinkronisasi otomatis berhasil memuat total ${formattedCount} data transaksi terbaru.`,
+            title: 'Update Database Diterapkan',
+            message: `Sinkronisasi realtime berhasil memuat total ${formattedCount} data transaksi terbaru.`,
             type: 'success',
           });
 
@@ -410,7 +410,7 @@
         } else if (isManual) {
           showDcmsToast({
             title: 'Sinkronisasi Selesai',
-            message: `Seluruh data (${formattedCount} data transaksi) sudah mutakhir dan sinkron dengan Google Sheets.`,
+            message: `Seluruh data (${formattedCount} data transaksi) sudah mutakhir di database DCMS.`,
             type: 'success',
             duration: 4000,
           });
