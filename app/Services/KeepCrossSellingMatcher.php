@@ -229,14 +229,6 @@ class KeepCrossSellingMatcher
                         $wasUpdated = true;
                     }
 
-                    // Tambahkan catatan auto-match ke feedback
-                    $feedback = (string) ($keep->feedback_tim_fu ?? '');
-                    if (! str_contains($feedback, $matchedDoc)) {
-                        $matchNote = "[Auto-Match SAP] Closing WIN Faktur #{$matchedDoc} ({$matchedDesc})";
-                        $keep->feedback_tim_fu = trim($feedback !== '' ? "{$feedback} | {$matchNote}" : $matchNote);
-                        $wasUpdated = true;
-                    }
-
                     if ($wasUpdated) {
                         $keep->save();
                         $matchedCount++;
@@ -281,12 +273,6 @@ class KeepCrossSellingMatcher
                         }
 
                         $mismatchReason = $this->detectMismatchReason($barangKeep, $primaryDesc);
-                        $feedback = (string) ($keep->feedback_tim_fu ?? '');
-                        if (! str_contains($feedback, $primaryDoc)) {
-                            $checkNote = "[Auto-Match SAP - Need to Check] No HP cocok Faktur #{$primaryDoc} ({$mismatchReason} | Keep: '{$barangKeep}' -> Beli: '{$primaryDesc}')";
-                            $keep->feedback_tim_fu = trim($feedback !== '' ? "{$feedback} | {$checkNote}" : $checkNote);
-                            $wasUpdated = true;
-                        }
 
                         if ($wasUpdated) {
                             $keep->save();

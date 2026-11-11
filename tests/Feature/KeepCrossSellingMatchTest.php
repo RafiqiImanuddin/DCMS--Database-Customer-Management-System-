@@ -25,6 +25,7 @@ class KeepCrossSellingMatchTest extends TestCase
             'status' => 'PENDING',
             'remarks' => 'SOSMED 1 BJM',
             'cabang' => 'Banjarmasin',
+            'feedback_tim_fu' => 'Customer masih menimbang promo di toko',
         ]);
 
         $trx = CrossSelling::create([
@@ -47,7 +48,9 @@ class KeepCrossSellingMatchTest extends TestCase
         $this->assertEquals('AR-990011', $keep->ar_vlookup);
         $this->assertEquals('2026-11-10', $keep->tanggal_vlookup);
         $this->assertEquals('AR-990011', $keep->report_ar);
-        $this->assertStringContainsString('Auto-Match SAP', $keep->feedback_tim_fu);
+
+        // Feedback tim FU tidak boleh ditimpa oleh auto-match bot
+        $this->assertEquals('Customer masih menimbang promo di toko', $keep->feedback_tim_fu);
     }
 
     public function test_matcher_flags_accessory_only_purchase_as_need_to_check_when_keep_is_phone(): void
@@ -78,7 +81,10 @@ class KeepCrossSellingMatchTest extends TestCase
         $keep->refresh();
         $this->assertEquals('NEED TO CHECK', $keep->status);
         $this->assertEquals('AR-ACC-01', $keep->ar_vlookup);
-        $this->assertStringContainsString('Hanya Beli Aksesoris (Keep Unit HP)', $keep->feedback_tim_fu);
+        $this->assertEquals('AR-ACC-01', $keep->report_ar);
+
+        // Kolom feedback tetap bersih untuk admin
+        $this->assertNull($keep->feedback_tim_fu);
     }
 
     public function test_matcher_flags_different_phone_model_as_need_to_check(): void
@@ -109,7 +115,10 @@ class KeepCrossSellingMatchTest extends TestCase
         $keep->refresh();
         $this->assertEquals('NEED TO CHECK', $keep->status);
         $this->assertEquals('AR-DIFF-01', $keep->ar_vlookup);
-        $this->assertStringContainsString('Tipe HP Berbeda (Sama-sama Handphone)', $keep->feedback_tim_fu);
+        $this->assertEquals('AR-DIFF-01', $keep->report_ar);
+
+        // Kolom feedback tetap bersih untuk admin
+        $this->assertNull($keep->feedback_tim_fu);
     }
 
     public function test_matcher_flags_home_appliance_purchase_as_need_to_check(): void
@@ -139,7 +148,9 @@ class KeepCrossSellingMatchTest extends TestCase
         $keep->refresh();
         $this->assertEquals('NEED TO CHECK', $keep->status);
         $this->assertEquals('AR-KULKAS-01', $keep->ar_vlookup);
-        $this->assertStringContainsString('Beda Jenis (Kulkas/TV/AC/Elektronik)', $keep->feedback_tim_fu);
+
+        // Kolom feedback tetap bersih untuk admin
+        $this->assertNull($keep->feedback_tim_fu);
     }
 
     public function test_matcher_allows_accessory_keep_when_same_accessory_is_purchased_in_same_ar(): void
@@ -204,7 +215,6 @@ class KeepCrossSellingMatchTest extends TestCase
         $keep->refresh();
         $this->assertEquals('WIN', $keep->status);
         $this->assertEquals('AR-COMBO-77', $keep->ar_vlookup);
-        $this->assertStringContainsString('IPHONE 15 PRO 128GB NATURAL TITANIUM', $keep->feedback_tim_fu);
     }
 
     public function test_existing_win_is_never_downgraded_by_need_to_check(): void
