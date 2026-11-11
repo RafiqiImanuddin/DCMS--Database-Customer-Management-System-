@@ -19,7 +19,7 @@ class SyncGoogleSheetKeepCommand extends Command
 
     public function handle(): int
     {
-        $rawUrl = (string) ($this->option('url') ?: 'https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/edit?gid=848355344#gid=848355344');
+        $rawUrl = (string) ($this->option('url') ?: 'https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/edit?gid=1014933310#gid=1014933310');
         $sheetName = (string) ($this->option('sheet') ?: 'DATA KEEP');
 
         // Extract Spreadsheet ID and GID
@@ -30,7 +30,7 @@ class SyncGoogleSheetKeepCommand extends Command
         }
 
         $gid = '1014933310';
-        if (preg_match('#[?&#]gid=([0-9]+)#', $rawUrl, $gidMatches)) {
+        if (preg_match('/[?&#]gid=([0-9]+)/', $rawUrl, $gidMatches)) {
             $gid = $gidMatches[1];
         }
 
