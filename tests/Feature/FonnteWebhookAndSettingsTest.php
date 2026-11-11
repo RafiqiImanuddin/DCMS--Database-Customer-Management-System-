@@ -210,4 +210,53 @@ class FonnteWebhookAndSettingsTest extends TestCase
             'id' => $keep->id,
         ]);
     }
+
+    public function test_workspace_sosmed_update_keep_status_and_report_ar_by_id(): void
+    {
+        $keep = SosmedKeep::create([
+            'nama' => 'Pelanggan ID Test',
+            'nomor_wa' => '',
+            'barang_keep' => 'iPhone 16 Pro Max',
+            'remarks' => 'SOSMED 5',
+            'status' => 'PENDING',
+        ]);
+
+        // Test update status by ID
+        $response = $this->postJson(route('api.sosmed.update_keep_status'), [
+            'id' => $keep->id,
+            'status' => 'WIN',
+            'feedback' => 'Deal via WhatsApp',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'status' => 'WIN',
+            'mysql_updated' => true,
+        ]);
+
+        $this->assertDatabaseHas('sosmed_keeps', [
+            'id' => $keep->id,
+            'status' => 'WIN',
+            'feedback_tim_fu' => 'Deal via WhatsApp',
+        ]);
+
+        // Test update Report AR by ID
+        $arResponse = $this->postJson(route('api.sosmed.update_report_ar'), [
+            'id' => $keep->id,
+            'arDoc' => 'AR-2026-9999',
+        ]);
+
+        $arResponse->assertOk();
+        $arResponse->assertJson([
+            'success' => true,
+            'arDoc' => 'AR-2026-9999',
+            'mysql_updated' => true,
+        ]);
+
+        $this->assertDatabaseHas('sosmed_keeps', [
+            'id' => $keep->id,
+            'report_ar' => 'AR-2026-9999',
+        ]);
+    }
 }

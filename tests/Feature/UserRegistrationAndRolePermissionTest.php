@@ -45,7 +45,17 @@ class UserRegistrationAndRolePermissionTest extends TestCase
 
         $response = $this->post(route('register.store'), $payload);
 
-        $response->assertRedirect(route('dashboard'));
+        $response->assertRedirect(route('register.otp.form'));
+
+        $pending = session('pending_registration');
+        $this->assertNotNull($pending);
+        $otp = $pending['otp'];
+
+        $verifyResponse = $this->post(route('register.otp.verify'), [
+            'otp' => $otp,
+        ]);
+
+        $verifyResponse->assertRedirect(route('dashboard'));
         $this->assertAuthenticated();
 
         $user = User::where('email', 'ahmad.rizki@gadgetmart.id')->first();

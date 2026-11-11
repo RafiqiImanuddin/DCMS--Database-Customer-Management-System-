@@ -433,27 +433,36 @@ class WorkspaceSosmedController extends Controller
 
     public function updateKeepStatus(Request $request): JsonResponse
     {
-        $nomorWA = $request->input('nomorWA', '');
+        $id = $request->input('id');
+        $nomorWA = $request->input('nomorWA') ?? $request->input('nomor_wa', '');
         $status = $request->input('status', '');
-        $feedback = $request->input('feedback', '');
+        $feedback = $request->input('feedback') ?? $request->input('feedbackTimFU');
 
-        if (! $nomorWA) {
-            return response()->json(['error' => 'Nomor WA wajib diisi.'], 400);
+        if (! $id && ! $nomorWA) {
+            return response()->json(['error' => 'ID transaksi atau Nomor WA wajib diisi.'], 400);
         }
 
-        // 1. Update ke MySQL SosmedKeep secara realtime
+        // 1. Update ke MySQL SosmedKeep secara realtime (prioritaskan pencarian by ID)
         $cleanPhone = preg_replace('/\D/', '', (string) $nomorWA);
-        $last9 = substr($cleanPhone, -9);
-        $keep = \App\Models\SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
-            $q->where('nomor_wa', $cleanPhone)
-                ->orWhere('nomor_wa', 'like', "%{$last9}");
-        })->latest('id')->first();
+        $last9 = $cleanPhone !== '' ? substr($cleanPhone, -9) : '';
+
+        $keep = null;
+        if ($id) {
+            $keep = \App\Models\SosmedKeep::find($id);
+        }
+
+        if (! $keep && $cleanPhone !== '') {
+            $keep = \App\Models\SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
+                $q->where('nomor_wa', $cleanPhone)
+                    ->orWhere('nomor_wa', 'like', "%{$last9}");
+            })->latest('id')->first();
+        }
 
         if ($keep) {
             if ($status !== null && $status !== '') {
                 $keep->status = trim((string) $status);
             }
-            if ($request->has('feedback')) {
+            if ($feedback !== null) {
                 $keep->feedback_tim_fu = trim((string) $feedback);
             }
             $keep->save();
@@ -461,21 +470,25 @@ class WorkspaceSosmedController extends Controller
 
         // 2. Background sync ke Google Apps Script (asynchronous fallback)
         $appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
+        $syncPhone = $nomorWA ?: ($keep ? $keep->nomor_wa : '');
 
-        try {
-            Http::timeout(5)->withoutVerifying()->get($appsScriptUrl, [
-                'nomorWA' => $nomorWA,
-                'status' => $status,
-                'feedback' => $feedback,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('WorkspaceSosmed updateKeepStatus Google Apps Script warning: '.$e->getMessage());
+        if ($syncPhone !== '') {
+            try {
+                Http::timeout(5)->withoutVerifying()->get($appsScriptUrl, [
+                    'nomorWA' => $syncPhone,
+                    'status' => $status,
+                    'feedback' => $feedback,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('WorkspaceSosmed updateKeepStatus Google Apps Script warning: '.$e->getMessage());
+            }
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Status keep berhasil diperbarui di database SQL!',
-            'nomorWA' => $nomorWA,
+            'id' => $keep ? $keep->id : $id,
+            'nomorWA' => $syncPhone,
             'status' => $status,
             'mysql_updated' => (bool) $keep,
         ]);
@@ -483,22 +496,30 @@ class WorkspaceSosmedController extends Controller
 
     public function updateReportAr(Request $request): JsonResponse
     {
-        $nomorWA = $request->input('nomorWA', '');
-        $arDoc = $request->input('arDoc', '');
+        $id = $request->input('id');
+        $nomorWA = $request->input('nomorWA') ?? $request->input('nomor_wa', '');
+        $arDoc = $request->input('arDoc') ?? $request->input('reportAR') ?? $request->input('report_ar', '');
 
-        if (! $nomorWA) {
-            return response()->json(['error' => 'Nomor WA wajib diisi.'], 400);
+        if (! $id && ! $nomorWA) {
+            return response()->json(['error' => 'ID transaksi atau Nomor WA wajib diisi.'], 400);
         }
 
-        // 1. Update ke MySQL SosmedKeep secara realtime
+        // 1. Update ke MySQL SosmedKeep secara realtime (prioritaskan pencarian by ID)
         $cleanPhone = preg_replace('/\D/', '', (string) $nomorWA);
-        $last9 = substr($cleanPhone, -9);
+        $last9 = $cleanPhone !== '' ? substr($cleanPhone, -9) : '';
         $cleanARDoc = trim((string) $arDoc);
 
-        $keep = \App\Models\SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
-            $q->where('nomor_wa', $cleanPhone)
-                ->orWhere('nomor_wa', 'like', "%{$last9}");
-        })->latest('id')->first();
+        $keep = null;
+        if ($id) {
+            $keep = \App\Models\SosmedKeep::find($id);
+        }
+
+        if (! $keep && $cleanPhone !== '') {
+            $keep = \App\Models\SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
+                $q->where('nomor_wa', $cleanPhone)
+                    ->orWhere('nomor_wa', 'like', "%{$last9}");
+            })->latest('id')->first();
+        }
 
         if ($keep) {
             $keep->report_ar = $cleanARDoc;
@@ -508,20 +529,24 @@ class WorkspaceSosmedController extends Controller
 
         // 2. Background sync ke Google Apps Script (asynchronous fallback)
         $appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
+        $syncPhone = $nomorWA ?: ($keep ? $keep->nomor_wa : '');
 
-        try {
-            Http::timeout(5)->withoutVerifying()->get($appsScriptUrl, [
-                'nomorWA' => $nomorWA,
-                'arDoc' => $arDoc,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('WorkspaceSosmed updateReportAr Google Apps Script warning: '.$e->getMessage());
+        if ($syncPhone !== '') {
+            try {
+                Http::timeout(5)->withoutVerifying()->get($appsScriptUrl, [
+                    'nomorWA' => $syncPhone,
+                    'arDoc' => $arDoc,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('WorkspaceSosmed updateReportAr Google Apps Script warning: '.$e->getMessage());
+            }
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Dokumen AR berhasil diperbarui di database SQL!',
-            'nomorWA' => $nomorWA,
+            'id' => $keep ? $keep->id : $id,
+            'nomorWA' => $syncPhone,
             'arDoc' => $arDoc,
             'mysql_updated' => (bool) $keep,
         ]);

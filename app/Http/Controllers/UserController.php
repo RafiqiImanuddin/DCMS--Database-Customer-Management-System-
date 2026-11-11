@@ -146,7 +146,7 @@ class UserController extends Controller
         // Login otomatis user
         Auth::login($user);
         $request->session()->regenerate();
-        $request->session()->put('show_login_guidance', true);
+        $request->session()->flash('show_login_guidance', true);
 
         return redirect()->route('dashboard')->with('success', "Akun Anda berhasil diverifikasi menggunakan OTP! Selamat datang di DCMS Gadgetmart, {$user->name}.");
     }

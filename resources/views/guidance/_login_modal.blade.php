@@ -3,6 +3,18 @@
     $modalIsSuperAdmin = $modalUser && $modalUser->isSuperAdmin();
 @endphp
 
+<script>
+(function() {
+    var uid = '{{ auth()->id() }}';
+    if (sessionStorage.getItem('dcms_guidance_dismissed_' + uid) === '1') {
+        var s = document.createElement('style');
+        s.id = 'dcms-guidance-modal-hide-rule';
+        s.innerHTML = '#login-guidance-modal { display: none !important; }';
+        document.head.appendChild(s);
+    }
+})();
+</script>
+
 <div id="login-guidance-modal" class="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 overflow-y-auto" role="dialog" aria-modal="true">
     <!-- Backdrop Blur -->
     <div id="login-guidance-backdrop" onclick="dismissLoginGuidance()" class="fixed inset-0 bg-slate-950/75 backdrop-blur-md transition-opacity duration-300 opacity-100"></div>
@@ -193,6 +205,11 @@
 
 <script>
 window.dismissLoginGuidance = function(redirectUrl) {
+    var uid = '{{ auth()->id() }}';
+    try {
+        sessionStorage.setItem('dcms_guidance_dismissed_' + uid, '1');
+    } catch(e) {}
+
     const modal = document.getElementById('login-guidance-modal');
     const backdrop = document.getElementById('login-guidance-backdrop');
     const panel = document.getElementById('login-guidance-panel');

@@ -2730,18 +2730,19 @@ function closeKeepStatusModal() {
 
 function selectQuickKeepStatus(newStatus) {
   if (!currentKeepStatusContext) return;
-  const { rawWA, keepRowIdx, currentStatus } = currentKeepStatusContext;
+  const { rawWA, keepRowIdx, currentStatus, row } = currentKeepStatusContext;
   const cleanSt = String(newStatus).trim().toUpperCase();
 
   if (cleanSt !== currentStatus) {
     if (filteredKeepRows[keepRowIdx]) {
       const oldSt = filteredKeepRows[keepRowIdx]['Status'];
+      const keepId = row ? row.id : null;
       filteredKeepRows[keepRowIdx]['Status'] = cleanSt;
       renderKeepPage();
       triggerBackgroundKeepStatusSync(rawWA, cleanSt, oldSt, () => {
         filteredKeepRows[keepRowIdx]['Status'] = oldSt;
         renderKeepPage();
-      });
+      }, keepId);
     }
   }
   closeKeepStatusModal();
@@ -3211,6 +3212,7 @@ async function saveKeepFeedbackInline(inputEl, rawWA, keepRowIdx) {
   }, 1200);
 
   // Sync ke database SQL & Google Apps Script
+  const keepId = row ? row.id : null;
   try {
     await fetch('/api/update-keep-status', {
       method: 'POST',
@@ -3218,6 +3220,7 @@ async function saveKeepFeedbackInline(inputEl, rawWA, keepRowIdx) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        id: keepId,
         nomorWA: cleanWA,
         status: row ? (row['Status'] || '') : '',
         feedback: newFeedback,
@@ -3278,11 +3281,12 @@ function submitKeepInputARModal() {
   }
 
   const { keepIndex, rawWA, row } = currentKeepInputARContext;
+  const keepId = row ? row.id : null;
   row['REPORT AR'] = cleanAR;
 
   if (typeof rawKeepRows !== 'undefined' && Array.isArray(rawKeepRows)) {
     rawKeepRows.forEach(k => {
-      if (String(k['Nomor WA'] || '').replace(/\D/g, '') === rawWA) {
+      if ((keepId && k.id === keepId) || (rawWA && String(k['Nomor WA'] || '').replace(/\D/g, '') === rawWA)) {
         k['REPORT AR'] = cleanAR;
       }
     });
@@ -3294,7 +3298,7 @@ function submitKeepInputARModal() {
   triggerBackgroundReportARSync(rawWA, cleanAR, '', () => {
     row['REPORT AR'] = '';
     renderKeepPage();
-  });
+  }, keepId);
 }
 window.openKeepInputARModal = openKeepInputARModal;
 window.closeKeepInputARModal = closeKeepInputARModal;
@@ -4312,16 +4316,25 @@ function getAuditRowClassByKeepStatus(keepStatus, arStatus) {
   return 'audit-row-missing';
 }
 
-async function updateKeepStatusInGoogleSheets(rawWA, newStatus) {
+async function updateKeepStatusInGoogleSheets(rawWA, newStatus, keepId = null) {
   const normWA = String(rawWA || '').replace(/\D/g, '');
-  if (!normWA) throw new Error('Nomor WhatsApp tidak valid untuk update status.');
+  if (!normWA && !keepId) throw new Error('Nomor WhatsApp atau ID tidak valid untuk update status.');
 
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
 
   let result = null;
   // 1. Coba lewat backend local-server proxy
   try {
-    const res = await fetch(`/api/update-keep-status?nomorWA=${encodeURIComponent(normWA)}&status=${encodeURIComponent(newStatus)}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
+    const res = await fetch('/api/update-keep-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: keepId,
+        nomorWA: normWA,
+        status: newStatus
+      }),
+      signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+    });
     if (res.ok) {
       result = await res.json();
     }
@@ -4329,8 +4342,8 @@ async function updateKeepStatusInGoogleSheets(rawWA, newStatus) {
     console.warn('Backend proxy update-keep-status gagal, mencoba direct fetch:', e);
   }
 
-  // 2. Fallback direct fetch ke Apps Script Web App
-  if (!result || !result.success) {
+  // 2. Fallback direct fetch ke Apps Script Web App jika normWA tersedia
+  if ((!result || !result.success) && normWA) {
     try {
       const directUrl = `${APPS_SCRIPT_URL}?action=UPDATE_STATUS&nomorWA=${encodeURIComponent(normWA)}&status=${encodeURIComponent(newStatus)}`;
       const directRes = await fetch(directUrl, { redirect: 'follow', signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
@@ -4343,41 +4356,42 @@ async function updateKeepStatusInGoogleSheets(rawWA, newStatus) {
   if (result && result.success) {
     return result;
   }
-  throw new Error((result && result.message) || 'Gagal menyimpan status ke Google Sheets.');
+  throw new Error((result && result.message) || 'Gagal menyimpan status ke database.');
 }
 
 // Antrean update status Google Sheets di background (non-blocking)
 const pendingKeepStatusUpdates = new Map();
 
-async function triggerBackgroundKeepStatusSync(rawWA, newVal, oldVal, onRollback) {
+async function triggerBackgroundKeepStatusSync(rawWA, newVal, oldVal, onRollback, keepId = null) {
   const normWA = String(rawWA || '').replace(/\D/g, '');
-  if (!normWA) return;
+  if (!normWA && !keepId) return;
 
-  pendingKeepStatusUpdates.set(normWA, newVal);
-  const phoneDisplay = formatPhoneDisplay(rawWA);
+  const syncKey = keepId ? `id_${keepId}` : normWA;
+  pendingKeepStatusUpdates.set(syncKey, newVal);
+  const phoneDisplay = normWA ? formatPhoneDisplay(rawWA) : `ID #${keepId}`;
 
   // Tampilkan notifikasi persentase bergerak aktif
   const prog = startSmoothProgress({
-    id: `prog-keep-${normWA}`,
-    title: `⚡ Simpan Status WA ${phoneDisplay}`,
-    detail: `Mengirim status "${newVal || 'KOSONG'}" ke Google Sheets...`
+    id: `prog-keep-${syncKey}`,
+    title: `⚡ Simpan Status ${phoneDisplay}`,
+    detail: `Mengirim status "${newVal || 'KOSONG'}" ke database...`
   });
 
   try {
-    await updateKeepStatusInGoogleSheets(rawWA, newVal);
-    pendingKeepStatusUpdates.delete(normWA);
+    await updateKeepStatusInGoogleSheets(rawWA, newVal, keepId);
+    pendingKeepStatusUpdates.delete(syncKey);
     prog.complete({
-      title: `✅ Status WA ${phoneDisplay} Berhasil Disimpan!`,
-      detail: `Status "${newVal || 'KOSONG'}" sukses tersinkronisasi di Google Sheets`
+      title: `✅ Status ${phoneDisplay} Berhasil Disimpan!`,
+      detail: `Status "${newVal || 'KOSONG'}" sukses tersinkronisasi di database SQL`
     });
   } catch (err) {
     console.error('Background sync status keep gagal:', err);
     prog.fail({
-      title: `❌ Gagal Simpan WA ${phoneDisplay}`,
-      detail: err.message || 'Koneksi ke Google Sheets terganggu'
+      title: `❌ Gagal Simpan ${phoneDisplay}`,
+      detail: err.message || 'Koneksi database/Google Sheets terganggu'
     });
-    if (pendingKeepStatusUpdates.get(normWA) === newVal) {
-      pendingKeepStatusUpdates.delete(normWA);
+    if (pendingKeepStatusUpdates.get(syncKey) === newVal) {
+      pendingKeepStatusUpdates.delete(syncKey);
       if (typeof onRollback === 'function') {
         onRollback(err);
       }
@@ -4385,16 +4399,25 @@ async function triggerBackgroundKeepStatusSync(rawWA, newVal, oldVal, onRollback
   }
 }
 
-async function updateReportARInGoogleSheets(rawWA, arDoc) {
+async function updateReportARInGoogleSheets(rawWA, arDoc, keepId = null) {
   const normWA = String(rawWA || '').replace(/\D/g, '');
-  if (!normWA) throw new Error('Nomor WhatsApp tidak valid untuk update Report AR.');
+  if (!normWA && !keepId) throw new Error('Nomor WhatsApp atau ID tidak valid untuk update Report AR.');
 
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzdEByURvrvCNAJ-TlaxlU5GoNvmClgxynK_vYrORzXiTXFoYArwRMCJzdW2LWvT5wfUw/exec';
 
   let result = null;
   // 1. Coba lewat backend local-server proxy
   try {
-    const res = await fetch(`/api/update-report-ar?nomorWA=${encodeURIComponent(normWA)}&arDoc=${encodeURIComponent(arDoc)}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
+    const res = await fetch('/api/update-report-ar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: keepId,
+        nomorWA: normWA,
+        arDoc: arDoc
+      }),
+      signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+    });
     if (res.ok) {
       result = await res.json();
     }
@@ -4402,8 +4425,8 @@ async function updateReportARInGoogleSheets(rawWA, arDoc) {
     console.warn('Backend proxy update-report-ar gagal, mencoba direct fetch:', e);
   }
 
-  // 2. Fallback direct fetch ke Apps Script Web App
-  if (!result || !result.success) {
+  // 2. Fallback direct fetch ke Apps Script Web App jika normWA tersedia
+  if ((!result || !result.success) && normWA) {
     try {
       const directUrl = `${APPS_SCRIPT_URL}?action=UPDATE_REPORT_AR&nomorWA=${encodeURIComponent(normWA)}&arDoc=${encodeURIComponent(arDoc)}`;
       const directRes = await fetch(directUrl, { redirect: 'follow', signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
@@ -4416,32 +4439,33 @@ async function updateReportARInGoogleSheets(rawWA, arDoc) {
   if (result && result.success) {
     return result;
   }
-  throw new Error((result && result.message) || 'Gagal menyimpan nomor AR ke Google Sheets.');
+  throw new Error((result && result.message) || 'Gagal menyimpan nomor AR ke database.');
 }
 
 // Antrean update REPORT AR Google Sheets di background (non-blocking)
-async function triggerBackgroundReportARSync(rawWA, newAR, oldAR, onRollback) {
+async function triggerBackgroundReportARSync(rawWA, newAR, oldAR, onRollback, keepId = null) {
   const normWA = String(rawWA || '').replace(/\D/g, '');
-  if (!normWA) return;
+  if (!normWA && !keepId) return;
 
-  const phoneDisplay = formatPhoneDisplay(rawWA);
+  const phoneDisplay = normWA ? formatPhoneDisplay(rawWA) : `ID #${keepId}`;
+  const syncKey = keepId ? `id_${keepId}` : normWA;
   const prog = startSmoothProgress({
-    id: `prog-ar-${normWA}`,
-    title: `⚡ Simpan Report AR WA ${phoneDisplay}`,
-    detail: `Mengirim nomor AR "${newAR || '-'}" ke Google Sheets...`
+    id: `prog-ar-${syncKey}`,
+    title: `⚡ Simpan Report AR ${phoneDisplay}`,
+    detail: `Mengirim nomor AR "${newAR || '-'}" ke database...`
   });
 
   try {
-    await updateReportARInGoogleSheets(rawWA, newAR);
+    await updateReportARInGoogleSheets(rawWA, newAR, keepId);
     prog.complete({
       title: `✅ Report AR Berhasil Disimpan!`,
-      detail: `Nomor AR "${newAR || '-'}" sukses tersinkronisasi ke Google Sheets.`
+      detail: `Nomor AR "${newAR || '-'}" sukses tersinkronisasi ke database SQL.`
     });
   } catch (err) {
     console.error('Background sync Report AR gagal:', err);
     prog.fail({
-      title: `❌ Gagal Simpan AR WA ${phoneDisplay}`,
-      detail: err.message || 'Koneksi ke Google Sheets terganggu'
+      title: `❌ Gagal Simpan AR ${phoneDisplay}`,
+      detail: err.message || 'Koneksi database/Google Sheets terganggu'
     });
     if (typeof onRollback === 'function') {
       onRollback(err);

@@ -31,21 +31,23 @@ class SosmedKeepWebhookController extends Controller
         // 1. UPDATE STATUS DARI DASHBOARD (WIN / LOSS / ON PROGRESS)
         // =========================================================================
         if ($action === 'UPDATE_STATUS') {
+            $id = $request->input('id');
             $nomorWA = $request->input('nomorWA') ?? $request->input('nomor_wa');
             $status = $request->input('status');
-            $feedback = $request->input('feedback');
+            $feedback = $request->input('feedback') ?? $request->input('feedbackTimFU');
 
-            return response()->json($this->updateStatusKeep($nomorWA, $status, $feedback));
+            return response()->json($this->updateStatusKeep($nomorWA, $status, $feedback, $id));
         }
 
         // =========================================================================
         // 2. UPDATE REPORT AR DARI DASHBOARD
         // =========================================================================
         if ($action === 'UPDATE_REPORT_AR') {
+            $id = $request->input('id');
             $nomorWA = $request->input('nomorWA') ?? $request->input('nomor_wa');
             $arDoc = $request->input('arDoc') ?? $request->input('reportAR') ?? $request->input('report_ar');
 
-            return response()->json($this->updateReportAR($nomorWA, $arDoc));
+            return response()->json($this->updateReportAR($nomorWA, $arDoc, $id));
         }
 
         // =========================================================================
@@ -352,25 +354,30 @@ class SosmedKeepWebhookController extends Controller
     /**
      * Update Status Keep (WIN / CLOSING / LOSS / ON PROGRESS)
      */
-    private function updateStatusKeep(?string $targetPhone, ?string $newStatus, ?string $feedback = null): array
+    private function updateStatusKeep(?string $targetPhone, ?string $newStatus, ?string $feedback = null, $id = null): array
     {
-        if (! $targetPhone || ! $newStatus) {
-            return ['success' => false, 'message' => 'Parameter nomorWA atau status kosong'];
+        if ((! $targetPhone && ! $id) || ! $newStatus) {
+            return ['success' => false, 'message' => 'Parameter nomorWA/ID atau status kosong'];
         }
 
-        $cleanPhone = preg_replace('/\D/', '', (string) $targetPhone);
-        if ($cleanPhone === '') {
-            return ['success' => false, 'message' => 'Nomor WhatsApp tidak valid'];
+        $keep = null;
+        if ($id) {
+            $keep = SosmedKeep::find($id);
         }
-        $last9 = substr($cleanPhone, -9);
 
-        $keep = SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
-            $q->where('nomor_wa', $cleanPhone)
-                ->orWhere('nomor_wa', 'like', "%{$last9}");
-        })->latest('id')->first();
+        if (! $keep && $targetPhone) {
+            $cleanPhone = preg_replace('/\D/', '', (string) $targetPhone);
+            if ($cleanPhone !== '') {
+                $last9 = substr($cleanPhone, -9);
+                $keep = SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
+                    $q->where('nomor_wa', $cleanPhone)
+                        ->orWhere('nomor_wa', 'like', "%{$last9}");
+                })->latest('id')->first();
+            }
+        }
 
         if (! $keep) {
-            return ['success' => false, 'message' => "Nomor WA {$cleanPhone} tidak ditemukan di database."];
+            return ['success' => false, 'message' => 'Data keep tidak ditemukan di database.'];
         }
 
         $keep->status = trim($newStatus);
@@ -390,23 +397,31 @@ class SosmedKeepWebhookController extends Controller
     /**
      * Update Report AR
      */
-    private function updateReportAR(?string $targetPhone, ?string $arDoc): array
+    private function updateReportAR(?string $targetPhone, ?string $arDoc, $id = null): array
     {
-        if (! $targetPhone) {
-            return ['success' => false, 'message' => 'Parameter nomorWA kosong'];
+        if (! $targetPhone && ! $id) {
+            return ['success' => false, 'message' => 'Parameter nomorWA atau ID kosong'];
         }
 
-        $cleanPhone = preg_replace('/\D/', '', (string) $targetPhone);
-        $last9 = substr($cleanPhone, -9);
         $cleanARDoc = trim((string) $arDoc);
+        $keep = null;
+        if ($id) {
+            $keep = SosmedKeep::find($id);
+        }
 
-        $keep = SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
-            $q->where('nomor_wa', $cleanPhone)
-                ->orWhere('nomor_wa', 'like', "%{$last9}");
-        })->latest('id')->first();
+        if (! $keep && $targetPhone) {
+            $cleanPhone = preg_replace('/\D/', '', (string) $targetPhone);
+            if ($cleanPhone !== '') {
+                $last9 = substr($cleanPhone, -9);
+                $keep = SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
+                    $q->where('nomor_wa', $cleanPhone)
+                        ->orWhere('nomor_wa', 'like', "%{$last9}");
+                })->latest('id')->first();
+            }
+        }
 
         if (! $keep) {
-            return ['success' => false, 'message' => "Nomor WA {$cleanPhone} tidak ditemukan di database."];
+            return ['success' => false, 'message' => 'Data keep tidak ditemukan di database.'];
         }
 
         $keep->report_ar = $cleanARDoc;

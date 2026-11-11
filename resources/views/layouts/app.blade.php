@@ -293,6 +293,9 @@
     }
     </script>
     @if (session('show_login_guidance') && auth()->check())
+        @php
+            session()->forget('show_login_guidance');
+        @endphp
         @include('guidance._login_modal')
     @endif
 
