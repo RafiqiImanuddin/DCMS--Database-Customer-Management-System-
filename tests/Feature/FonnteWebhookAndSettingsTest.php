@@ -259,4 +259,31 @@ class FonnteWebhookAndSettingsTest extends TestCase
             'report_ar' => 'AR-2026-9999',
         ]);
     }
+
+    public function test_get_keeps_api_returns_paginated_keeps(): void
+    {
+        SosmedKeep::create([
+            'nama' => 'User Keep Test',
+            'nomor_wa' => '628123456789',
+            'barang_keep' => 'Samsung S24 Ultra',
+            'remarks' => 'SOSMED 1',
+            'status' => 'WIN',
+            'periode' => 'November-26',
+        ]);
+
+        $response = $this->getJson(route('api.sosmed.get_keeps'));
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+        ]);
+        $this->assertGreaterThanOrEqual(1, $response->json('total'));
+        $this->assertNotEmpty($response->json('data'));
+
+        // Test with /api/sosmed-keeps path directly
+        $apiResponse = $this->getJson('/api/sosmed-keeps');
+        $apiResponse->assertOk();
+        $apiResponse->assertJson([
+            'success' => true,
+        ]);
+    }
 }

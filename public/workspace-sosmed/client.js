@@ -2281,16 +2281,6 @@ async function syncLiveKeepData() {
         type: 'success'
       });
     }
-      detail: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris data transaksi siap digunakan`
-    });
-
-    if (typeof window.showDcmsToast === 'function') {
-      window.showDcmsToast({
-        title: 'Database Realtime Terkini',
-        message: `Total ${rawKeepRows.length.toLocaleString('id-ID')} baris transaksi termuat langsung dari database.`,
-        type: 'success'
-      });
-    }
   } catch (err) {
     console.error("Refresh error:", err);
     prog.fail({
