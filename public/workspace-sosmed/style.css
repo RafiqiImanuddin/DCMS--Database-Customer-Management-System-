@@ -4076,6 +4076,20 @@ h1, h2, h3, h4, h5, h6,
   color: #15803d !important;
   border-color: #86efac !important;
 }
+.select-status-keep.status-need-to-check {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  border-color: #fcd34d !important;
+}
+.badge-status-need-to-check {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1.5px solid #f59e0b;
+}
+.audit-row-need-to-check {
+  background: rgba(254, 243, 199, 0.45) !important;
+  border-left: 4px solid #f59e0b !important;
+}
 .select-status-keep.status-lose {
   background: #fee2e2 !important;
   color: #b91c1c !important;

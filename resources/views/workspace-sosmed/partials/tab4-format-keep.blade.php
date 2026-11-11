@@ -26,7 +26,7 @@
         </div>
 
         <!-- 2. Metric Cards: Color Palette & Border-L Selaras Customer & Outreach -->
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <!-- Card 1: Total Keep -->
             <div class="dcms-card p-4 border-l-4 border-l-brand-500">
                 <div class="flex items-center justify-between text-slate-500">
@@ -51,19 +51,31 @@
                 <div class="mt-0.5 text-[11px] text-slate-500">Transaksi closing deal</div>
             </div>
 
-            <!-- Card 3: On Progress -->
-            <div class="dcms-card p-4 border-l-4 border-l-amber-500">
+            <!-- Card 3: Need to Check -->
+            <div class="dcms-card p-4 border-l-4 border-l-amber-500 cursor-pointer hover:shadow-md transition" onclick="filterByKeepStatus('NEED TO CHECK')" title="Klik untuk filter transaksi Need to Check">
+                <div class="flex items-center justify-between text-slate-500">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Need to Check</span>
+                    <div class="grid size-7 place-items-center rounded-lg bg-amber-50 text-amber-600">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                    </div>
+                </div>
+                <div class="mt-2 text-2xl font-black text-amber-700" id="keepNeedToCheckCount">0</div>
+                <div class="mt-0.5 text-[11px] text-amber-600 font-semibold">Perlu kroscek admin</div>
+            </div>
+
+            <!-- Card 4: On Progress -->
+            <div class="dcms-card p-4 border-l-4 border-l-sky-500">
                 <div class="flex items-center justify-between text-slate-500">
                     <span class="text-[11px] font-bold uppercase tracking-wider">On Progress</span>
-                    <div class="grid size-7 place-items-center rounded-lg bg-amber-50 text-amber-600">
+                    <div class="grid size-7 place-items-center rounded-lg bg-sky-50 text-sky-600">
                         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </div>
                 </div>
-                <div class="mt-2 text-2xl font-black text-amber-600" id="keepProgressCount">0</div>
+                <div class="mt-2 text-2xl font-black text-sky-600" id="keepProgressCount">0</div>
                 <div class="mt-0.5 text-[11px] text-slate-500">Sedang ditindaklanjuti</div>
             </div>
 
-            <!-- Card 4: Lose / Cancel -->
+            <!-- Card 5: Lose / Cancel -->
             <div class="dcms-card p-4 border-l-4 border-l-rose-500">
                 <div class="flex items-center justify-between text-slate-500">
                     <span class="text-[11px] font-bold uppercase tracking-wider">Lose / Cancel</span>
@@ -75,8 +87,8 @@
                 <div class="mt-0.5 text-[11px] text-slate-500">Batal / tidak respon</div>
             </div>
 
-            <!-- Card 5: Closing Rate -->
-            <div class="dcms-card p-4 border-l-4 border-l-purple-500 col-span-2 sm:col-span-1">
+            <!-- Card 6: Closing Rate -->
+            <div class="dcms-card p-4 border-l-4 border-l-purple-500">
                 <div class="flex items-center justify-between text-slate-500">
                     <span class="text-[11px] font-bold uppercase tracking-wider">Closing Rate</span>
                     <div class="grid size-7 place-items-center rounded-lg bg-purple-50 text-purple-600">
@@ -129,6 +141,7 @@
                     <select id="keepFilterStatus" class="dcms-input py-2.5 text-xs font-semibold text-slate-700 flex-1" onchange="applyKeepFilters()">
                         <option value="ALL">Semua Status</option>
                         <option value="WIN">WIN (Closing)</option>
+                        <option value="NEED TO CHECK">⚠️ NEED TO CHECK (Kroscek)</option>
                         <option value="ON PROGRESS HOT">On Progress Hot</option>
                         <option value="ON PROGRESS MEDIUM">On Progress Medium</option>
                         <option value="ON PROGRESS LOW">Low</option>

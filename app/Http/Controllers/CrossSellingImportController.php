@@ -257,6 +257,17 @@ class CrossSellingImportController extends Controller
                                 icon: 'check-circle'
                             );
                         }
+                        if (! empty($matchStats['need_to_check_count'])) {
+                            $results['keep_need_to_check'] = $matchStats['need_to_check_count'];
+                            ActivityNotification::log(
+                                title: 'Format Keep Perlu Kroscek (Need to Check)',
+                                message: "Auto-Match SAP: {$matchStats['need_to_check_count']} transaksi No HP cocok namun barang berbeda dimasukkan ke Need to Check ({$cImport->original_name})",
+                                user: $request->user(),
+                                type: 'warning',
+                                action: 'keep_auto_match_need_to_check',
+                                icon: 'exclamation-triangle'
+                            );
+                        }
                     } catch (\Throwable $mErr) {
                         \Illuminate\Support\Facades\Log::warning('Keep auto-match error: ' . $mErr->getMessage());
                     }
@@ -384,7 +395,13 @@ class CrossSellingImportController extends Controller
         $messageParts = [];
         if (isset($results['cross_selling'])) {
             $c = $results['cross_selling'];
-            $matchSuffix = ! empty($results['keep_matches']) ? " — 🎯 {$results['keep_matches']} transaksi otomatis Closing WIN dengan Format Keep" : '';
+            $matchSuffix = '';
+            if (! empty($results['keep_matches'])) {
+                $matchSuffix .= " — 🎯 {$results['keep_matches']} closing WIN";
+            }
+            if (! empty($results['keep_need_to_check'])) {
+                $matchSuffix .= ($matchSuffix !== '' ? ', ' : ' — ') . "⚠️ {$results['keep_need_to_check']} Need to Check";
+            }
             $messageParts[] = "Cross-Selling ({$c['success_count']} baris{$matchSuffix})";
         }
         if (isset($results['turnover'])) {

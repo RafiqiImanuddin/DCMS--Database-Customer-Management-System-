@@ -2448,12 +2448,14 @@ function applyKeepFilters() {
 
   // Calculate Summary KPI Stats
   let winCount = 0;
+  let needToCheckCount = 0;
   let progressCount = 0;
   let loseCount = 0;
 
   filteredKeepRows.forEach(r => {
     const st = String(r['Status'] || '').toUpperCase();
     if (st === 'WIN') winCount++;
+    else if (st === 'NEED TO CHECK') needToCheckCount++;
     else if (st.includes('PROGRESS')) progressCount++;
     else if (st === 'LOSE' || st === 'TAKE OUT') loseCount++;
   });
@@ -2463,6 +2465,7 @@ function applyKeepFilters() {
 
   if (document.getElementById('keepTotalCount')) document.getElementById('keepTotalCount').innerText = total.toLocaleString('id-ID');
   if (document.getElementById('keepWinCount')) document.getElementById('keepWinCount').innerText = winCount.toLocaleString('id-ID');
+  if (document.getElementById('keepNeedToCheckCount')) document.getElementById('keepNeedToCheckCount').innerText = needToCheckCount.toLocaleString('id-ID');
   if (document.getElementById('keepProgressCount')) document.getElementById('keepProgressCount').innerText = progressCount.toLocaleString('id-ID');
   if (document.getElementById('keepLoseCount')) document.getElementById('keepLoseCount').innerText = loseCount.toLocaleString('id-ID');
   if (document.getElementById('keepClosingRate')) document.getElementById('keepClosingRate').innerText = `${closingRate}%`;
@@ -2506,6 +2509,15 @@ function resetKeepFilters() {
   if (document.getElementById('keepSearchInput')) document.getElementById('keepSearchInput').value = '';
   applyKeepFilters();
 }
+
+function filterByKeepStatus(targetStatus) {
+  const statusEl = document.getElementById('keepFilterStatus');
+  if (statusEl) {
+    statusEl.value = targetStatus;
+    applyKeepFilters();
+  }
+}
+window.filterByKeepStatus = filterByKeepStatus;
 
 function changeKeepPage(delta) {
   const maxPage = Math.max(1, Math.ceil(filteredKeepRows.length / KEEP_PAGE_SIZE));
@@ -4219,6 +4231,7 @@ function changeAuditPage(delta) {
 const KEEP_STATUS_OPTIONS = [
   { value: '', label: '- Kosong -' },
   { value: 'WIN', label: 'WIN' },
+  { value: 'NEED TO CHECK', label: 'NEED TO CHECK' },
   { value: 'LOSE', label: 'LOSE' },
   { value: 'BELUM DIINPUT', label: 'BELUM DIINPUT' },
   { value: 'DOUBLE KEEP', label: 'DOUBLE KEEP' },
@@ -4232,6 +4245,7 @@ function getKeepStatusClass(status) {
   const s = String(status || '').trim().toUpperCase();
   if (!s || s === '-' || s === 'KOSONG') return 'status-empty';
   if (s === 'WIN') return 'status-win';
+  if (s === 'NEED TO CHECK') return 'status-need-to-check';
   if (s === 'LOSE') return 'status-lose';
   if (s === 'BELUM DIINPUT' || s === 'BELUM INPUT') return 'status-belum-diinput';
   if (s === 'DOUBLE KEEP') return 'status-double-keep';
@@ -4245,6 +4259,7 @@ function getKeepStatusClass(status) {
 function getAuditRowClassByKeepStatus(keepStatus, arStatus) {
   const s = String(keepStatus || '').trim().toUpperCase();
   if (s === 'WIN') return 'audit-row-win';
+  if (s === 'NEED TO CHECK') return 'audit-row-need-to-check';
   if (s === 'LOSE') return 'audit-row-lose';
   if (s === 'BELUM DIINPUT' || s === 'BELUM INPUT') return 'audit-row-belum-diinput';
   if (s === 'DOUBLE KEEP') return 'audit-row-double-keep';
@@ -9996,6 +10011,7 @@ const OMNI_MASTER_STORAGE_KEY = 'gadgetmart_pic_master';
 
 const OMNI_STATUS_PALETTE = {
   'WIN': { bg: '#ecfdf5', text: '#065f46', border: '#10b981' },
+  'NEED TO CHECK': { bg: '#fef3c7', text: '#b45309', border: '#f59e0b' },
   'LOSE': { bg: '#fef2f2', text: '#991b1b', border: '#ef4444' },
   'BELUM DIINPUT': { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' },
   'DOUBLE KEEP': { bg: '#eff6ff', text: '#1e40af', border: '#3b82f6' },

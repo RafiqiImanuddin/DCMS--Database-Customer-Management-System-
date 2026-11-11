@@ -40,6 +40,7 @@ class KeepCrossSellingMatchTest extends TestCase
         $result = $matcher->matchTransactions(collect([$trx]));
 
         $this->assertEquals(1, $result['matched_count']);
+        $this->assertEquals(0, $result['need_to_check_count']);
 
         $keep->refresh();
         $this->assertEquals('WIN', $keep->status);
@@ -49,7 +50,7 @@ class KeepCrossSellingMatchTest extends TestCase
         $this->assertStringContainsString('Auto-Match SAP', $keep->feedback_tim_fu);
     }
 
-    public function test_matcher_rejects_accessory_purchase_when_keep_is_phone_unit(): void
+    public function test_matcher_flags_accessory_only_purchase_as_need_to_check_when_keep_is_phone(): void
     {
         $keep = SosmedKeep::create([
             'nama' => 'Citra Dewi',
@@ -70,14 +71,17 @@ class KeepCrossSellingMatchTest extends TestCase
         $matcher = new KeepCrossSellingMatcher();
         $result = $matcher->matchTransactions(collect([$trx]));
 
+        // Tidak langsung WIN otomatis, tapi dimasukkan ke kategori NEED TO CHECK
         $this->assertEquals(0, $result['matched_count']);
+        $this->assertEquals(1, $result['need_to_check_count']);
 
         $keep->refresh();
-        $this->assertEquals('PENDING', $keep->status);
-        $this->assertNull($keep->ar_vlookup);
+        $this->assertEquals('NEED TO CHECK', $keep->status);
+        $this->assertEquals('AR-ACC-01', $keep->ar_vlookup);
+        $this->assertStringContainsString('Hanya Beli Aksesoris (Keep Unit HP)', $keep->feedback_tim_fu);
     }
 
-    public function test_matcher_rejects_different_phone_model(): void
+    public function test_matcher_flags_different_phone_model_as_need_to_check(): void
     {
         $keep = SosmedKeep::create([
             'nama' => 'Doni Pratama',
@@ -98,10 +102,44 @@ class KeepCrossSellingMatchTest extends TestCase
         $matcher = new KeepCrossSellingMatcher();
         $result = $matcher->matchTransactions(collect([$trx]));
 
+        // Tidak langsung WIN otomatis, tapi dimasukkan ke kategori NEED TO CHECK untuk kroscek admin
         $this->assertEquals(0, $result['matched_count']);
+        $this->assertEquals(1, $result['need_to_check_count']);
 
         $keep->refresh();
-        $this->assertEquals('PENDING', $keep->status);
+        $this->assertEquals('NEED TO CHECK', $keep->status);
+        $this->assertEquals('AR-DIFF-01', $keep->ar_vlookup);
+        $this->assertStringContainsString('Tipe HP Berbeda (Sama-sama Handphone)', $keep->feedback_tim_fu);
+    }
+
+    public function test_matcher_flags_home_appliance_purchase_as_need_to_check(): void
+    {
+        $keep = SosmedKeep::create([
+            'nama' => 'Hendra Wijaya',
+            'nomor_wa' => '081122334455',
+            'barang_keep' => 'iPhone 15 Pro Max',
+            'status' => 'PENDING',
+            'remarks' => 'SOSMED 1 BJM',
+        ]);
+
+        $trx = CrossSelling::create([
+            'no_hp_customer' => '081122334455',
+            'dscription' => 'KULKAS POLYTRON 2 PINTU PRW 29MN',
+            'brand' => 'POLYTRON',
+            'document_number' => 'AR-KULKAS-01',
+            'posting_date' => '2026-11-10',
+        ]);
+
+        $matcher = new KeepCrossSellingMatcher();
+        $result = $matcher->matchTransactions(collect([$trx]));
+
+        $this->assertEquals(0, $result['matched_count']);
+        $this->assertEquals(1, $result['need_to_check_count']);
+
+        $keep->refresh();
+        $this->assertEquals('NEED TO CHECK', $keep->status);
+        $this->assertEquals('AR-KULKAS-01', $keep->ar_vlookup);
+        $this->assertStringContainsString('Beda Jenis (Kulkas/TV/AC/Elektronik)', $keep->feedback_tim_fu);
     }
 
     public function test_matcher_allows_accessory_keep_when_same_accessory_is_purchased_in_same_ar(): void
@@ -167,6 +205,36 @@ class KeepCrossSellingMatchTest extends TestCase
         $this->assertEquals('WIN', $keep->status);
         $this->assertEquals('AR-COMBO-77', $keep->ar_vlookup);
         $this->assertStringContainsString('IPHONE 15 PRO 128GB NATURAL TITANIUM', $keep->feedback_tim_fu);
+    }
+
+    public function test_existing_win_is_never_downgraded_by_need_to_check(): void
+    {
+        $keep = SosmedKeep::create([
+            'nama' => 'Indra Saputra',
+            'nomor_wa' => '081999888777',
+            'barang_keep' => 'iPhone 15',
+            'status' => 'WIN',
+            'remarks' => 'SOSMED 1 BJM',
+            'ar_vlookup' => 'AR-ORIGINAL-WIN',
+        ]);
+
+        $trx = CrossSelling::create([
+            'no_hp_customer' => '081999888777',
+            'dscription' => 'KULKAS POLYTRON',
+            'brand' => 'POLYTRON',
+            'document_number' => 'AR-LATER-DIFF',
+            'posting_date' => '2026-11-11',
+        ]);
+
+        $matcher = new KeepCrossSellingMatcher();
+        $result = $matcher->matchTransactions(collect([$trx]));
+
+        $this->assertEquals(0, $result['matched_count']);
+        $this->assertEquals(0, $result['need_to_check_count']);
+
+        $keep->refresh();
+        $this->assertEquals('WIN', $keep->status);
+        $this->assertEquals('AR-ORIGINAL-WIN', $keep->ar_vlookup);
     }
 
     public function test_uploading_cross_selling_file_automatically_matches_and_updates_keep(): void

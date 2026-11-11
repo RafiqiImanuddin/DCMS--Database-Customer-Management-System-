@@ -47,15 +47,17 @@ class MatchKeepCrossSellingCommand extends Command
             ['Total Transaksi Diperiksa', number_format($result['total_transactions'])],
             ['Total Kandidat Nomor HP Keep', number_format($result['total_candidates'])],
             ['Transaksi Cocok (Closing WIN)', number_format($result['matched_count'])],
+            ['Perlu Kroscek (Need to Check)', number_format($result['need_to_check_count'])],
         ]);
 
         if (! empty($result['updated_keeps'])) {
-            $this->info("✅ Berhasil mengupdate {$result['matched_count']} data Format Keep menjadi WIN:");
-            $sample = array_slice($result['updated_keeps'], 0, 10);
+            $this->info("✅ Berhasil memproses {$result['matched_count']} Closing WIN dan {$result['need_to_check_count']} Need to Check:");
+            $sample = array_slice($result['updated_keeps'], 0, 15);
             $this->table(
-                ['ID Keep', 'Nama Customer', 'No WA', 'Barang Keep', 'Item Cross-Selling', 'Faktur AR'],
+                ['ID Keep', 'Status', 'Nama Customer', 'No WA', 'Barang Keep', 'Item Cross-Selling', 'Faktur AR'],
                 array_map(fn ($k) => [
                     $k['keep_id'],
+                    $k['status'],
                     $k['customer_name'],
                     $k['phone'],
                     $k['barang_keep'],
@@ -64,7 +66,7 @@ class MatchKeepCrossSellingCommand extends Command
                 ], $sample)
             );
         } else {
-            $this->line('Semua data keep yang cocok sudah berstatus WIN atau tidak ada nomor & item yang sama.');
+            $this->line('Semua data keep yang cocok sudah berstatus WIN / Need to Check atau tidak ada nomor yang cocok.');
         }
 
         return Command::SUCCESS;
