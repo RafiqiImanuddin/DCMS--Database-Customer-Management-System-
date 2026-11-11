@@ -1,5 +1,24 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.6] - 2026-11-12
+### Fonnte Realtime Webhook, Auto-Matching SAP Cross-Selling (Closing WIN & Need to Check), dan Proteksi Feedback Frontline
+- **Sinkronisasi Format Keep 100% Realtime dari Fonnte (Lepas dari Google Sheets)**:
+  - Alur data Format Keep kini 100% langsung: **WhatsApp Tim Sosmed ➔ Fonnte API ➔ DCMS Database MySQL** secara realtime.
+  - Impor dan migrasi penuh 13.367+ data riwayat keep ke tabel `sosmed_keeps` MySQL.
+  - Penambahan proteksi auto-seed di server lokal dan endpoint `/system/migrate?key=dcms2026&action=import-keeps`.
+- **Engine Auto-Matching SAP Cross-Selling vs Format Keep**:
+  - Algoritma pencocokan cerdas berbasis faktur AR tunggal (`document_number`) dan nomor WhatsApp konsumen.
+  - Pengakuan **Closing WIN** untuk aksesoris jika item pada faktur AR cocok dengan barang di format keep.
+  - Validasi kategori gadget vs produk non-gadget (kulkas, TV, AC, microwave) untuk mencegah klaim keliru.
+  - Fitur kategori baru **"NEED TO CHECK"**: jika nomor HP cocok namun barang/tipe berbeda, transaksi otomatis ditandai untuk kroscek admin dengan kartu metrik khusus warna amber di Tab 4.
+- **Proteksi Integritas Kolom Feedback Frontline**:
+  - Kolom `feedback_tim_fu` (Kolom W) dijaga murni untuk catatan manual admin dan tracking follow-up cabang (status deal, lost, otw, pending gajian, dll.).
+  - Script auto-matcher SAP dan bot dilarang menimpa atau mengotori kolom feedback manual admin.
+- **Dual-Layer Protection Error SQL 1054**:
+  - Proteksi fallback `Schema::hasColumn('employees', 'level')` dan `Schema::hasColumn('employees', 'target')` pada seluruh controller pegawai dan shift sosmed agar tetap aman saat deploy ke cPanel.
+- **Pembaruan Core Database & Backup Checkpoint**:
+  - Ekspor skema 29 tabel terbaru `dcms_cpanel_core.sql` dan arsip data keep terkompresi `dcms_data_keeps.sql.zip`.
+
 ## [V2.5] - 2026-11-06
 ### Satu Gerbang Pengaturan: Integrasi Report Matrix dengan Data Karyawan & Bobot KPI
 - **Integrasi Master Data Karyawan (Satu Gerbang Setting)**:
