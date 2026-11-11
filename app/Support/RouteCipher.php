@@ -116,6 +116,10 @@ class RouteCipher
             'controller' => \App\Http\Controllers\QuotationController::class,
             'method' => 'print',
         ],
+        'shifts.index' => [
+            'controller' => \App\Http\Controllers\SosmedShiftController::class,
+            'method' => 'index',
+        ],
         'guidance.index' => [
             'controller' => \App\Http\Controllers\GuidanceController::class,
             'method' => 'index',
@@ -254,6 +258,7 @@ class RouteCipher
         if ($request->routeIs('leads.*')) return 'leads.index';
         if ($request->routeIs('broadcasts.*')) return 'broadcasts.index';
         if ($request->routeIs('monitoring.sales.*')) return 'monitoring.sales.index';
+        if ($request->routeIs('shifts.*')) return 'shifts.index';
         if ($request->routeIs('guidance.*')) return 'guidance.index';
         if ($request->routeIs('settings.karyawan.*')) return 'settings.karyawan.index';
         if ($request->routeIs('settings.watzap.*', 'whatsapp.*')) return 'settings.watzap.index';

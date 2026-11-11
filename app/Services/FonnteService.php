@@ -9,6 +9,53 @@ use Illuminate\Support\Facades\Log;
 class FonnteService
 {
     /**
+     * Daftarkan URL Webhook ke server Fonnte secara otomatis via API update-device.
+     *
+     * @return array{success: bool, message: string, raw: array}
+     */
+    public function setWebhook(string $webhookUrl, ?string $overrideToken = null): array
+    {
+        $token = $overrideToken ?: $this->getToken();
+        if ($token === '') {
+            return [
+                'success' => false,
+                'message' => 'Token Fonnte belum diisi.',
+                'raw' => [],
+            ];
+        }
+
+        try {
+            $device = $this->getDeviceStatus($token);
+            $deviceName = ($device['name'] ?? '') !== '-' ? $device['name'] : 'Broadcast';
+
+            $res = Http::timeout(10)
+                ->withHeaders(['Authorization' => $token])
+                ->withoutVerifying()
+                ->asForm()
+                ->post('https://api.fonnte.com/update-device', [
+                    'name' => $deviceName,
+                    'webhook' => $webhookUrl,
+                    'autoread' => 'true',
+                ]);
+
+            $json = $res->json() ?? [];
+            $ok = (bool) ($json['status'] ?? false);
+
+            return [
+                'success' => $ok,
+                'message' => (string) ($json['detail'] ?? ($ok ? 'Webhook berhasil didaftarkan ke Fonnte.' : 'Gagal mendaftarkan webhook.')),
+                'raw' => $json,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Koneksi ke server Fonnte gagal: ' . $e->getMessage(),
+                'raw' => [],
+            ];
+        }
+    }
+
+    /**
      * Dapatkan Token Fonnte dari pengaturan sistem.
      */
     public function getToken(): string
@@ -29,7 +76,7 @@ class FonnteService
      *
      * @return array{success: bool, status: string, device: string, name: string, package: string, expired: string, raw: array}
      */
-    public function getDeviceStatus(?string $overrideToken = null): array
+    public function getDeviceStatus(?string $overrideToken = null, bool $forceRefresh = false): array
     {
         $token = $overrideToken ?: $this->getToken();
         if ($token === '') {
@@ -40,13 +87,24 @@ class FonnteService
                 'name' => '-',
                 'package' => '-',
                 'expired' => '-',
+                'quota' => '-',
                 'message' => 'Token Fonnte belum diisi.',
                 'raw' => [],
             ];
         }
 
+        $cacheKey = 'fonnte_device_status_' . md5($token);
+        if (! $forceRefresh && cache()->has($cacheKey)) {
+            $cached = cache()->get($cacheKey);
+            if (is_array($cached) && ! empty($cached['success'])) {
+                return $cached;
+            }
+        }
+
         try {
-            $res = Http::timeout(6)
+            $res = Http::timeout(15)
+                ->connectTimeout(10)
+                ->retry(2, 300, throw: false)
                 ->withHeaders(['Authorization' => $token])
                 ->withoutVerifying()
                 ->post('https://api.fonnte.com/device');
@@ -56,16 +114,31 @@ class FonnteService
                 $deviceStatus = (string) ($json['device_status'] ?? $json['status'] ?? 'unknown');
                 $isOnline = in_array(strtolower($deviceStatus), ['connect', 'connected', 'ready'], true);
 
-                return [
+                $quota = (string) ($json['quota'] ?? '-');
+                $package = (string) ($json['package'] ?? 'Free');
+                if ($quota !== '-' && $quota !== '') {
+                    $packageText = "{$package} ({$quota} Kuota)";
+                } else {
+                    $packageText = $package;
+                }
+
+                $result = [
                     'success' => true,
                     'status' => $isOnline ? 'Connected' : ucfirst($deviceStatus),
                     'device' => (string) ($json['device'] ?? '-'),
                     'name' => (string) ($json['name'] ?? '-'),
-                    'package' => (string) ($json['package'] ?? 'Fonnte Service'),
+                    'package' => $packageText,
                     'expired' => (string) ($json['expired'] ?? '-'),
+                    'quota' => $quota,
                     'message' => $isOnline ? 'Device Fonnte Terhubung dan Siap Digunakan' : "Device Fonnte: {$deviceStatus}",
                     'raw' => $json,
                 ];
+
+                if ($isOnline) {
+                    cache()->put($cacheKey, $result, now()->addMinutes(3));
+                }
+
+                return $result;
             }
 
             return [
@@ -75,10 +148,15 @@ class FonnteService
                 'name' => '-',
                 'package' => '-',
                 'expired' => '-',
+                'quota' => '-',
                 'message' => 'Gagal membaca status device: HTTP '.$res->status(),
                 'raw' => $res->json() ?? [],
             ];
         } catch (\Throwable $e) {
+            if (cache()->has($cacheKey)) {
+                return cache()->get($cacheKey);
+            }
+
             return [
                 'success' => false,
                 'status' => 'Offline',
@@ -86,6 +164,7 @@ class FonnteService
                 'name' => '-',
                 'package' => '-',
                 'expired' => '-',
+                'quota' => '-',
                 'message' => 'Koneksi ke server Fonnte gagal: '.$e->getMessage(),
                 'raw' => [],
             ];
@@ -181,8 +260,15 @@ class FonnteService
                 continue;
             }
 
-            // Bersihkan format WA (*, _, ~) khusus untuk pengecekan label
             $plainLine = trim(preg_replace('/[*_~]/', '', $rawLine));
+
+            // Abaikan footer disclaimer atau format header
+            if (preg_match('/^(wajib mencantumkan|format keep|format kredit|format preorder|format po)/i', $plainLine)) {
+                if (preg_match('/^wajib mencantumkan/i', $plainLine)) {
+                    $currentField = '';
+                }
+                continue;
+            }
 
             // Abaikan jika baris tanggal keep agar tidak menimpa remaks
             if (preg_match('/^(tanggal\s*keep|tgl\s*keep)/i', $plainLine)) {
@@ -199,26 +285,36 @@ class FonnteService
                 if ($key === 'nama') {
                     $currentField = 'nama';
                     $result['nama'] = $val;
-                } elseif (in_array($key, ['nomor wa', 'no wa', 'nomor', 'no hp', 'telepon', 'hp'], true)) {
+                } elseif (in_array($key, ['nomor wa', 'no wa', 'nomor', 'no hp', 'telepon', 'hp', 'no whatsapp', 'nomor whatsapp'], true)) {
                     $currentField = 'nomor';
                     $result['nomor'] = $val;
-                } elseif (in_array($key, ['barang', 'barang keep'], true)) {
+                } elseif (in_array($key, ['barang', 'barang keep', 'barang po', 'barang kredit', 'barang preorder'], true)) {
                     $currentField = 'barang';
                     $result['barang'] = $val;
-                } elseif (in_array($key, ['tanggal', 'tanggal pengambilan'], true)) {
+                } elseif (in_array($key, ['tanggal', 'tanggal pengambilan', 'tanggal ambil', 'tgl pengambilan'], true)) {
                     $currentField = 'tanggal';
                     $result['tanggal'] = $val;
                 } elseif ($key === 'catatan') {
                     $currentField = 'catatan';
                     $result['catatan'] = $val;
-                } elseif (in_array($key, ['remaks', 'remarks'], true)) {
+                } elseif (in_array($key, ['remaks', 'remarks', 'remaks sosmed', 'remarks sosmed', 'remaks: sosmed', 'remarks: sosmed'], true) || str_starts_with($key, 'remak') || str_starts_with($key, 'remark')) {
                     $currentField = 'remaks';
                     $result['remaks'] = $val;
+                } elseif ($currentField === 'catatan') {
+                    $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                    $result['catatan'] = $result['catatan'] !== '' ? $result['catatan'] . "\n" . $cleanSub : $cleanSub;
+                } elseif (in_array($key, ['umur', 'pembiayaan', 'dp', 'pekerjaan', 'leasing'], true)) {
+                    $currentField = 'catatan';
+                    $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                    $result['catatan'] = $result['catatan'] !== '' ? $result['catatan'] . "\n" . $cleanSub : $cleanSub;
                 } else {
                     $currentField = '';
                 }
             } elseif ($currentField !== '') {
-                $result[$currentField] .= "\n" . trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                if (!preg_match('/^wajib mencantumkan/i', $cleanSub)) {
+                    $result[$currentField] .= ($result[$currentField] !== '' ? "\n" : "") . $cleanSub;
+                }
             }
         }
 

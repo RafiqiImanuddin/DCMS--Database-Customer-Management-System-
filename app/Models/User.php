@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'permissions'])]
+#[Fillable(['name', 'email', 'phone', 'password', 'role', 'permissions'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -175,6 +175,12 @@ class User extends Authenticatable
                 'description' => 'Evaluasi scorecard harian, sinkronisasi KPI, dan peninjauan sales.',
                 'category' => 'Dashboard Manager',
                 'default_roles' => ['admin'],
+            ],
+            'sosmed_shifts' => [
+                'name' => 'Jadwal Shift Admin Sosmed',
+                'description' => 'Kelola jadwal piket & shift kerja admin sosmed (Pagi, Siang, Lembur, Off).',
+                'category' => 'Dashboard Manager',
+                'default_roles' => ['admin', 'user'],
             ],
             'monitoring_sales_export' => [
                 'name' => 'Export Rekap Monitoring',

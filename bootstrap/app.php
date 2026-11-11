@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
             'webhook/*',
             'fonnte-webhook',
+            'system/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

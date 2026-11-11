@@ -19,6 +19,9 @@
 @endsection
 
 @section('content')
+<!-- Container Notifikasi Pop-up Realtime Format Keep (Pojok Kanan Atas) -->
+<div id="liveKeepToastContainer" class="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none w-full max-w-sm sm:max-w-md"></div>
+
 <div id="dropZone" class="w-full">
     @include('workspace-sosmed.partials.subbar')
     @include('workspace-sosmed.partials.kpi-summary')

@@ -30,21 +30,21 @@ class WatzapSettingController extends Controller
         $numberKey = Setting::get('watzap_number_key', (string) config('services.watzap.number_key', ''));
         $webUrl = Setting::get('watzap_web_url', (string) config('services.watzap.web_url', 'https://watzap.chat'));
         $isConfiguredBroadcast = $watzap->isConfigured('broadcast');
-        $deviceStatusBroadcast = $isConfiguredBroadcast ? $watzap->getDeviceStatus('broadcast') : null;
+        $deviceStatusBroadcast = ($activeTab === 'broadcast' && $isConfiguredBroadcast) ? $watzap->getDeviceStatus('broadcast') : null;
 
         // Kredensial WA Inbox Follow Up
         $inboxSame = Setting::get('watzap_inbox_same_as_broadcast', '1');
         $inboxApiKey = Setting::get('watzap_inbox_api_key', '');
         $inboxNumberKey = Setting::get('watzap_inbox_number_key', '');
         $isConfiguredInbox = $watzap->isConfigured('inbox');
-        $deviceStatusInbox = $isConfiguredInbox ? $watzap->getDeviceStatus('inbox') : null;
+        $deviceStatusInbox = ($activeTab === 'inbox' && $isConfiguredInbox) ? $watzap->getDeviceStatus('inbox') : null;
 
         // Kredensial Dual-Gateway WAHA VPS (Primary Gateway Inbox FU)
         $wahaEnabled = $watzap->isWahaEnabled();
         $wahaUrl = $watzap->getWahaUrl();
         $wahaApiKey = $watzap->getWahaApiKey();
         $wahaSession = $watzap->getWahaSession();
-        $wahaStatus = $watzap->getWahaStatus();
+        $wahaStatus = ($activeTab === 'inbox') ? $watzap->getWahaStatus() : ['online' => false, 'status' => 'Disabled'];
 
         // Kredensial Fonnte (Bot Keep & Webhook Migrasi Spreadsheet)
         $fonnteToken = Setting::get('fonnte_token', 'NMGid9rgBKYAAyZ7wmSn');
@@ -289,7 +289,22 @@ class WatzapSettingController extends Controller
         abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
 
         $token = $request->string('token')->trim()->toString();
-        $res = $fonnte->getDeviceStatus($token ?: null);
+        $res = $fonnte->getDeviceStatus($token ?: null, forceRefresh: true);
+
+        return response()->json($res);
+    }
+
+    public function registerFonnteWebhook(Request $request, FonnteService $fonnte): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $webhookUrl = $request->string('webhook_url')->trim()->toString();
+        if ($webhookUrl === '') {
+            return response()->json(['success' => false, 'message' => 'URL Webhook wajib diisi.'], 422);
+        }
+
+        $token = $request->string('token')->trim()->toString() ?: null;
+        $res = $fonnte->setWebhook($webhookUrl, $token);
 
         return response()->json($res);
     }

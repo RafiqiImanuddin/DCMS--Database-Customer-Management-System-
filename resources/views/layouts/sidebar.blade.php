@@ -78,13 +78,13 @@
                 'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index', 'pricelist.index'
             ]);
             $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index' && !in_array($activeWorkspaceTab, [7, 8]));
-            $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index', 'quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show', 'quotations.print']);
+            $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index', 'quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show', 'quotations.print', 'shifts.index']);
             $isGuidanceActive = ($activeTarget === 'guidance.index');
             $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index', 'profile.edit', 'settings.users.index']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
 
             $canSeeCustomerGroup = $currentUser && ($currentUser->canAccessFeature('dashboard') || $currentUser->canAccessFeature('predictions') || $currentUser->canAccessFeature('leads') || $currentUser->canAccessFeature('broadcasts') || $currentUser->canAccessFeature('pricelist'));
             $canSeeWorkspaceGroup = $currentUser && ($currentUser->canAccessFeature('workspace_dashboard') || $currentUser->canAccessFeature('workspace_matrix') || $currentUser->canAccessFeature('workspace_cek_ar') || $currentUser->canAccessFeature('workspace_format_keep') || $currentUser->canAccessFeature('workspace_tracking_ar') || $currentUser->canAccessFeature('workspace_klaim_ar') || $currentUser->canAccessFeature('workspace_inbox_fu'));
-            $canSeeMonitoringGroup = $currentUser && ($currentUser->canAccessFeature('monitoring_sales') || $currentUser->canAccessFeature('quotations'));
+            $canSeeMonitoringGroup = $currentUser && ($currentUser->canAccessFeature('monitoring_sales') || $currentUser->canAccessFeature('quotations') || $currentUser->canAccessFeature('sosmed_shifts'));
         @endphp
 
         @if ($canSeeCustomerGroup)
@@ -278,6 +278,15 @@
                 </a>
                 @endif
 
+                @if ($currentUser->canAccessFeature('sosmed_shifts'))
+                <a href="{{ \App\Support\RouteCipher::url('shifts.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ in_array($activeTarget, ['shifts.index']) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                    </svg>
+                    <span>Jadwal Shift Sosmed</span>
+                </a>
+                @endif
+
                 @if ($currentUser->canAccessFeature('quotations'))
                 <a href="{{ \App\Support\RouteCipher::url('quotations.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ in_array($activeTarget, ['quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show']) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -416,9 +425,9 @@
     </nav>
 
     <div class="shrink-0 p-4 border-t border-white/10 bg-white/5">
-        <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'text-amber-300' : (auth()->user()->role === 'admin' ? 'text-emerald-300' : 'text-sky-300') }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()->role === 'admin' ? 'Admin' : 'Staff') }}</span></div>
-        <div class="mt-1 truncate text-sm font-bold">{{ auth()->user()->name ?? 'User' }}</div>
-        <div class="truncate text-xs text-slate-400">{{ auth()->user()->email ?? '' }}</div>
+        <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'text-amber-300' : (auth()->user()?->role === 'admin' ? 'text-emerald-300' : 'text-sky-300') }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()?->role === 'admin' ? 'Admin' : 'Staff') }}</span></div>
+        <div class="mt-1 truncate text-sm font-bold">{{ auth()->user()?->name ?? 'User' }}</div>
+        <div class="truncate text-xs text-slate-400">{{ auth()->user()?->email ?? '' }}</div>
     </div>
 </aside>
 

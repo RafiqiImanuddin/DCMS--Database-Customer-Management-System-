@@ -5,13 +5,27 @@
     window.WORKSPACE_INITIAL_SETTINGS = @json($initialWorkspaceSettings ?? []);
   </script>
   <script src="{{ asset('workspace-sosmed/client.js') }}?v={{ @filemtime(public_path('workspace-sosmed/client.js')) ?: '7.3' }}"></script>
-    <!-- Omnichannel Image Lightbox Modal -->
-    <div id="omniImageModal" class="omni-img-modal" style="display:none;" onclick="closeOmniImageModal()">
-        <div class="omni-img-modal-dialog" onclick="event.stopPropagation()">
-            <button type="button" class="omni-img-modal-close" onclick="closeOmniImageModal()">&times;</button>
+    <!-- Omnichannel Image Lightbox Modal with Full-Screen Stage & Free Zoom/Pan -->
+    <div id="omniImageModal" class="omni-img-modal" style="display:none;">
+        <!-- Close Button (Fixed Top-Right) -->
+        <button type="button" class="omni-img-modal-close" onclick="closeOmniImageModal()" title="Tutup Preview (Esc)">&times;</button>
+        
+        <!-- Zoom & Pan Stage (No inner overflow clipping) -->
+        <div id="omniImageStage" class="omni-img-stage">
             <img id="omniImageModalImg" src="" alt="WhatsApp Media Preview" class="omni-img-modal-image">
-            <div style="text-align:center; margin-top:12px;">
-                <a id="omniImageModalDownload" href="#" target="_blank" download="whatsapp_image.jpg" class="btn btn-outline btn-sm" style="background:#ffffff; color:#0f172a; font-size:0.75rem; text-decoration:none; padding:6px 12px; border-radius:6px; display:inline-block; font-weight:600;">
+        </div>
+
+        <!-- Floating Controls Toolbar (Fixed Bottom-Center) -->
+        <div class="omni-img-modal-toolbar" onclick="event.stopPropagation()">
+            <div class="omni-zoom-controls">
+                <button type="button" class="omni-zoom-btn" onclick="zoomOmni(-0.25)" title="Perkecil (Zoom Out)">−</button>
+                <span id="omniImageZoomLevel" class="omni-zoom-level" onclick="resetOmniZoom()" title="Klik untuk reset zoom (100%)">100%</span>
+                <button type="button" class="omni-zoom-btn" onclick="zoomOmni(0.25)" title="Perbesar (Zoom In)">+</button>
+                <button type="button" class="omni-zoom-btn omni-zoom-btn-reset" onclick="resetOmniZoom()" title="Reset ukuran asli">↺ Reset</button>
+                <span class="omni-zoom-hint">🖱️ Scroll mouse untuk zoom in/out • Drag untuk geser</span>
+            </div>
+            <div style="margin-top:8px;">
+                <a id="omniImageModalDownload" href="#" target="_blank" download="whatsapp_image.jpg" class="btn btn-outline btn-sm omni-download-btn">
                     💾 Buka / Unduh Gambar Resolusi Penuh
                 </a>
             </div>

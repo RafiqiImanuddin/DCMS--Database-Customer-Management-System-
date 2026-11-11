@@ -18,18 +18,16 @@
             </div>
         </div>
 
-        <!-- Info Hak Akses Default -->
-        <div class="mb-6 rounded-2xl bg-sky-50/70 border border-sky-100 p-3.5 text-xs text-sky-900 space-y-1">
-            <div class="flex items-center gap-1.5 font-bold text-sky-800">
-                <svg class="size-4 shrink-0 text-sky-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        <!-- Info Keamanan Verifikasi OTP -->
+        <div class="mb-6 rounded-2xl bg-amber-50/70 border border-amber-200/80 p-3.5 text-xs text-amber-900 space-y-1">
+            <div class="flex items-center gap-1.5 font-bold text-amber-800">
+                <svg class="size-4 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
-                <span>Akses Default Pengguna Baru:</span>
+                <span>Standar Keamanan Data Internal:</span>
             </div>
             <p class="text-[11px] leading-relaxed text-slate-600 pl-5.5">
-                Akun baru akan otomatis mendapatkan akses modul <strong>Customer & Outreach</strong>, <strong>Dashboard & Report Matrix Workspace Sosmed</strong>, serta <strong>Panduan SOP</strong>.
+                Setiap pendaftaran akun baru <strong>wajib diverifikasi menggunakan kode OTP 6 digit</strong> yang dikirimkan ke Email / WhatsApp Anda sebelum akun dapat diaktifkan.
             </p>
         </div>
 
@@ -45,9 +43,17 @@
             </div>
 
             <div>
-                <label class="mb-1.5 block text-xs font-bold text-slate-700" for="email">Alamat Email</label>
+                <label class="mb-1.5 block text-xs font-bold text-slate-700" for="email">Alamat Email (Untuk Pengiriman OTP) <span class="text-rose-500">*</span></label>
                 <input id="email" name="email" type="email" value="{{ old('email') }}" placeholder="nama@gadgetmart.id" required class="dcms-input text-sm">
                 @error('email')
+                    <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div>
+                <label class="mb-1.5 block text-xs font-bold text-slate-700" for="phone">Nomor WhatsApp / HP (Opsional - Cadangan OTP)</label>
+                <input id="phone" name="phone" type="tel" value="{{ old('phone') }}" placeholder="Contoh: 081234567890" class="dcms-input text-sm">
+                @error('phone')
                     <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
                 @enderror
             </div>
@@ -67,8 +73,9 @@
                 </div>
             </div>
 
-            <button type="submit" class="dcms-primary-button w-full py-3.5 mt-2 font-bold text-sm shadow-lg shadow-brand-600/25">
-                Daftar & Masuk ke Dashboard
+            <button type="submit" class="dcms-primary-button w-full py-3.5 mt-2 font-bold text-sm shadow-lg shadow-brand-600/25 flex items-center justify-center gap-2">
+                <span>Lanjutkan & Kirim Kode OTP</span>
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
             </button>
         </form>
 

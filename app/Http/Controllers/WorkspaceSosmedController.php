@@ -13,6 +13,7 @@ use App\Support\RouteCipher;
 use App\Support\WorkspaceUrlCipher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;

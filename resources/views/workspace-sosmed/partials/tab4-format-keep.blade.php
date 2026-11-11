@@ -150,18 +150,19 @@
         <!-- 4. Table Container: Selaras 100% dengan Master Customer & Leads Customer -->
         <section class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[1100px] text-left text-sm" id="keepTable">
+                <table class="w-full min-w-[1180px] text-left text-sm" id="keepTable">
                     <thead class="border-b border-slate-200 bg-slate-50/90 text-xs font-bold uppercase tracking-wider text-slate-500">
                         <tr>
-                            <th class="px-5 py-3.5 text-left" style="width: 17%;">Customer</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 9%;">Tanggal</th>
-                            <th class="px-4 py-3.5 text-left" style="width: 16%;">Barang Keep</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 9%;">Tgl. Ambil</th>
-                            <th class="px-4 py-3.5 text-left" style="width: 17%;">Catatan</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 9%;">Kode Sosmed</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 9%;">Report AR</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 9%;">Status</th>
-                            <th class="px-4 py-3.5 text-left" style="width: 14%;">Feedback Tim FU</th>
+                            <th class="px-5 py-3.5 text-left" style="width: 16%;">Customer</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Tanggal</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Timestamp</th>
+                            <th class="px-4 py-3.5 text-left" style="width: 15%;">Barang Keep</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Tgl. Ambil</th>
+                            <th class="px-4 py-3.5 text-left" style="width: 16%;">Catatan</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Kode Sosmed</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Report AR</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Status</th>
+                            <th class="px-4 py-3.5 text-left" style="width: 13%;">Feedback Tim FU</th>
                             <th class="px-3 py-3.5 text-center" style="width: 4%;">Aksi</th>
                         </tr>
                     </thead>

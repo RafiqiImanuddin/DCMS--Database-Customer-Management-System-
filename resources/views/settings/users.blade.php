@@ -60,7 +60,7 @@
     </div>
 
     <!-- Summary Cards -->
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-500">Total Akun Terdaftar</span>
@@ -70,6 +70,15 @@
             </div>
             <div class="mt-2 text-2xl font-black text-slate-900">{{ $totalUsers }}</div>
             <p class="mt-0.5 text-[11px] text-slate-400">Pengguna sistem DCMS</p>
+        </div>
+
+        <div class="rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-4 shadow-xs">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-emerald-800">Sedang Online</span>
+                <span class="size-2.5 rounded-full bg-emerald-500"></span>
+            </div>
+            <div id="onlineUsersCountDisplay" class="mt-2 text-2xl font-black text-emerald-900">{{ $onlineUsersCount }}</div>
+            <p class="mt-0.5 text-[11px] text-emerald-700/80">Aktif 5 menit terakhir</p>
         </div>
 
         <div class="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 shadow-xs">
@@ -127,6 +136,15 @@
                 <input type="text" name="search" value="{{ $search }}" placeholder="Cari nama atau email pengguna..." class="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/10">
             </div>
 
+            <!-- Status Online Filter -->
+            <div class="w-40">
+                <select name="status" class="dcms-select w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-brand-500 focus:outline-none">
+                    <option value="">Semua Status</option>
+                    <option value="online" {{ ($statusFilter ?? '') === 'online' ? 'selected' : '' }}>● Online ({{ $onlineUsersCount }})</option>
+                    <option value="offline" {{ ($statusFilter ?? '') === 'offline' ? 'selected' : '' }}>○ Offline</option>
+                </select>
+            </div>
+
             <!-- Role Filter -->
             <div class="w-44">
                 <select name="role" class="dcms-select w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-brand-500 focus:outline-none">
@@ -142,7 +160,7 @@
                 <span>Filter</span>
             </button>
 
-            @if ($search !== '' || $roleFilter !== '')
+            @if ($search !== '' || $roleFilter !== '' || ($statusFilter ?? '') !== '')
             <a href="{{ route('settings.users.index') }}" class="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800">
                 <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 <span>Reset</span>
@@ -171,21 +189,61 @@
                             $activeCount = count($effectivePermissions);
                             $totalFeaturesCount = count($availableFeatures);
                             $isCustom = ($u->permissions !== null);
+                            $lastAct = $userLastActivities[$u->id] ?? null;
+                            $isOnline = ($lastAct && $lastAct >= $onlineThreshold);
                         @endphp
-                        <tr class="hover:bg-slate-50/80 transition">
+                        <tr class="hover:bg-slate-50/80 transition" data-user-row="{{ $u->id }}">
                             <td class="px-5 py-4">
                                 <div class="flex items-center gap-3">
-                                    <div class="size-9 shrink-0 rounded-xl flex items-center justify-center font-bold text-xs {{ $u->isSuperAdmin() ? 'bg-amber-100 text-amber-800 border border-amber-300' : ($u->role === 'admin' ? 'bg-indigo-100 text-indigo-800 border border-indigo-300' : 'bg-sky-100 text-sky-800 border border-sky-300') }}">
-                                        {{ strtoupper(substr($u->name, 0, 2)) }}
+                                    <div class="relative shrink-0">
+                                        <div class="size-9 rounded-xl flex items-center justify-center font-bold text-xs {{ $u->isSuperAdmin() ? 'bg-amber-100 text-amber-800 border border-amber-300' : ($u->role === 'admin' ? 'bg-indigo-100 text-indigo-800 border border-indigo-300' : 'bg-sky-100 text-sky-800 border border-sky-300') }}">
+                                            {{ strtoupper(substr($u->name, 0, 2)) }}
+                                        </div>
+                                        @if ($isOnline)
+                                            <span data-user-dot class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 border-2 border-white" title="Online"></span>
+                                        @else
+                                            <span data-user-dot class="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-slate-300 border-2 border-white" title="Offline"></span>
+                                        @endif
                                     </div>
                                     <div>
-                                        <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                                        <div class="font-bold text-slate-900 flex items-center flex-wrap gap-1.5">
                                             <span>{{ $u->name }}</span>
                                             @if ($u->id === auth()->id())
                                                 <span class="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 border border-brand-200">Anda</span>
                                             @endif
+                                            <span data-user-badge>
+                                                @if ($isOnline)
+                                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 shadow-xs" title="Sedang online">
+                                                        <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                                                        <span>Online</span>
+                                                    </span>
+                                                @else
+                                                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 border border-slate-200" title="Offline">
+                                                        <span class="size-1.5 rounded-full bg-slate-400"></span>
+                                                        <span>Offline</span>
+                                                    </span>
+                                                @endif
+                                            </span>
                                         </div>
-                                        <div class="text-[11px] text-slate-500">{{ $u->email }}</div>
+                                        <div class="text-[11px] text-slate-500 flex items-center flex-wrap gap-1.5">
+                                            <span>{{ $u->email }}</span>
+                                            @if ($u->phone)
+                                                <span class="text-slate-300">•</span>
+                                                <a href="https://wa.me/{{ preg_replace('/^0/', '62', preg_replace('/\D/', '', $u->phone)) }}" target="_blank" class="inline-flex items-center gap-1 font-mono font-semibold text-emerald-600 hover:text-emerald-700 hover:underline" title="Hubungi via WhatsApp">
+                                                    <svg class="size-3 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                                    <span>{{ $u->phone }}</span>
+                                                </a>
+                                            @endif
+                                            <span data-user-lastseen>
+                                                @if ($isOnline)
+                                                    <span class="text-emerald-600 font-semibold">• Sedang aktif</span>
+                                                @elseif ($lastAct)
+                                                    <span class="text-slate-400">• Aktif {{ \Carbon\Carbon::createFromTimestamp($lastAct)->locale('id')->diffForHumans() }}</span>
+                                                @else
+                                                    <span class="text-slate-400">• Belum ada riwayat sesi</span>
+                                                @endif
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </td>
@@ -453,6 +511,12 @@
             </div>
 
             <div>
+                <label class="block text-xs font-bold text-slate-700">Nomor WhatsApp / HP</label>
+                <input type="text" name="phone" placeholder="Contoh: 081234567890" class="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10">
+                <p class="mt-1 text-[10px] text-slate-400">Digunakan untuk notifikasi sistem & keamanan OTP.</p>
+            </div>
+
+            <div>
                 <label class="block text-xs font-bold text-slate-700">Peran Akun (Role) <span class="text-rose-500">*</span></label>
                 <select name="role" required class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:border-purple-500 focus:outline-none">
                     <option value="user">Staff / User (Akses default: CRM & Workspace umum)</option>
@@ -583,5 +647,51 @@ function closeAddUserModal() {
     panel.classList.remove('scale-100');
     panel.classList.add('scale-95');
 }
+
+// Live polling status Online/Offline pengguna secara otomatis setiap 10 detik
+setInterval(function() {
+    fetch("{{ route('settings.users.index') }}", {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data || !data.userLastActivities) return;
+        const countEl = document.getElementById('onlineUsersCountDisplay');
+        if (countEl) countEl.textContent = data.onlineUsersCount;
+
+        const threshold = data.onlineThreshold;
+        const acts = data.userLastActivities;
+
+        document.querySelectorAll('tr[data-user-row]').forEach(row => {
+            const userId = parseInt(row.getAttribute('data-user-row'), 10);
+            const isOnline = acts[userId] && acts[userId] >= threshold;
+
+            const dot = row.querySelector('[data-user-dot]');
+            const badge = row.querySelector('[data-user-badge]');
+            const lastSeen = row.querySelector('[data-user-lastseen]');
+
+            if (dot) {
+                dot.className = isOnline 
+                    ? 'absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 border-2 border-white'
+                    : 'absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-slate-300 border-2 border-white';
+                dot.title = isOnline ? 'Online' : 'Offline';
+            }
+
+            if (badge) {
+                badge.innerHTML = isOnline
+                    ? '<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 shadow-xs" title="Sedang online"><span class="size-1.5 rounded-full bg-emerald-500"></span><span>Online</span></span>'
+                    : '<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 border border-slate-200" title="Offline"><span class="size-1.5 rounded-full bg-slate-400"></span><span>Offline</span></span>';
+            }
+
+            if (lastSeen && isOnline) {
+                lastSeen.innerHTML = '<span class="text-emerald-600 font-semibold">• Sedang aktif</span>';
+            }
+        });
+    })
+    .catch(() => {});
+}, 10000);
 </script>
 @endsection

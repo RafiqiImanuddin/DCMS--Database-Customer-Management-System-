@@ -1,30 +1,41 @@
--- =========================================================================
--- DCMS GADGETMART - CORE DATABASE STRUCTURE & INITIAL DATA
--- Generated: 2026-11-09 11:45:44
--- File: dcms_core_database.sql (Ultra-fast phpMyAdmin Import)
--- Target DB on cPanel: `dcmssosm_gadgemart`
--- =========================================================================
+-- ========================================================
+-- Database Customer Management System (DCMS)
+-- CORE DATABASE (Ultra-Fast Import)
+-- Generated: 2026-11-11 08:15:41
+-- Target: MySQL / MariaDB (cPanel / Localhost)
+-- ========================================================
 
-SET FOREIGN_KEY_CHECKS=0;
-SET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';
 SET NAMES utf8mb4;
-SET time_zone = '+00:00';
+SET FOREIGN_KEY_CHECKS = 0;
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+SET time_zone = "+00:00";
 
-/*M!999999\- enable the sandbox mode */ 
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+-- --------------------------------------------------------
+-- Struktur tabel untuk `activity_notifications`
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `activity_notifications`;
+CREATE TABLE `activity_notifications` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `user_name` varchar(100) NOT NULL DEFAULT 'Sistem',
+  `action` varchar(50) NOT NULL DEFAULT 'general',
+  `title` varchar(150) NOT NULL,
+  `message` text NOT NULL,
+  `type` varchar(20) NOT NULL DEFAULT 'success',
+  `icon` varchar(50) DEFAULT 'bell',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `activity_notifications_user_id_foreign` (`user_id`),
+  KEY `activity_notifications_created_at_index` (`created_at`),
+  CONSTRAINT `activity_notifications_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=58 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `broadcast_batches`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `broadcast_batches`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `broadcast_batches` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned DEFAULT NULL,
@@ -42,10 +53,11 @@ CREATE TABLE `broadcast_batches` (
   PRIMARY KEY (`id`),
   KEY `broadcast_batches_user_id_foreign` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `broadcast_media`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `broadcast_media`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `broadcast_media` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned DEFAULT NULL,
@@ -57,10 +69,11 @@ CREATE TABLE `broadcast_media` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `broadcast_reports`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `broadcast_reports`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `broadcast_reports` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned DEFAULT NULL,
@@ -81,10 +94,11 @@ CREATE TABLE `broadcast_reports` (
   KEY `broadcast_reports_repeat_order_prediction_id_foreign` (`repeat_order_prediction_id`),
   KEY `broadcast_reports_broadcast_batch_id_foreign` (`broadcast_batch_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `broadcast_templates`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `broadcast_templates`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `broadcast_templates` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned DEFAULT NULL,
@@ -95,30 +109,33 @@ CREATE TABLE `broadcast_templates` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `cache`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `cache`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cache` (
   `key` varchar(255) NOT NULL,
   `value` mediumtext NOT NULL,
   `expiration` int(11) NOT NULL,
   PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `cache_locks`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `cache_locks`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cache_locks` (
   `key` varchar(255) NOT NULL,
   `owner` varchar(255) NOT NULL,
   `expiration` int(11) NOT NULL,
   PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `cross_selling_imports`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `cross_selling_imports`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cross_selling_imports` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned DEFAULT NULL,
@@ -137,10 +154,11 @@ CREATE TABLE `cross_selling_imports` (
   PRIMARY KEY (`id`),
   KEY `cross_selling_imports_user_id_foreign` (`user_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `cross_sellings`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `cross_sellings`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cross_sellings` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `cross_selling_import_id` bigint(20) unsigned DEFAULT NULL,
@@ -203,10 +221,11 @@ CREATE TABLE `cross_sellings` (
   KEY `cross_sellings_brand_index` (`brand`),
   KEY `cross_sellings_brand_period_idx` (`brand`,`period_label`)
 ) ENGINE=InnoDB AUTO_INCREMENT=195807 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `employees`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `employees`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `employees` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `nik` varchar(50) NOT NULL,
@@ -226,10 +245,11 @@ CREATE TABLE `employees` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `employees_nik_unique` (`nik`)
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `failed_jobs`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `failed_jobs`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `failed_jobs` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `uuid` varchar(255) NOT NULL,
@@ -241,10 +261,11 @@ CREATE TABLE `failed_jobs` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `failed_jobs_uuid_unique` (`uuid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `job_batches`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `job_batches`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `job_batches` (
   `id` varchar(255) NOT NULL,
   `name` varchar(255) NOT NULL,
@@ -258,10 +279,11 @@ CREATE TABLE `job_batches` (
   `finished_at` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `jobs`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `jobs`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `jobs` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `queue` varchar(255) NOT NULL,
@@ -273,10 +295,11 @@ CREATE TABLE `jobs` (
   PRIMARY KEY (`id`),
   KEY `jobs_queue_index` (`queue`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `kpi_criteria`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `kpi_criteria`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `kpi_criteria` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `code` varchar(50) NOT NULL,
@@ -291,10 +314,11 @@ CREATE TABLE `kpi_criteria` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `kpi_criteria_code_unique` (`code`)
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `lead_customers`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `lead_customers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `lead_customers` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned NOT NULL,
@@ -313,30 +337,67 @@ CREATE TABLE `lead_customers` (
   KEY `lead_customers_user_id_foreign` (`user_id`),
   KEY `lead_customers_repeat_order_prediction_id_foreign` (`repeat_order_prediction_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `migrations`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `migrations`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `migrations` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `migration` varchar(255) NOT NULL,
   `batch` int(11) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `password_reset_tokens`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `password_reset_tokens`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `password_reset_tokens` (
   `email` varchar(255) NOT NULL,
   `token` varchar(255) NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `quotations`
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `quotations`;
+CREATE TABLE `quotations` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `quotation_number` varchar(255) NOT NULL,
+  `customer_name` varchar(255) NOT NULL,
+  `customer_destination` varchar(255) NOT NULL DEFAULT 'di-tempat',
+  `letter_date` date NOT NULL,
+  `letter_city` varchar(255) NOT NULL DEFAULT 'Banjarmasin',
+  `greeting_text` text DEFAULT NULL,
+  `items` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`items`)),
+  `subtotal` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `discount` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `total_amount` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `notes` text DEFAULT NULL,
+  `closing_text` text DEFAULT NULL,
+  `signer_name` varchar(255) NOT NULL DEFAULT 'RAFIQI IMANUDDIN',
+  `signer_title` varchar(255) NOT NULL DEFAULT 'Marketing Gadget Mart',
+  `include_signature` tinyint(1) NOT NULL DEFAULT 1,
+  `signature_image` varchar(255) DEFAULT NULL,
+  `signature_scale` smallint(5) unsigned NOT NULL DEFAULT 100,
+  `status` varchar(255) NOT NULL DEFAULT 'draft',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `quotations_quotation_number_unique` (`quotation_number`),
+  KEY `quotations_user_id_foreign` (`user_id`),
+  KEY `quotations_letter_date_customer_name_index` (`letter_date`,`customer_name`),
+  CONSTRAINT `quotations_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `repeat_order_predictions`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `repeat_order_predictions`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `repeat_order_predictions` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `cross_selling_import_id` bigint(20) unsigned DEFAULT NULL,
@@ -368,10 +429,11 @@ CREATE TABLE `repeat_order_predictions` (
   KEY `repeat_order_predictions_period_label_idx` (`period_label`),
   KEY `repeat_order_predictions_import_id_index` (`cross_selling_import_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=194302 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `sales_assessments`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `sales_assessments`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sales_assessments` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `employee_id` bigint(20) unsigned NOT NULL,
@@ -387,10 +449,11 @@ CREATE TABLE `sales_assessments` (
   PRIMARY KEY (`id`),
   KEY `sales_assessments_employee_id_foreign` (`employee_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `sessions`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `sessions`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sessions` (
   `id` varchar(255) NOT NULL,
   `user_id` bigint(20) unsigned DEFAULT NULL,
@@ -402,10 +465,11 @@ CREATE TABLE `sessions` (
   KEY `sessions_user_id_index` (`user_id`),
   KEY `sessions_last_activity_index` (`last_activity`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `settings`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `settings`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `settings` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `key` varchar(100) NOT NULL,
@@ -414,11 +478,12 @@ CREATE TABLE `settings` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `settings_key_unique` (`key`)
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `sosmed_keeps`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `sosmed_keeps`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sosmed_keeps` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `message_id` varchar(100) DEFAULT NULL,
@@ -465,11 +530,41 @@ CREATE TABLE `sosmed_keeps` (
   KEY `sosmed_keeps_status_index` (`status`),
   KEY `sosmed_keeps_periode_index` (`periode`),
   KEY `sosmed_keeps_nomor_fu_index` (`nomor_fu`)
-) ENGINE=InnoDB AUTO_INCREMENT=13185 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=13346 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `sosmed_shifts`
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `sosmed_shifts`;
+CREATE TABLE `sosmed_shifts` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `employee_id` bigint(20) unsigned DEFAULT NULL,
+  `admin_name` varchar(255) NOT NULL,
+  `shift_date` date NOT NULL,
+  `shift_type` varchar(30) NOT NULL,
+  `start_time` varchar(10) DEFAULT NULL,
+  `end_time` varchar(10) DEFAULT NULL,
+  `notes` varchar(255) DEFAULT NULL,
+  `created_by` bigint(20) unsigned DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `sosmed_shifts_user_id_foreign` (`user_id`),
+  KEY `sosmed_shifts_employee_id_foreign` (`employee_id`),
+  KEY `sosmed_shifts_created_by_foreign` (`created_by`),
+  KEY `sosmed_shifts_shift_date_shift_type_index` (`shift_date`,`shift_type`),
+  KEY `sosmed_shifts_admin_name_shift_date_index` (`admin_name`,`shift_date`),
+  KEY `sosmed_shifts_shift_date_index` (`shift_date`),
+  CONSTRAINT `sosmed_shifts_created_by_foreign` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `sosmed_shifts_employee_id_foreign` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `sosmed_shifts_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `turnover_imports`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `turnover_imports`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `turnover_imports` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned DEFAULT NULL,
@@ -487,11 +582,12 @@ CREATE TABLE `turnover_imports` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `turnover_imports_user_id_foreign` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `turnovers`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `turnovers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `turnovers` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `turnover_import_id` bigint(20) unsigned DEFAULT NULL,
@@ -517,28 +613,32 @@ CREATE TABLE `turnovers` (
   KEY `turnovers_slp_name_index` (`slp_name`),
   KEY `turnovers_period_label_index` (`period_label`),
   KEY `turnovers_cleaning_hash_index` (`cleaning_hash`)
-) ENGINE=InnoDB AUTO_INCREMENT=63159 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=86385 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `users`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `users`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `email` varchar(255) NOT NULL,
+  `phone` varchar(30) DEFAULT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
   `password` varchar(255) NOT NULL,
   `remember_token` varchar(100) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `role` varchar(255) NOT NULL DEFAULT 'admin',
+  `permissions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`permissions`)),
   PRIMARY KEY (`id`),
   UNIQUE KEY `users_email_unique` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `whatsapp_chats`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `whatsapp_chats`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `whatsapp_chats` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `customer_vendor_code` varchar(100) DEFAULT NULL,
@@ -565,11 +665,12 @@ CREATE TABLE `whatsapp_chats` (
   KEY `whatsapp_chats_phone_number_index` (`phone_number`),
   KEY `whatsapp_chats_assigned_user_id_index` (`assigned_user_id`),
   KEY `whatsapp_chats_is_resolved_index` (`is_resolved`)
-) ENGINE=InnoDB AUTO_INCREMENT=133 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=156 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Struktur tabel untuk `whatsapp_messages`
+-- --------------------------------------------------------
 DROP TABLE IF EXISTS `whatsapp_messages`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `whatsapp_messages` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `whatsapp_chat_id` bigint(20) unsigned NOT NULL,
@@ -588,136 +689,126 @@ CREATE TABLE `whatsapp_messages` (
   PRIMARY KEY (`id`),
   KEY `whatsapp_messages_whatsapp_chat_id_foreign` (`whatsapp_chat_id`),
   KEY `whatsapp_messages_message_id_index` (`message_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1193 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+) ENGINE=InnoDB AUTO_INCREMENT=1571 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
-
-
--- =========================================================================
--- CORE INITIAL DATA (Users, Employees, KPI, Targets, Templates, Migrations)
--- =========================================================================
-
--- Dumping data for table `users`
-LOCK TABLES `users` WRITE;
-INSERT INTO `users` (`id`, `name`, `email`, `email_verified_at`, `password`, `remember_token`, `created_at`, `updated_at`, `role`) VALUES
-('1', 'Administrator DCMS', 'rafiqirfq24@gmail.com', NULL, '$2y$12$bpQ1nQhHv1yjC05Nwe5VC.3FbE62XH.a/6J/ZtRtzR/7vTKj/rGmq', NULL, '2026-11-02 16:41:15', '2026-11-02 16:41:15', 'superadmin'),
-('2', 'Superadmin DCMS', 'superadmin@gmail.com', NULL, '$2y$12$cLIf0c8idZKCQkO.ZUaElOFBcc8Iq2pOh..D3ivb98FrAAU61WuTO', 'Gmvm6sjbcBf851SYPvKoyRlvkMCCBUsRkxTdsilvmh1tFcMhXcNyO1NAmuSE', '2026-11-03 09:47:30', '2026-11-03 11:34:26', 'superadmin'),
-('3', 'Staff Admin DCMS', 'admin@gmail.com', NULL, '$2y$12$kF.DUKkn0vmq8RvS9.ImquDrPMRVnYbqyBjG7JvinxovBOK1Sj9N.', 'FyPPqwQhOZZbd8GyAOO2LHKkl7lLgfYGMQqamepfNXoefNIwagMYrykVPmeO', '2026-11-03 11:34:27', '2026-11-03 11:34:27', 'admin');
-UNLOCK TABLES;
-
--- Dumping data for table `employees`
-LOCK TABLES `employees` WRITE;
-INSERT INTO `employees` (`id`, `nik`, `name`, `role`, `level`, `target`, `cabang`, `phone`, `email`, `status`, `joined_date`, `avatar_color`, `notes`, `created_at`, `updated_at`) VALUES
-('1', 'BJM.SOS.018', 'MARISA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '081250112233', 'N@gmail.com', 'active', '2024-01-15', '#2563eb', 'Fokus penjualan unit iPhone & Samsung flagship di cabang AMTC.', '2026-11-05 10:35:50', '2026-11-09 06:26:10'),
-('2', 'BJM.SOS.004', 'BINTANG', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '085248991122', 'rizky.bjma@gadgetmart.id', 'active', '2024-03-01', '#059669', 'Spesialis follow-up broadcast customer repeat order area Banjarmasin.', '2026-11-05 10:35:50', '2026-11-07 10:12:09'),
-('3', 'BJM.SOS.022', 'QONA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '082155447788', 'N@gmail.com', 'active', '2023-11-10', '#7c3aed', 'Tingkat closing aksesoris dan add-on warranty tinggi.', '2026-11-05 10:35:50', '2026-11-09 06:25:55'),
-('4', 'BJM.SOS.015', 'DANIEL', 'Admin Sales', 'Karyawan', '1181261572.00', 'Head Office', '081349887766', 'N@gmail.com', 'active', '2024-05-20', '#d97706', 'Aktif koordinasi broadcast promo cicilan 0% dan tukar tambah.', '2026-11-05 10:35:50', '2026-11-09 06:23:46'),
-('5', 'BJM.SOS.017', 'MARLINA', 'Admin Sales', 'Karyawan', '1181261572.00', 'Head Office', '087811224455', 'N@gmail.com', 'active', '2024-02-18', '#db2777', 'Responsif terhadap pertanyaan customer WhatsApp dan keep order.', '2026-11-05 10:35:50', '2026-11-09 06:24:01'),
-('6', 'BJM.SOS.005', 'SIFA', 'Admin Sales', 'Karyawan', '1181261572.00', 'Head Office', '081955331199', 'N@gmail.com', 'active', '2024-06-01', '#0891b2', 'Mengelola database customer baru cabang Tanjung Tabalong.', '2026-11-05 10:35:50', '2026-11-09 06:24:20'),
-('7', 'BJM.SOS.007', 'FEBRI', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '123124512', 'N@gmail.com', 'active', NULL, '#059669', NULL, '2026-11-05 11:39:30', '2026-11-09 06:27:43'),
-('8', 'BJM.SOS.016', 'DEA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '12345', 'N@gmail.com', 'active', NULL, '#4f46e5', NULL, '2026-11-05 11:39:55', '2026-11-09 06:24:52'),
-('9', 'BJM.SOS.019', 'ZOFIA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '1234', 'N@gmail.com', 'active', NULL, '#ea580c', NULL, '2026-11-05 11:40:23', '2026-11-09 06:25:19'),
-('10', 'BJM.SOS.021', 'RARA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '1234', 'N@gmail.com', 'active', NULL, '#7c3aed', NULL, '2026-11-05 11:40:34', '2026-11-09 06:25:36');
-UNLOCK TABLES;
-
--- Dumping data for table `kpi_criteria`
-LOCK TABLES `kpi_criteria` WRITE;
-INSERT INTO `kpi_criteria` (`id`, `code`, `name`, `description`, `weight`, `target_benchmark`, `is_active`, `sort_order`, `created_at`, `updated_at`) VALUES
-('1', 'resp_time', 'Respon Time (Kecepatan Balas)', 'Kecepatan membalas pesan masuk calon pembeli dan ketepatan waktu follow-up prospek saat jam kerja.', '25.00', 'Respon cepat < 3-5 menit, standby aktif', '1', '2', '2026-11-05 10:35:50', '2026-11-05 11:25:25'),
-('2', 'broadcast_vol', 'Pencapaian Broadcast & Outreach', 'Kepatuhan kuota harian broadcast WhatsApp dan volume pelanggan yang dijangkau.', '20.00', 'Min. 500 kontak terjangkau/bulan', '0', '2', '2026-11-05 10:35:50', '2026-11-05 10:35:50'),
-('3', 'closing_rate', 'Tingkat Konversi & Closing Leads', 'Persentase customer dari repeat order prediction / leads yang sukses belanja ulang.', '25.00', 'Tingkat konversi leads > 15%', '0', '3', '2026-11-05 10:35:50', '2026-11-05 10:35:50'),
-('4', 'crm_discipline', 'Ketertiban CRM & Format Keep', 'Kedisiplinan input format keep, update status klaim/tracking AR, dan validitas nomor.', '15.00', '100% data terisi rapi & tepat waktu', '0', '4', '2026-11-05 10:35:50', '2026-11-05 10:35:50'),
-('5', 'csat_quality', 'Kualitas Layanan & Etika Chat', 'Keramahan, kesopanan bahasa, ketepatan solusi promo, dan kepuasan pelanggan.', '15.00', 'Rating kepuasan pelanggan > 4.5/5', '0', '5', '2026-11-05 10:35:50', '2026-11-05 10:35:50'),
-('6', 'chat_reply', 'Cara Balas Chat Konsumen', 'Kejelasan solusi, kecocokan jawaban dengan kebutuhan konsumen, gaya komunikasi persuasif dan tidak kaku.', '25.00', 'Jawaban solutif, komunikatif & mudah dipahami', '1', '1', '2026-11-05 11:25:25', '2026-11-05 11:25:25'),
-('7', 'ethics', 'Etika & Keramahan', 'Sopan santun bahasa, greeting pembuka & penutup yang hangat, kesabaran melayani, dan nada bicara profesional.', '25.00', 'Greeting lengkap, ramah, sopan & solutif', '1', '3', '2026-11-05 11:25:25', '2026-11-05 11:25:25'),
-('8', 'promo_check', 'Kesesuaian Penawaran Promo', 'Kepatuhan menawarkan program promo yang sedang berlangsung (bundling gadget, voucher, diskon aksesoris, cicilan) dan keakuratan syarat.', '25.00', 'Aktif tawarkan promo yang berlaku & info akurat', '1', '4', '2026-11-05 11:25:25', '2026-11-05 11:25:25');
-UNLOCK TABLES;
-
--- Dumping data for table `broadcast_templates`
-LOCK TABLES `broadcast_templates` WRITE;
-INSERT INTO `broadcast_templates` (`id`, `user_id`, `title`, `message`, `image_url`, `created_at`, `updated_at`) VALUES
-('1', NULL, 'Follow Up Repeat Order (Jadwal Beli Kembali)', 'Halo Kak {nama}! Terima kasih telah setia bersama Gadgetmart. Berdasarkan riwayat belanja, kemungkinan saatnya Kakak memperbarui kebutuhan seputar {item}. Dapatkan promo tukar tambah menarik & garansi resmi hanya di Gadgetmart. Balas pesan ini untuk info promo hari ini ya! 📱✨', NULL, '2026-11-03 15:32:18', '2026-11-03 15:32:18'),
-('2', NULL, 'Promo Khusus Aksesoris & Proteksi (ACC)', 'Halo Kak {nama}, gimana kabar gadget-nya? Supaya perangkat Kakak selalu terlindungi, Gadgetmart ada promo diskon spesial untuk tempered glass, case original, adaptor fast charging, & audio. Yuk mampir ke toko atau balas pesan ini untuk pilihan katalognya! 🎧⚡', NULL, '2026-11-03 15:32:19', '2026-11-03 15:32:19'),
-('3', NULL, 'Greeting & Cek Kepuasan Konsumen', 'Halo Kak {nama}, salam hangat dari tim Gadgetmart! Kami ingin memastikan apakah perangkat atau belanjaan Kakak berfungsi dengan nyaman. Jika ada pertanyaan, servis, atau kebutuhan aksesoris, tim kami siap membantu sepenuh hati. Have a wonderful day! 😊🙌', NULL, '2026-11-03 15:32:20', '2026-11-03 15:32:20'),
-('4', NULL, 'Voucher Eksklusif Pelanggan Setia (VIP)', 'Spesial untuk Kak {nama}! Sebagai apresiasi pelanggan setia Gadgetmart, kami siapkan voucher cashback belanja untuk transaksi berikutnya. Tunjukkan pesan WhatsApp resmi ini ke kasir store Gadgetmart terdekat untuk klaim keuntungannya ya Kak! 🎁🛍️', NULL, '2026-11-03 15:32:21', '2026-11-03 15:32:21');
-UNLOCK TABLES;
-
--- Dumping data for table `migrations`
-LOCK TABLES `migrations` WRITE;
+-- --------------------------------------------------------
+-- Dumping data untuk tabel `migrations` (34 baris)
+-- --------------------------------------------------------
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
-('1', '0001_01_01_000000_create_users_table', '1'),
-('2', '0001_01_01_000001_create_cache_table', '1'),
-('3', '0001_01_01_000002_create_jobs_table', '1'),
-('4', '2026_11_02_030358_create_cross_sellings_table', '1'),
-('5', '2026_11_02_031528_create_cross_selling_imports_table', '1'),
-('6', '2026_11_02_031529_create_repeat_order_predictions_table', '1'),
-('7', '2026_11_02_031530_create_broadcast_reports_table', '1'),
-('8', '2026_11_02_031829_add_period_and_import_to_cross_sellings_table', '1'),
-('9', '2026_11_02_055749_add_cross_selling_prediction_performance_indexes', '1'),
-('10', '2026_11_02_063458_add_brand_filter_indexes_to_cross_sellings_table', '1'),
-('11', '2026_11_02_063858_add_prediction_item_brand_filter_index', '1'),
-('12', '2026_11_02_065250_create_lead_customers_table', '1'),
-('13', '2026_11_02_123503_add_cleaning_hash_to_cross_sellings_table', '1'),
-('14', '2026_11_03_033307_add_role_to_users_table', '2'),
-('15', '2026_11_03_041500_add_lookup_index_to_cross_sellings_table', '3'),
-('16', '2026_11_03_043000_create_settings_table', '4'),
-('17', '2026_11_03_044500_create_whatsapp_chats_tables', '5'),
-('18', '2026_11_03_050000_create_broadcast_templates_and_media_tables', '6'),
-('19', '2026_11_03_060000_create_broadcast_batches_table', '7'),
-('20', '2026_11_04_010000_purge_empty_phone_records_and_backfill', '8'),
-('21', '2026_11_05_020000_create_employees_and_sales_monitoring_tables', '9'),
-('22', '2026_11_05_030000_update_kpi_criteria_to_daily_operational', '10'),
-('23', '2026_11_05_060610_create_turnovers_and_turnover_imports_tables', '11'),
-('24', '2026_11_05_140002_add_omnichannel_fields_to_whatsapp_tables', '12'),
-('25', '2026_11_06_100000_add_target_to_employees_table', '13'),
-('27', '2026_11_07_055147_create_sosmed_keeps_table', '14'),
-('28', '2026_11_07_095427_add_level_to_employees_table', '15');
-UNLOCK TABLES;
+(1, '0001_01_01_000000_create_users_table', 1),
+(2, '0001_01_01_000001_create_cache_table', 1),
+(3, '0001_01_01_000002_create_jobs_table', 1),
+(4, '2026_11_02_030358_create_cross_sellings_table', 1),
+(5, '2026_11_02_031528_create_cross_selling_imports_table', 1),
+(6, '2026_11_02_031529_create_repeat_order_predictions_table', 1),
+(7, '2026_11_02_031530_create_broadcast_reports_table', 1),
+(8, '2026_11_02_031829_add_period_and_import_to_cross_sellings_table', 1),
+(9, '2026_11_02_055749_add_cross_selling_prediction_performance_indexes', 1),
+(10, '2026_11_02_063458_add_brand_filter_indexes_to_cross_sellings_table', 1),
+(11, '2026_11_02_063858_add_prediction_item_brand_filter_index', 1),
+(12, '2026_11_02_065250_create_lead_customers_table', 1),
+(13, '2026_11_02_123503_add_cleaning_hash_to_cross_sellings_table', 1),
+(14, '2026_11_03_033307_add_role_to_users_table', 2),
+(15, '2026_11_03_041500_add_lookup_index_to_cross_sellings_table', 3),
+(16, '2026_11_03_043000_create_settings_table', 4),
+(17, '2026_11_03_044500_create_whatsapp_chats_tables', 5),
+(18, '2026_11_03_050000_create_broadcast_templates_and_media_tables', 6),
+(19, '2026_11_03_060000_create_broadcast_batches_table', 7),
+(20, '2026_11_04_010000_purge_empty_phone_records_and_backfill', 8),
+(21, '2026_11_05_020000_create_employees_and_sales_monitoring_tables', 9),
+(22, '2026_11_05_030000_update_kpi_criteria_to_daily_operational', 10),
+(23, '2026_11_05_060610_create_turnovers_and_turnover_imports_tables', 11),
+(24, '2026_11_05_140002_add_omnichannel_fields_to_whatsapp_tables', 12),
+(25, '2026_11_06_100000_add_target_to_employees_table', 13),
+(27, '2026_11_07_055147_create_sosmed_keeps_table', 14),
+(28, '2026_11_07_095427_add_level_to_employees_table', 15),
+(29, '2026_11_10_030000_add_permissions_to_users_table', 16),
+(30, '2026_11_10_040000_create_activity_notifications_table', 17),
+(31, '2026_11_10_050000_create_quotations_table', 18),
+(32, '2026_11_10_060000_add_signature_image_to_quotations_table', 19),
+(33, '2026_11_10_070000_add_signature_scale_to_quotations_table', 20),
+(34, '2026_11_11_040000_create_sosmed_shifts_table', 21),
+(35, '2026_11_11_051911_add_phone_to_users_table', 22);
 
--- Dumping data for table `settings`
-LOCK TABLES `settings` WRITE;
+-- --------------------------------------------------------
+-- Dumping data untuk tabel `users` (5 baris)
+-- --------------------------------------------------------
+INSERT INTO `users` (`id`, `name`, `email`, `phone`, `email_verified_at`, `password`, `remember_token`, `created_at`, `updated_at`, `role`, `permissions`) VALUES
+(1, 'Administrator DCMS', 'rafiqirfq24@gmail.com', NULL, NULL, '$2y$12$bpQ1nQhHv1yjC05Nwe5VC.3FbE62XH.a/6J/ZtRtzR/7vTKj/rGmq', NULL, '2026-11-02 16:41:15', '2026-11-02 16:41:15', 'superadmin', NULL),
+(2, 'Superadmin DCMS', 'superadmin@gmail.com', NULL, NULL, '$2y$12$cLIf0c8idZKCQkO.ZUaElOFBcc8Iq2pOh..D3ivb98FrAAU61WuTO', 'hk89WA6t9hRRPLJcK4iFbXYl6kVyGZszjLmvp18sExp3wd4qe813rPvjq4X1', '2026-11-03 09:47:30', '2026-11-03 11:34:26', 'superadmin', NULL),
+(3, 'Staff Admin DCMS', 'admin@gmail.com', NULL, NULL, '$2y$12$kF.DUKkn0vmq8RvS9.ImquDrPMRVnYbqyBjG7JvinxovBOK1Sj9N.', 'FyPPqwQhOZZbd8GyAOO2LHKkl7lLgfYGMQqamepfNXoefNIwagMYrykVPmeO', '2026-11-03 11:34:27', '2026-11-03 11:34:27', 'admin', NULL),
+(4, 'Akmal', 'akmal@gmail.com', NULL, NULL, '$2y$12$Wp0UXHjhOSzBhd4Xrq3P1.2AjUui2w5Ah6hZERQqAltDNxxnLP2.u', NULL, '2026-11-10 02:58:49', '2026-11-10 02:58:49', 'user', NULL),
+(5, 'yahya', 'yahyamaulana67@gmail.com', NULL, NULL, '$2y$12$VFCVHUMWSsmehQrPmvWEPeABszLEa/m5PBFKxiuyojj19wV0IrTwa', NULL, '2026-11-10 05:32:56', '2026-11-10 05:34:39', 'user', '[\"dashboard\",\"predictions\",\"predictions_assign\",\"predictions_download\",\"leads\",\"broadcasts\",\"broadcasts_create\",\"pricelist\",\"workspace_dashboard\",\"workspace_matrix\",\"workspace_cek_ar\",\"workspace_format_keep\",\"workspace_tracking_ar\",\"workspace_klaim_ar\",\"workspace_inbox_fu\",\"workspace_archives\",\"workspace_admin_settings\",\"monitoring_sales\",\"guidance\",\"imports\",\"watzap_settings\"]');
+
+-- --------------------------------------------------------
+-- Dumping data untuk tabel `settings` (25 baris)
+-- --------------------------------------------------------
 INSERT INTO `settings` (`id`, `key`, `value`, `created_at`, `updated_at`) VALUES
-('1', 'watzap_api_key', 'VMUXOT68QD5TQ84V', '2026-11-03 13:03:13', '2026-11-03 13:03:13'),
-('2', 'watzap_number_key', 'pL46HTdCO6vUgNfC', '2026-11-03 13:03:13', '2026-11-03 13:03:13'),
-('3', 'watzap_web_url', 'https://watzap.chat', '2026-11-03 13:03:14', '2026-11-03 13:03:14'),
-('4', 'watzap_inbox_same_as_broadcast', '1', '2026-11-04 15:47:02', '2026-11-04 17:29:10'),
-('5', 'watzap_inbox_api_key', '', '2026-11-04 15:47:02', '2026-11-04 16:44:20'),
-('6', 'watzap_inbox_number_key', '', '2026-11-04 15:47:02', '2026-11-04 16:44:20'),
-('7', 'broadcast_delay_min', '5', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
-('8', 'broadcast_delay_max', '15', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
-('9', 'broadcast_batch_size', '20', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
-('10', 'broadcast_batch_cooldown', '30', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
-('11', 'broadcast_spintax_enabled', '1', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
-('12', 'broadcast_daily_limit', '20', '2026-11-04 17:08:23', '2026-11-04 18:03:36'),
-('13', 'workspace_monthly_targets', '{\n    \"Banjarmasin\": {\n        \"target\": 50000000\n    },\n    \"2026-11\": {\n        \"month\": 11,\n        \"year\": 2026,\n        \"teamTarget\": 9038670959,\n        \"salesTargets\": {\n            \"BJM.SOS.015\": 1181261572,\n            \"DANIEL\": 1181261572,\n            \"BJM.SOS.017\": 1181261572,\n            \"MARLINA\": 1181261572,\n            \"BJM.SOS.005\": 1181261572,\n            \"SIFA\": 1181261572,\n            \"BJM.SOS.018\": 784983749,\n            \"MARISA\": 784983749,\n            \"BJM.SOS.004\": 784983749,\n            \"BINTANG\": 784983749,\n            \"BJM.SOS.022\": 784983749,\n            \"QONA\": 784983749,\n            \"BJM.SOS.007\": 784983749,\n            \"FEBRI\": 784983749,\n            \"BJM.SOS.016\": 784983749,\n            \"DEA\": 784983749,\n            \"BJM.SOS.019\": 784983749,\n            \"ZOFIA\": 784983749,\n            \"BJM.SOS.021\": 784983749,\n            \"RARA\": 784983749\n        }\n    }\n}', '2026-11-05 13:02:02', '2026-11-09 07:13:38'),
-('14', 'workspace_sales_photos', '{\n    \"Sales Ahmad\": \"data:image\\/png;base64,samplephoto\"\n}', '2026-11-05 13:02:05', '2026-11-05 13:02:05'),
-('15', 'workspace_monthly_archives', '{\n    \"2026-10\": {\n        \"total\": 150000000\n    }\n}', '2026-11-05 13:02:07', '2026-11-05 13:02:07'),
-('16', 'workspace_croselling_mtime', '1794210496942', '2026-11-05 14:32:15', '2026-11-09 07:48:16'),
-('17', 'workspace_croselling_uploader', 'Superadmin DCMS', '2026-11-05 14:32:16', '2026-11-05 14:32:16'),
-('18', 'workspace_croselling_filename', 'CROSELLING.xlsx', '2026-11-05 14:32:17', '2026-11-09 07:48:16'),
-('19', 'workspace_croselling_filesize', '3620045', '2026-11-05 14:32:17', '2026-11-09 07:48:16'),
-('20', 'workspace_croselling_file_base64', '', '2026-11-05 14:32:18', '2026-11-09 07:48:16'),
-('21', 'workspace_turnover_mtime', '1794205766670', '2026-11-05 14:34:17', '2026-11-09 06:29:26'),
-('22', 'workspace_turnover_uploader', 'Superadmin DCMS', '2026-11-05 14:34:18', '2026-11-05 14:34:18'),
-('23', 'workspace_turnover_filename', 'TURN OVER.xlsx', '2026-11-05 14:34:20', '2026-11-05 14:34:20'),
-('24', 'workspace_turnover_filesize', '2760596', '2026-11-05 14:34:21', '2026-11-09 06:29:26'),
-('25', 'workspace_turnover_file_base64', '', '2026-11-05 14:34:23', '2026-11-09 06:29:26'),
-('26', 'workspace_matrix_weights', '{\"omzet\":35,\"gp\":35,\"cross_selling\":30}', '2026-11-06 02:05:19', '2026-11-06 02:05:19'),
-('27', 'workspace_keep_last_sync', '2026-11-09T18:43:46+08:00', '2026-11-09 08:33:35', '2026-11-09 10:43:46'),
-('28', 'workspace_keep_last_count', '13184', '2026-11-09 08:33:35', '2026-11-09 08:33:35');
-UNLOCK TABLES;
+(1, 'watzap_api_key', 'VMUXOT68QD5TQ84V', '2026-11-03 13:03:13', '2026-11-03 13:03:13'),
+(2, 'watzap_number_key', 'pL46HTdCO6vUgNfC', '2026-11-03 13:03:13', '2026-11-03 13:03:13'),
+(3, 'watzap_web_url', 'https://watzap.chat', '2026-11-03 13:03:14', '2026-11-03 13:03:14'),
+(4, 'watzap_inbox_same_as_broadcast', '1', '2026-11-04 15:47:02', '2026-11-04 17:29:10'),
+(5, 'watzap_inbox_api_key', '', '2026-11-04 15:47:02', '2026-11-04 16:44:20'),
+(6, 'watzap_inbox_number_key', '', '2026-11-04 15:47:02', '2026-11-04 16:44:20'),
+(7, 'broadcast_delay_min', '5', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
+(8, 'broadcast_delay_max', '15', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
+(9, 'broadcast_batch_size', '20', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
+(10, 'broadcast_batch_cooldown', '30', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
+(11, 'broadcast_spintax_enabled', '1', '2026-11-04 17:08:23', '2026-11-04 17:08:23'),
+(12, 'broadcast_daily_limit', '20', '2026-11-04 17:08:23', '2026-11-04 18:03:36'),
+(13, 'workspace_monthly_targets', '{\n    \"Banjarmasin\": {\n        \"target\": 50000000\n    },\n    \"2026-11\": {\n        \"month\": 11,\n        \"year\": 2026,\n        \"teamTarget\": 9038670959,\n        \"salesTargets\": {\n            \"BJM.SOS.015\": 1181261572,\n            \"DANIEL\": 1181261572,\n            \"BJM.SOS.017\": 1181261572,\n            \"MARLINA\": 1181261572,\n            \"BJM.SOS.005\": 1181261572,\n            \"SIFA\": 1181261572,\n            \"BJM.SOS.018\": 784983749,\n            \"MARISA\": 784983749,\n            \"BJM.SOS.004\": 784983749,\n            \"BINTANG\": 784983749,\n            \"BJM.SOS.022\": 784983749,\n            \"QONA\": 784983749,\n            \"BJM.SOS.007\": 784983749,\n            \"FEBRI\": 784983749,\n            \"BJM.SOS.016\": 784983749,\n            \"DEA\": 784983749,\n            \"BJM.SOS.019\": 784983749,\n            \"ZOFIA\": 784983749,\n            \"BJM.SOS.021\": 784983749,\n            \"RARA\": 784983749\n        }\n    }\n}', '2026-11-05 13:02:02', '2026-11-09 07:13:38'),
+(14, 'workspace_sales_photos', '{\n    \"Sales Ahmad\": \"data:image\\/png;base64,samplephoto\"\n}', '2026-11-05 13:02:05', '2026-11-05 13:02:05'),
+(15, 'workspace_monthly_archives', '{\n    \"2026-10\": {\n        \"total\": 150000000\n    }\n}', '2026-11-05 13:02:07', '2026-11-05 13:02:07'),
+(21, 'workspace_turnover_mtime', '1794289083996', '2026-11-05 14:34:17', '2026-11-10 05:38:03'),
+(22, 'workspace_turnover_uploader', 'Superadmin DCMS', '2026-11-05 14:34:18', '2026-11-05 14:34:18'),
+(23, 'workspace_turnover_filename', 'TURN OVER (2).xlsx', '2026-11-05 14:34:20', '2026-11-10 05:38:03'),
+(24, 'workspace_turnover_filesize', '3161292', '2026-11-05 14:34:21', '2026-11-10 05:38:03'),
+(26, 'workspace_matrix_weights', '{\"omzet\":35,\"gp\":35,\"cross_selling\":30}', '2026-11-06 02:05:19', '2026-11-06 02:05:19'),
+(27, 'workspace_keep_last_sync', '2026-11-11T16:00:29+08:00', '2026-11-09 08:33:35', '2026-11-11 08:00:29'),
+(28, 'workspace_keep_last_count', '13344', '2026-11-09 08:33:35', '2026-11-11 07:35:38'),
+(29, 'fonnte_token', 'NMGid9rgBKYAAyZ7wmSn', '2026-11-10 10:03:21', '2026-11-10 10:03:21'),
+(30, 'fonnte_autoreply_enabled', '0', '2026-11-11 06:57:08', '2026-11-11 06:57:08'),
+(31, 'fonnte_autoreply_message', '✅ Data KEEP berhasil direkap.\r\n\r\nNama : {nama}\r\nNomor WA : {nomor}\r\nBarang : {barang}\r\nTanggal Pengambilan : {tanggal}\r\nRemaks : {remaks}', '2026-11-11 06:57:08', '2026-11-11 06:57:08');
 
+-- --------------------------------------------------------
+-- Dumping data untuk tabel `employees` (10 baris)
+-- --------------------------------------------------------
+INSERT INTO `employees` (`id`, `nik`, `name`, `role`, `level`, `target`, `cabang`, `phone`, `email`, `status`, `joined_date`, `avatar_color`, `notes`, `created_at`, `updated_at`) VALUES
+(1, 'BJM.SOS.018', 'MARISA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '081250112233', 'N@gmail.com', 'active', '2024-01-15', '#2563eb', 'Fokus penjualan unit iPhone & Samsung flagship di cabang AMTC.', '2026-11-05 10:35:50', '2026-11-09 06:26:10'),
+(2, 'BJM.SOS.004', 'BINTANG', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '085248991122', 'rizky.bjma@gadgetmart.id', 'active', '2024-03-01', '#059669', 'Spesialis follow-up broadcast customer repeat order area Banjarmasin.', '2026-11-05 10:35:50', '2026-11-07 10:12:09'),
+(3, 'BJM.SOS.022', 'QONA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '082155447788', 'N@gmail.com', 'active', '2023-11-10', '#7c3aed', 'Tingkat closing aksesoris dan add-on warranty tinggi.', '2026-11-05 10:35:50', '2026-11-09 06:25:55'),
+(4, 'BJM.SOS.015', 'DANIEL', 'Admin Sales', 'Karyawan', '1181261572.00', 'Head Office', '081349887766', 'N@gmail.com', 'active', '2024-05-20', '#d97706', 'Aktif koordinasi broadcast promo cicilan 0% dan tukar tambah.', '2026-11-05 10:35:50', '2026-11-09 06:23:46'),
+(5, 'BJM.SOS.017', 'MARLINA', 'Admin Sales', 'Karyawan', '1181261572.00', 'Head Office', '087811224455', 'N@gmail.com', 'active', '2024-02-18', '#db2777', 'Responsif terhadap pertanyaan customer WhatsApp dan keep order.', '2026-11-05 10:35:50', '2026-11-09 06:24:01'),
+(6, 'BJM.SOS.005', 'SIFA', 'Admin Sales', 'Karyawan', '1181261572.00', 'Head Office', '081955331199', 'N@gmail.com', 'active', '2024-06-01', '#0891b2', 'Mengelola database customer baru cabang Tanjung Tabalong.', '2026-11-05 10:35:50', '2026-11-09 06:24:20'),
+(7, 'BJM.SOS.007', 'FEBRI', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '123124512', 'N@gmail.com', 'active', NULL, '#059669', NULL, '2026-11-05 11:39:30', '2026-11-09 06:27:43'),
+(8, 'BJM.SOS.016', 'DEA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '12345', 'N@gmail.com', 'active', NULL, '#4f46e5', NULL, '2026-11-05 11:39:55', '2026-11-09 06:24:52'),
+(9, 'BJM.SOS.019', 'ZOFIA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '1234', 'N@gmail.com', 'active', NULL, '#ea580c', NULL, '2026-11-05 11:40:23', '2026-11-09 06:25:19'),
+(10, 'BJM.SOS.021', 'RARA', 'Admin Sales', 'Internship', '784983749.00', 'Head Office', '1234', 'N@gmail.com', 'active', NULL, '#7c3aed', NULL, '2026-11-05 11:40:34', '2026-11-09 06:25:36');
 
-SET FOREIGN_KEY_CHECKS=1;
--- =========================================================================
--- ALL TABLES & CORE SEEDS CREATED SUCCESSFULLY!
--- =========================================================================
+-- --------------------------------------------------------
+-- Dumping data untuk tabel `kpi_criteria` (8 baris)
+-- --------------------------------------------------------
+INSERT INTO `kpi_criteria` (`id`, `code`, `name`, `description`, `weight`, `target_benchmark`, `is_active`, `sort_order`, `created_at`, `updated_at`) VALUES
+(1, 'resp_time', 'Respon Time (Kecepatan Balas)', 'Kecepatan membalas pesan masuk calon pembeli dan ketepatan waktu follow-up prospek saat jam kerja.', '25.00', 'Respon cepat < 3-5 menit, standby aktif', 1, 2, '2026-11-05 10:35:50', '2026-11-05 11:25:25'),
+(2, 'broadcast_vol', 'Pencapaian Broadcast & Outreach', 'Kepatuhan kuota harian broadcast WhatsApp dan volume pelanggan yang dijangkau.', '20.00', 'Min. 500 kontak terjangkau/bulan', 0, 2, '2026-11-05 10:35:50', '2026-11-05 10:35:50'),
+(3, 'closing_rate', 'Tingkat Konversi & Closing Leads', 'Persentase customer dari repeat order prediction / leads yang sukses belanja ulang.', '25.00', 'Tingkat konversi leads > 15%', 0, 3, '2026-11-05 10:35:50', '2026-11-05 10:35:50'),
+(4, 'crm_discipline', 'Ketertiban CRM & Format Keep', 'Kedisiplinan input format keep, update status klaim/tracking AR, dan validitas nomor.', '15.00', '100% data terisi rapi & tepat waktu', 0, 4, '2026-11-05 10:35:50', '2026-11-05 10:35:50'),
+(5, 'csat_quality', 'Kualitas Layanan & Etika Chat', 'Keramahan, kesopanan bahasa, ketepatan solusi promo, dan kepuasan pelanggan.', '15.00', 'Rating kepuasan pelanggan > 4.5/5', 0, 5, '2026-11-05 10:35:50', '2026-11-05 10:35:50'),
+(6, 'chat_reply', 'Cara Balas Chat Konsumen', 'Kejelasan solusi, kecocokan jawaban dengan kebutuhan konsumen, gaya komunikasi persuasif dan tidak kaku.', '25.00', 'Jawaban solutif, komunikatif & mudah dipahami', 1, 1, '2026-11-05 11:25:25', '2026-11-05 11:25:25'),
+(7, 'ethics', 'Etika & Keramahan', 'Sopan santun bahasa, greeting pembuka & penutup yang hangat, kesabaran melayani, dan nada bicara profesional.', '25.00', 'Greeting lengkap, ramah, sopan & solutif', 1, 3, '2026-11-05 11:25:25', '2026-11-05 11:25:25'),
+(8, 'promo_check', 'Kesesuaian Penawaran Promo', 'Kepatuhan menawarkan program promo yang sedang berlangsung (bundling gadget, voucher, diskon aksesoris, cicilan) dan keakuratan syarat.', '25.00', 'Aktif tawarkan promo yang berlaku & info akurat', 1, 4, '2026-11-05 11:25:25', '2026-11-05 11:25:25');
+
+-- --------------------------------------------------------
+-- Dumping data untuk tabel `broadcast_templates` (4 baris)
+-- --------------------------------------------------------
+INSERT INTO `broadcast_templates` (`id`, `user_id`, `title`, `message`, `image_url`, `created_at`, `updated_at`) VALUES
+(1, NULL, 'Follow Up Repeat Order (Jadwal Beli Kembali)', 'Halo Kak {nama}! Terima kasih telah setia bersama Gadgetmart. Berdasarkan riwayat belanja, kemungkinan saatnya Kakak memperbarui kebutuhan seputar {item}. Dapatkan promo tukar tambah menarik & garansi resmi hanya di Gadgetmart. Balas pesan ini untuk info promo hari ini ya! 📱✨', NULL, '2026-11-03 15:32:18', '2026-11-03 15:32:18'),
+(2, NULL, 'Promo Khusus Aksesoris & Proteksi (ACC)', 'Halo Kak {nama}, gimana kabar gadget-nya? Supaya perangkat Kakak selalu terlindungi, Gadgetmart ada promo diskon spesial untuk tempered glass, case original, adaptor fast charging, & audio. Yuk mampir ke toko atau balas pesan ini untuk pilihan katalognya! 🎧⚡', NULL, '2026-11-03 15:32:19', '2026-11-03 15:32:19'),
+(3, NULL, 'Greeting & Cek Kepuasan Konsumen', 'Halo Kak {nama}, salam hangat dari tim Gadgetmart! Kami ingin memastikan apakah perangkat atau belanjaan Kakak berfungsi dengan nyaman. Jika ada pertanyaan, servis, atau kebutuhan aksesoris, tim kami siap membantu sepenuh hati. Have a wonderful day! 😊🙌', NULL, '2026-11-03 15:32:20', '2026-11-03 15:32:20'),
+(4, NULL, 'Voucher Eksklusif Pelanggan Setia (VIP)', 'Spesial untuk Kak {nama}! Sebagai apresiasi pelanggan setia Gadgetmart, kami siapkan voucher cashback belanja untuk transaksi berikutnya. Tunjukkan pesan WhatsApp resmi ini ke kasir store Gadgetmart terdekat untuk klaim keuntungannya ya Kak! 🎁🛍️', NULL, '2026-11-03 15:32:21', '2026-11-03 15:32:21');
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ========================================================
+-- Ekspor Selesai
+-- ========================================================

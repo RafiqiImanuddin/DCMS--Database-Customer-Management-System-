@@ -103,12 +103,23 @@ class SosmedKeepWebhookController extends Controller
 
         $isMarketplace = (bool) preg_match('/shopee|tokopedia|tiktok/i', $message);
         if (! $isMarketplace && (! isset($keep['nomor']) || trim($keep['nomor']) === '')) {
-            return response('IGNORED_NO_NOMOR_WA', 200)->header('Content-Type', 'text/plain');
+            // Toleransi jika nomor WA dikosongkan (misal saat sampling/testing atau CS belum isi),
+            // tetap izinkan simpan jika nama atau barang sudah terisi agar data format keep tidak hilang.
+            if (empty($keep['nama']) && empty($keep['barang'])) {
+                return response('IGNORED_NO_NOMOR_WA', 200)->header('Content-Type', 'text/plain');
+            }
         }
 
-        $isGroup = filter_var($request->input('isgroup', false), FILTER_VALIDATE_BOOLEAN) || (bool) $request->input('isGroup');
-        $nomorPengirim = $isGroup ? ($request->input('member') ?: $request->input('sender')) : $request->input('sender');
-        $groupId = $isGroup ? $request->input('sender') : '';
+        $rawSender = (string) ($request->input('sender') ?? '');
+        $rawMember = (string) ($request->input('member') ?? '');
+        $isGroup = filter_var($request->input('isgroup', false), FILTER_VALIDATE_BOOLEAN)
+            || (bool) $request->input('isGroup')
+            || $rawMember !== ''
+            || str_contains($rawSender, '@g.us')
+            || str_contains($rawSender, '-');
+
+        $nomorPengirim = $isGroup ? ($rawMember ?: $rawSender) : $rawSender;
+        $groupId = $isGroup ? $rawSender : '';
         $jenisChat = $isGroup ? 'GRUP' : 'PRIBADI';
         $messageId = $request->input('inboxid') ?: $request->input('id') ?: '';
         $senderName = $request->input('name') ?: '';
@@ -122,6 +133,39 @@ class SosmedKeepWebhookController extends Controller
         $now = now();
         $periode = ($monthNames[$now->month] ?? 'Bulan').'-'.substr((string) $now->year, -2);
         $cabang = $this->fonnteService->detectCabangFromRemarks($keep['remaks'] ?? '');
+
+        // Deteksi transaksi Kredit vs Non Kredit
+        $isKredit = (bool) preg_match('/format\s*kredit|kredit|pembiayaan|leasing|angsuran|cicilan/i', $message);
+        $userKredit = $isKredit ? 'KREDIT' : 'NON KREDIT';
+
+        // Deteksi brand / item dari nama barang
+        $b = strtoupper($keep['barang'] ?? '');
+        $item = '';
+        if (str_contains($b, 'IPHONE') || str_contains($b, 'APPLE') || str_contains($b, 'IPAD') || str_contains($b, 'MACBOOK')) {
+            $item = 'IPHONE';
+        } elseif (str_contains($b, 'SAMSUNG')) {
+            $item = 'SAMSUNG';
+        } elseif (str_contains($b, 'OPPO')) {
+            $item = 'OPPO';
+        } elseif (str_contains($b, 'VIVO')) {
+            $item = 'VIVO';
+        } elseif (str_contains($b, 'POCO')) {
+            $item = 'POCO';
+        } elseif (str_contains($b, 'REDMI') || str_contains($b, 'XIAOMI')) {
+            $item = 'XIAOMI';
+        } elseif (str_contains($b, 'REALME')) {
+            $item = 'REALME';
+        } elseif (str_contains($b, 'INFINIX')) {
+            $item = 'INFINIX';
+        } elseif (str_contains($b, 'TECNO')) {
+            $item = 'TECNO';
+        } elseif (str_contains($b, 'ITEL')) {
+            $item = 'ITEL';
+        } elseif (str_contains($b, 'HUAWEI')) {
+            $item = 'HUAWEI';
+        } elseif (str_contains($b, 'ASUS') || str_contains($b, 'ROG')) {
+            $item = 'ASUS';
+        }
 
         $newKeep = SosmedKeep::create([
             'message_id' => $messageId,
@@ -141,6 +185,8 @@ class SosmedKeepWebhookController extends Controller
             'cabang' => $cabang,
             'periode' => $periode,
             'status' => 'PENDING',
+            'user_kredit' => $userKredit,
+            'item' => $item,
         ]);
 
         // Simpan juga ke file CSV keep-data.csv untuk backward compatibility
@@ -259,6 +305,47 @@ class SosmedKeepWebhookController extends Controller
             'success' => true,
             'total' => $keeps->count(),
             'data' => $keeps,
+        ]);
+    }
+
+    /**
+     * API Polling Ringan untuk Deteksi Keep Baru secara Realtime (Auto-Update & Push Notification)
+     */
+    public function getLatestKeeps(Request $request): JsonResponse
+    {
+        $afterId = (int) $request->input('after_id', 0);
+        $maxId = (int) SosmedKeep::max('id');
+
+        if ($afterId <= 0 || $maxId <= $afterId) {
+            return response()->json([
+                'success' => true,
+                'count' => 0,
+                'latest_id' => $maxId,
+                'server_time' => now()->format('Y-m-d H:i:s'),
+                'data' => [],
+            ]);
+        }
+
+        $fields = [
+            'id', 'keep_timestamp', 'nomor_sender', 'grup_id', 'sender', 'grup', 'jenis_chat',
+            'nama', 'nomor_wa', 'barang_keep', 'tanggal_ambil', 'catatan', 'remarks',
+            'kode_sosmed', 'report_ar', 'tanggal_input_ar', 'ar_vlookup', 'tanggal_vlookup',
+            'cabang', 'evidence', 'nomor_follow_up', 'nama_tim_follow_up', 'status',
+            'feedback_tim_fu', 'nama_toko_kompetitor', 'user_kredit', 'periode', 'item', 'nomor_fu'
+        ];
+
+        $newKeeps = SosmedKeep::where('id', '>', $afterId)
+            ->latest('id')
+            ->limit(30)
+            ->toBase()
+            ->get($fields);
+
+        return response()->json([
+            'success' => true,
+            'count' => $newKeeps->count(),
+            'latest_id' => $maxId,
+            'server_time' => now()->format('Y-m-d H:i:s'),
+            'data' => $newKeeps,
         ]);
     }
 
@@ -455,6 +542,14 @@ class SosmedKeepWebhookController extends Controller
 
             $plainLine = trim(preg_replace('/[*_~]/', '', $rawLine));
 
+            // Abaikan footer disclaimer atau format header
+            if (preg_match('/^(wajib mencantumkan|format keep|format kredit|format preorder|format po)/i', $plainLine)) {
+                if (preg_match('/^wajib mencantumkan/i', $plainLine)) {
+                    $currentField = '';
+                }
+                continue;
+            }
+
             if (preg_match('/^(tanggal\s*keep|tgl\s*keep)/i', $plainLine)) {
                 $currentField = '';
                 continue;
@@ -469,26 +564,40 @@ class SosmedKeepWebhookController extends Controller
                 if ($key === 'nama') {
                     $currentField = 'nama';
                     $result['nama'] = $val;
-                } elseif (in_array($key, ['nomor wa', 'no wa', 'nomor', 'no hp', 'telepon', 'hp'], true)) {
+                } elseif (in_array($key, ['nomor wa', 'no wa', 'nomor', 'no hp', 'telepon', 'hp', 'no whatsapp', 'nomor whatsapp'], true)) {
                     $currentField = 'nomor';
                     $result['nomor'] = $val;
-                } elseif (in_array($key, ['barang', 'barang keep'], true)) {
+                } elseif (in_array($key, ['barang', 'barang keep', 'barang po', 'barang kredit', 'barang preorder'], true)) {
                     $currentField = 'barang';
                     $result['barang'] = $val;
-                } elseif (in_array($key, ['tanggal', 'tanggal pengambilan'], true)) {
+                } elseif (in_array($key, ['tanggal', 'tanggal pengambilan', 'tanggal ambil', 'tgl pengambilan'], true)) {
                     $currentField = 'tanggal';
                     $result['tanggal'] = $val;
                 } elseif ($key === 'catatan') {
                     $currentField = 'catatan';
                     $result['catatan'] = $val;
-                } elseif ($key === 'remaks' || $key === 'remarks') {
+                } elseif (in_array($key, ['remaks', 'remarks', 'remaks sosmed', 'remarks sosmed', 'remaks: sosmed', 'remarks: sosmed'], true) || str_starts_with($key, 'remak') || str_starts_with($key, 'remark')) {
                     $currentField = 'remaks';
+                    // Ambil isi remaks, misal "SOSMED 10" atau "10"
                     $result['remaks'] = $val;
+                } elseif ($currentField === 'catatan') {
+                    // Jika sedang membaca catatan, baris ber-titik dua (seperti "Umur: 25", "Pembiayaan: Spektra", "DP: 500rb", dll)
+                    // tetap digabungkan ke catatan agar tidak terpotong
+                    $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                    $result['catatan'] = $result['catatan'] !== '' ? $result['catatan'] . "\n" . $cleanSub : $cleanSub;
+                } elseif (in_array($key, ['umur', 'pembiayaan', 'dp', 'pekerjaan', 'leasing'], true)) {
+                    // Jika field catatan tidak diawali label 'Catatan:', melainkan langsung 'Umur: ...'
+                    $currentField = 'catatan';
+                    $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                    $result['catatan'] = $result['catatan'] !== '' ? $result['catatan'] . "\n" . $cleanSub : $cleanSub;
                 } else {
                     $currentField = '';
                 }
             } elseif ($currentField !== '') {
-                $result[$currentField] .= "\n".trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                if (!preg_match('/^wajib mencantumkan/i', $cleanSub)) {
+                    $result[$currentField] .= ($result[$currentField] !== '' ? "\n" : "") . $cleanSub;
+                }
             }
         }
 

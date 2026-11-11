@@ -24,11 +24,20 @@ Route::get('/', function () {
 // Endpoint publik untuk akses file media broadcast (agar WatZap server dapat mengunduh gambar)
 Route::get('/media/broadcasts/{media}/{filename?}', [BroadcastMediaController::class, 'show'])->name('broadcasts.media.show');
 
+// Live Dashboard Publik (Views Only: Report Matrix Sosmed & Jadwal Shift Karyawan - Tanpa Login)
+Route::get('/public-dashboard', [\App\Http\Controllers\PublicDashboardController::class, 'index'])->name('public.dashboard');
+Route::get('/display', [\App\Http\Controllers\PublicDashboardController::class, 'index']);
+Route::get('/live-dashboard', [\App\Http\Controllers\PublicDashboardController::class, 'index']);
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:5,1');
     Route::get('/register', [\App\Http\Controllers\UserController::class, 'create'])->name('register');
     Route::post('/register', [\App\Http\Controllers\UserController::class, 'store'])->name('register.store')->middleware('throttle:5,1');
+    Route::get('/register/verify-otp', [\App\Http\Controllers\UserController::class, 'showOtpForm'])->name('register.otp.form');
+    Route::post('/register/verify-otp', [\App\Http\Controllers\UserController::class, 'verifyOtp'])->name('register.otp.verify')->middleware('throttle:10,1');
+    Route::post('/register/resend-otp', [\App\Http\Controllers\UserController::class, 'resendOtp'])->name('register.otp.resend')->middleware('throttle:3,1');
+    Route::post('/register/cancel', [\App\Http\Controllers\UserController::class, 'cancelRegistration'])->name('register.cancel');
 });
 
 Route::middleware('auth')->group(function () {
@@ -100,6 +109,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings/watzap/get-webhook', [WatzapSettingController::class, 'getWebhookStatus'])->name('settings.watzap.get_webhook');
     Route::post('/settings/watzap/check-waha', [WatzapSettingController::class, 'checkWaha'])->name('settings.watzap.check_waha');
     Route::post('/settings/watzap/check-fonnte', [WatzapSettingController::class, 'checkFonnte'])->name('settings.watzap.check_fonnte');
+    Route::post('/settings/watzap/register-fonnte-webhook', [WatzapSettingController::class, 'registerFonnteWebhook'])->name('settings.watzap.register_fonnte_webhook');
     Route::post('/settings/watzap/test-send-fonnte', [WatzapSettingController::class, 'testSendFonnte'])->name('settings.watzap.test_send_fonnte');
     Route::post('/settings/watzap/sync-google-sheet', [WatzapSettingController::class, 'syncGoogleSheetKeep'])->name('settings.watzap.sync_google_sheet');
 
@@ -121,6 +131,13 @@ Route::middleware('auth')->group(function () {
     Route::delete('/quotations/{quotation}', [QuotationController::class, 'destroy'])->name('quotations.destroy');
     Route::post('/quotations/{quotation}/duplicate', [QuotationController::class, 'duplicate'])->name('quotations.duplicate');
     Route::get('/quotations/{quotation}/print', [QuotationController::class, 'print'])->name('quotations.print');
+
+    // Dashboard Manager: Kelola Jadwal Shift Admin Sosmed
+    Route::get('/shifts', [\App\Http\Controllers\SosmedShiftController::class, 'index'])->name('shifts.index');
+    Route::post('/shifts', [\App\Http\Controllers\SosmedShiftController::class, 'store'])->name('shifts.store');
+    Route::post('/shifts/batch', [\App\Http\Controllers\SosmedShiftController::class, 'batchStore'])->name('shifts.batch');
+    Route::put('/shifts/{shift}', [\App\Http\Controllers\SosmedShiftController::class, 'update'])->name('shifts.update');
+    Route::delete('/shifts/{shift}', [\App\Http\Controllers\SosmedShiftController::class, 'destroy'])->name('shifts.destroy');
 
     // Pengaturan Data Karyawan & Bobot Penilaian KPI
     Route::get('/settings/karyawan', [EmployeeSettingController::class, 'index'])->name('settings.karyawan.index');
@@ -163,7 +180,10 @@ $registerSosmedApiRoutes = function () {
     Route::match(['get', 'post'], '/update-report-ar', [WorkspaceSosmedController::class, 'updateReportAr'])->name('api.sosmed.update_report_ar');
     Route::match(['get', 'post'], '/webhook/fonnte-keep', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.sosmed.webhook_fonnte_keep');
     Route::match(['get', 'post'], '/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook');
+    Route::match(['get', 'post'], '/api/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook_alias');
     Route::get('/sosmed-keeps', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getKeeps'])->name('api.sosmed.get_keeps');
+    Route::get('/sosmed-keeps/latest', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getLatestKeeps'])->name('api.sosmed.get_latest_keeps');
+    Route::get('/api/sosmed-keeps/latest', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getLatestKeeps'])->name('api.sosmed.get_latest_keeps_alias');
     Route::post('/chat-ai', [WorkspaceSosmedController::class, 'chatAi'])->name('api.sosmed.chat_ai');
     Route::post('/watzap-send', [WorkspaceSosmedController::class, 'watzapSend'])->name('api.sosmed.watzap_send');
     Route::match(['get', 'post'], '/watzap-webhook', [WorkspaceSosmedController::class, 'watzapWebhook'])->name('api.sosmed.watzap_webhook');
@@ -193,12 +213,40 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
         abort(403, 'Akses Ditolak. Gunakan parameter key yang benar: ?key=dcms2026');
     }
 
-    try {
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
+    $action = strtolower((string) $request->query('action', 'migrate'));
+    $actionOutput = '';
+    $actionTitle = 'DATABASE MIGRATION & OPTIMIZATION';
 
-        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
-        $clearOutput = \Illuminate\Support\Facades\Artisan::output();
+    try {
+        if ($action === 'import-keeps') {
+            $actionTitle = 'IMPOR DATA KEEP DARI CSV';
+            \Illuminate\Support\Facades\Artisan::call('keep:import-csv', ['--truncate' => true]);
+            $actionOutput = \Illuminate\Support\Facades\Artisan::output();
+        } elseif ($action === 'sync-google-sheet') {
+            $actionTitle = 'SINKRONISASI DATA KEEP DARI GOOGLE SPREADSHEET';
+            \Illuminate\Support\Facades\Artisan::call('keep:sync-google-sheet', ['--truncate' => true]);
+            $actionOutput = \Illuminate\Support\Facades\Artisan::output();
+        } elseif ($action === 'export-core') {
+            $actionTitle = 'EKSPOR CORE DATABASE SQL & DATA KEEP';
+            \Illuminate\Support\Facades\Artisan::call('db:export-cpanel');
+            $actionOutput = \Illuminate\Support\Facades\Artisan::output();
+        } else {
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
+
+            \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+            $clearOutput = \Illuminate\Support\Facades\Artisan::output();
+
+            $actionOutput = ($migrateOutput ?: "Semua tabel database sudah yang terbaru (Nothing to migrate).\n")
+                . "\n🧹 === CLEAR CACHE & OPTIMIZATION ===\n\n" . $clearOutput;
+        }
+
+        $totalKeeps = \Illuminate\Support\Facades\Schema::hasTable('sosmed_keeps')
+            ? \Illuminate\Support\Facades\DB::table('sosmed_keeps')->count()
+            : 0;
+        $totalUsers = \Illuminate\Support\Facades\Schema::hasTable('users')
+            ? \Illuminate\Support\Facades\DB::table('users')->count()
+            : 0;
 
         $phpInfo = sprintf(
             "PHP Version       : %s\nupload_max_filesize: %s\npost_max_size      : %s\nmemory_limit       : %s\nmax_execution_time : %ss",
@@ -209,20 +257,33 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
             ini_get('max_execution_time') ?: 'N/A'
         );
 
-        return response('<pre style="background:#0f172a; color:#10b981; padding:24px; font-family:monospace; font-size:14px; border-radius:10px; line-height:1.6;">'
-            . "🚀 === DCMS DATABASE MIGRATION SYSTEM ===\n\n"
-            . htmlspecialchars($migrateOutput ?: "Semua tabel database sudah yang terbaru (Nothing to migrate).\n")
-            . "\n🧹 === CLEAR CACHE & OPTIMIZATION ===\n\n"
-            . htmlspecialchars($clearOutput)
-            . "\n⚙️ === PHP ENVIRONMENT & UPLOAD LIMITS ===\n\n"
-            . htmlspecialchars($phpInfo)
-            . "\n\n✅ PROSES SELESAI DENGAN SUKSES!"
-            . '</pre>');
+        $actionsHtml = <<<HTML
+<div style="margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="?key=dcms2026&action=migrate" style="background:#2563eb; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">⚡ 1. Jalankan Migrasi Skema</a>
+    <a href="?key=dcms2026&action=import-keeps" style="background:#059669; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📥 2. Impor 13k+ Data Keep dari CSV</a>
+    <a href="?key=dcms2026&action=sync-google-sheet" style="background:#d97706; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🔄 3. Sinkronisasi Langsung dari Google Sheet</a>
+    <a href="?key=dcms2026&action=export-core" style="background:#4b5563; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📦 4. Generate Ulang Core Dump</a>
+</div>
+HTML;
+
+        return response('<div style="background:#0f172a; color:#f8fafc; padding:30px; font-family:monospace; font-size:14px; border-radius:12px; line-height:1.6; max-width:900px; margin:20px auto; box-shadow:0 10px 25px -5px rgba(0,0,0,0.5);">'
+            . '<h2 style="color:#38bdf8; margin:0 0 10px 0;">🚀 DCMS DATABASE MANAGEMENT CONSOLE</h2>'
+            . '<p style="color:#94a3b8; margin:0 0 15px 0;">Panel kontrol migrasi mandiri dan migrasi data untuk hosting cPanel.</p>'
+            . $actionsHtml
+            . '<div style="background:#1e293b; padding:15px; border-radius:8px; margin:15px 0; border-left:4px solid #10b981;">'
+            . '📊 <strong>Status Database:</strong> ' . number_format($totalUsers) . ' Pengguna | ' . number_format($totalKeeps) . ' Data Keep Tercatat'
+            . '</div>'
+            . '<h3 style="color:#10b981; margin:20px 0 10px 0;">=== ' . $actionTitle . ' ===</h3>'
+            . '<pre style="color:#a7f3d0; background:#020617; padding:16px; border-radius:8px; overflow-x:auto;">' . htmlspecialchars($actionOutput) . '</pre>'
+            . '<h3 style="color:#94a3b8; margin:20px 0 10px 0;">⚙️ === SERVER ENVIRONMENT ===</h3>'
+            . '<pre style="color:#cbd5e1; background:#020617; padding:16px; border-radius:8px; overflow-x:auto;">' . htmlspecialchars($phpInfo) . '</pre>'
+            . '<div style="margin-top:20px; color:#10b981; font-weight:bold;">✅ PROSES SELESAI DENGAN SUKSES!</div>'
+            . '</div>');
     } catch (\Throwable $e) {
-        return response('<pre style="background:#0f172a; color:#ef4444; padding:24px; font-family:monospace; font-size:14px; border-radius:10px; line-height:1.6;">'
-            . "❌ === TERJADI KESALAHAN SAAT MIGRASI ===\n\n"
-            . htmlspecialchars($e->getMessage())
-            . '</pre>', 500);
+        return response('<div style="background:#0f172a; color:#ef4444; padding:30px; font-family:monospace; font-size:14px; border-radius:12px; line-height:1.6; max-width:900px; margin:20px auto;">'
+            . '<h2 style="color:#f87171; margin:0 0 10px 0;">❌ TERJADI KESALAHAN SAAT MIGRASI</h2>'
+            . '<pre style="color:#fca5a5; background:#020617; padding:16px; border-radius:8px; overflow-x:auto;">' . htmlspecialchars($e->getMessage()) . '</pre>'
+            . '</div>', 500);
     }
-})->withoutMiddleware([\Illuminate\Session\Middleware\StartSession::class])->name('system.migrate');
+})->name('system.migrate');
 

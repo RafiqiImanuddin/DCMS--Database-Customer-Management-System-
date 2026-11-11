@@ -438,21 +438,24 @@
 
                 <!-- Token Fonnte -->
                 <div>
-                    <label for="fonnte_token" class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                        Token Fonnte <span class="text-rose-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <input type="password" id="fonnte_token" name="fonnte_token" value="{{ old('fonnte_token', $fonnteToken) }}" required placeholder="Contoh: UjuTUowTBsUR1mzWhKFj" class="dcms-input pr-24 font-mono text-xs font-semibold" {{ ! $isSuperAdmin ? 'disabled' : '' }}>
-                        <div class="absolute inset-y-0 right-1 flex items-center gap-1 pr-1">
-                            <button type="button" onclick="togglePasswordVisibility('fonnte_token')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" title="Lihat/Sembunyikan Token">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="fonnte_token" class="block text-xs font-bold uppercase tracking-wide text-slate-700">
+                            Token Fonnte <span class="text-rose-500">*</span>
+                        </label>
+                        <span class="text-[11px] text-slate-500">Ambil dari <a href="https://md.fonnte.com/device" target="_blank" class="font-bold text-emerald-600 underline">Fonnte Device ↗</a></span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <div class="relative flex-1">
+                            <input type="password" id="fonnte_token" name="fonnte_token" value="{{ old('fonnte_token', $fonnteToken) }}" required placeholder="Contoh: NMGid9rgBKYAAyZ7wmSn" class="dcms-input pr-10 font-mono text-xs font-semibold w-full" {{ ! $isSuperAdmin ? 'disabled' : '' }}>
+                            <button type="button" onclick="togglePasswordVisibility('fonnte_token')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 transition" title="Lihat/Sembunyikan Token">
                                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             </button>
-                            <button type="button" id="btn-check-fonnte" onclick="checkFonnteConnection()" class="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 transition">
-                                Cek Device
-                            </button>
                         </div>
+                        <button type="button" id="btn-check-fonnte" onclick="checkFonnteConnection()" class="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition shrink-0 shadow-2xs">
+                            <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                            <span>Periksa Status Device</span>
+                        </button>
                     </div>
-                    <p class="mt-1.5 text-[11px] text-slate-500">Dapatkan token device ini dari dashboard <a href="https://md.fonnte.com/device" target="_blank" class="font-bold text-emerald-600 underline">Fonnte Device</a>.</p>
                     <div id="fonnte-check-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
                 </div>
 
@@ -516,13 +519,20 @@
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                             Webhook URL Fonnte
                         </label>
-                        <div class="flex items-center gap-2">
-                            <input type="text" id="fonnte-webhook-url-input" value="{{ $fonnteWebhookUrl }}" readonly class="dcms-input font-mono text-xs bg-slate-100 font-bold select-all flex-1 text-indigo-950">
-                            <button type="button" onclick="copyFonnteWebhookUrl()" id="btn-copy-fonnte-webhook" class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-500 shrink-0">
-                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                                <span>Salin Webhook URL</span>
-                            </button>
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <input type="text" id="fonnte-webhook-url-input" value="{{ $fonnteWebhookUrl }}" class="dcms-input font-mono text-xs bg-slate-50 font-bold select-all flex-1 text-indigo-950 focus:bg-white" placeholder="Contoh: https://yourdomain.com/webhook/fonnte-keep">
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button" onclick="copyFonnteWebhookUrl()" id="btn-copy-fonnte-webhook" class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-500">
+                                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                    <span>Salin URL</span>
+                                </button>
+                                <button type="button" onclick="registerFonnteWebhookAuto()" id="btn-register-fonnte-webhook" class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500">
+                                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                    <span>Daftarkan Otomatis ke Fonnte</span>
+                                </button>
+                            </div>
                         </div>
+                        <div id="fonnte-webhook-feedback" class="hidden"></div>
                     </div>
 
                     <!-- Langkah Pemasangan di Dashboard Fonnte -->
@@ -654,32 +664,38 @@
     <!-- Kolom Kanan: Status Device & Tes Kirim Fonnte -->
     <div class="space-y-6">
         <!-- Status Device Fonnte -->
-        <section class="dcms-card p-6 border-2 border-emerald-500/20">
-            <div class="flex items-center justify-between">
-                <h2 class="font-black text-slate-900">Status Device Fonnte</h2>
-                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold {{ ($fonnteDeviceStatus['status'] ?? '') === 'Connected' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">
-                    <span class="size-2 rounded-full {{ ($fonnteDeviceStatus['status'] ?? '') === 'Connected' ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
-                    {{ $fonnteDeviceStatus['status'] ?? 'Unknown' }}
+        <section class="dcms-card p-6 border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-50/20 via-white to-slate-50">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-black text-slate-900">Status Device Fonnte</h2>
+                    <button type="button" onclick="checkFonnteConnection()" id="btn-refresh-fonnte-status" class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded-lg px-2.5 py-1 transition border border-emerald-200" title="Segarkan status device dari server Fonnte">
+                        <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                        <span>Segarkan</span>
+                    </button>
+                </div>
+                <span id="fonnte-card-status-badge" class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold {{ ($fonnteDeviceStatus['status'] ?? '') === 'Connected' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">
+                    <span id="fonnte-card-status-dot" class="size-2 rounded-full {{ ($fonnteDeviceStatus['status'] ?? '') === 'Connected' ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
+                    <span id="fonnte-card-status-text">{{ $fonnteDeviceStatus['status'] ?? 'Unknown' }}</span>
                 </span>
             </div>
-            <p class="mt-1 text-xs text-slate-500">Status koneksi nomor WhatsApp yang terdaftar di Fonnte.</p>
+            <p class="mt-2 text-xs text-slate-500">Status koneksi nomor WhatsApp yang terdaftar di Fonnte.</p>
 
-            <div class="mt-4 space-y-3">
+            <div class="mt-4 space-y-2.5">
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Nomor WhatsApp</span>
-                    <span class="text-xs font-mono font-bold text-slate-900">{{ $fonnteDeviceStatus['device'] ?? '-' }}</span>
+                    <span class="text-xs text-slate-500 font-medium">Nomor WhatsApp</span>
+                    <span id="fonnte-card-device" class="text-xs font-mono font-bold text-slate-900">{{ $fonnteDeviceStatus['device'] ?? '-' }}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Nama Device</span>
-                    <span class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['name'] ?? '-' }}</span>
+                    <span class="text-xs text-slate-500 font-medium">Nama Device</span>
+                    <span id="fonnte-card-name" class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['name'] ?? '-' }}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Paket & Kuota</span>
-                    <span class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['package'] ?? 'Free' }}</span>
+                    <span class="text-xs text-slate-500 font-medium">Paket & Kuota</span>
+                    <span id="fonnte-card-package" class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['package'] ?? 'Free' }}</span>
                 </div>
                 <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Masa Aktif</span>
-                    <span class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['expired'] ?? '-' }}</span>
+                    <span class="text-xs text-slate-500 font-medium">Masa Aktif</span>
+                    <span id="fonnte-card-expired" class="text-xs font-semibold text-slate-900">{{ $fonnteDeviceStatus['expired'] ?? '-' }}</span>
                 </div>
             </div>
 
@@ -1027,8 +1043,31 @@ async function checkFonnteConnection() {
         });
 
         const data = await response.json();
+        const isConn = data.success && (data.status === 'Connected' || data.connected || (data.raw && (data.raw.device_status === 'connect' || data.raw.status === true)));
+
+        // Update card status elements live
+        const elDevice = document.getElementById('fonnte-card-device');
+        const elName = document.getElementById('fonnte-card-name');
+        const elPkg = document.getElementById('fonnte-card-package');
+        const elExp = document.getElementById('fonnte-card-expired');
+        const elBadge = document.getElementById('fonnte-card-status-badge');
+        const elDot = document.getElementById('fonnte-card-status-dot');
+        const elText = document.getElementById('fonnte-card-status-text');
+
+        if (data.success && isConn) {
+            if (elDevice) elDevice.textContent = data.device || '-';
+            if (elName) elName.textContent = data.name || '-';
+            if (elPkg) elPkg.textContent = data.package || 'Free';
+            if (elExp) elExp.textContent = data.expired || '-';
+            if (elBadge && elDot && elText) {
+                elBadge.className = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800';
+                elDot.className = 'size-2 rounded-full bg-emerald-500';
+                elText.textContent = 'Connected';
+            }
+        }
+
         if (fb) {
-            if (data.success && data.connected) {
+            if (isConn) {
                 fb.className = 'mt-2.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3 leading-relaxed';
                 fb.innerHTML = '✅ <strong>Koneksi Sukses:</strong> Akun Fonnte Terhubung! Device: <strong>' + (data.device || '-') + '</strong> | Nama: <strong>' + (data.name || '-') + '</strong> | Paket: ' + (data.package || '-');
             } else if (data.success) {
@@ -1053,5 +1092,69 @@ async function checkFonnteConnection() {
         btn.innerHTML = originalText;
     }
 }
+
+async function registerFonnteWebhookAuto() {
+    const input = document.getElementById('fonnte-webhook-url-input');
+    const btn = document.getElementById('btn-register-fonnte-webhook');
+    const fb = document.getElementById('fonnte-webhook-feedback');
+    const token = document.getElementById('fonnte_token')?.value || '';
+    if (!input || !btn) return;
+
+    const url = input.value.trim();
+    if (!url) {
+        alert('Masukkan URL Webhook terlebih dahulu.');
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Mendaftarkan...';
+    if (fb) {
+        fb.className = 'mt-2.5 text-xs font-semibold text-slate-500';
+        fb.textContent = 'Menghubungi server Fonnte...';
+        fb.classList.remove('hidden');
+    }
+
+    try {
+        const response = await fetch('{{ route("settings.watzap.register_fonnte_webhook") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                webhook_url: url,
+                token: token
+            })
+        });
+
+        const data = await response.json();
+        if (fb) {
+            if (data.success) {
+                fb.className = 'mt-2.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '✅ <strong>Sukses:</strong> ' + (data.message || 'Webhook berhasil didaftarkan ke Fonnte!') + '<br><span class="text-[11px] text-emerald-700">Setiap ada format KEEP di nomor Fonnte ini, pesan akan langsung direkap otomatis ke SQL.</span>';
+            } else {
+                fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '❌ <strong>Gagal:</strong> ' + (data.message || 'Gagal mendaftarkan webhook ke Fonnte.');
+            }
+        }
+    } catch (err) {
+        if (fb) {
+            fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 leading-relaxed';
+            fb.innerHTML = '❌ <strong>Error:</strong> ' + err.message;
+        }
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+    }
+}
+
+@if($activeTab === 'fonnte' && ($fonnteDeviceStatus['status'] ?? '') !== 'Connected')
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        checkFonnteConnection();
+    }, 400);
+});
+@endif
 </script>
 @endsection

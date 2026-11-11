@@ -2119,6 +2119,7 @@ async function loadKeepData(isSilent = false) {
       const json = await resSql.json();
       if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
         rawKeepRows = json.data.map((item, idx) => ({
+          'id': item.id || null,
           'Timestamp': item.keep_timestamp || '',
           'Nomor Sender': item.nomor_sender || '',
           'Grup ID': item.grup_id || '',
@@ -2151,6 +2152,15 @@ async function loadKeepData(isSilent = false) {
           _gsheetsIndex: idx
         }));
 
+        let maxId = 0;
+        for (let i = 0; i < Math.min(json.data.length, 100); i++) {
+          const nid = parseInt(json.data[i].id, 10);
+          if (!isNaN(nid) && nid > maxId) maxId = nid;
+        }
+        if (maxId > 0) {
+          latestKnownKeepId = Math.max(latestKnownKeepId, maxId);
+        }
+
         if (pill) {
           pill.innerHTML = `<span>⚡ Sumber: Database SQL MySQL (${rawKeepRows.length.toLocaleString('id-ID')} Data Realtime)</span>`;
         }
@@ -2160,6 +2170,9 @@ async function loadKeepData(isSilent = false) {
         populateAuditPeriodeDropdown();
         applyKeepFilters();
         renderKeepPage();
+
+        // Mulai polling background realtime data format keep
+        startKeepRealtimePolling();
 
         if (typeof rawCrosellingRows !== 'undefined' && rawCrosellingRows.length > 0 && typeof runARMissingSosmedAudit === 'function') {
           runARMissingSosmedAudit();
@@ -2626,6 +2639,50 @@ function formatKeepDisplayDate(ts) {
   return String(ts);
 }
 
+function formatKeepDisplayTime(ts) {
+  if (!ts) return '-';
+  if (ts instanceof Date) {
+    const h = String(ts.getHours()).padStart(2, '0');
+    const m = String(ts.getMinutes()).padStart(2, '0');
+    const s = String(ts.getSeconds()).padStart(2, '0');
+    return `${h}:${m}:${s} WITA`;
+  }
+  if (typeof ts === 'string') {
+    const trimmed = ts.trim();
+    if (trimmed.includes('T') || trimmed.includes(' ')) {
+      const timePart = trimmed.includes('T') ? trimmed.split('T')[1] : trimmed.split(' ')[1];
+      if (timePart) {
+        const cleanTime = timePart.split('.')[0].split('+')[0].split('Z')[0].trim();
+        const parts = cleanTime.split(':');
+        if (parts.length >= 2) {
+          const h = parts[0].padStart(2, '0');
+          const m = parts[1].padStart(2, '0');
+          const s = (parts[2] || '00').padStart(2, '0');
+          return `${h}:${m}:${s} WITA`;
+        }
+      }
+    }
+    const colonParts = trimmed.split(':');
+    if (colonParts.length >= 2 && colonParts.length <= 3 && trimmed.length <= 8) {
+      const h = colonParts[0].padStart(2, '0');
+      const m = colonParts[1].padStart(2, '0');
+      const s = (colonParts[2] || '00').padStart(2, '0');
+      return `${h}:${m}:${s} WITA`;
+    }
+    try {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) {
+        const h = String(d.getHours()).padStart(2, '0');
+        const m = String(d.getMinutes()).padStart(2, '0');
+        const s = String(d.getSeconds()).padStart(2, '0');
+        return `${h}:${m}:${s} WITA`;
+      }
+    } catch (e) {}
+  }
+  return '-';
+}
+window.formatKeepDisplayTime = formatKeepDisplayTime;
+
 function formatPickupDate(val) {
   if (!val || val === '-') return '-';
   const lower = String(val).toLowerCase().trim();
@@ -2724,7 +2781,7 @@ function renderKeepPage() {
   if (btnNext) btnNext.disabled = keepCurrentPage >= maxPage;
 
   if (pageRows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="px-6 py-12 text-center text-xs font-medium text-slate-400 bg-white">Tidak ada data customer untuk filter yang dipilih.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-xs font-medium text-slate-400 bg-white">Tidak ada data customer untuk filter yang dipilih.</td></tr>`;
     return;
   }
 
@@ -2782,11 +2839,22 @@ function renderKeepPage() {
     `;
 
     const tr = document.createElement('tr');
-    tr.className = `border-b border-slate-100 hover:bg-slate-50/80 transition ${ (rawSt === 'LOSE' || rawSt === 'TAKE OUT') ? 'bg-rose-50/30' : '' }`;
+    tr.setAttribute('data-keep-id', r.id || '');
+    let rowClass = `border-b border-slate-100 hover:bg-slate-50/80 transition ${ (rawSt === 'LOSE' || rawSt === 'TAKE OUT') ? 'bg-rose-50/30' : '' }`;
+    if (r._isNewlyArrived) {
+      rowClass += ' bg-emerald-50/80 border-l-4 border-l-emerald-500 animate-pulse';
+    }
+    tr.className = rowClass;
 
     tr.innerHTML = `
       <td class="px-5 py-3.5 align-middle text-left">${custHtml}</td>
       <td class="px-3 py-3.5 align-middle text-center font-bold text-slate-700 whitespace-nowrap">${formatKeepDisplayDate(r['Timestamp'])}</td>
+      <td class="px-3 py-3.5 align-middle text-center whitespace-nowrap">
+        <span class="inline-flex items-center gap-1 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-lg shadow-2xs">
+          <svg class="size-3 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          ${formatKeepDisplayTime(r['Timestamp'])}
+        </span>
+      </td>
       <td class="px-4 py-3.5 align-middle text-left font-bold text-slate-900">${r['Barang Keep'] || '-'}</td>
       <td class="px-3 py-3.5 align-middle text-center text-slate-600 whitespace-nowrap">${formatPickupDate(r['Tanggal Ambil'])}</td>
       <td class="px-4 py-3.5 align-middle text-left text-slate-600 leading-snug">${r['Catatan'] || '-'}</td>
@@ -2813,6 +2881,307 @@ function renderKeepPage() {
     tbody.appendChild(tr);
   });
 }
+
+// =========================================================================
+// REALTIME KEEP NOTIFICATION & POLLING ENGINE (POP-UP TOAST + AUDIO CHIME)
+// =========================================================================
+let latestKnownKeepId = 0;
+let keepRealtimePollingInterval = null;
+let isKeepPollingRunning = false;
+
+function playKeepNotificationChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    const now = ctx.currentTime;
+
+    // Two-tone bell chime: E5 (659Hz) -> A5 (880Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, now + 0.12);
+    gain2.gain.setValueAtTime(0.22, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.65);
+  } catch (e) {
+    console.warn('Keep audio notification note:', e);
+  }
+}
+window.playKeepNotificationChime = playKeepNotificationChime;
+
+function showKeepNewNotification(item) {
+  const container = document.getElementById('liveKeepToastContainer');
+  if (!container) return;
+
+  const id = item.id || `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const custName = item['Nama'] || item.nama || 'Customer';
+  const rawWA = String(item['Nomor WA'] || item.nomor_wa || '').replace(/\D/g, '');
+  const displayWA = (typeof formatPhoneDisplay === 'function') ? formatPhoneDisplay(rawWA) : rawWA;
+  const barangKeep = item['Barang Keep'] || item.barang_keep || '-';
+  const catatan = (item['Catatan'] || item.catatan || '').trim();
+  const kodeSosmed = item['Kode Sosmed'] || item.kode_sosmed || '-';
+  const tglAmbil = item['Tanggal Ambil'] || item.tanggal_ambil || '-';
+  const ts = item['Timestamp'] || item.keep_timestamp || new Date().toISOString();
+  const displayTime = (typeof formatKeepDisplayTime === 'function') ? formatKeepDisplayTime(ts) : 'Baru Saja';
+  const isKredit = String(item['USER KREDIT'] || item.user_kredit || '').toUpperCase() === 'KREDIT';
+
+  // Batasi maksimal 4 toast bertumpuk
+  while (container.children.length >= 4) {
+    container.removeChild(container.firstChild);
+  }
+
+  const toast = document.createElement('div');
+  toast.id = `keepToast_${id}`;
+  toast.className = 'pointer-events-auto w-full max-w-sm sm:max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border-2 border-emerald-400/80 p-4 transition-all duration-300 transform translate-x-10 opacity-0';
+  toast.style.boxShadow = '0 20px 35px -10px rgba(16, 185, 129, 0.25), 0 10px 15px -5px rgba(0, 0, 0, 0.05)';
+
+  toast.innerHTML = `
+    <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+      <div class="flex items-center gap-2">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+        </span>
+        <span class="text-[10px] font-black tracking-wider uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+          ⚡ Format Keep Baru
+        </span>
+        <span class="text-[11px] font-mono font-bold text-slate-500">
+          ${displayTime}
+        </span>
+      </div>
+      <button type="button" onclick="closeKeepToast('${id}')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition hover:bg-slate-100 cursor-pointer" title="Tutup Notifikasi">
+        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="cursor-pointer group" onclick="focusKeepRow('${id}')" title="Klik untuk membuka dan melihat data di tabel">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="font-extrabold text-slate-900 text-xs truncate max-w-[190px]">${escapeHtml(custName)}</span>
+            ${isKredit ? '<span class="text-[9px] font-black bg-purple-100 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded-full">KREDIT</span>' : ''}
+          </div>
+          <div class="text-[11px] font-semibold text-emerald-600 font-mono mt-0.5 flex items-center gap-1">
+            <svg class="size-3 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <span>${escapeHtml(displayWA)}</span>
+          </div>
+        </div>
+        <span class="shrink-0 text-[10px] font-bold font-mono text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg shadow-2xs">
+          ${escapeHtml(kodeSosmed)}
+        </span>
+      </div>
+      <div class="mt-2 bg-slate-50/90 rounded-xl p-2.5 border border-slate-100">
+        <div class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Barang Keep</div>
+        <div class="font-bold text-xs text-slate-800 line-clamp-2 mt-0.5">${escapeHtml(barangKeep)}</div>
+        ${catatan ? `<div class="text-[11px] text-slate-500 mt-1 line-clamp-2 italic">"${escapeHtml(catatan)}"</div>` : ''}
+      </div>
+      <div class="mt-2.5 flex items-center justify-between text-xs pt-1 border-t border-slate-100/60">
+        <span class="text-[10px] text-slate-400">Ambil: <strong class="text-slate-700">${escapeHtml(tglAmbil)}</strong></span>
+        <span class="inline-flex items-center gap-1 font-bold text-[11px] text-emerald-600 group-hover:text-emerald-700 transition">
+          Lihat di Tabel <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+        </span>
+      </div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  // Animasi slide-in smooth
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-x-10', 'opacity-0');
+    toast.classList.add('translate-x-0', 'opacity-100');
+  });
+
+  // Otomatis dismiss setelah 9 detik
+  setTimeout(() => {
+    closeKeepToast(id);
+  }, 9000);
+}
+window.showKeepNewNotification = showKeepNewNotification;
+
+function closeKeepToast(id) {
+  const toast = document.getElementById(`keepToast_${id}`);
+  if (!toast) return;
+  toast.classList.remove('translate-x-0', 'opacity-100');
+  toast.classList.add('translate-x-10', 'opacity-0');
+  setTimeout(() => {
+    if (toast && toast.parentNode) {
+      toast.parentNode.removeChild(toast);
+    }
+  }, 320);
+}
+window.closeKeepToast = closeKeepToast;
+
+function focusKeepRow(id) {
+  if (typeof switchTab === 'function') {
+    switchTab(4);
+  }
+  const searchInput = document.getElementById('keepSearchInput');
+  if (searchInput) searchInput.value = '';
+  keepCurrentPage = 1;
+  applyKeepFilters();
+  renderKeepPage();
+
+  setTimeout(() => {
+    const tbody = document.getElementById('keepTableBody');
+    if (tbody) {
+      const target = tbody.querySelector(`tr[data-keep-id="${id}"]`) || tbody.firstElementChild;
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('ring-4', 'ring-emerald-400', 'bg-emerald-100/60');
+        setTimeout(() => {
+          target.classList.remove('ring-4', 'ring-emerald-400', 'bg-emerald-100/60');
+        }, 4500);
+      }
+    }
+  }, 200);
+}
+window.focusKeepRow = focusKeepRow;
+
+async function pollLatestKeepData() {
+  if (isKeepPollingRunning) return;
+  isKeepPollingRunning = true;
+
+  try {
+    // Inisialisasi ID tertinggi jika belum tersedia
+    if (!latestKnownKeepId || latestKnownKeepId <= 0) {
+      const initRes = await fetch(`/api/sosmed-keeps/latest?after_id=0&t=${Date.now()}`);
+      if (initRes.ok) {
+        const initJson = await initRes.json();
+        if (initJson && initJson.latest_id) {
+          latestKnownKeepId = parseInt(initJson.latest_id, 10) || 0;
+        }
+      }
+      isKeepPollingRunning = false;
+      return;
+    }
+
+    const res = await fetch(`/api/sosmed-keeps/latest?after_id=${latestKnownKeepId}&t=${Date.now()}`);
+    if (!res.ok) {
+      isKeepPollingRunning = false;
+      return;
+    }
+
+    const json = await res.json();
+    if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
+      if (json.latest_id && json.latest_id > latestKnownKeepId) {
+        latestKnownKeepId = json.latest_id;
+      }
+
+      // Urutkan ascending berdasarkan id agar item terlama dimasukkan dahulu, dan yang terbaru di index 0
+      const sortedNewItems = [...json.data].sort((a, b) => (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0));
+
+      let addedCount = 0;
+      sortedNewItems.forEach(item => {
+        const numId = parseInt(item.id, 10);
+        if (numId > latestKnownKeepId) {
+          latestKnownKeepId = numId;
+        }
+
+        if (Array.isArray(rawKeepRows) && rawKeepRows.some(r => r.id === item.id)) {
+          return;
+        }
+
+        const newRow = {
+          'id': item.id,
+          'Timestamp': item.keep_timestamp || new Date().toISOString(),
+          'Nomor Sender': item.nomor_sender || '',
+          'Grup ID': item.grup_id || '',
+          'Sender': item.sender || '',
+          'GRUP': item.grup || '',
+          '!grup': item.jenis_chat || 'GRUP',
+          'Nama': item.nama || '',
+          'Nomor WA': item.nomor_wa || '',
+          'Barang Keep': item.barang_keep || '',
+          'Tanggal Ambil': item.tanggal_ambil || '',
+          'Catatan': item.catatan || '',
+          'Remarks': item.remarks || '',
+          'Kode Sosmed': item.kode_sosmed || '',
+          'REPORT AR': item.report_ar || '',
+          'Tanggal Input AR': item.tanggal_input_ar || '',
+          'AR dari VLOOKUP': item.ar_vlookup || '',
+          'Tanggal VLOOKUP': item.tanggal_vlookup || '',
+          'Cabang': item.cabang || '',
+          'Evidence': item.evidence || '',
+          'Nomor Follow Up': item.nomor_follow_up || '',
+          'Nama Tim Follow Up': item.nama_tim_follow_up || '',
+          'Status': item.status || 'PENDING',
+          'Feedback Tim FU': item.feedback_tim_fu || '',
+          'NAMA TOKO KOMPETITOR\n(JIKA USER DEAL DI TOKO LAIN)': item.nama_toko_kompetitor || '',
+          'USER KREDIT': item.user_kredit || 'NON KREDIT',
+          'PERIODE': item.periode || '',
+          'ITEM': item.item || '',
+          'HAPUS DATA': 'FALSE',
+          'Nomor FU': item.nomor_fu || '',
+          _isNewlyArrived: true,
+          _gsheetsIndex: (rawKeepRows || []).length
+        };
+
+        if (Array.isArray(rawKeepRows)) {
+          rawKeepRows.unshift(newRow);
+        }
+        addedCount++;
+
+        // Trigger notifikasi pop-up & suara audio chime
+        showKeepNewNotification(newRow);
+        playKeepNotificationChime();
+
+        // Hilangkan sorotan baris baru setelah 18 detik
+        setTimeout(() => {
+          newRow._isNewlyArrived = false;
+          if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 4) {
+            renderKeepPage();
+          }
+        }, 18000);
+      });
+
+      if (addedCount > 0) {
+        console.log(`⚡ [Realtime Keep Engine] ${addedCount} format keep baru diterima secara realtime!`);
+        const pill = document.getElementById('keepStatusPill');
+        if (pill && Array.isArray(rawKeepRows)) {
+          pill.innerHTML = `<span>⚡ Sumber: Database SQL MySQL (${rawKeepRows.length.toLocaleString('id-ID')} Data Realtime)</span>`;
+        }
+        keepCurrentPage = 1;
+        applyKeepFilters();
+        if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 4) {
+          renderKeepPage();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Realtime keep poll error:', err);
+  } finally {
+    isKeepPollingRunning = false;
+  }
+}
+window.pollLatestKeepData = pollLatestKeepData;
+
+function startKeepRealtimePolling() {
+  if (keepRealtimePollingInterval) {
+    clearInterval(keepRealtimePollingInterval);
+  }
+  // Polling setiap 3 detik
+  keepRealtimePollingInterval = setInterval(pollLatestKeepData, 3000);
+  console.log('⚡ Keep Realtime Polling Engine aktif (Interval 3 detik)');
+}
+window.startKeepRealtimePolling = startKeepRealtimePolling;
 
 async function saveKeepFeedbackInline(inputEl, rawWA, keepRowIdx) {
   if (!inputEl) return;
@@ -7397,6 +7766,13 @@ function startRealtimeSyncEngine() {
   // Polling fallback status server setiap 10 detik
   syncEngineInterval = setInterval(pollServerSyncStatus, 10000);
   console.log('📡 Realtime Cross-Device SSE & Fallback Sync Engine aktif');
+
+  // Mulai engine realtime polling format keep & pop-up toast notifikasi
+  try {
+    startKeepRealtimePolling();
+  } catch (e) {
+    console.warn('startKeepRealtimePolling error:', e);
+  }
 }
 
 
@@ -9506,11 +9882,153 @@ function scrollToOmniQuotedMessage(quotedId, quotedText) {
 }
 window.scrollToOmniQuotedMessage = scrollToOmniQuotedMessage;
 
+let omniZoom = 1;
+let omniPanX = 0;
+let omniPanY = 0;
+let isOmniDragging = false;
+let omniDragStartX = 0;
+let omniDragStartY = 0;
+let omniHasMoved = false;
+let isOmniZoomInitialized = false;
+
+function updateOmniImageTransform() {
+  const img = document.getElementById('omniImageModalImg');
+  const stage = document.getElementById('omniImageStage');
+  const zoomText = document.getElementById('omniImageZoomLevel');
+  if (!img) return;
+
+  img.style.transform = `translate(${omniPanX}px, ${omniPanY}px) scale(${omniZoom})`;
+
+  if (zoomText) {
+    zoomText.textContent = Math.round(omniZoom * 100) + '%';
+  }
+  if (stage) {
+    if (omniZoom > 1.05) {
+      stage.style.cursor = isOmniDragging ? 'grabbing' : 'grab';
+    } else {
+      stage.style.cursor = isOmniDragging ? 'grabbing' : 'zoom-in';
+    }
+  }
+}
+
+function resetOmniZoom() {
+  omniZoom = 1;
+  omniPanX = 0;
+  omniPanY = 0;
+  isOmniDragging = false;
+  omniHasMoved = false;
+  updateOmniImageTransform();
+}
+
+function zoomOmni(delta) {
+  const oldZoom = omniZoom;
+  let newZoom = Math.round((omniZoom + delta) * 100) / 100;
+  newZoom = Math.min(Math.max(0.5, newZoom), 5.0); // 50% hingga 500%
+
+  if (Math.abs(newZoom - oldZoom) < 0.001) return;
+
+  omniZoom = newZoom;
+
+  // Jika kembali ke ukuran 100% atau lebih kecil, selalu kunci posisi center (0, 0)
+  if (omniZoom <= 1.0) {
+    omniPanX = 0;
+    omniPanY = 0;
+  }
+
+  updateOmniImageTransform();
+}
+
+function initOmniZoomEvents() {
+  if (isOmniZoomInitialized) return;
+  const modal = document.getElementById('omniImageModal');
+  const stage = document.getElementById('omniImageStage');
+  const img = document.getElementById('omniImageModalImg');
+  if (!modal || !stage || !img) return;
+
+  isOmniZoomInitialized = true;
+
+  // Zoom dengan scroll wheel mouse selalu center di tengah layar
+  modal.addEventListener('wheel', (e) => {
+    if (modal.style.display === 'none') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY < 0 ? 0.2 : -0.2;
+    zoomOmni(delta);
+  }, { passive: false });
+
+  // Drag / Pan untuk menggeser gambar secara leluasa
+  stage.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return; // Hanya klik kiri
+    isOmniDragging = true;
+    omniHasMoved = false;
+    omniDragStartX = e.clientX - omniPanX;
+    omniDragStartY = e.clientY - omniPanY;
+    stage.classList.add('is-dragging');
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isOmniDragging) return;
+    const dx = Math.abs(e.clientX - (omniDragStartX + omniPanX));
+    const dy = Math.abs(e.clientY - (omniDragStartY + omniPanY));
+    if (dx > 3 || dy > 3) omniHasMoved = true;
+    omniPanX = e.clientX - omniDragStartX;
+    omniPanY = e.clientY - omniDragStartY;
+    updateOmniImageTransform();
+  });
+
+  window.addEventListener('mouseup', (e) => {
+    if (isOmniDragging) {
+      isOmniDragging = false;
+      stage.classList.remove('is-dragging');
+      updateOmniImageTransform();
+
+      // Jika klik di luar gambar (latar belakang gelap) dan tidak melakukan drag, tutup modal
+      if (!omniHasMoved && e.target === stage) {
+        closeOmniImageModal();
+      }
+    }
+  });
+
+  // Double click pada gambar/stage untuk zoom 1.8x atau reset ke center
+  stage.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    if (omniZoom > 1.05 || omniPanX !== 0 || omniPanY !== 0) {
+      resetOmniZoom();
+    } else {
+      omniZoom = 1.8;
+      omniPanX = 0;
+      omniPanY = 0;
+      updateOmniImageTransform();
+    }
+  });
+
+  // Pintasan keyboard (Escape, +, -, 0)
+  window.addEventListener('keydown', (e) => {
+    if (modal.style.display === 'none') return;
+    if (e.key === 'Escape') {
+      closeOmniImageModal();
+    } else if (e.key === '+' || e.key === '=') {
+      zoomOmni(0.25);
+    } else if (e.key === '-' || e.key === '_') {
+      zoomOmni(-0.25);
+    } else if (e.key === '0') {
+      resetOmniZoom();
+    }
+  });
+}
+
 function openOmniImageModal(src) {
   const modal = document.getElementById('omniImageModal');
   const img = document.getElementById('omniImageModalImg');
   const dl = document.getElementById('omniImageModalDownload');
   if (modal && img) {
+    // Pindahkan modal langsung ke document.body agar posisi fixed selalu 100% full screen dan center
+    if (modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+    initOmniZoomEvents();
+    resetOmniZoom();
     img.src = src;
     if (dl) dl.href = src;
     modal.style.display = 'flex';
@@ -9519,8 +10037,16 @@ function openOmniImageModal(src) {
 
 function closeOmniImageModal() {
   const modal = document.getElementById('omniImageModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.style.display = 'none';
+    resetOmniZoom();
+  }
 }
+
+window.zoomOmni = zoomOmni;
+window.resetOmniZoom = resetOmniZoom;
+window.openOmniImageModal = openOmniImageModal;
+window.closeOmniImageModal = closeOmniImageModal;
 
 let currentOmniView = 'CHATS'; // 'CHATS' or 'MASTER'
 let currentOmniFolder = 'ALL'; // 'ALL', 'ASSIGNED', 'UNRESPONDED', 'RESOLVED'

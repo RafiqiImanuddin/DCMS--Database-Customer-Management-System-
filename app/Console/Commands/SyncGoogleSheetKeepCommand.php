@@ -22,16 +22,21 @@ class SyncGoogleSheetKeepCommand extends Command
         $rawUrl = (string) ($this->option('url') ?: 'https://docs.google.com/spreadsheets/d/1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0/edit?gid=848355344#gid=848355344');
         $sheetName = (string) ($this->option('sheet') ?: 'DATA KEEP');
 
-        // Extract Spreadsheet ID
+        // Extract Spreadsheet ID and GID
         if (preg_match('#/spreadsheets/d/([a-zA-Z0-9-_]+)#', $rawUrl, $matches)) {
             $spreadsheetId = $matches[1];
         } else {
             $spreadsheetId = '1V0pIa0NZCprJqRwnSnikFaLZ-dd50nY0uE3bjVYsUe0';
         }
 
-        $exportUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&sheet=" . rawurlencode($sheetName);
+        $gid = '1014933310';
+        if (preg_match('#[?&#]gid=([0-9]+)#', $rawUrl, $gidMatches)) {
+            $gid = $gidMatches[1];
+        }
 
-        $this->info("Menghubungi Google Spreadsheet ID: {$spreadsheetId}");
+        $exportUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/export?format=csv&gid={$gid}";
+
+        $this->info("Menghubungi Google Spreadsheet ID: {$spreadsheetId} (GID: {$gid})");
         $this->info("Sheet Target: {$sheetName}");
         $this->info("URL Export: {$exportUrl}");
 
@@ -132,6 +137,14 @@ class SyncGoogleSheetKeepCommand extends Command
 
             $statusRaw = $cleanUtf8($data['status'] ?? 'PENDING', 50);
 
+            $nama = $cleanUtf8($data['nama'] ?? null, 150);
+            $barangKeep = $cleanUtf8($data['barang keep'] ?? $data['barang'] ?? null);
+
+            // Lewati baris kosong artifak rumus spreadsheet (mis. baris Desember-99 kosong)
+            if (empty($nama) && empty($barangKeep) && empty($rawWA) && empty($parsedTimestamp)) {
+                continue;
+            }
+
             $batch[] = [
                 'message_id' => $cleanUtf8($data['messageid'] ?? $data['message id'] ?? null, 100),
                 'keep_timestamp' => $parsedTimestamp ?: $now,
@@ -140,9 +153,9 @@ class SyncGoogleSheetKeepCommand extends Command
                 'sender' => $cleanUtf8($data['sender'] ?? null, 120),
                 'grup' => $cleanUtf8($data['grup'] ?? null, 150),
                 'jenis_chat' => $cleanUtf8($data['!grup'] ?? $data['jenis chat'] ?? 'GRUP', 20) ?: 'GRUP',
-                'nama' => $cleanUtf8($data['nama'] ?? null, 150),
+                'nama' => $nama,
                 'nomor_wa' => $rawWA,
-                'barang_keep' => $cleanUtf8($data['barang keep'] ?? $data['barang'] ?? null),
+                'barang_keep' => $barangKeep,
                 'tanggal_ambil' => $cleanUtf8($data['tanggal ambil'] ?? $data['tanggal'] ?? null, 100),
                 'catatan' => $cleanUtf8($data['catatan'] ?? null),
                 'remarks' => $cleanUtf8($data['remarks'] ?? $data['remaks'] ?? null, 120),
