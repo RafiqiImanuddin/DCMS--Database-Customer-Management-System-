@@ -11,6 +11,7 @@ use App\Models\Turnover;
 use App\Models\TurnoverImport;
 use App\Services\CrossSellingImporter;
 use App\Services\FastXlsxWriter;
+use App\Services\KeepCrossSellingMatcher;
 use App\Services\RepeatOrderPredictor;
 use App\Services\TurnoverImporter;
 use Illuminate\Http\JsonResponse;
@@ -132,7 +133,8 @@ class CrossSellingImportController extends Controller
         Request $request,
         CrossSellingImporter $crossSellingImporter,
         TurnoverImporter $turnoverImporter,
-        RepeatOrderPredictor $predictor
+        RepeatOrderPredictor $predictor,
+        KeepCrossSellingMatcher $keepMatcher
     ): JsonResponse|RedirectResponse {
         abort_unless($request->user()?->canAccessFeature('imports'), 403, 'Akses terbatas: Fitur Pusat Unggah Data tidak diaktifkan untuk akun Anda.');
 
@@ -241,6 +243,24 @@ class CrossSellingImportController extends Controller
                 $crossSellingImporter->import($cImport);
                 $cImport->refresh();
                 if ($cImport->status === 'completed') {
+                    // Auto-matching: Cocokkan nomor HP dan item transaksi dengan data Format Keep (Closing WIN Detector)
+                    try {
+                        $matchStats = $keepMatcher->matchImport($cImport);
+                        if (! empty($matchStats['matched_count'])) {
+                            $results['keep_matches'] = $matchStats['matched_count'];
+                            ActivityNotification::log(
+                                title: 'Closing WIN Format Keep Otomatis',
+                                message: "Auto-Match SAP: {$matchStats['matched_count']} booking/keep konsumen berhasil Closing WIN dari data Cross-Selling ({$cImport->original_name})",
+                                user: $request->user(),
+                                type: 'success',
+                                action: 'keep_auto_match_win',
+                                icon: 'check-circle'
+                            );
+                        }
+                    } catch (\Throwable $mErr) {
+                        \Illuminate\Support\Facades\Log::warning('Keep auto-match error: ' . $mErr->getMessage());
+                    }
+
                     if ($request->boolean('sync_rebuild', false)) {
                         $predictor->rebuild();
                     } else {
@@ -347,12 +367,15 @@ class CrossSellingImportController extends Controller
                 Setting::updateOrCreate(['key' => 'workspace_turnover_uploader'], ['value' => $uploaderName]);
                 Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $origTurnoverName]);
                 Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($turnoverBytes)]);
-                Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($turnoverBytes)]);
+                try {
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($turnoverBytes)]);
+                } catch (\Throwable $b64Err) {
+                    \Illuminate\Support\Facades\Log::warning('Workspace turnover base64 warning: ' . $b64Err->getMessage());
+                }
 
                 $targetTurnover = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'turnover.xlsx');
-                if (is_dir(dirname($targetTurnover))) {
-                    @file_put_contents($targetTurnover, $turnoverBytes);
-                }
+                \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($targetTurnover));
+                @file_put_contents($targetTurnover, $turnoverBytes);
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Workspace turnover sync warning: ' . $e->getMessage());
             }
@@ -361,7 +384,8 @@ class CrossSellingImportController extends Controller
         $messageParts = [];
         if (isset($results['cross_selling'])) {
             $c = $results['cross_selling'];
-            $messageParts[] = "Cross-Selling ({$c['success_count']} baris)";
+            $matchSuffix = ! empty($results['keep_matches']) ? " — 🎯 {$results['keep_matches']} transaksi otomatis Closing WIN dengan Format Keep" : '';
+            $messageParts[] = "Cross-Selling ({$c['success_count']} baris{$matchSuffix})";
         }
         if (isset($results['turnover'])) {
             $t = $results['turnover'];

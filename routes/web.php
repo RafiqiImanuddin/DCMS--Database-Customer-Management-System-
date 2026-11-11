@@ -230,6 +230,10 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
             $actionTitle = 'EKSPOR CORE DATABASE SQL & DATA KEEP';
             \Illuminate\Support\Facades\Artisan::call('db:export-cpanel');
             $actionOutput = \Illuminate\Support\Facades\Artisan::output();
+        } elseif ($action === 'match-cross-selling') {
+            $actionTitle = 'PENCOCOKAN FORMAT KEEP VS CROSS-SELLING (CLOSING WIN)';
+            \Illuminate\Support\Facades\Artisan::call('keep:match-cross-selling');
+            $actionOutput = \Illuminate\Support\Facades\Artisan::output();
         } else {
             \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
             $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
@@ -262,7 +266,8 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
     <a href="?key=dcms2026&action=migrate" style="background:#2563eb; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">⚡ 1. Jalankan Migrasi Skema</a>
     <a href="?key=dcms2026&action=import-keeps" style="background:#059669; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📥 2. Impor 13k+ Data Keep dari CSV</a>
     <a href="?key=dcms2026&action=sync-google-sheet" style="background:#d97706; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🔄 3. Sinkronisasi Langsung dari Google Sheet</a>
-    <a href="?key=dcms2026&action=export-core" style="background:#4b5563; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📦 4. Generate Ulang Core Dump</a>
+    <a href="?key=dcms2026&action=match-cross-selling" style="background:#7c3aed; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🎯 4. Cocokkan Keep vs Cross-Selling</a>
+    <a href="?key=dcms2026&action=export-core" style="background:#4b5563; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📦 5. Generate Ulang Core Dump</a>
 </div>
 HTML;
 

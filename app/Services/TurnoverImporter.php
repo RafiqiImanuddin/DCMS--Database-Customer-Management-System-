@@ -43,14 +43,14 @@ class TurnoverImporter
      * Map of standard field names to possible Excel header variations.
      */
     private const HEADER_SYNONYMS = [
-        'posting_date' => ['posting date', 'tanggal posting', 'date', 'tgl posting', 'docdate'],
-        'document_number' => ['document number', 'docnum', 'no faktur', 'no dokumen', 'document no', 'faktur'],
-        'slp_name' => ['sales employee name', 'slpname', 'nama sales', 'sales name', 'sales'],
+        'posting_date' => ['posting date', 'tanggal posting', 'date', 'tgl posting', 'docdate', 'posting_date', 'tanggal', 'tgl'],
+        'document_number' => ['document number', 'docnum', 'no faktur', 'no dokumen', 'document no', 'faktur', 'document_number', 'no_faktur', 'no_dokumen', 'doc_num', 'nomor dokumen'],
+        'slp_name' => ['sales employee name', 'slpname', 'nama sales', 'sales name', 'sales', 'slp_name', 'nama_sales'],
         'remarks' => ['remarks', 'keterangan', 'catatan', 'memo'],
-        'sales_cabang' => ['salescabang', 'sales cabang', 'cabang', 'branch'],
-        'dpp' => ['dpp', 'nilai dpp', 'amount dpp', 'omset dpp'],
-        'gross_profit' => ['fix', 'grossprofit', 'gross profit', 'gp', 'laba kotor'],
-        'total' => ['total', 'grand total', 'total amount', 'nilai transaksi'],
+        'sales_cabang' => ['salescabang', 'sales cabang', 'cabang', 'branch', 'sales_cabang'],
+        'dpp' => ['dpp', 'nilai dpp', 'amount dpp', 'omset dpp', 'nilai_dpp', 'dpp omset'],
+        'gross_profit' => ['fix', 'grossprofit', 'gross profit', 'gp', 'laba kotor', 'gross_profit', 'laba_kotor'],
+        'total' => ['total', 'grand total', 'total amount', 'nilai transaksi', 'grand_total', 'total_amount'],
     ];
 
     public function import(TurnoverImport $import): void
@@ -90,18 +90,28 @@ class TurnoverImporter
                 ]);
 
                 // Sync binary to Supabase settings table & local workspace folder
-                $fileBinary = @file_get_contents($path);
-                if ($fileBinary) {
-                    $nowMs = (string) round(microtime(true) * 1000);
-                    $uploader = $import->user?->name ?? 'Superadmin';
-                    Setting::updateOrCreate(['key' => 'workspace_turnover_mtime'], ['value' => $nowMs]);
-                    Setting::updateOrCreate(['key' => 'workspace_turnover_uploader'], ['value' => $uploader]);
-                    Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $import->original_name]);
-                    Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($fileBinary)]);
-                    Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($fileBinary)]);
+                try {
+                    $fileBinary = @file_get_contents($path);
+                    if ($fileBinary) {
+                        $nowMs = (string) round(microtime(true) * 1000);
+                        $uploader = $import->user?->name ?? 'Superadmin';
+                        Setting::updateOrCreate(['key' => 'workspace_turnover_mtime'], ['value' => $nowMs]);
+                        Setting::updateOrCreate(['key' => 'workspace_turnover_uploader'], ['value' => $uploader]);
+                        Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $import->original_name]);
+                        Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($fileBinary)]);
 
-                    $workspaceTarget = public_path('workspace-sosmed/turnover.xlsx');
-                    @File::put($workspaceTarget, $fileBinary);
+                        try {
+                            Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($fileBinary)]);
+                        } catch (\Throwable $b64Err) {
+                            \Illuminate\Support\Facades\Log::warning('Setting base64 turnover warning: '.$b64Err->getMessage());
+                        }
+
+                        $workspaceTarget = public_path('workspace-sosmed/turnover.xlsx');
+                        \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($workspaceTarget));
+                        @\Illuminate\Support\Facades\File::put($workspaceTarget, $fileBinary);
+                    }
+                } catch (\Throwable $syncErr) {
+                    \Illuminate\Support\Facades\Log::warning('Turnover workspace sync error: '.$syncErr->getMessage());
                 }
             });
         } catch (Throwable $exception) {
@@ -128,9 +138,20 @@ class TurnoverImporter
         $reader->setReadDataOnly(true);
         $reader->setReadEmptyCells(false);
 
-        // Select TARIKKAN sheet if exists, otherwise first sheet
+        // Select TARIKKAN or TURNOVER sheet if exists (case-insensitive), otherwise first sheet
         $sheetNames = $reader->listWorksheetNames($path);
-        $targetSheet = in_array('TARIKKAN', $sheetNames, true) ? 'TARIKKAN' : ($sheetNames[0] ?? null);
+        $targetSheet = null;
+        foreach ($sheetNames as $sName) {
+            $upper = strtoupper(trim($sName));
+            if ($upper === 'TARIKKAN' || $upper === 'TURNOVER' || str_contains($upper, 'TARIKKAN')) {
+                $targetSheet = $sName;
+                break;
+            }
+        }
+        if (! $targetSheet) {
+            $targetSheet = $sheetNames[0] ?? null;
+        }
+
         if ($targetSheet) {
             $reader->setLoadSheetsOnly([$targetSheet]);
         }
@@ -140,14 +161,35 @@ class TurnoverImporter
         $sheet = $spreadsheet->getActiveSheet();
         $highestRow = $sheet->getHighestDataRow();
 
-        $headers = array_map(
-            fn ($header) => trim((string) $header),
-            $sheet->rangeToArray('A1:ZZ1', null, true, false)[0] ?? [],
-        );
+        // Scan rows 1 to 5 to accurately detect the header row (handles title/empty rows at top)
+        $headerRow = 1;
+        $headers = [];
+        $headerMap = [];
+        $maxScan = min(5, $highestRow);
 
-        $headerMap = $this->mapHeaders($headers);
+        for ($r = 1; $r <= $maxScan; $r++) {
+            $candidateHeaders = array_map(
+                fn ($header) => trim((string) $header),
+                $sheet->rangeToArray("A{$r}:ZZ{$r}", null, true, false)[0] ?? [],
+            );
+            $candidateMap = $this->mapHeaders($candidateHeaders);
+            if (count($candidateMap) >= 2) {
+                $headerRow = $r;
+                $headers = $candidateHeaders;
+                $headerMap = $candidateMap;
+                break;
+            }
+        }
 
-        for ($startRow = 2; $startRow <= $highestRow; $startRow += 1000) {
+        if (empty($headerMap)) {
+            $headers = array_map(
+                fn ($header) => trim((string) $header),
+                $sheet->rangeToArray('A1:ZZ1', null, true, false)[0] ?? [],
+            );
+            $headerMap = $this->mapHeaders($headers);
+        }
+
+        for ($startRow = $headerRow + 1; $startRow <= $highestRow; $startRow += 1000) {
             $endRow = min($startRow + 999, $highestRow);
             $rows = $sheet->rangeToArray("A{$startRow}:ZZ{$endRow}", null, true, false);
             $this->processRows($rows, $headerMap, $startRow, $import, $rowCount, $successCount, $errors, $minimumDate, $maximumDate);
@@ -176,8 +218,29 @@ class TurnoverImporter
         rewind($handle);
 
         $headers = fgetcsv($handle, 0, $delimiter) ?: [];
-        $headers = array_map(fn ($header) => trim((string) $header), $headers);
+        $headers = array_map(function ($header) {
+            // Remove UTF-8 BOM if present
+            $clean = preg_replace('/^\xEF\xBB\xBF/', '', (string) $header);
+            return trim($clean);
+        }, $headers);
+
         $headerMap = $this->mapHeaders($headers);
+
+        // If row 1 did not have enough headers, check row 2
+        $sourceRow = 2;
+        if (count($headerMap) < 2) {
+            $candidate = fgetcsv($handle, 0, $delimiter) ?: [];
+            $candidateHeaders = array_map(fn ($h) => trim(preg_replace('/^\xEF\xBB\xBF/', '', (string) $h)), $candidate);
+            $candidateMap = $this->mapHeaders($candidateHeaders);
+            if (count($candidateMap) >= 2) {
+                $headers = $candidateHeaders;
+                $headerMap = $candidateMap;
+                $sourceRow = 3;
+            } else {
+                rewind($handle);
+                fgetcsv($handle, 0, $delimiter); // skip row 1
+            }
+        }
 
         $rows = [];
         $sourceRow = 2;

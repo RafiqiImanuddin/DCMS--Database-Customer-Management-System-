@@ -191,6 +191,13 @@ class EmployeeSettingController extends Controller
             $validated['avatar_color'] = $palette[array_rand($palette)];
         }
 
+        if (! Schema::hasColumn('employees', 'target')) {
+            unset($validated['target']);
+        }
+        if (! Schema::hasColumn('employees', 'level')) {
+            unset($validated['level']);
+        }
+
         Employee::create($validated);
 
         return redirect()->route('settings.karyawan.index', ['tab' => 'employees'])
@@ -233,6 +240,13 @@ class EmployeeSettingController extends Controller
 
         if (! isset($validated['target']) || $validated['target'] === null || $validated['target'] === '') {
             $validated['target'] = $employee->target ?? 867261886.00;
+        }
+
+        if (! Schema::hasColumn('employees', 'target')) {
+            unset($validated['target']);
+        }
+        if (! Schema::hasColumn('employees', 'level')) {
+            unset($validated['level']);
         }
 
         $employee->update($validated);

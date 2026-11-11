@@ -92,6 +92,27 @@ class UnifiedDataImportTest extends TestCase
         $this->assertDatabaseHas('turnovers', ['document_number' => 'DOC-201', 'dpp' => 10000000]);
     }
 
+    public function test_turnover_upload_handles_csv_with_title_row_at_top(): void
+    {
+        Storage::fake('local');
+        $superadmin = User::factory()->superadmin()->create();
+
+        $csv = implode("\n", [
+            'LAPORAN TURNOVER BULAN OKTOBER 2026,,,,,,,,',
+            'Cabang,Posting Date,No Faktur,Nama Sales,Remarks,SalesCabang,Nilai DPP,Gross Profit,Total',
+            'Banjarmasin,2026-10-19,DOC-TITLE-01,Sales 2,Online,Banjarmasin,5000000,250000,5550000',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('turnover_with_title.csv', $csv);
+
+        $response = $this->actingAs($superadmin)->post(route('imports.store'), [
+            'turnover_file' => $file,
+        ]);
+
+        $response->assertRedirect(route('imports.index'));
+        $this->assertDatabaseHas('turnover_imports', ['original_name' => 'turnover_with_title.csv', 'status' => 'completed']);
+        $this->assertDatabaseHas('turnovers', ['document_number' => 'DOC-TITLE-01', 'dpp' => 5000000]);
+    }
+
     public function test_server_upload_limit_error_on_turnover_file_returns_clear_actionable_message(): void
     {
         $superadmin = User::factory()->superadmin()->create();

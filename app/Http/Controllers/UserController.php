@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class UserController extends Controller
@@ -354,14 +355,20 @@ class UserController extends Controller
             ? array_values($validated['permissions'])
             : User::defaultPermissionsForRole($role);
 
-        User::create([
+        $userData = [
             'name' => trim($validated['name']),
             'email' => strtolower(trim($validated['email'])),
-            'phone' => !empty($validated['phone']) ? trim($validated['phone']) : null,
             'password' => Hash::make($validated['password']),
             'role' => $role,
-            'permissions' => $permissions,
-        ]);
+        ];
+        if (Schema::hasColumn('users', 'phone') && ! empty($validated['phone'])) {
+            $userData['phone'] = trim($validated['phone']);
+        }
+        if (Schema::hasColumn('users', 'permissions')) {
+            $userData['permissions'] = $permissions;
+        }
+
+        User::create($userData);
 
         return back()->with('success', 'Akun ' . $validated['name'] . ' berhasil ditambahkan beserta izin checklist fiturnya.');
     }
@@ -398,7 +405,9 @@ class UserController extends Controller
             $user->role = $validated['role'];
         }
 
-        $user->permissions = array_values($validated['permissions'] ?? []);
+        if (Schema::hasColumn('users', 'permissions')) {
+            $user->permissions = array_values($validated['permissions'] ?? []);
+        }
         $user->save();
 
         try {

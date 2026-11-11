@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class SosmedShiftController extends Controller
@@ -76,9 +77,11 @@ class SosmedShiftController extends Controller
 
         // Kumpulkan daftar karyawan HANYA dari bagian Karyawan & Bobot KPI (Model Employee)
         // Karyawan wajib berada paling atas, kemudian disusul Internship, lalu urut alfabetis
-        $employees = Employee::query()
-            ->where('status', 'active')
-            ->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END")
+        $employeesQuery = Employee::query()->where('status', 'active');
+        if (Schema::hasColumn('employees', 'level')) {
+            $employeesQuery->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END");
+        }
+        $employees = $employeesQuery
             ->orderBy('name')
             ->get();
 

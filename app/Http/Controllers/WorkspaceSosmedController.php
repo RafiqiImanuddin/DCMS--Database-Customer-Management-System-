@@ -1302,10 +1302,18 @@ class WorkspaceSosmedController extends Controller
 
         $nowMs = (string) round(microtime(true) * 1000);
         $prefix = $fileType === 'croselling' ? 'workspace_croselling' : 'workspace_turnover';
-        Setting::updateOrCreate(['key' => "{$prefix}_mtime"], ['value' => $nowMs]);
-        Setting::updateOrCreate(['key' => "{$prefix}_uploader"], ['value' => $user->name]);
-        Setting::updateOrCreate(['key' => "{$prefix}_filesize"], ['value' => (string) strlen($content)]);
-        Setting::updateOrCreate(['key' => "{$prefix}_file_base64"], ['value' => base64_encode($content)]);
+        try {
+            Setting::updateOrCreate(['key' => "{$prefix}_mtime"], ['value' => $nowMs]);
+            Setting::updateOrCreate(['key' => "{$prefix}_uploader"], ['value' => $user->name]);
+            Setting::updateOrCreate(['key' => "{$prefix}_filesize"], ['value' => (string) strlen($content)]);
+            try {
+                Setting::updateOrCreate(['key' => "{$prefix}_file_base64"], ['value' => base64_encode($content)]);
+            } catch (\Throwable $b64Err) {
+                \Illuminate\Support\Facades\Log::warning("Workspace saveExcel base64 warning: {$b64Err->getMessage()}");
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Workspace saveExcel error: {$e->getMessage()}");
+        }
 
         return response()->json([
             'success' => true,
@@ -1383,11 +1391,19 @@ class WorkspaceSosmedController extends Controller
 
         $nowMs = (string) round(microtime(true) * 1000);
         $prefix = $fileType === 'croselling' ? 'workspace_croselling' : 'workspace_turnover';
-        Setting::updateOrCreate(['key' => "{$prefix}_mtime"], ['value' => $nowMs]);
-        Setting::updateOrCreate(['key' => "{$prefix}_uploader"], ['value' => $user->name]);
-        Setting::updateOrCreate(['key' => "{$prefix}_filename"], ['value' => $originalName]);
-        Setting::updateOrCreate(['key' => "{$prefix}_filesize"], ['value' => (string) strlen($fullBuffer)]);
-        Setting::updateOrCreate(['key' => "{$prefix}_file_base64"], ['value' => base64_encode($fullBuffer)]);
+        try {
+            Setting::updateOrCreate(['key' => "{$prefix}_mtime"], ['value' => $nowMs]);
+            Setting::updateOrCreate(['key' => "{$prefix}_uploader"], ['value' => $user->name]);
+            Setting::updateOrCreate(['key' => "{$prefix}_filename"], ['value' => $originalName]);
+            Setting::updateOrCreate(['key' => "{$prefix}_filesize"], ['value' => (string) strlen($fullBuffer)]);
+            try {
+                Setting::updateOrCreate(['key' => "{$prefix}_file_base64"], ['value' => base64_encode($fullBuffer)]);
+            } catch (\Throwable $b64Err) {
+                \Illuminate\Support\Facades\Log::warning("Workspace uploadExcelChunk base64 warning: {$b64Err->getMessage()}");
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Workspace uploadExcelChunk error: {$e->getMessage()}");
+        }
 
         // Clean up temporary chunks
         File::deleteDirectory($tempDir);
