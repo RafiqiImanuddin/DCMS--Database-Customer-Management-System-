@@ -11,7 +11,7 @@
                                     <polyline points="10 9 9 9 8 9"></polyline>
                                 </svg>
                             </span>
-                            <span id="turnoverBannerText" class="banner-text">Database Turnover Realtime (Memuat status...)</span>
+                            <span id="turnoverBannerText" class="banner-text">Database Turnover Realtime (MySQL)</span>
                         </div>
                         <div class="banner-right">
                             <button type="button" class="btn-banner-action btn-target-action"

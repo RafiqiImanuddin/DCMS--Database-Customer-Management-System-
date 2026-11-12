@@ -66,11 +66,10 @@
             margin: 0 !important;
         }
 
-        .public-matrix-wrap .turnover-report-banner {
-            border-radius: 0.875rem !important;
-            margin-bottom: 1rem !important;
-            border: 1px solid #e2e8f0 !important;
-            background: #ffffff !important;
+        .public-matrix-wrap .turnover-report-banner,
+        .public-view-only #turnoverReportBanner,
+        .public-view-only .turnover-report-banner {
+            display: none !important;
         }
 
         /* Smooth Section Toggling */
@@ -688,17 +687,6 @@
             setPublicReportMode(savedReportMode);
 
             startAutoRefresh();
-
-            // Proteksi Fallback Status Banner Turnover
-            setTimeout(() => {
-                const bText = document.getElementById('turnoverBannerText');
-                if (bText && (bText.innerText.includes('Memuat status') || bText.innerText.trim() === '')) {
-                    const cnt = (typeof rawTurnoverRows !== 'undefined' && Array.isArray(rawTurnoverRows) && rawTurnoverRows.length > 0) 
-                        ? rawTurnoverRows.length 
-                        : 757;
-                    bText.innerText = `Database Turnover Realtime (${cnt.toLocaleString('id-ID')} transaksi SOSMED • Live MySQL)`;
-                }
-            }, 1200);
         });
     </script>
 </body>

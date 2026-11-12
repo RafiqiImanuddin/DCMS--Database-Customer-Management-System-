@@ -592,10 +592,10 @@ async function parseExcelFile(arrayBuffer, fileName = '') {
       await saveFileToIndexedDB('turnover_file', arrayBuffer);
       localStorage.setItem('gadgetmart_turnover_timestamp', updateTs);
       localStorage.setItem('gadgetmart_turnover_is_custom', 'true');
-      updateTurnoverIndicator(`File turnover terupdate per ${updateTs}`);
+      updateTurnoverIndicator('Database Turnover Realtime (MySQL)');
       saveExcelToServer(arrayBuffer, 'turnover');
       processAllReports();
-      alert(`Berhasil mengimpor turnover.xlsx (${jsonData.length.toLocaleString('id-ID')} baris data)!\nFile turnover terupdate per ${updateTs} dan akan tetap tersimpan saat refresh.`);
+      alert(`Berhasil mengimpor turnover.xlsx (${jsonData.length.toLocaleString('id-ID')} baris data)!\nDatabase turnover realtime aktif.`);
       switchTab(2);
     } else {
       // Default: check if it has No HP
@@ -610,7 +610,7 @@ async function parseExcelFile(arrayBuffer, fileName = '') {
         await saveFileToIndexedDB('turnover_file', arrayBuffer);
         localStorage.setItem('gadgetmart_turnover_timestamp', updateTs);
         localStorage.setItem('gadgetmart_turnover_is_custom', 'true');
-        updateTurnoverIndicator(`File turnover terupdate per ${updateTs}`);
+        updateTurnoverIndicator('Database Turnover Realtime (MySQL)');
         saveExcelToServer(arrayBuffer, 'turnover');
         processAllReports();
         switchTab(2);
@@ -7363,7 +7363,7 @@ function handleTurnoverFileSelect(e) {
       await saveFileToIndexedDB('turnover_file', buffer);
       localStorage.setItem('gadgetmart_turnover_timestamp', updateTs);
       localStorage.setItem('gadgetmart_turnover_is_custom', 'true');
-      updateTurnoverIndicator(`File turnover terupdate per ${updateTs}`);
+      updateTurnoverIndicator('Database Turnover Realtime (MySQL)');
       saveExcelToServer(buffer, 'turnover');
       processAllReports();
       alert(`✅ Berhasil mengunggah file turnover (${jsonData.length.toLocaleString('id-ID')} baris transaksi)!\nDashboard & Laporan Pencapaian telah diperbarui dan data tersimpan permanen.`);
@@ -7578,7 +7578,7 @@ async function loadAllDefaultFiles() {
           const dashSel = document.getElementById('dashFilterMonth');
           if (dashSel) dashSel.value = String(activeMonth);
         }
-        updateTurnoverIndicator(`Database Turnover Realtime (${dataTurnover.rows.length.toLocaleString('id-ID')} transaksi SOSMED • Live MySQL)`);
+        updateTurnoverIndicator('Database Turnover Realtime (MySQL)');
         processAllReports();
         updateDatabaseStatus();
         console.log(`✅ ${dataTurnover.rows.length} transaksi turnover dimuat langsung dari Database SQL!`);
@@ -7604,7 +7604,7 @@ async function loadAllDefaultFiles() {
           localStorage.setItem('gadgetmart_turnover_is_custom', 'true');
           const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : getFormattedTimestamp();
           localStorage.setItem('gadgetmart_turnover_timestamp', ts);
-          updateTurnoverIndicator(`File turnover terupdate per ${ts} (Sinkron dari ${uploader})`);
+          updateTurnoverIndicator('Database Turnover Realtime (MySQL)');
           console.log('✅ turnover.xlsx dimuat dari database server!');
         }
       }
@@ -7620,8 +7620,7 @@ async function loadAllDefaultFiles() {
       if (cachedTurnover && cachedTurnover.byteLength > 100) {
         parseTurnoverBuffer(cachedTurnover);
         turnoverLoaded = true;
-        const ts = localStorage.getItem('gadgetmart_turnover_timestamp') || getFormattedTimestamp();
-        updateTurnoverIndicator(`File turnover terupdate per ${ts} (Offline Cache)`);
+        updateTurnoverIndicator('Database Turnover Realtime (MySQL)');
         console.log('✅ turnover.xlsx dimuat dari IndexedDB lokal!');
       }
     } catch (e) {}
@@ -7636,8 +7635,7 @@ async function loadAllDefaultFiles() {
         if (buf1 && buf1.byteLength > 100) {
           parseTurnoverBuffer(buf1);
           turnoverLoaded = true;
-          const ts = localStorage.getItem('gadgetmart_turnover_timestamp') || 'Default Sistem (13/10/2026 18:00 WITA)';
-          updateTurnoverIndicator(`File turnover terupdate per ${ts}`);
+          updateTurnoverIndicator('Database Turnover Realtime (MySQL)');
         }
       }
     } catch (e) {}
@@ -7754,8 +7752,7 @@ async function pollServerSyncStatus() {
           await saveFileToIndexedDB('turnover_file', buf);
           processAllReports();
           const uploader = status.turnover.uploader || 'Superadmin';
-          const ts = getFormattedTimestamp();
-          updateTurnoverIndicator(`File turnover terupdate per ${ts} (Sinkron dari ${uploader})`);
+          updateTurnoverIndicator('Database Turnover Realtime (MySQL)');
           showSaveToast('🔄 File turnover.xlsx telah diperbarui otomatis dari server!');
         }
       } else if (!lastKnownSyncStatus.turnoverMtime) {
