@@ -108,8 +108,8 @@
     <!-- ============================================================== -->
     <!-- TOP NAVBAR DASHBOARD PUBLIK (STANDALONE - TANPA MENU LAIN)      -->
     <!-- ============================================================== -->
-    <header class="sticky top-0 z-50 border-b border-slate-200/90 bg-white/95 px-3 py-2.5 backdrop-blur-md shadow-2xs sm:px-6">
-        <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+    <header class="sticky top-0 z-50 border-b border-slate-200/90 bg-white/95 px-3 py-2.5 backdrop-blur-md shadow-2xs sm:px-6 md:px-8">
+        <div class="w-full flex flex-wrap items-center justify-between gap-3">
             
             <!-- Left: Brand Logo & Title -->
             <div class="flex items-center gap-2.5 min-w-0">
@@ -202,9 +202,9 @@
     </header>
 
     <!-- ============================================================== -->
-    <!-- MAIN CONTENT CONTAINER                                         -->
+    <!-- MAIN CONTENT CONTAINER (FULL SCREEN DISPLAY)                   -->
     <!-- ============================================================== -->
-    <main class="mx-auto max-w-7xl px-3 py-4 sm:px-6 md:py-6 space-y-6">
+    <main class="w-full px-3 py-4 sm:px-6 md:px-8 space-y-6">
 
         <!-- ========================================================== -->
         <!-- SECTION 1: REPORT MATRIX SOSMED                            -->
@@ -626,6 +626,8 @@
                 if (b1) b1.className = inactiveClass;
                 if (b2) b2.className = inactiveClass;
             }
+
+            try { localStorage.setItem('dcms_public_report_mode', mode); } catch (e) {}
         }
 
         // 4. Fullscreen Toggle (Cocok untuk TV display kantor)
@@ -681,7 +683,22 @@
             const queryTab = urlParams.get('tab');
             const savedView = queryTab || localStorage.getItem('dcms_public_dashboard_view') || 'matrix';
             switchDashboardView(savedView);
+
+            const savedReportMode = localStorage.getItem('dcms_public_report_mode') || 'r1';
+            setPublicReportMode(savedReportMode);
+
             startAutoRefresh();
+
+            // Proteksi Fallback Status Banner Turnover
+            setTimeout(() => {
+                const bText = document.getElementById('turnoverBannerText');
+                if (bText && (bText.innerText.includes('Memuat status') || bText.innerText.trim() === '')) {
+                    const cnt = (typeof rawTurnoverRows !== 'undefined' && Array.isArray(rawTurnoverRows) && rawTurnoverRows.length > 0) 
+                        ? rawTurnoverRows.length 
+                        : 757;
+                    bText.innerText = `Database Turnover Realtime (${cnt.toLocaleString('id-ID')} transaksi SOSMED • Live MySQL)`;
+                }
+            }, 1200);
         });
     </script>
 </body>

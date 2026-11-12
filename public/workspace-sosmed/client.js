@@ -1041,14 +1041,19 @@ function renderReport1Table(activePICs) {
 
 // 5. RENDER REPORT 2: KPI SUMMARY & TIMEGONE
 function renderReport2Tables(picStats, activePICs) {
-  document.getElementById('timegoneHeaderTag').innerText = `${timegonePct}%`;
-  document.getElementById('timegoneDayBadge').innerText = `Hari ke-${lastActiveDay} / ${daysInMonth}`;
-  document.getElementById('kpiTimegoneVal').innerText = `${timegonePct}%`;
+  const elTgHeader = document.getElementById('timegoneHeaderTag');
+  if (elTgHeader) elTgHeader.innerText = `${timegonePct}%`;
+  const elTgBadge = document.getElementById('timegoneDayBadge');
+  if (elTgBadge) elTgBadge.innerText = `Hari ke-${lastActiveDay} / ${daysInMonth}`;
+  const elTgVal = document.getElementById('kpiTimegoneVal');
+  if (elTgVal) elTgVal.innerText = `${timegonePct}%`;
 
   const summaryBody = document.getElementById('kpiSummaryBody');
   const summaryFoot = document.getElementById('kpiSummaryFoot');
   const crossBody = document.getElementById('kpiCrossBody');
   const crossFoot = document.getElementById('kpiCrossFoot');
+
+  if (!summaryBody || !crossBody) return;
 
   summaryBody.innerHTML = '';
   crossBody.innerHTML = '';
@@ -1416,13 +1421,15 @@ function switchTab(tabIndex) {
 window.switchTab = switchTab;
 
 function setReportViewMode(mode) {
-  if (mode !== 'r2') mode = 'r1';
+  if (mode !== 'r2' && mode !== 'all') mode = 'r1';
   currentReportViewMode = mode;
   const btnR1 = document.getElementById('filterBtnR1');
   const btnR2 = document.getElementById('filterBtnR2');
+  const btnAll = document.getElementById('filterBtnAll');
 
   if (btnR1) btnR1.classList.toggle('active', mode === 'r1');
   if (btnR2) btnR2.classList.toggle('active', mode === 'r2');
+  if (btnAll) btnAll.classList.toggle('active', mode === 'all');
 
   if (typeof updateReportSubmenuActive === 'function') {
     try { updateReportSubmenuActive(mode); } catch (e) {}
@@ -1440,6 +1447,10 @@ function setReportViewMode(mode) {
     if (r1Wrap) r1Wrap.style.display = 'none';
     if (r2Wrap) r2Wrap.style.display = 'block';
     if (kpiSection) kpiSection.style.display = 'none';
+  } else if (mode === 'all') {
+    if (r1Wrap) r1Wrap.style.display = 'block';
+    if (r2Wrap) r2Wrap.style.display = 'block';
+    if (kpiSection) kpiSection.style.display = 'block';
   }
 }
 
@@ -7567,9 +7578,9 @@ async function loadAllDefaultFiles() {
           const dashSel = document.getElementById('dashFilterMonth');
           if (dashSel) dashSel.value = String(activeMonth);
         }
+        updateTurnoverIndicator(`Database Turnover Realtime (${dataTurnover.rows.length.toLocaleString('id-ID')} transaksi SOSMED • Live MySQL)`);
         processAllReports();
         updateDatabaseStatus();
-        updateTurnoverIndicator(`Database Turnover Realtime (${dataTurnover.rows.length.toLocaleString('id-ID')} transaksi SOSMED)`);
         console.log(`✅ ${dataTurnover.rows.length} transaksi turnover dimuat langsung dari Database SQL!`);
       }
     }
@@ -7653,20 +7664,42 @@ async function loadAllDefaultFiles() {
 // Background Loader untuk Google Sheets / Croselling XLSX (tidak memblokir render Report Matrix)
 async function loadCrosellingDataAsync() {
   let crosellingLoaded = false;
+
+  // A0. Prioritas Utama: Ambil langsung dari Database SQL MySQL (/api/croselling-records) untuk kecepatan maksimal O(1) & anti-lag
   try {
-    const resCroselling = await fetch(`/api/get-excel?type=croselling&t=${Date.now()}`);
-    if (resCroselling.ok) {
-      const uploader = resCroselling.headers.get('X-File-Uploader') || 'Superadmin';
-      const serverTs = resCroselling.headers.get('X-File-Timestamp');
-      const buf2 = await resCroselling.arrayBuffer();
-      parseCrosellingBuffer(buf2);
-      crosellingLoaded = true;
-      await saveFileToIndexedDB('croselling_file', buf2);
-      const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : (localStorage.getItem('gadgetmart_croselling_timestamp') || 'Default Sistem');
-      localStorage.setItem('gadgetmart_croselling_timestamp', ts);
-      updateCrosellingIndicator(`File Cross Selling terupdate per ${ts} (Sinkron dari ${uploader})`);
+    const resCrossJson = await fetch(`/api/croselling-records?format=client&sosmed_only=1&t=${Date.now()}`);
+    if (resCrossJson.ok) {
+      const dataCross = await resCrossJson.json();
+      if (dataCross && dataCross.success && Array.isArray(dataCross.rows) && dataCross.rows.length > 0) {
+        rawCrosellingRows = dataCross.rows;
+        crosellingLoaded = true;
+        console.log(`✅ ${dataCross.rows.length} data cross-selling dimuat langsung dari Database SQL!`);
+        updateDatabaseStatus();
+        if (typeof rawTurnoverRows !== 'undefined' && rawTurnoverRows.length > 0 && typeof processAllReports === 'function') {
+          processAllReports();
+        }
+      }
     }
-  } catch(e) {}
+  } catch (e) {
+    console.warn('Gagal fetch cross-selling JSON dari database server:', e);
+  }
+
+  if (!crosellingLoaded) {
+    try {
+      const resCroselling = await fetch(`/api/get-excel?type=croselling&t=${Date.now()}`);
+      if (resCroselling.ok) {
+        const uploader = resCroselling.headers.get('X-File-Uploader') || 'Superadmin';
+        const serverTs = resCroselling.headers.get('X-File-Timestamp');
+        const buf2 = await resCroselling.arrayBuffer();
+        parseCrosellingBuffer(buf2);
+        crosellingLoaded = true;
+        await saveFileToIndexedDB('croselling_file', buf2);
+        const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : (localStorage.getItem('gadgetmart_croselling_timestamp') || 'Default Sistem');
+        localStorage.setItem('gadgetmart_croselling_timestamp', ts);
+        updateCrosellingIndicator(`File Cross Selling terupdate per ${ts} (Sinkron dari ${uploader})`);
+      }
+    } catch(e) {}
+  }
 
   if (!crosellingLoaded) {
     try {

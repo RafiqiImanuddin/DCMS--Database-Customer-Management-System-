@@ -197,6 +197,7 @@ $registerSosmedApiRoutes = function () {
     Route::post('/upload-excel-chunk', [WorkspaceSosmedController::class, 'uploadExcelChunk'])->name('api.sosmed.upload_excel_chunk');
     Route::get('/search-ar', [WorkspaceSosmedController::class, 'searchAr'])->name('api.sosmed.search_ar');
     Route::get('/turnover-records', [WorkspaceSosmedController::class, 'turnoverRecords'])->name('api.sosmed.turnover_records');
+    Route::get('/croselling-records', [WorkspaceSosmedController::class, 'crosellingRecords'])->name('api.sosmed.croselling_records');
     Route::get('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.index');
     Route::delete('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.clear');
 };

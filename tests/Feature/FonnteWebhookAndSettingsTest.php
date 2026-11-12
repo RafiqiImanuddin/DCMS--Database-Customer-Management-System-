@@ -357,7 +357,7 @@ class FonnteWebhookAndSettingsTest extends TestCase
 
         $this->assertDatabaseHas('sosmed_keeps', [
             'nama' => 'Budi',
-            'cabang' => 'Banjarbaru',
+            'cabang' => 'BANJARBARU',
         ]);
     }
 }

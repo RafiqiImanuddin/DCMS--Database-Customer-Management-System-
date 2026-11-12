@@ -430,5 +430,26 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         ]);
         $forbiddenRes->assertForbidden();
     }
+
+    public function test_public_dashboard_renders_in_fullscreen_layout(): void
+    {
+        $response = $this->get(route('public.dashboard'));
+        $response->assertOk();
+        $response->assertSee('Live Dashboard Sosmed');
+        $response->assertSee('FULL SCREEN DISPLAY');
+        $response->assertSee('Database Turnover Realtime');
+        $response->assertDontSee('max-w-7xl');
+    }
+
+    public function test_croselling_records_endpoint_returns_json(): void
+    {
+        $response = $this->getJson(route('api.sosmed.croselling_records', ['format' => 'client']));
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'success',
+            'total_count',
+            'rows',
+        ]);
+    }
 }
 

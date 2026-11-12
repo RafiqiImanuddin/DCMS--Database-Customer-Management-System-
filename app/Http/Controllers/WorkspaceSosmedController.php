@@ -1587,4 +1587,97 @@ class WorkspaceSosmedController extends Controller
             'rows' => $rows,
         ]);
     }
+
+    /**
+     * Endpoint API JSON untuk membaca rekaman cross-selling langsung dari Database SQL MySQL.
+     * Mendukung auto-lookup cepat O(1) untuk Report 2 & Tab 3 Cek AR tanpa harus download 6.6MB file Excel.
+     */
+    public function crosellingRecords(Request $request): JsonResponse
+    {
+        $month = $request->query('month');
+        $format = $request->query('format');
+        $sosmedOnly = $request->boolean('sosmed_only') || $request->query('sosmed_only') === '1';
+
+        $query = DB::table('cross_sellings');
+
+        // Pastikan hanya membaca batch cross-selling terbaru per periode/label
+        $activeCrossImportIds = DB::table('cross_selling_imports')
+            ->where('status', 'completed')
+            ->groupBy('batch_label')
+            ->selectRaw('MAX(id) as id')
+            ->pluck('id');
+
+        if ($activeCrossImportIds->isNotEmpty()) {
+            $query->whereIn('cross_selling_import_id', $activeCrossImportIds);
+        }
+
+        if ($month) {
+            if (is_numeric($month) && strlen((string) $month) <= 2) {
+                $query->whereMonth('posting_date', (int) $month);
+            } else {
+                $query->where('period_label', (string) $month);
+            }
+        }
+
+        // Jika sosmed_only=1, hanya ambil baris yang document_number-nya tercatat di turnover sosmed
+        if ($sosmedOnly) {
+            $sosmedDocNumbers = DB::table('turnovers')
+                ->where(function ($sub) {
+                    $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+                    $sub->where('slp_name', $likeOp, '%bjm.sos%')
+                        ->orWhere('remarks', $likeOp, '%bjm.sos%')
+                        ->orWhere('sales_cabang', $likeOp, '%bjm.sos%');
+                })
+                ->whereNotNull('document_number')
+                ->distinct()
+                ->pluck('document_number');
+
+            if ($sosmedDocNumbers->isNotEmpty()) {
+                $query->whereIn('document_number', $sosmedDocNumbers);
+            }
+        }
+
+        $isGuest = $request->user()?->isGuest();
+
+        if ($format === 'client') {
+            $rows = $query->orderBy('posting_date', 'asc')->get()->map(function ($r) use ($isGuest) {
+                return [
+                    'Document Number' => $r->document_number,
+                    'document_number' => $r->document_number,
+                    'ItemCode' => $r->item_code,
+                    'Item Code' => $r->item_code,
+                    'Dscription' => $r->dscription,
+                    'Item/Service Description' => $r->dscription,
+                    'ItmsGrpNam' => $r->itms_grp_nam,
+                    'Group Name' => $r->group ?: $r->itms_grp_nam,
+                    'Group' => $r->group ?: $r->itms_grp_nam,
+                    'Harga Jual' => $isGuest ? 0 : (float) $r->harga_jual,
+                    'Total' => $isGuest ? 0 : (float) $r->harga_jual,
+                    'GrossProfit' => $isGuest ? 0 : (float) $r->gross_profit,
+                    'Posting Date' => $r->posting_date,
+                    'no_hp_customer' => $isGuest ? \App\Support\DataMasker::maskPhone($r->no_hp_customer ?? null) : $r->no_hp_customer,
+                    'name' => $r->name,
+                    'Customer/Vendor Name' => $r->customer_vendor_name,
+                    'Sales Employee Name' => $r->slp_name,
+                    'Cabang' => $r->cabang,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'total_count' => $rows->count(),
+                'rows' => $rows,
+            ]);
+        }
+
+        $totalCount = (clone $query)->count();
+        $limit = min((int) ($request->query('limit', 100)), 500);
+        $rows = $query->orderBy('posting_date', 'desc')->limit($limit)->get();
+
+        return response()->json([
+            'success' => true,
+            'total_count' => $totalCount,
+            'rows' => $rows,
+        ]);
+    }
 }
