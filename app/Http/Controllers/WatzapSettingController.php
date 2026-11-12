@@ -57,6 +57,16 @@ class WatzapSettingController extends Controller
         $webhookUrl = url('/api/watzap-webhook');
         $availableSenders = $isConfiguredBroadcast ? $watzap->getAvailableSenders($apiKey) : [];
 
+        if ($request->user()->isGuest()) {
+            $apiKey = $apiKey ? 'wt_sec_********' : '';
+            $numberKey = $numberKey ? 'nk_********' : '';
+            $inboxApiKey = $inboxApiKey ? 'wt_sec_********' : '';
+            $inboxNumberKey = $inboxNumberKey ? 'nk_********' : '';
+            $wahaApiKey = $wahaApiKey ? '********' : '';
+            $fonnteToken = $fonnteToken ? '********' : '';
+            $availableSenders = [];
+        }
+
         return view('settings.watzap', [
             'activeTab' => $activeTab,
             'apiKey' => $apiKey,

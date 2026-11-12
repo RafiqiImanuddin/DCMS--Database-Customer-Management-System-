@@ -32,6 +32,7 @@ Route::get('/live-dashboard', [\App\Http\Controllers\PublicDashboardController::
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:5,1');
+    Route::match(['get', 'post'], '/login/guest', [AuthController::class, 'loginAsGuest'])->name('login.guest');
     Route::get('/register', [\App\Http\Controllers\UserController::class, 'create'])->name('register');
     Route::post('/register', [\App\Http\Controllers\UserController::class, 'store'])->name('register.store')->middleware('throttle:5,1');
     Route::get('/register/verify-otp', [\App\Http\Controllers\UserController::class, 'showOtpForm'])->name('register.otp.form');

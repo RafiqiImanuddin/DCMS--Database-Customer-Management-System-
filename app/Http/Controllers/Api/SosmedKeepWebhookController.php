@@ -347,6 +347,25 @@ class SosmedKeepWebhookController extends Controller
 
             $keeps = $query->latest('id')->limit($limit)->toBase()->get($validFields);
 
+            if ($request->user()?->isGuest()) {
+                $keeps = $keeps->map(function ($k) {
+                    $arr = (array) $k;
+                    if (isset($arr['nomor_wa'])) {
+                        $arr['nomor_wa'] = \App\Support\DataMasker::maskPhone($arr['nomor_wa']);
+                    }
+                    if (isset($arr['nomor_sender'])) {
+                        $arr['nomor_sender'] = \App\Support\DataMasker::maskPhone($arr['nomor_sender']);
+                    }
+                    if (isset($arr['nomor_follow_up'])) {
+                        $arr['nomor_follow_up'] = \App\Support\DataMasker::maskPhone($arr['nomor_follow_up']);
+                    }
+                    if (isset($arr['nomor_fu'])) {
+                        $arr['nomor_fu'] = \App\Support\DataMasker::maskPhone($arr['nomor_fu']);
+                    }
+                    return (object) $arr;
+                });
+            }
+
             return response()->json([
                 'success' => true,
                 'total' => $keeps->count(),
@@ -394,6 +413,25 @@ class SosmedKeepWebhookController extends Controller
             ->limit(30)
             ->toBase()
             ->get($fields);
+
+        if ($request->user()?->isGuest()) {
+            $newKeeps = $newKeeps->map(function ($k) {
+                $arr = (array) $k;
+                if (isset($arr['nomor_wa'])) {
+                    $arr['nomor_wa'] = \App\Support\DataMasker::maskPhone($arr['nomor_wa']);
+                }
+                if (isset($arr['nomor_sender'])) {
+                    $arr['nomor_sender'] = \App\Support\DataMasker::maskPhone($arr['nomor_sender']);
+                }
+                if (isset($arr['nomor_follow_up'])) {
+                    $arr['nomor_follow_up'] = \App\Support\DataMasker::maskPhone($arr['nomor_follow_up']);
+                }
+                if (isset($arr['nomor_fu'])) {
+                    $arr['nomor_fu'] = \App\Support\DataMasker::maskPhone($arr['nomor_fu']);
+                }
+                return (object) $arr;
+            });
+        }
 
         return response()->json([
             'success' => true,

@@ -112,6 +112,20 @@
                 </div>
             </header>
             <div class="@yield('container-class', 'mx-auto max-w-[1600px] p-4 md:p-8')">
+                @if (auth()->check() && auth()->user()->isGuest())
+                    <div class="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 px-4 py-3 text-xs text-amber-900 shadow-sm">
+                        <div class="flex items-center gap-2.5">
+                            <span class="grid size-6 shrink-0 place-items-center rounded-lg bg-amber-500 font-black text-white text-[11px]">!</span>
+                            <div>
+                                <span class="font-bold">Mode Tamu (Guest • Read-Only):</span>
+                                <span class="text-amber-800"> Anda dapat meninjau seluruh menu sistem. Fitur modifikasi (tambah/edit/hapus) dinonaktifkan dan data pribadi (No. HP Konsumen, Pricelist & Pencapaian) disensor.</span>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full bg-amber-200/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900">
+                            🔒 Mode Aman
+                        </span>
+                    </div>
+                @endif
                 @if (session('success'))
                     <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('success') }}</div>
                 @endif

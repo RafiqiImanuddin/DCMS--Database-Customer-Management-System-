@@ -28,6 +28,8 @@ class LeadCustomerController extends Controller
 
     public function download(Request $request): BinaryFileResponse
     {
+        abort_if($request->user()?->isGuest() || ! $request->user()?->canAccessFeature('predictions_download'), 403, 'Akses terbatas: Anda tidak memiliki izin untuk mengunduh data leads.');
+
         $query = $this->buildFilteredQuery($request);
 
         $perBatch = 25000;

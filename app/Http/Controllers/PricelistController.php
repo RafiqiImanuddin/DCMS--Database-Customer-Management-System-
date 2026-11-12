@@ -31,12 +31,60 @@ class PricelistController extends Controller
 
         $data = $this->loadPricelistData();
 
+        if ($request->user()?->isGuest()) {
+            $data = $this->maskPricelistDataForGuest($data);
+        }
+
         return view('pricelist.index', [
             'data' => $data,
             'updatedAt' => $data['updated_at'] ?? 'Baru saja',
             'fileSource' => $data['file_source'] ?? 'Pricelist-Update-New-Update.xlsx',
             'sheets' => $data['sheets'] ?? [],
         ]);
+    }
+
+    /**
+     * Sensor seluruh data harga, modal, margin, cashback, subsidi, dan nominal uang untuk akun Tamu (Guest).
+     */
+    private function maskPricelistDataForGuest(array $data): array
+    {
+        if (! isset($data['sheets']) || ! is_array($data['sheets'])) {
+            return $data;
+        }
+
+        $priceKeywords = [
+            'modal', 'srp', 'harga', 'margin', 'cashback', 'subsidi', 'mpl', 'pwp',
+            'biaya', 'promo', 'net', 'cuan', 'up', 'down', 'ongkir', 'total',
+        ];
+
+        foreach ($data['sheets'] as $sheetKey => &$sheet) {
+            if (! isset($sheet['data']) || ! is_array($sheet['data'])) {
+                continue;
+            }
+
+            foreach ($sheet['data'] as &$row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                foreach ($row as $col => $val) {
+                    $lowerCol = strtolower((string) $col);
+                    $isPriceCol = false;
+                    foreach ($priceKeywords as $kw) {
+                        if (str_contains($lowerCol, $kw)) {
+                            $isPriceCol = true;
+                            break;
+                        }
+                    }
+
+                    if ($isPriceCol || (is_numeric($val) && (float) $val > 100)) {
+                        $row[$col] = 0;
+                    }
+                }
+            }
+        }
+        unset($sheet, $row);
+
+        return $data;
     }
 
     /**

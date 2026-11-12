@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'fonnte-webhook',
             'system/*',
         ]);
+        $middleware->web(append: [
+            \App\Http\Middleware\PreventGuestModification::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

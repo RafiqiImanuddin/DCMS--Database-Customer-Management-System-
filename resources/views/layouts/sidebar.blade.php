@@ -206,36 +206,58 @@
                 </div>
                 @endif
 
-                @if ($currentUser->canAccessFeature('workspace_cek_ar'))
-                <!-- 3. Cek Status AR -->
-                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 3]) }}" data-tab="3" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(3);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 3) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
-                    <span>Cek Status AR</span>
-                </a>
-                @endif
+                @php
+                    $canSeeKeepGroup = $currentUser->canAccessFeature('workspace_format_keep')
+                        || $currentUser->canAccessFeature('workspace_cek_ar')
+                        || $currentUser->canAccessFeature('workspace_tracking_ar')
+                        || $currentUser->canAccessFeature('workspace_klaim_ar');
+                    $isKeepGroupActive = ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [3, 4, 5, 6]));
+                @endphp
 
-                @if ($currentUser->canAccessFeature('workspace_format_keep'))
-                <!-- 4. Format Keep -->
-                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]) }}" data-tab="4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 4) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
-                    <span>Format Keep</span>
-                </a>
-                @endif
+                @if ($canSeeKeepGroup)
+                <!-- 3. Format Keep (Parent Dropdown dengan Sub Menu: Data Format Keep, Cek Status AR, Tracking AR, Klaim AR) -->
+                <div class="space-y-1" id="format-keep-nav-container">
+                    <div id="wrap-format-keep-btn" class="flex items-center justify-between rounded-xl transition {{ $isKeepGroupActive ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]) }}" data-tab="4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4);if(window.toggleFormatKeepSubmenu){window.toggleFormatKeepSubmenu(null, true);}return false;}" class="workspace-sidebar-link flex-1 flex items-center gap-3 px-3.5 py-2.5 font-semibold transition min-w-0 {{ $isKeepGroupActive ? 'text-white' : 'text-slate-300 hover:text-white' }}">
+                            <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+                            <span class="truncate">Format Keep</span>
+                        </a>
+                        <button type="button" onclick="if(window.toggleFormatKeepSubmenu){window.toggleFormatKeepSubmenu(event);}" class="grid size-8 mr-1 place-items-center rounded-lg hover:bg-white/10 transition cursor-pointer" aria-label="Buka / Tutup Sub Menu Format Keep" title="Buka / Tutup Sub Menu">
+                            <svg id="chevron-format-keep" class="size-3.5 shrink-0 transition-transform duration-200 {{ $isKeepGroupActive ? 'rotate-90 text-white' : 'text-slate-500' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                        </button>
+                    </div>
 
-                @if ($currentUser->canAccessFeature('workspace_tracking_ar'))
-                <!-- 5. Tracking AR -->
-                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 5]) }}" data-tab="5" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(5);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 5) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg>
-                    <span>Tracking AR</span>
-                </a>
-                @endif
+                    <!-- Sub Menu Format Keep: Data Format Keep, Cek Status AR, Tracking AR, Klaim AR -->
+                    <div id="submenu-format-keep" class="pl-4 pr-1 space-y-1 {{ $isKeepGroupActive ? '' : 'hidden' }}">
+                        @if ($currentUser->canAccessFeature('workspace_format_keep'))
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]) }}" data-tab="4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(4);}return false;}" id="subitem-keep-tab4" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 4) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
+                            <span class="shrink-0 text-amber-400">📋</span>
+                            <span class="truncate">Format Keep</span>
+                        </a>
+                        @endif
 
-                @if ($currentUser->canAccessFeature('workspace_klaim_ar'))
-                <!-- 6. Klaim AR -->
-                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 6]) }}" data-tab="6" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(6);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 6) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
-                    <span>Klaim AR</span>
-                </a>
+                        @if ($currentUser->canAccessFeature('workspace_cek_ar'))
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 3]) }}" data-tab="3" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(3);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(3);}return false;}" id="subitem-keep-tab3" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 3) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
+                            <span class="shrink-0 text-sky-400">🔍</span>
+                            <span class="truncate">Cek Status AR</span>
+                        </a>
+                        @endif
+
+                        @if ($currentUser->canAccessFeature('workspace_tracking_ar'))
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 5]) }}" data-tab="5" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(5);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(5);}return false;}" id="subitem-keep-tab5" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 5) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
+                            <span class="shrink-0 text-emerald-400">📈</span>
+                            <span class="truncate">Tracking AR</span>
+                        </a>
+                        @endif
+
+                        @if ($currentUser->canAccessFeature('workspace_klaim_ar'))
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 6]) }}" data-tab="6" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(6);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(6);}return false;}" id="subitem-keep-tab6" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 6) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
+                            <span class="shrink-0 text-violet-400">✅</span>
+                            <span class="truncate">Klaim AR</span>
+                        </a>
+                        @endif
+                    </div>
+                </div>
                 @endif
 
                 @if ($currentUser->canAccessFeature('workspace_inbox_fu'))
@@ -425,7 +447,7 @@
     </nav>
 
     <div class="shrink-0 p-4 border-t border-white/10 bg-white/5">
-        <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'text-amber-300' : (auth()->user()?->role === 'admin' ? 'text-emerald-300' : 'text-sky-300') }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()?->role === 'admin' ? 'Admin' : 'Staff') }}</span></div>
+        <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'bg-white/10 text-amber-300' : (auth()->user()?->role === 'admin' ? 'bg-white/10 text-emerald-300' : (auth()->user()?->isGuest() ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/10 text-sky-300')) }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()?->role === 'admin' ? 'Admin' : (auth()->user()?->isGuest() ? 'Tamu (Guest)' : 'Staff')) }}</span></div>
         <div class="mt-1 truncate text-sm font-bold">{{ auth()->user()?->name ?? 'User' }}</div>
         <div class="truncate text-xs text-slate-400">{{ auth()->user()?->email ?? '' }}</div>
     </div>
@@ -539,6 +561,57 @@ window.toggleReportMatrixSubmenu = function(e, openOnly) {
             }
         }
     }
+};
+
+window.toggleFormatKeepSubmenu = function(e, openOnly) {
+    if (e && e.stopPropagation) {
+        e.stopPropagation();
+    }
+    const sub = document.getElementById('submenu-format-keep');
+    const chev = document.getElementById('chevron-format-keep');
+    if (!sub) return;
+
+    const isHidden = sub.classList.contains('hidden');
+    if (openOnly === true) {
+        sub.classList.remove('hidden');
+        if (chev) {
+            chev.classList.add('rotate-90', 'text-white');
+            chev.classList.remove('text-slate-500');
+        }
+    } else {
+        if (isHidden) {
+            sub.classList.remove('hidden');
+            if (chev) {
+                chev.classList.add('rotate-90', 'text-white');
+                chev.classList.remove('text-slate-500');
+            }
+        } else {
+            sub.classList.add('hidden');
+            if (chev) {
+                chev.classList.remove('rotate-90', 'text-white');
+                chev.classList.add('text-slate-500');
+            }
+        }
+    }
+};
+
+window.updateKeepSubmenuActive = function(tabIndex) {
+    const subMap = {
+        4: 'subitem-keep-tab4',
+        3: 'subitem-keep-tab3',
+        5: 'subitem-keep-tab5',
+        6: 'subitem-keep-tab6'
+    };
+    [3, 4, 5, 6].forEach(function(t) {
+        const el = document.getElementById(subMap[t]);
+        if (el) {
+            if (t === parseInt(tabIndex, 10)) {
+                el.className = 'format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition bg-white/15 text-white';
+            } else {
+                el.className = 'format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition text-slate-400 hover:text-white hover:bg-white/10';
+            }
+        }
+    });
 };
 
 (function initSidebarGroups() {

@@ -31,6 +31,7 @@
     </div>
 
     <div class="flex items-center gap-2">
+        @if(!\App\Support\DataMasker::isGuest())
         <a href="{{ route('broadcasts.batches.download', $batch) }}" class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 text-xs font-bold text-emerald-800 shadow-xs transition hover:bg-emerald-100">
             <svg class="size-4 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/></svg>
             Download Excel Batch (.xlsx)
@@ -44,6 +45,7 @@
                 Hapus Batch
             </button>
         </form>
+        @endif
     </div>
 </div>
 
@@ -142,7 +144,7 @@
                         <div class="text-xs text-slate-500">{{ $report->prediction?->customer_vendor_name ?: '-' }}</div>
                     </td>
                     <td class="px-3 py-4 font-mono text-xs text-slate-700 whitespace-nowrap">
-                        {{ $report->phone_number ?: 'Tidak ada No HP' }}
+                        {{ \App\Support\DataMasker::maskPhone($report->phone_number) ?: 'Tidak ada No HP' }}
                     </td>
                     <td class="px-3 py-4 whitespace-nowrap">
                         <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold {{ $report->status === 'sent' ? 'bg-emerald-100 text-emerald-700' : ($report->status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700') }}" title="{{ $report->provider_response }}">
@@ -161,6 +163,7 @@
                         <div class="line-clamp-2 text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{{ $report->message }}</div>
                     </td>
                     <td class="px-5 py-4 text-right">
+                        @if(!\App\Support\DataMasker::isGuest())
                         <form method="POST" action="{{ route('broadcasts.destroy', $report) }}">
                             @csrf
                             @method('DELETE')
@@ -168,6 +171,9 @@
                                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
                         </form>
+                        @else
+                        <span class="text-slate-300 text-xs">-</span>
+                        @endif
                     </td>
                 </tr>
             @empty

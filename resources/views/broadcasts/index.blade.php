@@ -16,27 +16,31 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
+        @if(!\App\Support\DataMasker::isGuest())
         <button type="button" onclick="openAntiBlockSettingsModal()" class="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/90 px-3.5 py-2.5 text-xs font-bold text-amber-900 shadow-2xs transition hover:bg-amber-100 hover:border-amber-300">
             <svg class="size-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.249-8.25-3.286zm0 13.036h.008v.008H12v-.008z"/></svg>
             <span>⚡ Setting Delay & Anti-Banned</span>
         </button>
+        @endif
 
         <a href="{{ route('broadcasts.templates.index') }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50">
             <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
             Kelola Template
         </a>
 
-        @if($tab === 'all')
+        @if($tab === 'all' && !\App\Support\DataMasker::isGuest())
             <a href="{{ route('broadcasts.download', request()->only('status')) }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50">
                 <svg class="size-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/></svg>
                 Download Excel (.xlsx)
             </a>
         @endif
 
+        @if(!\App\Support\DataMasker::isGuest())
         <button type="button" onclick="openNewBroadcastModal()" class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-rose-500 focus:ring-2 focus:ring-rose-500/20">
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
             + New Broadcast
         </button>
+        @endif
     </div>
 </div>
 
@@ -234,6 +238,7 @@
                                     <svg class="size-3.5 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                     Detail
                                 </a>
+                                @if(!\App\Support\DataMasker::isGuest())
                                 <a href="{{ route('broadcasts.batches.download', $batch) }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-emerald-700 shadow-2xs hover:bg-emerald-50" title="Download Excel batch ini">
                                     <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                                     Excel
@@ -245,6 +250,7 @@
                                         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </form>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -291,7 +297,7 @@
                     <tr class="align-top transition hover:bg-slate-50/70">
                         <td class="px-5 py-4">
                             <div class="font-bold text-slate-900">{{ $report->customer_vendor_code ?: '-' }}</div>
-                            <div class="mt-1 text-xs text-slate-500 font-mono">{{ $report->phone_number ?: 'No HP kosong' }}</div>
+                            <div class="mt-1 text-xs text-slate-500 font-mono">{{ \App\Support\DataMasker::maskPhone($report->phone_number) ?: 'No HP kosong' }}</div>
                         </td>
                         <td class="px-3 py-4 whitespace-nowrap">
                             @if($report->batch)
@@ -328,6 +334,7 @@
                             {{ $report->sent_at?->format('d M Y H:i') ?: '-' }}
                         </td>
                         <td class="px-5 py-4 text-right">
+                            @if(!\App\Support\DataMasker::isGuest())
                             <form method="POST" action="{{ route('broadcasts.destroy', $report) }}">
                                 @csrf
                                 @method('DELETE')
@@ -336,6 +343,9 @@
                                     Hapus
                                 </button>
                             </form>
+                            @else
+                            <span class="text-slate-300 text-xs">-</span>
+                            @endif
                         </td>
                     </tr>
                 @empty

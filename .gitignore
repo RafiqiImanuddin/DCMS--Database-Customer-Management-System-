@@ -39,5 +39,9 @@ dcms-deploy*.zip
 database/dumps/*.sql
 /public/workspace-sosmed/omni_resolved_chats.json
 public/dcms_core_database.sql
+cloudflared.exe
+tunnel.json
+start_cloudflare_tunnel.bat
+cloudflare_tunnel.log
 
 

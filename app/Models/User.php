@@ -52,7 +52,15 @@ class User extends Authenticatable
      */
     public function isDefaultUser(): bool
     {
-        return ! $this->isAdmin();
+        return ! $this->isAdmin() && ! $this->isGuest();
+    }
+
+    /**
+     * Cek apakah akun merupakan akun Tamu (Guest).
+     */
+    public function isGuest(): bool
+    {
+        return ($this->role ?? '') === 'guest';
     }
 
     /**
@@ -261,6 +269,17 @@ class User extends Authenticatable
             return array_keys(static::availableFeatures());
         }
 
+        if ($role === 'guest') {
+            $blockedForGuest = [
+                'predictions_assign',
+                'predictions_download',
+                'broadcasts_create',
+                'monitoring_sales_export',
+            ];
+
+            return array_values(array_diff(array_keys(static::availableFeatures()), $blockedForGuest));
+        }
+
         $permissions = [];
         foreach (static::availableFeatures() as $key => $meta) {
             if (in_array($role, $meta['default_roles'], true)) {
@@ -274,12 +293,24 @@ class User extends Authenticatable
     /**
      * Periksa apakah user berwenang mengakses fitur tertentu.
      * Superadmin selalu memiliki akses penuh (true).
+     * Tamu (Guest) dapat mengakses semua menu lihat, diblokir dari aksi mutasi/download.
      * Akun selain superadmin diperiksa melalui checklist permissions (atau fallback ke default role).
      */
     public function canAccessFeature(string $feature): bool
     {
         if ($this->isSuperAdmin()) {
             return true;
+        }
+
+        if ($this->isGuest()) {
+            $blockedForGuest = [
+                'predictions_assign',
+                'predictions_download',
+                'broadcasts_create',
+                'monitoring_sales_export',
+            ];
+
+            return ! in_array($feature, $blockedForGuest, true);
         }
 
         if ($this->permissions !== null && is_array($this->permissions)) {

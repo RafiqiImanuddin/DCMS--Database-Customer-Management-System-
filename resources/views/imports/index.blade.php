@@ -76,7 +76,7 @@
                     <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">XLSX / CSV</span>
                 </div>
                 <p class="mb-3 text-xs text-slate-600">Detail nomor faktur, no. WhatsApp, nama pelanggan, item produk, & nama sales.</p>
-                <input id="file" name="file" type="file" accept=".xlsx,.xls,.csv" class="dcms-input block w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-emerald-700 cursor-pointer">
+                <input id="file" name="file" type="file" accept=".xlsx,.xls,.csv" {{ \App\Support\DataMasker::isGuest() ? 'disabled' : '' }} class="dcms-input block w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-emerald-700 cursor-pointer {{ \App\Support\DataMasker::isGuest() ? 'opacity-50 cursor-not-allowed' : '' }}">
                 <div id="file-info-cross" class="mt-2 hidden items-center gap-2 rounded-lg bg-emerald-100/70 px-2.5 py-1 text-xs font-semibold text-emerald-900">
                     <svg class="size-3.5 shrink-0 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <span class="truncate" id="file-name-cross"></span>
@@ -100,7 +100,7 @@
                     <span class="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800">XLSX / CSV</span>
                 </div>
                 <p class="mb-3 text-xs text-slate-600">Omset DPP pencapaian sales, gross profit, cabang, & tanggal transaksi SAP.</p>
-                <input id="turnover_file" name="turnover_file" type="file" accept=".xlsx,.xls,.csv" class="dcms-input block w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-blue-700 cursor-pointer">
+                <input id="turnover_file" name="turnover_file" type="file" accept=".xlsx,.xls,.csv" {{ \App\Support\DataMasker::isGuest() ? 'disabled' : '' }} class="dcms-input block w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-blue-700 cursor-pointer {{ \App\Support\DataMasker::isGuest() ? 'opacity-50 cursor-not-allowed' : '' }}">
                 <div id="file-info-turnover" class="mt-2 hidden items-center gap-2 rounded-lg bg-blue-100/70 px-2.5 py-1 text-xs font-semibold text-blue-900">
                     <svg class="size-3.5 shrink-0 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <span class="truncate" id="file-name-turnover"></span>
@@ -119,10 +119,17 @@
             <p class="text-xs text-slate-500">
                 <span class="font-bold text-slate-700">Tips:</span> File diunggah secara langsung tanpa pemotongan batch. Data ribuan baris akan diproses cepat dan aman dalam transaksi cloud.
             </p>
+            @if (\App\Support\DataMasker::isGuest())
+            <button id="import-submit-button" type="button" disabled class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold bg-slate-200 text-slate-400 rounded-xl cursor-not-allowed">
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                <span>🔒 Mode Tamu: Unggah Dinonaktifkan</span>
+            </button>
+            @else
             <button id="import-submit-button" type="submit" class="dcms-primary-button inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold shadow-md hover:shadow-lg transition">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 <span>Mulai Import</span>
             </button>
+            @endif
         </div>
     </form>
 </section>
@@ -185,7 +192,7 @@
             <thead class="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
                     <th class="w-10 px-4 py-3.5 text-center">
-                        <input type="checkbox" id="check-all-cross" onchange="toggleSelectAll('cross')" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" title="Pilih Semua">
+                        <input type="checkbox" id="check-all-cross" onchange="toggleSelectAll('cross')" {{ \App\Support\DataMasker::isGuest() ? 'disabled' : '' }} class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" title="Pilih Semua">
                     </th>
                     <th class="px-5 py-3.5">File &amp; ID</th>
                     <th class="px-3 py-3.5">Periode Terdeteksi</th>
@@ -201,7 +208,7 @@
             @forelse($imports as $import)
                 <tr id="row-cross-{{ $import->id }}" class="border-b border-slate-100 transition hover:bg-slate-50/70">
                     <td class="w-10 px-4 py-4 text-center">
-                        <input type="checkbox" value="{{ $import->id }}" onchange="updateSelectedBulk('cross')" class="cross-cb rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                        <input type="checkbox" value="{{ $import->id }}" onchange="updateSelectedBulk('cross')" {{ \App\Support\DataMasker::isGuest() ? 'disabled' : '' }} class="cross-cb rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
                     </td>
                     <td class="px-5 py-4">
                         <div class="max-w-64 truncate font-bold text-slate-900">{{ $import->original_name }}</div>
@@ -231,6 +238,9 @@
                     <td class="px-3 py-4 text-right text-xs font-semibold text-slate-400">{{ number_format($import->failed_count) }}</td>
                     <td class="px-3 py-4 whitespace-nowrap text-xs text-slate-600">{{ $import->created_at?->format('d M Y H:i') }}</td>
                     <td class="px-5 py-4 text-center">
+                        @if (\App\Support\DataMasker::isGuest())
+                            <span class="text-slate-300 text-xs">-</span>
+                        @else
                         <form method="POST" action="{{ route('imports.destroy', ['import' => $import->id]) }}">
                             @csrf
                             @method('DELETE')
@@ -239,6 +249,7 @@
                                 <span>Hapus</span>
                             </button>
                         </form>
+                        @endif
                     </td>
                 </tr>
             @empty
@@ -255,7 +266,7 @@
             <thead class="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <tr>
                     <th class="w-10 px-4 py-3.5 text-center">
-                        <input type="checkbox" id="check-all-turnover" onchange="toggleSelectAll('turnover')" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" title="Pilih Semua">
+                        <input type="checkbox" id="check-all-turnover" onchange="toggleSelectAll('turnover')" {{ \App\Support\DataMasker::isGuest() ? 'disabled' : '' }} class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" title="Pilih Semua">
                     </th>
                     <th class="px-5 py-3.5">File &amp; ID</th>
                     <th class="px-3 py-3.5">Periode Terdeteksi</th>
@@ -271,7 +282,7 @@
             @forelse($turnoverImports as $tImport)
                 <tr id="row-turnover-{{ $tImport->id }}" class="border-b border-slate-100 transition hover:bg-slate-50/70">
                     <td class="w-10 px-4 py-4 text-center">
-                        <input type="checkbox" value="{{ $tImport->id }}" onchange="updateSelectedBulk('turnover')" class="turnover-cb rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                        <input type="checkbox" value="{{ $tImport->id }}" onchange="updateSelectedBulk('turnover')" {{ \App\Support\DataMasker::isGuest() ? 'disabled' : '' }} class="turnover-cb rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
                     </td>
                     <td class="px-5 py-4">
                         <div class="max-w-64 truncate font-bold text-slate-900">{{ $tImport->original_name }}</div>
@@ -293,6 +304,9 @@
                     <td class="px-3 py-4 text-right text-xs font-semibold text-slate-400">{{ number_format($tImport->failed_count) }}</td>
                     <td class="px-3 py-4 whitespace-nowrap text-xs text-slate-600">{{ $tImport->created_at?->format('d M Y H:i') }}</td>
                     <td class="px-5 py-4 text-center">
+                        @if (\App\Support\DataMasker::isGuest())
+                            <span class="text-slate-300 text-xs">-</span>
+                        @else
                         <form method="POST" action="{{ route('imports.destroy_turnover', ['import' => $tImport->id]) }}">
                             @csrf
                             @method('DELETE')
@@ -301,6 +315,7 @@
                                 <span>Hapus</span>
                             </button>
                         </form>
+                        @endif
                     </td>
                 </tr>
             @empty

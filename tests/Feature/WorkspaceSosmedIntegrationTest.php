@@ -41,8 +41,10 @@ class WorkspaceSosmedIntegrationTest extends TestCase
         $response->assertSee('Workspace Sosmed');
         $response->assertSee('Dashboard Sosmed');
         $response->assertSee('Report Matrix');
-        $response->assertSee('Cek Status AR');
         $response->assertSee('Format Keep');
+        $response->assertSee('submenu-format-keep');
+        $response->assertSee('toggleFormatKeepSubmenu');
+        $response->assertSee('Cek Status AR');
         $response->assertSee('Tracking AR');
         $response->assertSee('Klaim AR');
         $response->assertSee('Inbox Follow-Up');

@@ -22,6 +22,7 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2.5">
+            @if (!\App\Support\DataMasker::isGuest())
             <button type="button" 
                     onclick="openBatchShiftModal()" 
                     class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition">
@@ -35,6 +36,7 @@
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                 <span>+ Tambah Jadwal Shift</span>
             </button>
+            @endif
 
             <button type="button" 
                     onclick="window.print()" 
@@ -335,34 +337,59 @@
                                     @if ($shift)
                                         @php $meta = $shift->shift_meta; @endphp
                                         <div class="relative group/cell">
-                                            <button type="button" 
-                                                    onclick="openEditShiftModal({{ $shift->id }}, '{{ addslashes($shift->admin_name) }}', '{{ $shift->shift_date->format('Y-m-d') }}', '{{ $shift->shift_type }}', '{{ addslashes($shift->notes ?? '') }}')"
-                                                    class="w-full text-left rounded-xl p-2 border {{ $meta['card_accent'] }} transition hover:scale-102 hover:shadow-xs cursor-pointer">
-                                                <div class="flex items-center justify-between">
-                                                    <span class="inline-flex items-center gap-1 font-extrabold text-[11px]">
-                                                        <span class="size-1.5 rounded-full {{ $meta['badge_dot'] }}"></span>
-                                                        <span>{{ $meta['name'] }}</span>
-                                                    </span>
-                                                    <span class="text-[10px] opacity-60 group-hover/cell:opacity-100">&times;</span>
-                                                </div>
-                                                <div class="text-[10px] opacity-80 mt-0.5 truncate font-medium">
-                                                    {{ $meta['time_label'] }}
-                                                </div>
-                                                @if ($shift->notes)
-                                                    <div class="text-[9px] text-slate-500 italic truncate mt-1" title="{{ $shift->notes }}">
-                                                        "{{ $shift->notes }}"
+                                            @if (\App\Support\DataMasker::isGuest())
+                                                <div class="w-full text-left rounded-xl p-2 border {{ $meta['card_accent'] }}">
+                                                    <div class="flex items-center justify-between">
+                                                        <span class="inline-flex items-center gap-1 font-extrabold text-[11px]">
+                                                            <span class="size-1.5 rounded-full {{ $meta['badge_dot'] }}"></span>
+                                                            <span>{{ $meta['name'] }}</span>
+                                                        </span>
                                                     </div>
-                                                @endif
-                                            </button>
+                                                    <div class="text-[10px] opacity-80 mt-0.5 truncate font-medium">
+                                                        {{ $meta['time_label'] }}
+                                                    </div>
+                                                    @if ($shift->notes)
+                                                        <div class="text-[9px] text-slate-500 italic truncate mt-1" title="{{ $shift->notes }}">
+                                                            "{{ $shift->notes }}"
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <button type="button" 
+                                                        onclick="openEditShiftModal({{ $shift->id }}, '{{ addslashes($shift->admin_name) }}', '{{ $shift->shift_date->format('Y-m-d') }}', '{{ $shift->shift_type }}', '{{ addslashes($shift->notes ?? '') }}')"
+                                                        class="w-full text-left rounded-xl p-2 border {{ $meta['card_accent'] }} transition hover:scale-102 hover:shadow-xs cursor-pointer">
+                                                    <div class="flex items-center justify-between">
+                                                        <span class="inline-flex items-center gap-1 font-extrabold text-[11px]">
+                                                            <span class="size-1.5 rounded-full {{ $meta['badge_dot'] }}"></span>
+                                                            <span>{{ $meta['name'] }}</span>
+                                                        </span>
+                                                        <span class="text-[10px] opacity-60 group-hover/cell:opacity-100">&times;</span>
+                                                    </div>
+                                                    <div class="text-[10px] opacity-80 mt-0.5 truncate font-medium">
+                                                        {{ $meta['time_label'] }}
+                                                    </div>
+                                                    @if ($shift->notes)
+                                                        <div class="text-[9px] text-slate-500 italic truncate mt-1" title="{{ $shift->notes }}">
+                                                            "{{ $shift->notes }}"
+                                                        </div>
+                                                    @endif
+                                                </button>
+                                            @endif
                                         </div>
                                     @else
-                                        <!-- Tombol Tambah Cepat jika belum ada jadwal -->
-                                        <button type="button" 
-                                                onclick="openAddShiftModal('{{ addslashes($adminName) }}', '{{ $day['date'] }}')" 
-                                                class="w-full rounded-xl border border-dashed border-slate-200 py-3 text-[11px] font-semibold text-slate-400 hover:border-brand-400 hover:bg-brand-50/50 hover:text-brand-700 transition cursor-pointer"
-                                                title="Klik untuk tentukan shift {{ $adminName }} ({{ $day['day_name'] }})">
-                                            + Atur
-                                        </button>
+                                        @if (\App\Support\DataMasker::isGuest())
+                                            <div class="w-full rounded-xl border border-dashed border-slate-200 py-3 text-[11px] font-semibold text-slate-300">
+                                                -
+                                            </div>
+                                        @else
+                                            <!-- Tombol Tambah Cepat jika belum ada jadwal -->
+                                            <button type="button" 
+                                                    onclick="openAddShiftModal('{{ addslashes($adminName) }}', '{{ $day['date'] }}')" 
+                                                    class="w-full rounded-xl border border-dashed border-slate-200 py-3 text-[11px] font-semibold text-slate-400 hover:border-brand-400 hover:bg-brand-50/50 hover:text-brand-700 transition cursor-pointer"
+                                                    title="Klik untuk tentukan shift {{ $adminName }} ({{ $day['day_name'] }})">
+                                                + Atur
+                                            </button>
+                                        @endif
                                     @endif
                                 </td>
                             @endforeach
@@ -455,6 +482,9 @@
                             </td>
 
                             <td class="px-5 py-4 text-right whitespace-nowrap">
+                                @if (\App\Support\DataMasker::isGuest())
+                                    <span class="text-slate-300 text-xs">-</span>
+                                @else
                                 <div class="flex items-center justify-end gap-1.5">
                                     <button type="button" 
                                             onclick="openEditShiftModal({{ $s->id }}, '{{ addslashes($s->admin_name) }}', '{{ $s->shift_date->format('Y-m-d') }}', '{{ $s->shift_type }}', '{{ addslashes($s->notes ?? '') }}')" 
@@ -471,6 +501,7 @@
                                         </button>
                                     </form>
                                 </div>
+                                @endif
                             </td>
                         </tr>
                     @empty

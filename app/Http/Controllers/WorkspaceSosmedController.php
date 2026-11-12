@@ -105,6 +105,20 @@ class WorkspaceSosmedController extends Controller
             $monthlyTargets = [];
         }
 
+        $isGuest = auth()->check() && (auth()->user()->role ?? '') === 'guest';
+        if ($isGuest) {
+            foreach ($monthlyTargets as $mKey => &$mVal) {
+                if (is_array($mVal)) {
+                    foreach ($mVal as $subKey => &$subVal) {
+                        $subVal = 0;
+                    }
+                } else {
+                    $mVal = 0;
+                }
+            }
+            unset($mVal, $subVal);
+        }
+
         $employeeQuery = Employee::query();
         if (Schema::hasColumn('employees', 'level')) {
             $employeeQuery->orderByRaw("CASE WHEN level = 'Internship' THEN 2 ELSE 1 END");
@@ -113,19 +127,19 @@ class WorkspaceSosmedController extends Controller
         $employees = $employeeQuery
             ->orderBy('id')
             ->get()
-            ->map(function ($emp) {
+            ->map(function ($emp) use ($isGuest) {
                 return [
                     'id' => $emp->id,
                     'code' => $emp->nik,
                     'nik' => $emp->nik,
                     'name' => strtoupper($emp->name),
-                    'target' => (float) ($emp->target ?: 867261886.00),
+                    'target' => $isGuest ? 0 : (float) ($emp->target ?: 867261886.00),
                     'active' => $emp->status === 'active',
                     'status' => $emp->status,
                     'cabang' => $emp->cabang,
                     'role' => $emp->role,
                     'level' => $emp->level ?? 'Karyawan',
-                    'phone' => $emp->phone,
+                    'phone' => $isGuest ? \App\Support\DataMasker::maskPhone($emp->phone) : $emp->phone,
                     'avatar_color' => $emp->avatar_color,
                 ];
             })
@@ -1460,6 +1474,15 @@ class WorkspaceSosmedController extends Controller
             ->limit(100)
             ->get();
 
+        $isGuest = $request->user()?->isGuest();
+        if ($isGuest) {
+            $results = $results->map(function ($row) {
+                $row->no_hp_customer = \App\Support\DataMasker::maskPhone($row->no_hp_customer ?? null);
+                $row->harga_jual = 0;
+                return $row;
+            });
+        }
+
         return response()->json([
             'query' => $query,
             'count' => $results->count(),
@@ -1513,13 +1536,15 @@ class WorkspaceSosmedController extends Controller
             });
         }
 
+        $isGuest = $request->user()?->isGuest();
+
         if ($format === 'client') {
             $clientLimit = (int) $request->query('limit', 0);
             if ($clientLimit > 0) {
                 $query->limit(min($clientLimit, 50000));
             }
 
-            $rows = $query->orderBy('posting_date', 'asc')->get()->map(function ($r) {
+            $rows = $query->orderBy('posting_date', 'asc')->get()->map(function ($r) use ($isGuest) {
                 return [
                     'Cabang' => $r->cabang ?? '',
                     'Posting Date' => $r->posting_date,
@@ -1527,8 +1552,8 @@ class WorkspaceSosmedController extends Controller
                     'Sales Employee Name' => $r->slp_name,
                     'Remarks' => $r->remarks ?? '',
                     'SalesCabang' => $r->sales_cabang ?? '',
-                    'DPP' => (float) $r->dpp,
-                    'GrossProfit' => (float) $r->gross_profit,
+                    'DPP' => $isGuest ? 0 : (float) $r->dpp,
+                    'GrossProfit' => $isGuest ? 0 : (float) $r->gross_profit,
                     'Total' => (float) $r->total,
                 ];
             });

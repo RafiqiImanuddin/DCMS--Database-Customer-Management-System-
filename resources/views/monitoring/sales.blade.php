@@ -35,10 +35,12 @@
             </a>
 
             <!-- Export CSV -->
+            @if (!\App\Support\DataMasker::isGuest())
             <a href="{{ route('monitoring.sales.export', ['period' => $selectedPeriod, 'cabang' => $selectedCabang]) }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition">
                 <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                 <span>Export CSV</span>
             </a>
+            @endif
 
             @if (auth()->check() && auth()->user()->isSuperAdmin())
             <!-- Setting Karyawan & Bobot (Superadmin Only) -->
@@ -241,7 +243,7 @@
                                     <div class="flex items-center gap-2 text-[11px] text-slate-400">
                                         <span class="font-mono">{{ $emp->nik }}</span>
                                         <span>•</span>
-                                        <span>{{ $emp->phone }}</span>
+                                        <span>{{ \App\Support\DataMasker::maskPhone($emp->phone) }}</span>
                                     </div>
                                 </div>
                             </div>

@@ -68,13 +68,13 @@
                             {{ $item['description'] ?? '-' }}
                         </td>
                         <td class="border border-black px-3 py-2.5 text-center font-normal text-black whitespace-nowrap">
-                            Rp. {{ number_format($item['price'] ?? 0, 0, ',', '.') }}
+                            {{ \App\Support\DataMasker::maskCurrency($item['price'] ?? 0) }}
                         </td>
                         <td class="border border-black px-3 py-2.5 text-center font-normal text-black">
                             {{ $item['qty'] ?? 1 }}
                         </td>
                         <td class="border border-black px-3 py-2.5 text-center font-normal text-black whitespace-nowrap">
-                            Rp. {{ number_format($item['total'] ?? (($item['price'] ?? 0) * ($item['qty'] ?? 1)), 0, ',', '.') }}
+                            {{ \App\Support\DataMasker::maskCurrency($item['total'] ?? (($item['price'] ?? 0) * ($item['qty'] ?? 1))) }}
                         </td>
                     </tr>
                     @empty
@@ -87,26 +87,26 @@
                     <tr class="border border-black font-semibold bg-slate-50">
                         <td class="border border-black px-3 py-1.5 text-right uppercase text-[11px]" colspan="3">SUBTOTAL:</td>
                         <td class="border border-black px-3 py-1.5 text-center whitespace-nowrap text-[11px] font-mono">
-                            Rp. {{ number_format($quotation->subtotal, 0, ',', '.') }}
+                            {{ \App\Support\DataMasker::maskCurrency($quotation->subtotal) }}
                         </td>
                     </tr>
                     <tr class="border border-black font-semibold text-rose-600 bg-rose-50/40">
                         <td class="border border-black px-3 py-1.5 text-right uppercase text-[11px]" colspan="3">DISKON:</td>
                         <td class="border border-black px-3 py-1.5 text-center whitespace-nowrap text-[11px] font-mono">
-                            - Rp. {{ number_format($quotation->discount, 0, ',', '.') }}
+                            {{ \App\Support\DataMasker::isGuest() ? 'Rp ***.***' : '- Rp. ' . number_format($quotation->discount, 0, ',', '.') }}
                         </td>
                     </tr>
                     <tr class="border border-black font-bold bg-slate-100 text-black">
                         <td class="border border-black px-3 py-2 text-right uppercase text-xs font-bold" colspan="3">TOTAL AKHIR:</td>
                         <td class="border border-black px-3 py-2 text-center whitespace-nowrap text-xs font-mono font-black">
-                            Rp. {{ number_format($quotation->total_amount, 0, ',', '.') }}
+                            {{ \App\Support\DataMasker::maskCurrency($quotation->total_amount) }}
                         </td>
                     </tr>
                     @elseif (is_array($quotation->items) && count($quotation->items) > 1)
                     <tr class="border border-black bg-slate-50 font-bold">
                         <td class="border border-black px-3 py-2 text-right uppercase text-xs" colspan="3">TOTAL:</td>
                         <td class="border border-black px-3 py-2 text-center whitespace-nowrap text-xs font-mono font-black">
-                            Rp. {{ number_format($quotation->total_amount, 0, ',', '.') }}
+                            {{ \App\Support\DataMasker::maskCurrency($quotation->total_amount) }}
                         </td>
                     </tr>
                     @endif

@@ -1,17 +1,17 @@
 # PANDUAN LENGKAP MIGRASI DARI 0 KE CPANEL (DCMS GADGETMART)
-Waktu Rilis: 09 November 2026, 17:22 WITA
+Waktu Rilis: 12 November 2026 (Versi 2.7.0)
 
-Paket ini sudah disiapkan khusus untuk migrasi dari 0 di hosting cPanel (MySQL / MariaDB).
+Paket ini sudah disiapkan khusus untuk deploy/migrasi ke hosting cPanel (MySQL / MariaDB).
 
 ================================================================================
 ARSIP UTAMA:
 1. File Source Code & Vendor:
-   dcms_cpanel_deploy.zip (Lengkap dengan vendor, public/build, dan storage)
+   dcms_cpanel_deploy.zip (Lengkap dengan vendor, public/build, storage, dan fitur Akun Guest)
    
 2. File Database MySQL (Pilih salah satu untuk phpMyAdmin):
-   - database/dumps/dcms_cpanel_full.sql.zip (21.39 MB) -> SANGAT DIREKOMENDASIKAN
-     Berisi seluruh tabel, akun superadmin, 146k transaksi, turnover, dan master setting.
-   - database/dumps/dcms_cpanel_core.sql (13.73 MB) -> Opsi ringan jika ingin impor cepat.
+   - database/dumps/dcms_cpanel_full.sql.zip (12.15 MB) -> SANGAT DIREKOMENDASIKAN
+     Berisi seluruh tabel, akun superadmin, data keep 40k+, transaksi, turnover, dan master setting.
+   - database/dumps/dcms_cpanel_core.sql (45.52 KB) -> Opsi ringan jika ingin impor cepat tabel & akun saja.
 
 ================================================================================
 LANGKAH 1: BUAT DATABASE DI CPANEL
@@ -76,5 +76,9 @@ CATATAN PENTING & SOLUSI ERROR SQL DI CPANEL:
 
 ================================================================================
 LOGIN APLIKASI:
-Email: superadmin@gmail.com
-(Gunakan password akun superadmin Anda yang biasa)
+1. Akun Superadmin:
+   Email: superadmin@gmail.com
+   (Gunakan password akun superadmin Anda yang biasa)
+
+2. Akun Tamu (Guest • Read-Only):
+   Klik tombol "Masuk sebagai Tamu (Guest)" pada halaman login (tanpa password).

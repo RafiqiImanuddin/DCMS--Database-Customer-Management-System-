@@ -277,7 +277,7 @@ class FonnteService
                 continue;
             }
 
-            // Deteksi pemisah key-value: titik dua (:) atau sama dengan (=)
+            // Deteksi pemisah key-value: titik dua (:), sama dengan (=), atau strip (-) untuk format field tertentu
             $colonPos = strpos($plainLine, ':');
             $equalPos = strpos($plainLine, '=');
 
@@ -289,6 +289,12 @@ class FonnteService
             } elseif ($equalPos !== false) {
                 $sep = '=';
                 $sepIdx = $equalPos;
+            } elseif (preg_match('/^(nama|nomor\s*wa|no\s*wa|barang|tanggal|tgl|remaks?|remarks?|kode\s*sosmed|admin\s*sosmed|catatan)\s*-\s*/i', $plainLine, $dashM)) {
+                $dashPos = strpos($plainLine, '-');
+                if ($dashPos !== false) {
+                    $sep = '-';
+                    $sepIdx = $dashPos;
+                }
             }
 
             if ($sep !== null && $sepIdx !== false) {
@@ -370,6 +376,13 @@ class FonnteService
             }
 
             $result['remaks'] = $cleanRemaks;
+        } else {
+            // Fallback jika remaks belum terdeteksi dari parsing baris: scan pola SOSMED langsung dari teks pesan
+            if (preg_match('/(?:remar?ks?|kode\s*sosmed|admin\s*sosmed|cs\s*sosmed)?\s*[:=-]?\s*(sosmed\s*\d+)/i', $text, $remMatch)) {
+                $result['remaks'] = strtoupper(trim($remMatch[1]));
+            } elseif (preg_match('/\b(sosmed\s*\d+)\b/i', $text, $remMatch)) {
+                $result['remaks'] = strtoupper(trim($remMatch[1]));
+            }
         }
 
         // 2. Pembersihan Khusus Nomor WA (+62 / 08 / format spasi & strip)

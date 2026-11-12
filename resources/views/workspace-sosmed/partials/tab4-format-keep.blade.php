@@ -107,7 +107,10 @@
                 <div class="sm:col-span-2 lg:col-span-4">
                     <div class="relative">
                         <svg class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
-                        <input type="text" id="keepSearchInput" class="dcms-input pl-10 pr-4 py-2.5 text-xs" placeholder="Cari nama, nomor WA, atau barang..." oninput="applyKeepFilters()">
+                        <input type="search" name="search_keep_filter_query" id="keepSearchInput" class="dcms-input pl-10 pr-9 py-2.5 text-xs" placeholder="Cari nama, nomor WA, atau barang..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" oninput="applyKeepFilters(); if(window.toggleKeepClearBtn){window.toggleKeepClearBtn();}">
+                        <button type="button" id="btnClearKeepSearch" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 size-5 items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer" onclick="if(window.clearKeepSearchInput){window.clearKeepSearchInput();}" title="Hapus pencarian">
+                            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
                     </div>
                 </div>
 

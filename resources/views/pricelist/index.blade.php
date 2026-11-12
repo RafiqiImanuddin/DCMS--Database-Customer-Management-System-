@@ -28,6 +28,7 @@
                 </div>
 
                 <!-- Tombol Sync Live Dropbox -->
+                @if(!auth()->check() || !auth()->user()->isGuest())
                 <button type="button" id="btnSyncDropbox" onclick="handleSyncDropbox()" class="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-emerald-600/30 transition cursor-pointer">
                     <svg id="syncDropboxIcon" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
@@ -39,6 +40,11 @@
                     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
                     <span>Upload Manual</span>
                 </button>
+                @else
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 px-3.5 py-2 text-xs font-bold text-amber-300">
+                    🔒 Mode Tamu: Nilai Modal & Harga Disensor
+                </span>
+                @endif
             </div>
         </div>
         <!-- Decorative Glow -->
@@ -253,6 +259,7 @@
 </div>
 
 <script>
+window.IS_GUEST = {{ auth()->check() && auth()->user()->isGuest() ? 'true' : 'false' }};
 window.PRICELIST_DATA = @json($sheets);
 
 let currentTab = 'harga_fix';
@@ -260,6 +267,7 @@ let currentPage = 1;
 const PAGE_SIZE = 50;
 
 function formatRupiah(val) {
+    if (window.IS_GUEST) return 'Rp ***.***';
     if (!val || isNaN(val) || Number(val) === 0) return '-';
     return 'Rp ' + Number(val).toLocaleString('id-ID');
 }

@@ -67,9 +67,13 @@ class QuotationController extends Controller
     /**
      * Form pembuatan surat penawaran baru.
      */
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse
     {
         abort_unless($request->user()?->canAccessFeature('quotations'), 403, 'Akses terbatas: Fitur Surat Penawaran Harga tidak diaktifkan untuk akun Anda.');
+
+        if ($request->user()?->isGuest()) {
+            return redirect()->route('quotations.index')->with('error', 'Akses dibatasi: Akun Tamu (Guest) hanya memiliki hak akses lihat (Read-Only).');
+        }
 
         $defaultQuotation = new Quotation([
             'quotation_number' => Quotation::generateNextNumber(),
@@ -182,9 +186,13 @@ class QuotationController extends Controller
     /**
      * Form edit surat penawaran.
      */
-    public function edit(Request $request, Quotation $quotation): View
+    public function edit(Request $request, Quotation $quotation): View|RedirectResponse
     {
         abort_unless($request->user()?->canAccessFeature('quotations'), 403, 'Akses terbatas.');
+
+        if ($request->user()?->isGuest()) {
+            return redirect()->route('quotations.index')->with('error', 'Akses dibatasi: Akun Tamu (Guest) hanya memiliki hak akses lihat (Read-Only).');
+        }
 
         return view('quotations.form', [
             'quotation' => $quotation,
@@ -340,6 +348,13 @@ class QuotationController extends Controller
                     || str_contains(strtolower($item['brand'] ?? ''), $query);
             });
             $products = array_values($products);
+        }
+
+        if ($request->user()?->isGuest()) {
+            foreach ($products as &$item) {
+                $item['price'] = 0;
+            }
+            unset($item);
         }
 
         return response()->json([

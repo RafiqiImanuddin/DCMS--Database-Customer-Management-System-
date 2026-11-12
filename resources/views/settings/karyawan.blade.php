@@ -5,6 +5,7 @@
 @section('content')
 @php
     $isSuperAdmin = auth()->check() && auth()->user()->isSuperAdmin();
+    $isGuest = \App\Support\DataMasker::isGuest();
 @endphp
 <div class="space-y-6">
     <!-- Header -->
@@ -201,13 +202,17 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4 font-mono font-bold text-slate-900">
-                                Rp {{ number_format($emp->target ?? 867261886, 0, ',', '.') }}
+                                {{ \App\Support\DataMasker::maskCurrency($emp->target ?? 867261886) }}
                             </td>
                             <td class="px-5 py-4">
+                                @if ($isGuest)
+                                    <span class="font-mono text-slate-500">{{ \App\Support\DataMasker::maskPhone($emp->phone) }}</span>
+                                @else
                                 <a href="https://wa.me/{{ preg_replace('/^0/', '62', preg_replace('/[^\d]/', '', $emp->phone)) }}" target="_blank" class="inline-flex items-center gap-1.5 font-semibold text-emerald-600 hover:text-emerald-700 hover:underline">
                                     <svg class="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3L3 21l4.9-1.3A8.9 8.9 0 0 0 12 21z"/></svg>
                                     <span>{{ $emp->phone }}</span>
                                 </a>
+                                @endif
                             </td>
                             <td class="px-5 py-4">
                                 @if ($emp->status === 'active')
@@ -574,6 +579,7 @@
                         </div>
                         <p class="mt-1 text-xs text-slate-600">Nilai ini menjadi patokan total omzet tim di Rapor Matrix kartu KPI <strong>TOTAL ACHIEVEMENT OMZET</strong> dan target GP 5% tim.</p>
                         
+                        @if ($isSuperAdmin)
                         <div class="mt-3 flex flex-wrap items-center gap-2">
                             <button type="button" onclick="bagiRataTargetTim()" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600/10 border border-blue-300 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-600 hover:text-white transition">
                                 <span>⚡ Bagi Rata ke Seluruh Sales Aktif ({{ $activeSalesEmployees->count() }} orang)</span>
@@ -582,6 +588,7 @@
                                 <span>🧮 Hitung Total dari Penjumlahan Sales</span>
                             </button>
                         </div>
+                        @endif
                     </div>
 
                     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs min-w-[280px]">
@@ -591,13 +598,14 @@
                             <input type="text" 
                                    id="inputTeamTarget" 
                                    name="team_target" 
-                                   value="{{ number_format($periodTeamTarget, 0, ',', '.') }}" 
+                                   value="{{ $isGuest ? '***.***' : number_format($periodTeamTarget, 0, ',', '.') }}" 
+                                   {{ $isSuperAdmin ? '' : 'disabled' }}
                                    oninput="formatRupiahInput(this); recalculateTargetSummary();" 
                                    class="w-full rounded-xl border border-slate-300 bg-slate-50 pl-10 pr-3 py-2.5 text-lg font-black text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
                         </div>
                         <div class="mt-2 flex items-center justify-between text-[11px] text-slate-500">
                             <span>Target GP 5%:</span>
-                            <strong id="previewTeamGP" class="text-emerald-700 font-bold">Rp {{ number_format($periodTeamTarget * 0.05, 0, ',', '.') }}</strong>
+                            <strong id="previewTeamGP" class="text-emerald-700 font-bold">{{ $isGuest ? 'Rp ***.***' : 'Rp ' . number_format($periodTeamTarget * 0.05, 0, ',', '.') }}</strong>
                         </div>
                     </div>
                 </div>
@@ -645,7 +653,7 @@
                                         </div>
                                         <div>
                                             <div class="font-bold text-slate-900">{{ strtoupper($emp->name) }}</div>
-                                            <div class="text-[11px] text-slate-400">{{ $emp->phone ?: '-' }}</div>
+                                            <div class="text-[11px] text-slate-400">{{ $isGuest ? \App\Support\DataMasker::maskPhone($emp->phone) : ($emp->phone ?: '-') }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -668,7 +676,8 @@
                                         <span class="absolute left-2.5 text-xs font-bold text-slate-400">Rp</span>
                                         <input type="text" 
                                                name="sales_targets[{{ $emp->nik }}]" 
-                                               value="{{ number_format($currentTargetVal, 0, ',', '.') }}" 
+                                               value="{{ $isGuest ? '***.***' : number_format($currentTargetVal, 0, ',', '.') }}" 
+                                               {{ $isSuperAdmin ? '' : 'disabled' }}
                                                data-nik="{{ $emp->nik }}"
                                                data-name="{{ strtoupper($emp->name) }}"
                                                oninput="formatRupiahInput(this); updateRowGP(this); recalculateTargetSummary();" 
@@ -676,7 +685,7 @@
                                     </div>
                                 </td>
                                 <td class="px-5 py-3.5 text-right">
-                                    <span class="row-target-gp font-bold text-emerald-700">Rp {{ number_format($currentTargetVal * 0.05, 0, ',', '.') }}</span>
+                                    <span class="row-target-gp font-bold text-emerald-700">{{ $isGuest ? 'Rp ***.***' : 'Rp ' . number_format($currentTargetVal * 0.05, 0, ',', '.') }}</span>
                                 </td>
                             </tr>
                             @empty
@@ -1017,6 +1026,8 @@ function recalculateWeights() {
 // ==========================================
 // 4. MONTHLY TARGETS MANAGEMENT ENGINE
 // ==========================================
+const IS_GUEST = {{ $isGuest ? 'true' : 'false' }};
+
 function parseRupiah(val) {
     if (!val) return 0;
     const cleaned = String(val).replace(/[^0-9]/g, '');
@@ -1024,15 +1035,18 @@ function parseRupiah(val) {
 }
 
 function formatRupiahDisplay(num) {
+    if (IS_GUEST) return 'Rp ***.***';
     return 'Rp ' + Math.round(num).toLocaleString('id-ID');
 }
 
 function formatRupiahInput(input) {
+    if (IS_GUEST) return;
     const raw = parseRupiah(input.value);
     input.value = raw > 0 ? raw.toLocaleString('id-ID') : '0';
 }
 
 function updateRowGP(input) {
+    if (IS_GUEST) return;
     const raw = parseRupiah(input.value);
     const row = input.closest('tr');
     if (row) {
@@ -1045,9 +1059,24 @@ function updateRowGP(input) {
 
 function recalculateTargetSummary() {
     const teamInput = document.getElementById('inputTeamTarget');
-    const teamVal = teamInput ? parseRupiah(teamInput.value) : 0;
-
     const teamGPEl = document.getElementById('previewTeamGP');
+    const footSalesEl = document.getElementById('footerTotalSalesTarget');
+    const footGPEl = document.getElementById('footerTotalSalesGP');
+    const balancePill = document.getElementById('targetBalancePill');
+    const balanceText = document.getElementById('targetBalanceText');
+
+    if (IS_GUEST) {
+        if (teamGPEl) teamGPEl.innerText = 'Rp ***.***';
+        if (footSalesEl) footSalesEl.innerText = 'Rp ***.***';
+        if (footGPEl) footGPEl.innerText = 'Rp ***.***';
+        if (balancePill && balanceText) {
+            balancePill.className = 'inline-flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-bold text-amber-700';
+            balancePill.innerHTML = '<span class="size-2 rounded-full bg-amber-500"></span><span>🔒 Mode Tamu: Target Disensor</span>';
+        }
+        return;
+    }
+
+    const teamVal = teamInput ? parseRupiah(teamInput.value) : 0;
     if (teamGPEl) {
         teamGPEl.innerText = formatRupiahDisplay(teamVal * 0.05);
     }
@@ -1058,8 +1087,6 @@ function recalculateTargetSummary() {
         sumSales += parseRupiah(inp.value);
     });
 
-    const footSalesEl = document.getElementById('footerTotalSalesTarget');
-    const footGPEl = document.getElementById('footerTotalSalesGP');
     if (footSalesEl) footSalesEl.innerText = formatRupiahDisplay(sumSales);
     if (footGPEl) footGPEl.innerText = formatRupiahDisplay(sumSales * 0.05);
 

@@ -1,5 +1,43 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.8] - 2026-11-12
+### Sub-Menu Navigasi Format Keep, Auto-Lookup Cross-Selling vs Omzet & GP, Pembersihan Autofill Pencarian, dan Cloudflare Tunnel
+- **Restrukturisasi Navigasi Sidebar Format Keep**:
+  - Mengelompokkan menu **Cek Status AR** (Tab 3), **Tracking AR** (Tab 5), dan **Klaim AR** (Tab 6) menjadi sub-menu dropdown rapi di bawah menu induk **Format Keep** (Tab 4).
+  - Dilengkapi animasi collapsible, rotasi chevron, dan penanda tab aktif yang sinkron dengan SPA Workspace Sosmed.
+- **Auto-Lookup Cross-Selling SAP vs Omzet & Gross Profit (Report 2)**:
+  - Pemetaan O(1) berbasis `Document Number` antara data omzet/GP (dataset turnover) dengan baris detail faktur (master cross-selling).
+  - Melindungi integritas data finansial: angka Omzet dan GP tetap murni dihitung dari turnover, sementara jumlah transaksi gadget, cross-selling > 50K, dan rasio % Cross-Selling terisi otomatis tanpa distorsi KPI.
+- **Penyelesaian Tuntas Masalah Autofill Input Pencarian (Format Keep Search)**:
+  - Memperbaiki celah browser Chrome/Edge yang menembakkan email login (`superadmin@gmail.com`) ke dalam kolom pencarian saat membuka menu Format Keep.
+  - Mengubah input menjadi `type="search"`, menambahkan `name="search_keep_filter_query"`, `autocomplete="new-password"`, `readonly onfocus="this.removeAttribute('readonly')"`, dan tombol 1-klik hapus pencarian (`✕`).
+  - Penambahan pembersih otomatis `sanitizeKeepAutofill()` saat inisialisasi aplikasi dan perpindahan tab agar tabel tidak terfilter kosong.
+- **Parser Fonnte Webhook Cerdas & Fleksibel**:
+  - Penambahan dukungan pemisah strip (`-`) pada chat WA (seperti `Remarks - SOSMED 17`).
+  - Fallback pemindai cerdas `SOSMED \d+` di seluruh badan pesan jika format pemisah tidak standar, mencegah terbuangnya data format keep (`IGNORED_NO_REMAKS`).
+- **Integrasi Cloudflare Tunnel untuk Uji Coba Webhook Lokal**:
+  - Dukungan Cloudflare Tunnel bebas limit bandwidth dan ber-SSL valid (`https://railway-month-proxy-middle.trycloudflare.com`) mengarah ke `127.0.0.1:8000`.
+  - Penyediaan script 1-klik `start_cloudflare_tunnel.bat` untuk menjalankan tunnel kapan saja secara mandiri.
+- **Pembaruan Paket Deploy cPanel**:
+  - Sinkronisasi seluruh perubahan ke dalam arsip `dcms_cpanel_deploy.zip` dan file master `CROSSELLING-12102026.xlsx`.
+  - Verifikasi seluruh 232 test cases (1.281 assertions) lulus 100%.
+
+## [V2.7] - 2026-11-12
+### Akun Tamu (Guest Mode Read-Only), Pencegahan Mutasi Data, dan Penyensoran Data Sensitif (Data Masking)
+- **Opsi Login 1-Klik Akun Tamu (Guest)**:
+  - Tombol masuk langsung sebagai tamu pada halaman login tanpa perlu kata sandi (`guest@gadgetmart.id`, role `guest`).
+  - Badge identitas akun tamu di sidebar dan sticky warning banner *Mode Tamu (Guest • Read-Only)* di seluruh halaman.
+- **Proteksi Read-Only & Pencegahan Modifikasi Global**:
+  - Middleware global `PreventGuestModification` memblokir seluruh request HTTP mutasi (`POST`, `PUT`, `PATCH`, `DELETE`) dari akun tamu dengan respon `403 Forbidden` untuk AJAX/JSON dan redirect error untuk form web.
+  - Penonaktifan & penyembunyian seluruh tombol mutasi: Tambah/Edit/Hapus, Unggah file impor, Bulk Assign, Blast Broadcast, Atur Shift Massal, dan Simpan Target.
+- **Penyensoran Data Sensitif (Data Masking Backend & Frontend)**:
+  - **Nomor HP Konsumen**: Disensor menjadi format `0812****890` di seluruh modul (Master Customer, Leads, Broadcast, Workspace Sosmed Cek AR & Format Keep), dan tautan langsung WhatsApp dinonaktifkan (`javascript:void(0)`).
+  - **Pricelist Toko**: Nilai modal, harga jual, SRP, margin, cashback, dan subsidi leasing dinolkan dari backend API dan ditampilkan sebagai `Rp ***.***` di antarmuka serta surat penawaran harga.
+  - **Pencapaian & Finansial**: Nilai nominal DPP, Gross, Gross Profit pada Workspace Sosmed dinolkan untuk akun guest, formatter JavaScript menampilkan `Rp ***.***` dan `***%`, serta nominal target bulanan disensor menjadi `***.***`.
+  - **Blokir Download Mentah**: Endpoint ekspor dan download file Excel (`predictions.download`, `leads.download`, `monitoring.sales.export`) diblokir `403 Forbidden` untuk akun tamu.
+- **Pengujian Otomatis & Verifikasi**:
+  - Penambahan 11 skenario pengujian fitur `GuestAccessAndDataMaskingTest` dengan kelulusan 100% (total 232 test suite lulus).
+
 ## [V2.6] - 2026-11-12
 ### Fonnte Realtime Webhook, Auto-Matching SAP Cross-Selling (Closing WIN & Need to Check), dan Proteksi Feedback Frontline
 - **Sinkronisasi Format Keep 100% Realtime dari Fonnte (Lepas dari Google Sheets)**:

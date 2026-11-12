@@ -19,38 +19,40 @@
             <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
             Kelola Template
         </a>
-        @if ($leads->total() <= 25000)
-            <a href="{{ route('leads.download', request()->except('page')) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
-                <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-                Download Leads (Excel)
-            </a>
-        @else
-            <details class="relative inline-block text-left">
-                <summary class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-100 list-none">
+        @if(!auth()->check() || !auth()->user()->isGuest())
+            @if ($leads->total() <= 25000)
+                <a href="{{ route('leads.download', request()->except('page')) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300">
                     <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-                    Download Leads ({{ number_format($leads->total(), 0, ',', '.') }} data)
-                    <svg class="size-3.5 text-emerald-700" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-                </summary>
-                <div class="absolute right-0 z-30 mt-2 w-64 origin-top-right rounded-xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-black/5 focus:outline-none">
-                    <div class="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Pilih Batch (Maks 25k data/file)</div>
-                    @php
-                        $totalBatches = (int) ceil($leads->total() / 25000);
-                    @endphp
-                    @for ($b = 1; $b <= $totalBatches; $b++)
+                    Download Leads (Excel)
+                </a>
+            @else
+                <details class="relative inline-block text-left">
+                    <summary class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-100 list-none">
+                        <svg class="size-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+                        Download Leads ({{ number_format($leads->total(), 0, ',', '.') }} data)
+                        <svg class="size-3.5 text-emerald-700" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                    </summary>
+                    <div class="absolute right-0 z-30 mt-2 w-64 origin-top-right rounded-xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-black/5 focus:outline-none">
+                        <div class="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Pilih Batch (Maks 25k data/file)</div>
                         @php
-                            $start = ($b - 1) * 25000 + 1;
-                            $end = min($b * 25000, $leads->total());
+                            $totalBatches = (int) ceil($leads->total() / 25000);
                         @endphp
-                        <a href="{{ route('leads.download', array_merge(request()->except(['page', 'batch']), ['batch' => $b])) }}" class="flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition">
-                            <span class="flex items-center gap-2">
-                                <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-                                Batch {{ $b }}
-                            </span>
-                            <span class="text-[11px] text-slate-400 font-mono">{{ number_format($start, 0, ',', '.') }} - {{ number_format($end, 0, ',', '.') }}</span>
-                        </a>
-                    @endfor
-                </div>
-            </details>
+                        @for ($b = 1; $b <= $totalBatches; $b++)
+                            @php
+                                $start = ($b - 1) * 25000 + 1;
+                                $end = min($b * 25000, $leads->total());
+                            @endphp
+                            <a href="{{ route('leads.download', array_merge(request()->except(['page', 'batch']), ['batch' => $b])) }}" class="flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 transition">
+                                <span class="flex items-center gap-2">
+                                    <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+                                    Batch {{ $b }}
+                                </span>
+                                <span class="text-[11px] text-slate-400 font-mono">{{ number_format($start, 0, ',', '.') }} - {{ number_format($end, 0, ',', '.') }}</span>
+                            </a>
+                        @endfor
+                    </div>
+                </details>
+            @endif
         @endif
     </div>
 </div>
@@ -265,10 +267,14 @@
                         <td class="px-3 py-4">
                             @if($lead->no_hp_customer)
                                 @php
+                                    $isGuest = auth()->check() && auth()->user()->isGuest();
                                     $leadPhoneDigits = preg_replace('/[^0-9]/', '', (string) $lead->no_hp_customer) ?? '';
                                     $leadPhoneValid = str_starts_with($leadPhoneDigits, '62') && strlen($leadPhoneDigits) >= 10 && strlen($leadPhoneDigits) <= 15;
                                 @endphp
-                                @if($leadPhoneValid)
+                                @if($isGuest)
+                                    <span class="font-semibold text-slate-700 font-mono">{{ \App\Support\DataMasker::maskPhone($lead->no_hp_customer) }}</span>
+                                    <div class="mt-1 text-[11px] font-bold text-amber-600">Disensor (Mode Tamu)</div>
+                                @elseif($leadPhoneValid)
                                     <a href="https://wa.me/{{ $leadPhoneDigits }}" target="_blank" rel="noopener" class="font-semibold text-emerald-700 hover:text-emerald-800">{{ $lead->no_hp_customer }}</a>
                                     <div class="mt-1 text-[11px] font-bold text-emerald-600">WhatsApp valid</div>
                                 @else
@@ -295,6 +301,7 @@
                         <td class="px-3 py-4 whitespace-nowrap text-slate-600">{{ $lead->assigned_at?->format('d M Y H:i') ?: '-' }}</td>
                         <td class="px-4 py-4"><span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">Follow Up</span></td>
                         <td class="px-5 py-4 text-center">
+                            @if(!auth()->check() || !auth()->user()->isGuest())
                             <button type="button"
                                 onclick="confirmDeleteSingleLead('{{ $lead->id }}', '{{ addslashes($lead->customer_vendor_name ?: ($lead->customer_vendor_code ?: 'Lead')) }}')"
                                 class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50/70 px-2.5 py-1.5 text-xs font-bold text-rose-700 shadow-xs transition hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800"
@@ -304,6 +311,9 @@
                                 </svg>
                                 Hapus
                             </button>
+                            @else
+                            <span class="text-xs text-slate-400 font-medium">-</span>
+                            @endif
                         </td>
                     </tr>
                 @empty

@@ -1,4 +1,5 @@
   <script>
+    window.IS_GUEST = {{ auth()->check() && auth()->user()->isGuest() ? 'true' : 'false' }};
     window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
     window.WORKSPACE_ENCRYPTED_URLS = @json($encryptedTabUrls ?? \App\Support\RouteCipher::allWorkspaceUrls());
     window.WORKSPACE_ACTIVE_TAB = {{ (int) ($activeTab ?? 1) }};
@@ -39,10 +40,16 @@
 
   <script>
     function updateSidebarActiveTab(tabIndex) {
+        const numTab = parseInt(tabIndex, 10);
+        const isKeepGroup = [3, 4, 5, 6].includes(numTab);
+
         document.querySelectorAll('.workspace-sidebar-link').forEach(link => {
-            const isTarget = link.getAttribute('data-tab') == tabIndex;
-            if (link.getAttribute('data-tab') == '2') {
+            const linkTab = parseInt(link.getAttribute('data-tab'), 10);
+            const isTarget = linkTab === numTab;
+            if (linkTab === 2) {
                 link.className = 'workspace-sidebar-link flex-1 flex items-center gap-3 px-3.5 py-2.5 font-semibold transition min-w-0 ' + (isTarget ? 'text-white' : 'text-slate-300 hover:text-white');
+            } else if (linkTab === 4) {
+                link.className = 'workspace-sidebar-link flex-1 flex items-center gap-3 px-3.5 py-2.5 font-semibold transition min-w-0 ' + (isKeepGroup ? 'text-white' : 'text-slate-300 hover:text-white');
             } else {
                 link.className = 'workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition ' + (isTarget ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white');
             }
@@ -50,21 +57,47 @@
 
         const wrapMatrix = document.getElementById('wrap-report-matrix-btn');
         if (wrapMatrix) {
-            if (tabIndex == 2) {
+            if (numTab === 2) {
                 wrapMatrix.className = 'flex items-center justify-between rounded-xl transition bg-brand-600 text-white shadow-lg shadow-brand-600/20';
             } else {
                 wrapMatrix.className = 'flex items-center justify-between rounded-xl transition text-slate-300 hover:bg-white/10 hover:text-white';
             }
         }
 
+        const wrapKeep = document.getElementById('wrap-format-keep-btn');
+        if (wrapKeep) {
+            if (isKeepGroup) {
+                wrapKeep.className = 'flex items-center justify-between rounded-xl transition bg-brand-600 text-white shadow-lg shadow-brand-600/20';
+            } else {
+                wrapKeep.className = 'flex items-center justify-between rounded-xl transition text-slate-300 hover:bg-white/10 hover:text-white';
+            }
+        }
+
         // Expand/collapse Report Matrix sub-items in sidebar
         const subMatrix = document.getElementById('submenu-report-matrix');
         const chevMatrix = document.getElementById('chevron-report-matrix');
-        if (subMatrix) subMatrix.classList.toggle('hidden', tabIndex != 2);
+        if (subMatrix) subMatrix.classList.toggle('hidden', numTab !== 2);
         if (chevMatrix) {
-            chevMatrix.classList.toggle('rotate-90', tabIndex == 2);
-            chevMatrix.classList.toggle('text-white', tabIndex == 2);
-            chevMatrix.classList.toggle('text-slate-500', tabIndex != 2);
+            chevMatrix.classList.toggle('rotate-90', numTab === 2);
+            chevMatrix.classList.toggle('text-white', numTab === 2);
+            chevMatrix.classList.toggle('text-slate-500', numTab !== 2);
+        }
+
+        // Expand/collapse Format Keep sub-items in sidebar
+        const subKeep = document.getElementById('submenu-format-keep');
+        const chevKeep = document.getElementById('chevron-format-keep');
+        if (subKeep && isKeepGroup) {
+            subKeep.classList.remove('hidden');
+        }
+        if (chevKeep) {
+            chevKeep.classList.toggle('rotate-90', isKeepGroup);
+            chevKeep.classList.toggle('text-white', isKeepGroup);
+            chevKeep.classList.toggle('text-slate-500', !isKeepGroup);
+        }
+
+        // Update active sub-items in Format Keep
+        if (typeof window.updateKeepSubmenuActive === 'function') {
+            window.updateKeepSubmenuActive(numTab);
         }
     }
 

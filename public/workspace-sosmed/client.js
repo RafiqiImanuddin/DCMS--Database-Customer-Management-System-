@@ -143,6 +143,7 @@ const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 // Utility Formatters
 function formatRupiah(num) {
+  if (window.IS_GUEST) return 'Rp ***.***';
   if (num === null || num === undefined || isNaN(num) || num === 0) return 'Rp -';
   const isNeg = num < 0;
   const absVal = Math.abs(num);
@@ -151,6 +152,7 @@ function formatRupiah(num) {
 }
 
 function formatPercent(pct) {
+  if (window.IS_GUEST) return '***%';
   if (isNaN(pct)) return '0%';
   return `${Math.round(pct)}%`;
 }
@@ -166,7 +168,14 @@ function normalizePhone(p) {
 }
 
 function formatPhoneDisplay(p) {
+  if (!p) return '-';
   const norm = normalizePhone(p);
+  if (window.IS_GUEST) {
+    if (norm && norm.length >= 8) {
+      return norm.slice(0, 4) + '****' + norm.slice(-3);
+    }
+    return '****';
+  }
   if (!norm || norm.length < 9) return p || '-';
   if (norm.startsWith('62')) {
     const rest = norm.slice(2);
@@ -527,6 +536,10 @@ function parseCrosellingBuffer(arrayBuffer) {
     if (typeof rawKeepRows !== 'undefined' && rawKeepRows.length > 0 && typeof runARMissingSosmedAudit === 'function') {
       runARMissingSosmedAudit();
     }
+    // Auto-recalculate Report 2 Cross-Selling once Google Sheets / Croselling data is ready
+    if (typeof rawTurnoverRows !== 'undefined' && rawTurnoverRows.length > 0 && typeof processAllReports === 'function') {
+      processAllReports();
+    }
   } catch (err) {
     console.error("Gagal membaca Google Sheets croselling:", err);
   }
@@ -676,6 +689,19 @@ function processAllReports() {
   let totalSosmedAchieve = 0;
   let totalSosmedGP = 0;
 
+  // Pre-index rawCrosellingRows by Document Number for fast auto-lookup of Gadget & Aksesoris items
+  const crosellingDocMap = new Map();
+  if (Array.isArray(rawCrosellingRows) && rawCrosellingRows.length > 0) {
+    rawCrosellingRows.forEach(crow => {
+      const cdoc = String(crow['Document Number'] || crow['document_number'] || '').trim().replace(/\D/g, '');
+      if (!cdoc) return;
+      if (!crosellingDocMap.has(cdoc)) {
+        crosellingDocMap.set(cdoc, []);
+      }
+      crosellingDocMap.get(cdoc).push(crow);
+    });
+  }
+
   for (const row of rawTurnoverRows) {
     const emp = String(row['Sales Employee Name'] || '');
     const rem = String(row['Remarks'] || '');
@@ -745,22 +771,29 @@ function processAllReports() {
     // Grouping for Cross-selling calculation (by Document Number)
     const docNo = row['Document Number'];
     if (docNo) {
-      if (!docTransactions[docNo]) {
-        docTransactions[docNo] = {
+      const cleanDoc = String(docNo).trim().replace(/\D/g, '');
+      const docKey = cleanDoc || String(docNo).trim();
+
+      if (!docTransactions[docKey]) {
+        docTransactions[docKey] = {
           pic: matchedPIC || null,
           gadgetPics: new Set(),
           accPics: new Set(),
+          allPics: new Set(),
           accTotal: 0,
           hasGadget: false,
-          hasCross: false
+          hasCross: false,
+          evaluatedFromCrosselling: false
         };
       }
-      if (matchedPIC && !docTransactions[docNo].pic) {
-        docTransactions[docNo].pic = matchedPIC;
+      if (matchedPIC) {
+        if (!docTransactions[docKey].pic) {
+          docTransactions[docKey].pic = matchedPIC;
+        }
+        docTransactions[docKey].allPics.add(matchedPIC);
       }
 
-      // Klasifikasi kategori sesuai rumus standar FILL GRUP Excel
-      // TM = Tebus Murah (diberi 'X' agar tidak dihitung sebagai gadget/croselling reguler)
+      // Mode 1: Jika turnover row sudah memiliki kolom 'Group Name' (misal file turnover mentah Excel)
       const itemDesc = String(row['Item/Service Description'] || '');
       const grpRaw = String(row['Group Name'] || '').trim().toUpperCase();
       let grp = grpRaw.slice(0, 3);
@@ -768,16 +801,43 @@ function processAllReports() {
       else if (itemDesc.startsWith('GMART CARE') || itemDesc.startsWith('JASA SERVICE T') || itemDesc.startsWith('JASA SERVICE FLEX T')) grp = 'ACC';
 
       if (grp === 'GAD') {
-        docTransactions[docNo].hasGadget = true;
+        docTransactions[docKey].hasGadget = true;
         if (matchedPIC) {
-          docTransactions[docNo].gadgetPics.add(matchedPIC);
-          docTransactions[docNo].pic = matchedPIC;
+          docTransactions[docKey].gadgetPics.add(matchedPIC);
+          docTransactions[docKey].pic = matchedPIC;
         }
       } else if (grp === 'ACC') {
-        docTransactions[docNo].accTotal += total;
+        docTransactions[docKey].accTotal += total;
         if (matchedPIC) {
-          docTransactions[docNo].accPics.add(matchedPIC);
+          docTransactions[docKey].accPics.add(matchedPIC);
         }
+      } else if (!docTransactions[docKey].evaluatedFromCrosselling && crosellingDocMap.has(cleanDoc)) {
+        // Mode 2: Auto-lookup ke data CROSSELLING jika kolom Group Name tidak ada pada data turnover (misal sumber SQL)
+        docTransactions[docKey].evaluatedFromCrosselling = true;
+        const cItems = crosellingDocMap.get(cleanDoc);
+        cItems.forEach(it => {
+          const itDesc = String(it['Dscription'] || it['Item/Service Description'] || it['ItemCode'] || it['dscription'] || '').trim().toUpperCase();
+          const itGrp = String(it['ItmsGrpNam'] || it['Group Name'] || it['Group'] || '').trim().toUpperCase();
+          const itPrice = Number(it['Harga Jual'] || it['Total'] || it['harga_jual'] || 0);
+
+          if (itDesc.startsWith('TM ')) return; // Tebus Murah diabaikan
+
+          const isGadget = isHandphoneProduct(it) || itGrp.startsWith('GAD') || itGrp.includes('GADGET') || itGrp.includes('HANDPHONE') || itGrp.includes('SMARTPHONE');
+          const isAcc = itGrp.startsWith('ACC') || itGrp.includes('ACCES') || itDesc.startsWith('GMART CARE') || itDesc.startsWith('JASA SERVICE');
+
+          if (isGadget) {
+            docTransactions[docKey].hasGadget = true;
+            if (matchedPIC) {
+              docTransactions[docKey].gadgetPics.add(matchedPIC);
+              docTransactions[docKey].pic = matchedPIC;
+            }
+          } else if (isAcc || (!isGadget && !isItemExemptFromSosmed(it))) {
+            docTransactions[docKey].accTotal += itPrice;
+            if (matchedPIC) {
+              docTransactions[docKey].accPics.add(matchedPIC);
+            }
+          }
+        });
       }
     }
   }
@@ -796,22 +856,22 @@ function processAllReports() {
         totalSosmedCross++;
       }
 
+      // Pastikan gadgetPics memiliki PIC jika doc memiliki pic/allPics
+      const targetGadgetPics = item.gadgetPics.size > 0 
+        ? item.gadgetPics 
+        : (item.pic ? new Set([item.pic]) : (item.allPics || new Set()));
+
       // Hitung Gadget per PIC
-      item.gadgetPics.forEach(pic => {
+      targetGadgetPics.forEach(pic => {
         if (picStats[pic]) picStats[pic].gadgetCount++;
       });
 
       // Hitung Cross (>50K) per PIC
       if (isCross) {
-        if (item.accPics.size > 0) {
-          item.accPics.forEach(pic => {
-            if (picStats[pic]) picStats[pic].crossCount++;
-          });
-        } else {
-          item.gadgetPics.forEach(pic => {
-            if (picStats[pic]) picStats[pic].crossCount++;
-          });
-        }
+        const targetAccPics = item.accPics.size > 0 ? item.accPics : targetGadgetPics;
+        targetAccPics.forEach(pic => {
+          if (picStats[pic]) picStats[pic].crossCount++;
+        });
       }
     }
   }
@@ -1335,6 +1395,8 @@ function switchTab(tabIndex) {
   }
 
   if (tabIndex === 4) {
+    if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
+    if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
     if (rawKeepRows.length === 0) {
       loadKeepData();
     } else {
@@ -1749,7 +1811,11 @@ function renderWhatsAppCustomerView(query, rows) {
   document.getElementById('custProfileItemsCount').innerText = `${totalQty} Item Produk`;
   document.getElementById('custProfileCabang').innerText = uniqueCabs.join(', ') || '-';
 
-  document.getElementById('custWhatsAppAction').innerHTML = `
+  document.getElementById('custWhatsAppAction').innerHTML = window.IS_GUEST ? `
+    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 font-bold text-xs">
+      🔒 Nomor WA Disensor
+    </span>
+  ` : `
     <a href="https://wa.me/${normWA}" target="_blank" class="btn-whatsapp">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
@@ -1939,9 +2005,11 @@ function renderARDocumentView(docNumber, rows, source = 'CROSSELLING') {
   if (normWA && normWA.length >= 9) {
     document.getElementById('arMetaWA').innerHTML = `
       <span class="font-bold">${displayWA}</span>
+      ${!window.IS_GUEST ? `
       <a href="https://wa.me/${normWA}" target="_blank" class="btn-whatsapp" style="margin-left: 8px; padding: 2px 8px; font-size: 0.72rem;">
         💬 Chat WA
       </a>
+      ` : '<span class="text-xs text-slate-400 ml-2 font-mono">🔒 (Disensor)</span>'}
     `;
   } else {
     document.getElementById('arMetaWA').innerText = 'Tidak tersedia di dokumen ini';
@@ -2550,6 +2618,43 @@ function toggleAuditFiltersSection() {
   }
 }
 
+function sanitizeKeepAutofill() {
+  const inp = document.getElementById('keepSearchInput');
+  if (!inp) return;
+  const val = (inp.value || '').trim();
+  if (val.includes('@') || val.toLowerCase().includes('admin') || val.toLowerCase().includes('.com')) {
+    inp.value = '';
+    if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
+    if (typeof applyKeepFilters === 'function') applyKeepFilters();
+  }
+}
+window.sanitizeKeepAutofill = sanitizeKeepAutofill;
+
+function toggleKeepClearBtn() {
+  const inp = document.getElementById('keepSearchInput');
+  const btn = document.getElementById('btnClearKeepSearch');
+  if (!btn) return;
+  if (inp && inp.value.trim().length > 0) {
+    btn.classList.remove('hidden');
+    btn.classList.add('flex');
+  } else {
+    btn.classList.remove('flex');
+    btn.classList.add('hidden');
+  }
+}
+window.toggleKeepClearBtn = toggleKeepClearBtn;
+
+function clearKeepSearchInput() {
+  const inp = document.getElementById('keepSearchInput');
+  if (inp) {
+    inp.value = '';
+    inp.focus();
+  }
+  toggleKeepClearBtn();
+  applyKeepFilters();
+}
+window.clearKeepSearchInput = clearKeepSearchInput;
+
 function resetKeepFilters() {
   const kSel = document.getElementById('keepFilterPeriode');
   if (kSel) {
@@ -2560,6 +2665,7 @@ function resetKeepFilters() {
   if (document.getElementById('keepFilterTanggal')) document.getElementById('keepFilterTanggal').value = '';
   if (document.getElementById('keepFilterReportAR')) document.getElementById('keepFilterReportAR').value = '';
   if (document.getElementById('keepSearchInput')) document.getElementById('keepSearchInput').value = '';
+  toggleKeepClearBtn();
   applyKeepFilters();
 }
 
@@ -2810,12 +2916,12 @@ function renderKeepPage() {
         </div>
         <div class="min-w-0">
           <div class="font-bold text-slate-900 text-xs truncate max-w-[170px]" title="${custName}">${custName}</div>
-          ${(normWA && normWA.length >= 8) ? `
+          ${(normWA && normWA.length >= 8 && !window.IS_GUEST) ? `
             <a href="https://wa.me/${normWA}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition" title="Hubungi customer di WhatsApp">
               <span class="size-1.5 rounded-full bg-emerald-500"></span>
               <span>${displayWA}</span>
             </a>
-          ` : `<span class="text-[11px] text-slate-400 font-mono">${displayWA || '-'}</span>`}
+          ` : `<span class="text-[11px] text-slate-500 font-mono">${displayWA || '-'}</span>`}
         </div>
       </div>
     `;
@@ -2827,22 +2933,26 @@ function renderKeepPage() {
         <span class="font-mono text-xs font-bold text-brand-700 cursor-pointer hover:underline" onclick="openARDetailModalFromKeep(${keepRowIdx})" title="Klik untuk cek detail faktur AR">
           ${arDoc}
         </span>
+        ${!window.IS_GUEST ? `
         <button type="button" class="text-slate-400 hover:text-brand-600 transition cursor-pointer" onclick="event.stopPropagation(); openKeepInputARModal(${keepRowIdx})" title="Ubah nomor AR">
           <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"/></svg>
         </button>
+        ` : ''}
       </div>
     ` : `
       <div class="inline-block" data-wa="${rawWA}" data-keep-idx="${keepRowIdx}" data-current-ar="">
+        ${!window.IS_GUEST ? `
         <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-500 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50/50 transition cursor-pointer" onclick="openKeepInputARModal(${keepRowIdx})" title="Klik untuk menginput nomor AR">
           <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg> Input AR
         </button>
+        ` : '<span class="text-xs text-slate-400">-</span>'}
       </div>
     `;
 
     // 3. STATUS PILL
     const rawSt = String(r['Status'] || '').trim().toUpperCase();
     const statusPillHtml = `
-      <div class="inline-block cursor-pointer transition hover:scale-105" onclick="openStatusChangeQuickModal('${rawWA}', ${keepRowIdx}, '${rawSt}')" title="Klik untuk mengubah status customer">
+      <div class="inline-block ${window.IS_GUEST ? 'cursor-default' : 'cursor-pointer transition hover:scale-105'}" ${window.IS_GUEST ? '' : `onclick="openStatusChangeQuickModal('${rawWA}', ${keepRowIdx}, '${rawSt}')"`} title="${window.IS_GUEST ? 'Status transaksi' : 'Klik untuk mengubah status customer'}">
         ${getModernStatusPill(rawSt)}
       </div>
     `;
@@ -9549,6 +9659,18 @@ function changeClaimsPage(delta) {
 async function initSosmedApp() {
   // 1. Tampilkan tab target segera tanpa menunggu network
   const initialActiveTab = (typeof window.WORKSPACE_ACTIVE_TAB === 'number') ? window.WORKSPACE_ACTIVE_TAB : 1;
+  const keepInput = document.getElementById('keepSearchInput');
+  if (keepInput) keepInput.value = '';
+  if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
+  if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
+
+  // Tangkal delay autofill agresif dari password manager Chrome/Edge
+  [100, 300, 600, 1200].forEach(delay => {
+    setTimeout(() => {
+      if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
+    }, delay);
+  });
+
   if (typeof switchTab === 'function') {
     try { switchTab(initialActiveTab); } catch (e) { console.warn('switchTab init error:', e); }
   }

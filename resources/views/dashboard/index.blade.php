@@ -107,7 +107,7 @@
                 @php($monthNames = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'])
                 @foreach($periods as $period)
                     @php($monthNumber = (int) substr((string) $period->period_label, 5, 2))
-                    <tr class="border-b border-slate-100 last:border-0"><td class="py-3 font-semibold">{{ $monthNames[$monthNumber] ?? $period->period_label }}</td><td>{{ number_format($period->transaction_count) }}</td><td>{{ number_format($period->customer_count) }}</td><td class="text-right font-semibold">{{ number_format((float) $period->total_value) }}</td></tr>
+                    <tr class="border-b border-slate-100 last:border-0"><td class="py-3 font-semibold">{{ $monthNames[$monthNumber] ?? $period->period_label }}</td><td>{{ number_format($period->transaction_count) }}</td><td>{{ number_format($period->customer_count) }}</td><td class="text-right font-semibold">{{ \App\Support\DataMasker::isGuest() ? '***.***' : number_format((float) $period->total_value) }}</td></tr>
                 @endforeach
                 </tbody>
             </table>

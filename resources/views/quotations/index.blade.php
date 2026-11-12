@@ -22,10 +22,16 @@
         </div>
 
         <div class="flex items-center gap-2">
+            @if(!auth()->check() || !auth()->user()->isGuest())
             <a href="{{ route('quotations.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm shadow-indigo-600/20 hover:bg-indigo-700 transition cursor-pointer">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                 <span>Buat Surat Penawaran</span>
             </a>
+            @else
+            <span class="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
+                🔒 Mode Tamu: Read-Only
+            </span>
+            @endif
         </div>
     </div>
 
@@ -70,7 +76,7 @@
                     <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                 </span>
             </div>
-            <div class="mt-2 text-2xl font-black text-purple-600">Rp {{ number_format($stats['total_amount'], 0, ',', '.') }}</div>
+            <div class="mt-2 text-2xl font-black text-purple-600">{{ \App\Support\DataMasker::maskCurrency($stats['total_amount']) }}</div>
             <p class="mt-1 text-xs text-slate-500">Estimasi nilai penawaran barang diajukan</p>
         </div>
     </div>
@@ -164,7 +170,7 @@
                             @endif
                         </td>
                         <td class="px-5 py-3.5 text-right whitespace-nowrap font-black text-slate-900">
-                            Rp {{ number_format($q->total_amount, 0, ',', '.') }}
+                            {{ \App\Support\DataMasker::maskCurrency($q->total_amount) }}
                         </td>
                         <td class="px-5 py-3.5 whitespace-nowrap">
                             <div class="font-semibold text-slate-700">{{ $q->signer_name }}</div>
@@ -193,6 +199,7 @@
                                     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                                 </a>
 
+                                @if(!auth()->check() || !auth()->user()->isGuest())
                                 <a href="{{ route('quotations.edit', $q) }}" 
                                    title="Edit Surat" 
                                    class="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50 hover:text-amber-800 transition">
@@ -217,6 +224,7 @@
                                         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                                     </button>
                                 </form>
+                                @endif
                             </div>
                         </td>
                     </tr>
