@@ -7610,16 +7610,16 @@ async function pollServerSyncStatus() {
       }
     }
 
-    // F. Deteksi jika Data Keep Google Sheets diperbarui otomatis dari server
+    // F. Deteksi jika Data Keep DCMS diperbarui otomatis dari server
     if (status.keep && status.keep.exists && status.keep.mtimeMs) {
       if (lastKnownSyncStatus.keepMtime && status.keep.mtimeMs > lastKnownSyncStatus.keepMtime) {
-        console.log('🔄 [Sync Engine] Data Keep Google Sheets baru terdeteksi dari background sync!');
+        console.log('🔄 [Sync Engine] Data Keep baru terdeteksi dari background sync!');
         lastKnownSyncStatus.keepMtime = status.keep.mtimeMs;
         await loadKeepData(true);
         if (typeof window.showDcmsToast === 'function') {
           window.showDcmsToast({
-            title: 'Google Sheets Diperbarui!',
-            message: `Data transaksi berhasil dimuat (${rawKeepRows.length.toLocaleString('id-ID')} data).`,
+            title: 'Data Keep Realtime Diperbarui!',
+            message: `Data transaksi berhasil disinkronkan (${rawKeepRows.length.toLocaleString('id-ID')} data).`,
             type: 'success',
             duration: 4000
           });

@@ -286,4 +286,78 @@ class FonnteWebhookAndSettingsTest extends TestCase
             'success' => true,
         ]);
     }
+
+    public function test_fonnte_webhook_accepts_remark_singular_and_dot_in_no_wa(): void
+    {
+        Http::fake([
+            'https://api.fonnte.com/send' => Http::response(['status' => true], 200),
+        ]);
+
+        $message = "*FORMAT KEEP*\n*Nama :* Siti Rahmah\n*No. WA :* 085248123456\n*Barang :* SAMSUNG A55 5G\n*Tanggal Ambil :* Besok sore\n*Catatan :* DP 100rb\n*Remark :* SOSMED 3";
+
+        $response = $this->post(route('api.fonnte_webhook'), [
+            'message' => $message,
+            'sender' => '628111222333',
+            'id' => 'msg_test_remark_singular',
+        ]);
+
+        $response->assertOk();
+        $this->assertEquals('OK', $response->getContent());
+
+        $this->assertDatabaseHas('sosmed_keeps', [
+            'nama' => 'Siti Rahmah',
+            'nomor_wa' => '6285248123456',
+            'barang_keep' => 'SAMSUNG A55 5G',
+            'remarks' => 'SOSMED 3',
+        ]);
+    }
+
+    public function test_fonnte_webhook_accepts_kode_sosmed_and_equal_separator(): void
+    {
+        Http::fake([
+            'https://api.fonnte.com/send' => Http::response(['status' => true], 200),
+        ]);
+
+        $message = "Format Keep\nNama Cust = Dewi Sartika\nNo. Telp = 087812345678\nUnit = Redmi Note 13 Pro\nJadwal = Nanti malam\nNote = Ambil di store\nKode Sosmed = SOSMED 17";
+
+        $response = $this->post(route('api.fonnte_webhook'), [
+            'message' => $message,
+            'sender' => '628777888999',
+            'id' => 'msg_test_equal_sep',
+        ]);
+
+        $response->assertOk();
+        $this->assertEquals('OK', $response->getContent());
+
+        $this->assertDatabaseHas('sosmed_keeps', [
+            'nama' => 'Dewi Sartika',
+            'nomor_wa' => '6287812345678',
+            'barang_keep' => 'Redmi Note 13 Pro',
+            'remarks' => 'SOSMED 17',
+        ]);
+    }
+
+    public function test_fonnte_webhook_detects_cabang_from_group_name(): void
+    {
+        Http::fake([
+            'https://api.fonnte.com/send' => Http::response(['status' => true], 200),
+        ]);
+
+        $message = "Format Keep\nNama: Budi\nNo WA: 081234567890\nBarang: Vivo V30\nRemarks: SOSMED 10";
+
+        $response = $this->post(route('api.fonnte_webhook'), [
+            'message' => $message,
+            'sender' => '120363327671212528@g.us',
+            'group_name' => 'GM BJB (BANJARBARU)',
+            'isgroup' => true,
+            'id' => 'msg_test_group_cabang',
+        ]);
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('sosmed_keeps', [
+            'nama' => 'Budi',
+            'cabang' => 'Banjarbaru',
+        ]);
+    }
 }

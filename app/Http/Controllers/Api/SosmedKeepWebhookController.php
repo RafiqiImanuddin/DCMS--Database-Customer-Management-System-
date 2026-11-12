@@ -89,17 +89,26 @@ class SosmedKeepWebhookController extends Controller
 
         // Filter rekap harian
         if (preg_match('/total chat sosmed|yang handle|alasan lost\/deal/i', $message)) {
+            Log::info('Fonnte Webhook Ignored: DAILY_REPORT', ['sender' => $request->input('sender')]);
             return response('IGNORED_DAILY_REPORT', 200)->header('Content-Type', 'text/plain');
         }
 
-        // Filter wajib ada kata remaks/remarks
-        if (! preg_match('/remar?ks/i', $message)) {
+        // Filter wajib ada kata remaks/remarks/kode sosmed/sosmed
+        if (! preg_match('/remar?ks?|kode\s*sosmed|admin\s*sosmed|cs\s*sosmed|\bsosmed\s*\d+/i', $message)) {
+            Log::info('Fonnte Webhook Ignored: NO_REMARKS', [
+                'sender' => $request->input('sender'),
+                'preview' => substr($message, 0, 100),
+            ]);
             return response('IGNORED_NO_REMAKS', 200)->header('Content-Type', 'text/plain');
         }
 
         $keep = $this->parseKeep($message);
 
         if (! isset($keep['remaks']) || trim($keep['remaks']) === '') {
+            Log::info('Fonnte Webhook Ignored: NO_REMAKS_AFTER_PARSE', [
+                'sender' => $request->input('sender'),
+                'preview' => substr($message, 0, 100),
+            ]);
             return response('IGNORED_NO_REMAKS', 200)->header('Content-Type', 'text/plain');
         }
 
@@ -108,6 +117,10 @@ class SosmedKeepWebhookController extends Controller
             // Toleransi jika nomor WA dikosongkan (misal saat sampling/testing atau CS belum isi),
             // tetap izinkan simpan jika nama atau barang sudah terisi agar data format keep tidak hilang.
             if (empty($keep['nama']) && empty($keep['barang'])) {
+                Log::info('Fonnte Webhook Ignored: NO_NOMOR_WA_AND_NO_DATA', [
+                    'sender' => $request->input('sender'),
+                    'preview' => substr($message, 0, 100),
+                ]);
                 return response('IGNORED_NO_NOMOR_WA', 200)->header('Content-Type', 'text/plain');
             }
         }
@@ -134,7 +147,7 @@ class SosmedKeepWebhookController extends Controller
         ];
         $now = now();
         $periode = ($monthNames[$now->month] ?? 'Bulan').'-'.substr((string) $now->year, -2);
-        $cabang = $this->fonnteService->detectCabangFromRemarks($keep['remaks'] ?? '');
+        $cabang = $this->fonnteService->detectCabangFromRemarks($keep['remaks'] ?? '', $request->input('group_name'));
 
         // Deteksi transaksi Kredit vs Non Kredit
         $isKredit = (bool) preg_match('/format\s*kredit|kredit|pembiayaan|leasing|angsuran|cicilan/i', $message);
@@ -189,6 +202,14 @@ class SosmedKeepWebhookController extends Controller
             'status' => 'PENDING',
             'user_kredit' => $userKredit,
             'item' => $item,
+        ]);
+
+        Log::info("Fonnte Webhook Saved Keep ID: {$newKeep->id}", [
+            'nama' => $newKeep->nama,
+            'nomor_wa' => $newKeep->nomor_wa,
+            'barang' => $newKeep->barang_keep,
+            'remarks' => $newKeep->remarks,
+            'cabang' => $newKeep->cabang,
         ]);
 
         // Simpan juga ke file CSV keep-data.csv untuk backward compatibility
@@ -570,108 +591,9 @@ class SosmedKeepWebhookController extends Controller
     /**
      * Parser Pesan Keep dari Format WhatsApp
      */
-    private function parseKeep(string $text): array
+    public function parseKeep(string $text): array
     {
-        $result = ['nama' => '', 'nomor' => '', 'barang' => '', 'tanggal' => '', 'catatan' => '', 'remaks' => ''];
-        if ($text === '') {
-            return $result;
-        }
-
-        $cleanText = str_replace(["\xC2\xA0", "\r\n", "\r"], [' ', "\n", "\n"], $text);
-        $lines = explode("\n", $cleanText);
-        $currentField = '';
-
-        foreach ($lines as $rawLine) {
-            $rawLine = trim($rawLine);
-            if ($rawLine === '') {
-                continue;
-            }
-
-            $plainLine = trim(preg_replace('/[*_~]/', '', $rawLine));
-
-            // Abaikan footer disclaimer atau format header
-            if (preg_match('/^(wajib mencantumkan|format keep|format kredit|format preorder|format po)/i', $plainLine)) {
-                if (preg_match('/^wajib mencantumkan/i', $plainLine)) {
-                    $currentField = '';
-                }
-                continue;
-            }
-
-            if (preg_match('/^(tanggal\s*keep|tgl\s*keep)/i', $plainLine)) {
-                $currentField = '';
-                continue;
-            }
-
-            $colonIdx = strpos($plainLine, ':');
-            if ($colonIdx !== false) {
-                $key = strtolower(trim(substr($plainLine, 0, $colonIdx)));
-                $rawColonIdx = strpos($rawLine, ':');
-                $val = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', substr($rawLine, $rawColonIdx + 1)));
-
-                if ($key === 'nama') {
-                    $currentField = 'nama';
-                    $result['nama'] = $val;
-                } elseif (in_array($key, ['nomor wa', 'no wa', 'nomor', 'no hp', 'telepon', 'hp', 'no whatsapp', 'nomor whatsapp'], true)) {
-                    $currentField = 'nomor';
-                    $result['nomor'] = $val;
-                } elseif (in_array($key, ['barang', 'barang keep', 'barang po', 'barang kredit', 'barang preorder'], true)) {
-                    $currentField = 'barang';
-                    $result['barang'] = $val;
-                } elseif (in_array($key, ['tanggal', 'tanggal pengambilan', 'tanggal ambil', 'tgl pengambilan'], true)) {
-                    $currentField = 'tanggal';
-                    $result['tanggal'] = $val;
-                } elseif ($key === 'catatan') {
-                    $currentField = 'catatan';
-                    $result['catatan'] = $val;
-                } elseif (in_array($key, ['remaks', 'remarks', 'remaks sosmed', 'remarks sosmed', 'remaks: sosmed', 'remarks: sosmed'], true) || str_starts_with($key, 'remak') || str_starts_with($key, 'remark')) {
-                    $currentField = 'remaks';
-                    // Ambil isi remaks, misal "SOSMED 10" atau "10"
-                    $result['remaks'] = $val;
-                } elseif ($currentField === 'catatan') {
-                    // Jika sedang membaca catatan, baris ber-titik dua (seperti "Umur: 25", "Pembiayaan: Spektra", "DP: 500rb", dll)
-                    // tetap digabungkan ke catatan agar tidak terpotong
-                    $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
-                    $result['catatan'] = $result['catatan'] !== '' ? $result['catatan'] . "\n" . $cleanSub : $cleanSub;
-                } elseif (in_array($key, ['umur', 'pembiayaan', 'dp', 'pekerjaan', 'leasing'], true)) {
-                    // Jika field catatan tidak diawali label 'Catatan:', melainkan langsung 'Umur: ...'
-                    $currentField = 'catatan';
-                    $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
-                    $result['catatan'] = $result['catatan'] !== '' ? $result['catatan'] . "\n" . $cleanSub : $cleanSub;
-                } else {
-                    $currentField = '';
-                }
-            } elseif ($currentField !== '') {
-                $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
-                if (!preg_match('/^wajib mencantumkan/i', $cleanSub)) {
-                    $result[$currentField] .= ($result[$currentField] !== '' ? "\n" : "") . $cleanSub;
-                }
-            }
-        }
-
-        // Ekstraksi Khusus Field Remaks (Kode SOSMED)
-        if ($result['remaks'] !== '') {
-            $cleanRemaks = preg_replace('/[*_~]/', '', $result['remaks']);
-            $cleanRemaks = preg_replace('/@\S+/', '', $cleanRemaks);
-            $cleanRemaks = trim((string) preg_replace('/\s+/', ' ', $cleanRemaks));
-
-            if (str_contains($cleanRemaks, '-')) {
-                $parts = explode('-', $cleanRemaks);
-                $cleanRemaks = trim(end($parts));
-            }
-
-            $result['remaks'] = $cleanRemaks;
-        }
-
-        // Pembersihan Khusus Nomor WA
-        if ($result['nomor'] !== '') {
-            $cleanNum = preg_replace('/\D/', '', (string) $result['nomor']);
-            if (str_starts_with($cleanNum, '0')) {
-                $cleanNum = '62'.substr($cleanNum, 1);
-            }
-            $result['nomor'] = $cleanNum;
-        }
-
-        return $result;
+        return $this->fonnteService->parseKeep($text);
     }
 
     /**

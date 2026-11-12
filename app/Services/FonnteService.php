@@ -260,10 +260,11 @@ class FonnteService
                 continue;
             }
 
-            $plainLine = trim(preg_replace('/[*_~]/', '', $rawLine));
+            // Hilangkan markdown WA (*, _, ~) untuk membaca key
+            $plainLine = trim(preg_replace('/[*_~]/u', '', $rawLine));
 
-            // Abaikan footer disclaimer atau format header
-            if (preg_match('/^(wajib mencantumkan|format keep|format kredit|format preorder|format po)/i', $plainLine)) {
+            // Abaikan header format / footer disclaimer
+            if (preg_match('/^(wajib mencantumkan|format keep|format kredit|format preorder|format po|format\s+transaksi)/i', $plainLine)) {
                 if (preg_match('/^wajib mencantumkan/i', $plainLine)) {
                     $currentField = '';
                 }
@@ -276,42 +277,75 @@ class FonnteService
                 continue;
             }
 
-            $colonIdx = strpos($plainLine, ':');
-            if ($colonIdx !== false) {
-                $key = strtolower(trim(substr($plainLine, 0, $colonIdx)));
-                $rawColonIdx = strpos($rawLine, ':');
-                $val = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', substr($rawLine, $rawColonIdx + 1)));
+            // Deteksi pemisah key-value: titik dua (:) atau sama dengan (=)
+            $colonPos = strpos($plainLine, ':');
+            $equalPos = strpos($plainLine, '=');
 
-                if ($key === 'nama') {
+            $sep = null;
+            $sepIdx = false;
+            if ($colonPos !== false && ($equalPos === false || $colonPos < $equalPos)) {
+                $sep = ':';
+                $sepIdx = $colonPos;
+            } elseif ($equalPos !== false) {
+                $sep = '=';
+                $sepIdx = $equalPos;
+            }
+
+            if ($sep !== null && $sepIdx !== false) {
+                $rawKey = trim(substr($plainLine, 0, $sepIdx));
+                // Normalisasi key: lowercase, hilangkan tanda baca seperti titik atau strip
+                $cleanKey = strtolower(preg_replace('/[^a-zA-Z0-9\s]/u', '', $rawKey));
+                $cleanKey = trim(preg_replace('/\s+/u', ' ', $cleanKey));
+
+                // Ekstraksi nilai value tanpa markdown WA
+                $rawSepPos = strpos($rawLine, $sep);
+                $rawVal = $rawSepPos !== false ? substr($rawLine, $rawSepPos + 1) : substr($plainLine, $sepIdx + 1);
+                $val = trim($rawVal);
+                $val = trim(preg_replace('/^[\s*_~]+|[\s*_~]+$/u', '', $val));
+                $val = trim($val);
+
+                if (in_array($cleanKey, ['nama', 'nama customer', 'nama konsumen', 'nama cust', 'customer', 'konsumen', 'cust', 'nama pembeli', 'pembeli'], true)) {
                     $currentField = 'nama';
                     $result['nama'] = $val;
-                } elseif (in_array($key, ['nomor wa', 'no wa', 'nomor', 'no hp', 'telepon', 'hp', 'no whatsapp', 'nomor whatsapp'], true)) {
+                } elseif (in_array($cleanKey, [
+                    'nomor wa', 'no wa', 'nowa', 'nomorwa', 'nomor', 'no hp', 'nohp', 'nomor hp',
+                    'telepon', 'hp', 'no telp', 'notelp', 'nomor telepon', 'no telepon',
+                    'no whatsapp', 'nomor whatsapp', 'kontak', 'no kontak', 'whatsapp', 'wa'
+                ], true)) {
                     $currentField = 'nomor';
                     $result['nomor'] = $val;
-                } elseif (in_array($key, ['barang', 'barang keep', 'barang po', 'barang kredit', 'barang preorder'], true)) {
+                } elseif (in_array($cleanKey, ['barang', 'barang keep', 'barang po', 'barang kredit', 'barang preorder', 'unit', 'tipe', 'item', 'produk', 'nama barang'], true)) {
                     $currentField = 'barang';
                     $result['barang'] = $val;
-                } elseif (in_array($key, ['tanggal', 'tanggal pengambilan', 'tanggal ambil', 'tgl pengambilan'], true)) {
+                } elseif (in_array($cleanKey, [
+                    'tanggal', 'tanggal pengambilan', 'tanggal ambil', 'tgl pengambilan', 'tgl ambil',
+                    'tgl', 'jadwal ambil', 'jadwal', 'hari tgl', 'haritanggal', 'rencana ambil', 'rencana'
+                ], true)) {
                     $currentField = 'tanggal';
                     $result['tanggal'] = $val;
-                } elseif ($key === 'catatan') {
+                } elseif (in_array($cleanKey, ['catatan', 'keterangan', 'note', 'notes'], true)) {
                     $currentField = 'catatan';
                     $result['catatan'] = $val;
-                } elseif (in_array($key, ['remaks', 'remarks', 'remaks sosmed', 'remarks sosmed', 'remaks: sosmed', 'remarks: sosmed'], true) || str_starts_with($key, 'remak') || str_starts_with($key, 'remark')) {
+                } elseif (
+                    in_array($cleanKey, [
+                        'remaks', 'remarks', 'remak', 'remark', 'remaks sosmed', 'remarks sosmed',
+                        'kode sosmed', 'admin sosmed', 'cs sosmed', 'sosmed', 'kode'
+                    ], true)
+                    || str_starts_with($cleanKey, 'remak')
+                    || str_starts_with($cleanKey, 'remark')
+                    || str_starts_with($cleanKey, 'sosmed')
+                ) {
                     $currentField = 'remaks';
                     $result['remaks'] = $val;
-                } elseif ($currentField === 'catatan') {
-                    $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
-                    $result['catatan'] = $result['catatan'] !== '' ? $result['catatan'] . "\n" . $cleanSub : $cleanSub;
-                } elseif (in_array($key, ['umur', 'pembiayaan', 'dp', 'pekerjaan', 'leasing'], true)) {
+                } elseif ($currentField === 'catatan' || in_array($cleanKey, ['umur', 'pembiayaan', 'dp', 'pekerjaan', 'leasing', 'tenor', 'angsuran'], true)) {
                     $currentField = 'catatan';
-                    $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                    $cleanSub = trim(preg_replace('/^[\s*_~]+|[\s*_~]+$/u', '', $rawLine));
                     $result['catatan'] = $result['catatan'] !== '' ? $result['catatan'] . "\n" . $cleanSub : $cleanSub;
                 } else {
                     $currentField = '';
                 }
             } elseif ($currentField !== '') {
-                $cleanSub = trim(preg_replace('/^[*_~]+|[*_~]+$/', '', $rawLine));
+                $cleanSub = trim(preg_replace('/^[\s*_~]+|[\s*_~]+$/u', '', $rawLine));
                 if (!preg_match('/^wajib mencantumkan/i', $cleanSub)) {
                     $result[$currentField] .= ($result[$currentField] !== '' ? "\n" : "") . $cleanSub;
                 }
@@ -320,14 +354,19 @@ class FonnteService
 
         // 1. Ekstraksi Khusus Field Remaks: Username - Kode SOSMED
         if ($result['remaks'] !== '') {
-            $cleanRemaks = preg_replace('/[*_~]/', '', $result['remaks']);
-            $cleanRemaks = preg_replace('/@\S+/', '', $cleanRemaks);
-            $cleanRemaks = trim((string) preg_replace('/\s+/', ' ', $cleanRemaks));
+            $cleanRemaks = preg_replace('/[*_~]/u', '', $result['remaks']);
+            $cleanRemaks = preg_replace('/@\S+/u', '', $cleanRemaks);
+            $cleanRemaks = trim((string) preg_replace('/\s+/u', ' ', $cleanRemaks));
 
-            // Jika ada tanda pemisah "-", ambil bagian setelah tanda "-" terakhir (Kode SOSMED)
+            // Jika ada tanda pemisah "-", cari bagian yang memuat SOSMED
             if (str_contains($cleanRemaks, '-')) {
-                $parts = explode('-', $cleanRemaks);
-                $cleanRemaks = trim((string) end($parts));
+                $parts = array_map('trim', explode('-', $cleanRemaks));
+                foreach ($parts as $p) {
+                    if (preg_match('/sosmed\s*\d+/i', $p)) {
+                        $cleanRemaks = $p;
+                        break;
+                    }
+                }
             }
 
             $result['remaks'] = $cleanRemaks;
@@ -346,35 +385,76 @@ class FonnteService
     }
 
     /**
-     * Deteksi kode cabang dari remarks (Kode SOSMED).
+     * Deteksi kode cabang dari remarks (Kode SOSMED) atau Nama Grup WhatsApp.
      */
-    public function detectCabangFromRemarks(?string $remarks): string
+    public function detectCabangFromRemarks(?string $remarks, ?string $groupName = null): string
     {
-        if (! $remarks) {
+        $text = strtoupper(trim(($remarks ?? '') . ' ' . ($groupName ?? '')));
+        if ($text === '') {
             return '';
         }
 
-        $rem = strtoupper(trim($remarks));
-
         $branchMap = [
+            'BANJARMASIN' => 'Banjarmasin',
             'BJM' => 'Banjarmasin',
+            'BJMC' => 'Banjarmasin',
+            'BANJARBARU' => 'Banjarbaru',
             'BJB' => 'Banjarbaru',
+            'KOTABARU' => 'Kotabaru',
             'KTB' => 'Kotabaru',
+            'PELAIHARI' => 'Pelaihari',
             'PLH' => 'Pelaihari',
+            'BATULICIN' => 'Batulicin',
             'BTC' => 'Batulicin',
+            'TANJUNG' => 'Tanjung',
             'TJG' => 'Tanjung',
+            'PONTIANAK' => 'Pontianak',
             'PTK' => 'Pontianak',
+            'BALIKPAPAN' => 'Balikpapan',
             'BPP' => 'Balikpapan',
+            'SAMARINDA' => 'Samarinda',
             'SMD' => 'Samarinda',
+            'KAPUAS' => 'Kapuas',
             'KPS' => 'Kapuas',
+            'PALANGKARAYA' => 'Palangkaraya',
             'PKY' => 'Palangkaraya',
+            'SINTANG' => 'Sintang',
             'STG' => 'Sintang',
+            'SINGKAWANG' => 'Singkawang',
             'SKW' => 'Singkawang',
+            'AMUNTAI' => 'Amuntai',
+            'AMT' => 'Amuntai',
+            'SAMPIT' => 'Sampit',
+            'SPT' => 'Sampit',
+            'SUNGAI DANAU' => 'Sungai Danau',
+            'SDN' => 'Sungai Danau',
+            'BARABAI' => 'Barabai',
+            'BRB' => 'Barabai',
+            'RANTAU' => 'Rantau',
+            'RNT' => 'Rantau',
+            'KANDANGAN' => 'Kandangan',
+            'KDG' => 'Kandangan',
+            'PARINGIN' => 'Paringin',
+            'PRG' => 'Paringin',
         ];
 
-        foreach ($branchMap as $code => $branchName) {
-            if (preg_match('/\b' . preg_quote($code, '/') . '\b/i', $rem) || str_contains($rem, $code)) {
-                return $branchName;
+        // 1. Cek dari remarks terlebih dahulu
+        if ($remarks) {
+            $rem = strtoupper(trim($remarks));
+            foreach ($branchMap as $code => $branchName) {
+                if (preg_match('/\b' . preg_quote($code, '/') . '\b/i', $rem) || str_contains($rem, $code)) {
+                    return $branchName;
+                }
+            }
+        }
+
+        // 2. Fallback cek dari nama grup WhatsApp
+        if ($groupName) {
+            $grp = strtoupper(trim($groupName));
+            foreach ($branchMap as $code => $branchName) {
+                if (preg_match('/\b' . preg_quote($code, '/') . '\b/i', $grp) || str_contains($grp, $code)) {
+                    return $branchName;
+                }
             }
         }
 
