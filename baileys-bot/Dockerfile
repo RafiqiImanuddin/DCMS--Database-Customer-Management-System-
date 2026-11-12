@@ -3,15 +3,16 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-# Install dependencies first for efficient layer caching
+# Install dependencies
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy source files
 COPY . .
 
-# Expose port (Render automatically maps this)
+# Expose port (Render automatically maps PORT)
 EXPOSE 3000
 
 # Start bot service
 CMD ["node", "index.js"]
+
