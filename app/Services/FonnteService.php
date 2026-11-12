@@ -401,10 +401,71 @@ class FonnteService
     }
 
     /**
-     * Deteksi kode cabang dari remarks (Kode SOSMED) atau Nama Grup WhatsApp.
+     * Peta ID Grup WhatsApp Resmi Gadgetmart ke Cabang & Nama Grup.
      */
-    public function detectCabangFromRemarks(?string $remarks, ?string $groupName = null): string
+    public const GROUP_CABANG_MAP = [
+        '120363331030729373@g.us' => ['cabang' => 'BJMC', 'grup' => 'HASIL TIM FU EXPERT'],
+        '120363328092703569@g.us' => ['cabang' => 'PONTIANAK', 'grup' => 'GM PTK'],
+        '120363309345392029@g.us' => ['cabang' => 'BATULICIN', 'grup' => 'GM BTC'],
+        '120363331600007500@g.us' => ['cabang' => 'SAMPIT', 'grup' => 'GM SPT'],
+        '120363327077123880@g.us' => ['cabang' => 'BALIKPAPAN', 'grup' => 'GM BPP'],
+        '120363327671212528@g.us' => ['cabang' => 'BANJARBARU', 'grup' => 'GM BJB'],
+        '6287832697916-1594798567@g.us' => ['cabang' => 'BANJARMASIN AREA', 'grup' => 'TL SOSMED GADGETMART'],
+        '120363309019909873@g.us' => ['cabang' => 'TANJUNG', 'grup' => 'GM TJG'],
+        '120363327089337045@g.us' => ['cabang' => 'KAPUAS', 'grup' => 'GM KPS'],
+        '120363312505493730@g.us' => ['cabang' => 'MARTAPURA', 'grup' => 'GM MTP'],
+        '120363329573289564@g.us' => ['cabang' => 'KOTABARU', 'grup' => 'GM KTB'],
+        '120363328889884494@g.us' => ['cabang' => 'AMUNTAI', 'grup' => 'GM AMT'],
+        '120363295811163792@g.us' => ['cabang' => 'BJMA', 'grup' => 'COD ACC GADGETMART'],
+        '120363326647069711@g.us' => ['cabang' => 'PELAIHARI', 'grup' => 'GM PLH'],
+        '120363429425612636@g.us' => ['cabang' => 'SUNGAI DANAU', 'grup' => 'GM SDN (SUNGAI DANAU)'],
+        '120363374619118540@g.us' => ['cabang' => 'ONLINE', 'grup' => 'REMARKS SHOPEE TOKOPEDIA TIKTOK'],
+        '120363428947855050@g.us' => ['cabang' => 'BJMX', 'grup' => 'MISTORE BELITUNG'],
+        '120363312009640450@g.us' => ['cabang' => 'BATAS KOTA', 'grup' => 'GM BBK - QMALL'],
+        '120363429226529886@g.us' => ['cabang' => 'BJMC', 'grup' => 'Tes BOT'],
+    ];
+
+    /**
+     * Resolusi cabang dan nama grup WhatsApp secara akurat.
+     *
+     * @return array{cabang: string, grup: string}
+     */
+    public function resolveCabangAndGroup(?string $groupId, ?string $groupName = null, ?string $remarks = null): array
     {
+        $cleanGid = trim($groupId ?? '');
+        if ($cleanGid !== '' && isset(self::GROUP_CABANG_MAP[$cleanGid])) {
+            return self::GROUP_CABANG_MAP[$cleanGid];
+        }
+
+        $detectedCabang = $this->detectCabangFromRemarks($remarks, $groupName, $groupId);
+        $detectedGrup = $groupName ?: '';
+
+        if ($detectedGrup === '' && $detectedCabang !== '') {
+            foreach (self::GROUP_CABANG_MAP as $entry) {
+                if (strcasecmp($entry['cabang'], $detectedCabang) === 0) {
+                    $detectedGrup = $entry['grup'];
+                    break;
+                }
+            }
+        }
+
+        return [
+            'cabang' => $detectedCabang,
+            'grup' => $detectedGrup,
+        ];
+    }
+
+    /**
+     * Deteksi kode cabang dari remarks (Kode SOSMED), Nama Grup WhatsApp, atau Group ID.
+     */
+    public function detectCabangFromRemarks(?string $remarks, ?string $groupName = null, ?string $groupId = null): string
+    {
+        // 0. Cek dari ID Grup WhatsApp langsung
+        $cleanGid = trim($groupId ?? '');
+        if ($cleanGid !== '' && isset(self::GROUP_CABANG_MAP[$cleanGid])) {
+            return self::GROUP_CABANG_MAP[$cleanGid]['cabang'];
+        }
+
         $text = strtoupper(trim(($remarks ?? '') . ' ' . ($groupName ?? '')));
         if ($text === '') {
             return '';
@@ -413,37 +474,48 @@ class FonnteService
         $branchMap = [
             'BANJARMASIN' => 'Banjarmasin',
             'BJM' => 'Banjarmasin',
-            'BJMC' => 'Banjarmasin',
-            'BANJARBARU' => 'Banjarbaru',
-            'BJB' => 'Banjarbaru',
-            'KOTABARU' => 'Kotabaru',
-            'KTB' => 'Kotabaru',
-            'PELAIHARI' => 'Pelaihari',
-            'PLH' => 'Pelaihari',
-            'BATULICIN' => 'Batulicin',
-            'BTC' => 'Batulicin',
-            'TANJUNG' => 'Tanjung',
-            'TJG' => 'Tanjung',
-            'PONTIANAK' => 'Pontianak',
-            'PTK' => 'Pontianak',
-            'BALIKPAPAN' => 'Balikpapan',
-            'BPP' => 'Balikpapan',
-            'SAMARINDA' => 'Samarinda',
-            'SMD' => 'Samarinda',
-            'KAPUAS' => 'Kapuas',
-            'KPS' => 'Kapuas',
-            'PALANGKARAYA' => 'Palangkaraya',
-            'PKY' => 'Palangkaraya',
-            'SINTANG' => 'Sintang',
-            'STG' => 'Sintang',
-            'SINGKAWANG' => 'Singkawang',
-            'SKW' => 'Singkawang',
-            'AMUNTAI' => 'Amuntai',
-            'AMT' => 'Amuntai',
-            'SAMPIT' => 'Sampit',
-            'SPT' => 'Sampit',
-            'SUNGAI DANAU' => 'Sungai Danau',
-            'SDN' => 'Sungai Danau',
+            'BJMC' => 'BJMC',
+            'BJMA' => 'BJMA',
+            'BJMX' => 'BJMX',
+            'BANJARBARU' => 'BANJARBARU',
+            'BJB' => 'BANJARBARU',
+            'BATAS KOTA' => 'BATAS KOTA',
+            'BBK' => 'BATAS KOTA',
+            'QMALL' => 'BATAS KOTA',
+            'KOTABARU' => 'KOTABARU',
+            'KTB' => 'KOTABARU',
+            'PELAIHARI' => 'PELAIHARI',
+            'PLH' => 'PELAIHARI',
+            'BATULICIN' => 'BATULICIN',
+            'BTC' => 'BATULICIN',
+            'TANJUNG' => 'TANJUNG',
+            'TJG' => 'TANJUNG',
+            'PONTIANAK' => 'PONTIANAK',
+            'PTK' => 'PONTIANAK',
+            'BALIKPAPAN' => 'BALIKPAPAN',
+            'BPP' => 'BALIKPAPAN',
+            'SAMARINDA' => 'SAMARINDA',
+            'SMD' => 'SAMARINDA',
+            'KAPUAS' => 'KAPUAS',
+            'KPS' => 'KAPUAS',
+            'PALANGKARAYA' => 'PALANGKARAYA',
+            'PKY' => 'PALANGKARAYA',
+            'SINTANG' => 'SINTANG',
+            'STG' => 'SINTANG',
+            'SINGKAWANG' => 'SINGKAWANG',
+            'SKW' => 'SINGKAWANG',
+            'AMUNTAI' => 'AMUNTAI',
+            'AMT' => 'AMUNTAI',
+            'SAMPIT' => 'SAMPIT',
+            'SPT' => 'SAMPIT',
+            'SUNGAI DANAU' => 'SUNGAI DANAU',
+            'SDN' => 'SUNGAI DANAU',
+            'MARTAPURA' => 'MARTAPURA',
+            'MTP' => 'MARTAPURA',
+            'ONLINE' => 'ONLINE',
+            'SHOPEE' => 'ONLINE',
+            'TOKOPEDIA' => 'ONLINE',
+            'TIKTOK' => 'ONLINE',
             'BARABAI' => 'Barabai',
             'BRB' => 'Barabai',
             'RANTAU' => 'Rantau',

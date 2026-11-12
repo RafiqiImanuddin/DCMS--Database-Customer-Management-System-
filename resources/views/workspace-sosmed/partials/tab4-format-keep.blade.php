@@ -15,10 +15,10 @@
             </div>
         </div>
 
-        <!-- 2. Metric Cards: Color Palette & Border-L Selaras Customer & Outreach -->
+        <!-- 2. Metric Cards: Color Palette & Border-L Selaras Customer & Outreach (Clickable Filters) -->
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <!-- Card 1: Total Keep -->
-            <div class="dcms-card p-4 border-l-4 border-l-brand-500">
+            <div id="cardKeepTotal" class="dcms-card p-4 border-l-4 border-l-brand-500 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition duration-150 select-none" onclick="filterByKeepStatus('ALL')" title="Klik untuk menampilkan semua data keep">
                 <div class="flex items-center justify-between text-slate-500">
                     <span class="text-[11px] font-bold uppercase tracking-wider">Total Keep</span>
                     <div class="grid size-7 place-items-center rounded-lg bg-brand-50 text-brand-600">
@@ -30,9 +30,9 @@
             </div>
 
             <!-- Card 2: Closing WIN -->
-            <div class="dcms-card p-4 border-l-4 border-l-emerald-500">
+            <div id="cardKeepWin" class="dcms-card p-4 border-l-4 border-l-emerald-500 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition duration-150 select-none" onclick="filterByKeepStatus('WIN')" title="Klik untuk memfilter transaksi Closing WIN">
                 <div class="flex items-center justify-between text-slate-500">
-                    <span class="text-[11px] font-bold uppercase tracking-wider">Closing WIN</span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Closing WIN</span>
                     <div class="grid size-7 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
                         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </div>
@@ -42,7 +42,7 @@
             </div>
 
             <!-- Card 3: Need to Check -->
-            <div class="dcms-card p-4 border-l-4 border-l-amber-500 cursor-pointer hover:shadow-md transition" onclick="filterByKeepStatus('NEED TO CHECK')" title="Klik untuk filter transaksi Need to Check">
+            <div id="cardKeepNeedToCheck" class="dcms-card p-4 border-l-4 border-l-amber-500 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition duration-150 select-none" onclick="filterByKeepStatus('NEED TO CHECK')" title="Klik untuk memfilter transaksi Need to Check">
                 <div class="flex items-center justify-between text-slate-500">
                     <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Need to Check</span>
                     <div class="grid size-7 place-items-center rounded-lg bg-amber-50 text-amber-600">
@@ -54,9 +54,9 @@
             </div>
 
             <!-- Card 4: On Progress -->
-            <div class="dcms-card p-4 border-l-4 border-l-sky-500">
+            <div id="cardKeepProgress" class="dcms-card p-4 border-l-4 border-l-sky-500 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition duration-150 select-none" onclick="filterByKeepStatus('ON PROGRESS')" title="Klik untuk memfilter transaksi On Progress">
                 <div class="flex items-center justify-between text-slate-500">
-                    <span class="text-[11px] font-bold uppercase tracking-wider">On Progress</span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-sky-800">On Progress</span>
                     <div class="grid size-7 place-items-center rounded-lg bg-sky-50 text-sky-600">
                         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </div>
@@ -66,9 +66,9 @@
             </div>
 
             <!-- Card 5: Lose / Cancel -->
-            <div class="dcms-card p-4 border-l-4 border-l-rose-500">
+            <div id="cardKeepLose" class="dcms-card p-4 border-l-4 border-l-rose-500 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition duration-150 select-none" onclick="filterByKeepStatus('LOSE')" title="Klik untuk memfilter transaksi Lose / Cancel">
                 <div class="flex items-center justify-between text-slate-500">
-                    <span class="text-[11px] font-bold uppercase tracking-wider">Lose / Cancel</span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Lose / Cancel</span>
                     <div class="grid size-7 place-items-center rounded-lg bg-rose-50 text-rose-600">
                         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </div>
@@ -78,9 +78,9 @@
             </div>
 
             <!-- Card 6: Closing Rate -->
-            <div class="dcms-card p-4 border-l-4 border-l-purple-500">
+            <div id="cardKeepClosingRateWrapper" class="dcms-card p-4 border-l-4 border-l-purple-500 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition duration-150 select-none" onclick="filterByKeepStatus('WIN')" title="Rasio Keberhasilan WIN (Klik untuk memfilter Closing WIN)">
                 <div class="flex items-center justify-between text-slate-500">
-                    <span class="text-[11px] font-bold uppercase tracking-wider">Closing Rate</span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-purple-800">Closing Rate</span>
                     <div class="grid size-7 place-items-center rounded-lg bg-purple-50 text-purple-600">
                         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg>
                     </div>
@@ -135,10 +135,11 @@
                         <option value="ALL">Semua Status</option>
                         <option value="WIN">WIN (Closing)</option>
                         <option value="NEED TO CHECK">⚠️ NEED TO CHECK (Kroscek)</option>
+                        <option value="ON PROGRESS">On Progress (Semua)</option>
                         <option value="ON PROGRESS HOT">On Progress Hot</option>
                         <option value="ON PROGRESS MEDIUM">On Progress Medium</option>
-                        <option value="ON PROGRESS LOW">Low</option>
-                        <option value="LOSE">Lose</option>
+                        <option value="ON PROGRESS LOW">On Progress Low</option>
+                        <option value="LOSE">Lose / Take Out / Cancel</option>
                         <option value="TAKE OUT">Take Out</option>
                         <option value="BELUM DIINPUT">Belum diinput</option>
                     </select>
@@ -159,16 +160,17 @@
                 <table class="w-full min-w-[1180px] text-left text-sm" id="keepTable">
                     <thead class="border-b border-slate-200 bg-slate-50/90 text-xs font-bold uppercase tracking-wider text-slate-500">
                         <tr>
-                            <th class="px-5 py-3.5 text-left" style="width: 16%;">Customer</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Tanggal</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Timestamp</th>
-                            <th class="px-4 py-3.5 text-left" style="width: 15%;">Barang Keep</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Tgl. Ambil</th>
-                            <th class="px-4 py-3.5 text-left" style="width: 16%;">Catatan</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Kode Sosmed</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Report AR</th>
-                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Status</th>
-                            <th class="px-4 py-3.5 text-left" style="width: 13%;">Feedback Tim FU</th>
+                            <th class="px-5 py-3.5 text-left" style="width: 15%;">Customer</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 7%;">Tanggal</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 7%;">Timestamp</th>
+                            <th class="px-4 py-3.5 text-left" style="width: 14%;">Barang Keep</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 7%;">Tgl. Ambil</th>
+                            <th class="px-4 py-3.5 text-left" style="width: 14%;">Catatan</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 7%;">Kode Sosmed</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 8%;">Cabang</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 7%;">Report AR</th>
+                            <th class="px-3 py-3.5 text-center" style="width: 7%;">Status</th>
+                            <th class="px-4 py-3.5 text-left" style="width: 11%;">Feedback Tim FU</th>
                             <th class="px-3 py-3.5 text-center" style="width: 4%;">Aksi</th>
                         </tr>
                     </thead>

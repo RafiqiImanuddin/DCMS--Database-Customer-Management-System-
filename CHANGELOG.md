@@ -1,5 +1,20 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.8.3] - 2026-11-12
+### Kolom Cabang Format Keep, Filter Kartu Metrik Interaktif (Clickable), & Pemetaan Grup WhatsApp
+- **Kolom Cabang di Tabel Format Keep**:
+  - Menambahkan kolom **Cabang** di antara kolom `Kode Sosmed` dan `Report AR` dengan badge visual elegan (`bg-sky-50 text-sky-800 border-sky-200/80`).
+  - Mengintegrasikan pemetaan grup WhatsApp resmi (`GROUP_CABANG_MAP`) untuk 18 cabang/grup Gadgetmart (BJMC, Banjarbaru, Tanjung, Sampit, Balikpapan, Pontianak, Batulicin, Kotabaru, Kapuas, Martapura, Pelaihari, Amuntai, Sungai Danau, dll).
+  - Mengintegrasikan nama cabang ke dalam input pencarian realtime format keep.
+- **Kartu Metrik Interaktif (Clickable Status Filter)**:
+  - Seluruh kartu metrik Format Keep (**Total Keep**, **Closing WIN**, **Need to Check**, **On Progress**, **Lose / Cancel**, dan **Closing Rate**) kini dapat diklik langsung untuk memfilter baris tabel.
+  - Dilengkapi efek active ring highlight (`ring-2`) dan perubahan background halus untuk menandai kartu mana yang sedang aktif.
+  - Fitur toggle interaktif: mengklik kembali kartu yang sedang aktif akan mereset filter kembali ke `ALL` (menampilkan semua data).
+  - Angka metrik di setiap kartu tetap konsisten dan informatif saat filter status aktif.
+- **Backend Auto-Detect Cabang & Migrasi Backfill**:
+  - Memperbarui `FonnteService` dan `SosmedKeepWebhookController` agar otomatis mendeteksi cabang dan nama grup WhatsApp resmi dari `grup_id` pada setiap webhook masuk.
+  - Menambahkan migrasi Laravel `2026_11_12_170000_backfill_sosmed_keeps_cabang_and_grup.php` untuk mem-backfill seluruh data transaksi format keep yang belum memiliki cabang di database MySQL.
+
 ## [V2.8.2] - 2026-11-12
 ### Pembersihan UI Sync Manual & Transformasi Pusat Notifikasi Realtime
 - **Penghapusan Tombol Sync & Pill Status di Format Keep**:

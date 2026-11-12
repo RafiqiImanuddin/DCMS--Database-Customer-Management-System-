@@ -156,7 +156,15 @@ class SosmedKeepWebhookController extends Controller
             } catch (\Throwable) {}
         }
         $periode = ($monthNames[$now->month] ?? 'Bulan').'-'.substr((string) $now->year, -2);
-        $cabang = $this->fonnteService->detectCabangFromRemarks($keep['remaks'] ?? '', $request->input('group_name'));
+        $resolvedCabangGroup = $this->fonnteService->resolveCabangAndGroup(
+            $groupId,
+            $request->input('group_name'),
+            $keep['remaks'] ?? ''
+        );
+        $cabang = $resolvedCabangGroup['cabang'] ?? '';
+        $grupName = $resolvedCabangGroup['grup'] !== ''
+            ? $resolvedCabangGroup['grup']
+            : ($request->input('group_name') ?: ($isGroup ? 'GRUP' : ''));
 
         // Deteksi transaksi Kredit vs Non Kredit
         $isKredit = (bool) preg_match('/format\s*kredit|kredit|pembiayaan|leasing|angsuran|cicilan/i', $message);
@@ -197,7 +205,7 @@ class SosmedKeepWebhookController extends Controller
             'nomor_sender' => (string) $nomorPengirim,
             'grup_id' => (string) $groupId,
             'sender' => (string) $senderName,
-            'grup' => $request->input('group_name') ?: ($isGroup ? 'GRUP' : ''),
+            'grup' => (string) $grupName,
             'jenis_chat' => $jenisChat,
             'nama' => $keep['nama'] ?? '',
             'nomor_wa' => $keep['nomor'] ?? '',
@@ -232,7 +240,7 @@ class SosmedKeepWebhookController extends Controller
                         (string) $nomorPengirim,
                         (string) $groupId,
                         (string) $senderName,
-                        $request->input('group_name') ?: ($isGroup ? 'GRUP' : ''),
+                        (string) $grupName,
                         $jenisChat,
                         $keep['nama'] ?? '',
                         $keep['nomor'] ?? '',

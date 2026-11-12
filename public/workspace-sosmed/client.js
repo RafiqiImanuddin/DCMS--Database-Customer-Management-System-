@@ -2517,6 +2517,61 @@ function populateKeepSosmedDropdown() {
   }
 }
 
+// Peta Resmi ID Grup WhatsApp Gadgetmart ke Cabang
+const KEEP_GROUP_CABANG_MAP = {
+  '120363331030729373@g.us': { cabang: 'BJMC', grup: 'HASIL TIM FU EXPERT' },
+  '120363328092703569@g.us': { cabang: 'PONTIANAK', grup: 'GM PTK' },
+  '120363309345392029@g.us': { cabang: 'BATULICIN', grup: 'GM BTC' },
+  '120363331600007500@g.us': { cabang: 'SAMPIT', grup: 'GM SPT' },
+  '120363327077123880@g.us': { cabang: 'BALIKPAPAN', grup: 'GM BPP' },
+  '120363327671212528@g.us': { cabang: 'BANJARBARU', grup: 'GM BJB' },
+  '6287832697916-1594798567@g.us': { cabang: 'BANJARMASIN AREA', grup: 'TL SOSMED GADGETMART' },
+  '120363309019909873@g.us': { cabang: 'TANJUNG', grup: 'GM TJG' },
+  '120363327089337045@g.us': { cabang: 'KAPUAS', grup: 'GM KPS' },
+  '120363312505493730@g.us': { cabang: 'MARTAPURA', grup: 'GM MTP' },
+  '120363329573289564@g.us': { cabang: 'KOTABARU', grup: 'GM KTB' },
+  '120363328889884494@g.us': { cabang: 'AMUNTAI', grup: 'GM AMT' },
+  '120363295811163792@g.us': { cabang: 'BJMA', grup: 'COD ACC GADGETMART' },
+  '120363326647069711@g.us': { cabang: 'PELAIHARI', grup: 'GM PLH' },
+  '120363429425612636@g.us': { cabang: 'SUNGAI DANAU', grup: 'GM SDN (SUNGAI DANAU)' },
+  '120363374619118540@g.us': { cabang: 'ONLINE', grup: 'REMARKS SHOPEE TOKOPEDIA TIKTOK' },
+  '120363428947855050@g.us': { cabang: 'BJMX', grup: 'MISTORE BELITUNG' },
+  '120363312009640450@g.us': { cabang: 'BATAS KOTA', grup: 'GM BBK - QMALL' },
+  '120363429226529886@g.us': { cabang: 'BJMC', grup: 'Tes BOT' },
+};
+
+function updateKeepActiveCardStyle(currentStatus) {
+  const cards = {
+    'ALL': document.getElementById('cardKeepTotal'),
+    'WIN': document.getElementById('cardKeepWin'),
+    'NEED TO CHECK': document.getElementById('cardKeepNeedToCheck'),
+    'ON PROGRESS': document.getElementById('cardKeepProgress'),
+    'LOSE': document.getElementById('cardKeepLose')
+  };
+
+  const ringClasses = [
+    'ring-2', 'ring-brand-500', 'ring-emerald-500', 'ring-amber-500', 'ring-sky-500', 'ring-rose-500',
+    'bg-brand-50/40', 'bg-emerald-50/50', 'bg-amber-50/50', 'bg-sky-50/50', 'bg-rose-50/50', 'shadow-md'
+  ];
+
+  Object.values(cards).forEach(el => {
+    if (el) el.classList.remove(...ringClasses);
+  });
+
+  const st = (currentStatus || 'ALL').toUpperCase();
+  if (st === 'WIN') {
+    cards['WIN']?.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-50/50', 'shadow-md');
+  } else if (st === 'NEED TO CHECK') {
+    cards['NEED TO CHECK']?.classList.add('ring-2', 'ring-amber-500', 'bg-amber-50/50', 'shadow-md');
+  } else if (st.includes('PROGRESS')) {
+    cards['ON PROGRESS']?.classList.add('ring-2', 'ring-sky-500', 'bg-sky-50/50', 'shadow-md');
+  } else if (st === 'LOSE' || st === 'TAKE OUT' || st.includes('CANCEL') || st.includes('BATAL')) {
+    cards['LOSE']?.classList.add('ring-2', 'ring-rose-500', 'bg-rose-50/50', 'shadow-md');
+  } else if (st === 'ALL') {
+    cards['ALL']?.classList.add('ring-2', 'ring-brand-500', 'bg-brand-50/40', 'shadow-md');
+  }
+}
+
 function applyKeepFilters() {
   if (!rawKeepRows || rawKeepRows.length === 0) return;
 
@@ -2527,7 +2582,8 @@ function applyKeepFilters() {
   const reportARVal = (document.getElementById('keepFilterReportAR') ? document.getElementById('keepFilterReportAR').value : '').trim().toLowerCase();
   const keyword = (document.getElementById('keepSearchInput') ? document.getElementById('keepSearchInput').value : '').trim().toLowerCase();
 
-  filteredKeepRows = rawKeepRows.filter(r => {
+  // 1. Filter dasar (Periode, Kode Sosmed, Tanggal, Report AR, dan Keyword Pencarian termasuk Cabang)
+  const baseRows = rawKeepRows.filter(r => {
     // 1. Period filter
     if (periodVal !== 'ALL') {
       const p = String(r['PERIODE'] || '').trim().toLowerCase();
@@ -2540,48 +2596,43 @@ function applyKeepFilters() {
       if (s !== sosmedVal) return false;
     }
 
-    // 3. Status filter
-    if (statusVal !== 'ALL') {
-      const st = String(r['Status'] || '').trim().toUpperCase();
-      if (st !== statusVal.toUpperCase()) return false;
-    }
-
-    // 4. Filter Tanggal Format Keep (Timestamp Google Sheets)
+    // 3. Filter Tanggal Format Keep (Timestamp Google Sheets)
     if (tanggalVal) {
       const keepDateIso = parseDateToISO(r['Timestamp']);
       if (keepDateIso !== tanggalVal) return false;
     }
 
-    // 5. Filter by Report No. AR
+    // 4. Filter by Report No. AR
     if (reportARVal) {
       const repAR = String(r['REPORT AR'] || '').toLowerCase();
       if (!repAR.includes(reportARVal)) return false;
     }
 
-    // 6. Keyword search (Name, Phone, Item, AR, Notes)
+    // 5. Keyword search (Name, Phone, Item, AR, Notes, Cabang, Sosmed)
     if (keyword) {
-      const combined = `${r['Nama'] || ''} ${r['Nomor WA'] || ''} ${r['Barang Keep'] || ''} ${r['REPORT AR'] || ''} ${r['Catatan'] || ''} ${r['Feedback Tim FU'] || ''}`.toLowerCase();
+      const cab = String(r['Cabang'] || (r['Grup ID'] && KEEP_GROUP_CABANG_MAP[r['Grup ID']] ? KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang : '') || '');
+      const combined = `${r['Nama'] || ''} ${r['Nomor WA'] || ''} ${r['Barang Keep'] || ''} ${r['REPORT AR'] || ''} ${r['Catatan'] || ''} ${r['Feedback Tim FU'] || ''} ${cab} ${r['Kode Sosmed'] || ''}`.toLowerCase();
       if (!combined.includes(keyword)) return false;
     }
 
     return true;
   });
 
-  // Calculate Summary KPI Stats
+  // 2. Hitung Summary KPI Stats dari baseRows (agar angka di kartu tetap informatif saat difilter)
   let winCount = 0;
   let needToCheckCount = 0;
   let progressCount = 0;
   let loseCount = 0;
 
-  filteredKeepRows.forEach(r => {
+  baseRows.forEach(r => {
     const st = String(r['Status'] || '').toUpperCase();
     if (st === 'WIN') winCount++;
     else if (st === 'NEED TO CHECK') needToCheckCount++;
     else if (st.includes('PROGRESS')) progressCount++;
-    else if (st === 'LOSE' || st === 'TAKE OUT') loseCount++;
+    else if (st === 'LOSE' || st === 'TAKE OUT' || st.includes('CANCEL') || st.includes('BATAL')) loseCount++;
   });
 
-  const total = filteredKeepRows.length;
+  const total = baseRows.length;
   const closingRate = total > 0 ? Math.round((winCount / total) * 100) : 0;
 
   if (document.getElementById('keepTotalCount')) document.getElementById('keepTotalCount').innerText = total.toLocaleString('id-ID');
@@ -2590,6 +2641,25 @@ function applyKeepFilters() {
   if (document.getElementById('keepProgressCount')) document.getElementById('keepProgressCount').innerText = progressCount.toLocaleString('id-ID');
   if (document.getElementById('keepLoseCount')) document.getElementById('keepLoseCount').innerText = loseCount.toLocaleString('id-ID');
   if (document.getElementById('keepClosingRate')) document.getElementById('keepClosingRate').innerText = `${closingRate}%`;
+
+  // 3. Terapkan Filter Status pada data tabel
+  if (statusVal === 'ALL') {
+    filteredKeepRows = baseRows;
+  } else {
+    filteredKeepRows = baseRows.filter(r => {
+      const st = String(r['Status'] || '').trim().toUpperCase();
+      if (statusVal === 'ON PROGRESS') {
+        return st.includes('PROGRESS');
+      }
+      if (statusVal === 'LOSE') {
+        return st === 'LOSE' || st === 'TAKE OUT' || st.includes('CANCEL') || st.includes('BATAL');
+      }
+      return st === statusVal.toUpperCase();
+    });
+  }
+
+  // 4. Update visual active ring pada kartu metrik
+  updateKeepActiveCardStyle(statusVal);
 
   let activeKeepCount = 0;
   if (document.getElementById('keepFilterPeriode') && document.getElementById('keepFilterPeriode').value !== 'ALL') activeKeepCount++;
@@ -2671,10 +2741,17 @@ function resetKeepFilters() {
 
 function filterByKeepStatus(targetStatus) {
   const statusEl = document.getElementById('keepFilterStatus');
-  if (statusEl) {
+  if (!statusEl) return;
+  const currentVal = (statusEl.value || 'ALL').toUpperCase();
+  const targetVal = (targetStatus || 'ALL').toUpperCase();
+
+  // Toggle kembali ke ALL jika kartu yang sama diklik dua kali
+  if (currentVal === targetVal && targetVal !== 'ALL') {
+    statusEl.value = 'ALL';
+  } else {
     statusEl.value = targetStatus;
-    applyKeepFilters();
   }
+  applyKeepFilters();
 }
 window.filterByKeepStatus = filterByKeepStatus;
 
@@ -2915,7 +2992,7 @@ function renderKeepPage() {
   if (btnNext) btnNext.disabled = keepCurrentPage >= maxPage;
 
   if (pageRows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-xs font-medium text-slate-400 bg-white">Tidak ada data customer untuk filter yang dipilih.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-xs font-medium text-slate-400 bg-white">Tidak ada data customer untuk filter yang dipilih.</td></tr>`;
     return;
   }
 
@@ -2976,6 +3053,15 @@ function renderKeepPage() {
       </div>
     `;
 
+    // 4. CABANG BADGE (Resolusi dari field Cabang atau fallback dari Grup WhatsApp)
+    const rawCabang = String(r['Cabang'] || (r['Grup ID'] && KEEP_GROUP_CABANG_MAP[r['Grup ID']] ? KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang : '') || '').trim();
+    const cabangBadgeHtml = rawCabang ? `
+      <span class="inline-flex items-center gap-1 rounded-lg bg-sky-50 border border-sky-200/80 px-2 py-0.5 text-[11px] font-bold text-sky-800 tracking-tight shadow-2xs whitespace-nowrap" title="Cabang: ${escapeHtml(rawCabang)}">
+        <span class="size-1.5 rounded-full bg-sky-500 shrink-0"></span>
+        <span>${escapeHtml(rawCabang)}</span>
+      </span>
+    ` : `<span class="text-xs text-slate-400 font-medium">-</span>`;
+
     const tr = document.createElement('tr');
     tr.setAttribute('data-keep-id', r.id || '');
     let rowClass = `border-b border-slate-100 hover:bg-slate-50/80 transition ${ (rawSt === 'LOSE' || rawSt === 'TAKE OUT') ? 'bg-rose-50/30' : '' }`;
@@ -2997,6 +3083,7 @@ function renderKeepPage() {
       <td class="px-3 py-3.5 align-middle text-center text-slate-600 whitespace-nowrap">${formatPickupDate(r['Tanggal Ambil'])}</td>
       <td class="px-4 py-3.5 align-middle text-left text-slate-600 leading-snug">${r['Catatan'] || '-'}</td>
       <td class="px-3 py-3.5 align-middle text-center"><span class="inline-flex items-center rounded-lg bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700 font-mono tracking-tight">${r['Kode Sosmed'] || '-'}</span></td>
+      <td class="px-3 py-3.5 align-middle text-center">${cabangBadgeHtml}</td>
       <td class="px-3 py-3.5 align-middle text-center">${arHtml}</td>
       <td class="px-3 py-3.5 align-middle text-center">${statusPillHtml}</td>
       <td class="px-4 py-3 align-middle text-left">
