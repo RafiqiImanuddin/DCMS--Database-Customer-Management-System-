@@ -4,9 +4,12 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "tunnel": "node ngrok.js 8000",
+        "ngrok": "node ngrok.js"
     },
     "devDependencies": {
+        "@ngrok/ngrok": "^1.7.0",
         "@tailwindcss/vite": "^4.0.0",
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",
