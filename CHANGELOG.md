@@ -5,15 +5,20 @@
 - **Tampilan Full Screen Lebar Penuh (W-Full) di Live Office Display (`/display`)**:
   - Menghapus pembatasan `max-w-7xl` (1280px) pada header dan kontainer utama di `public-dashboard.blade.php`.
   - Mengubah layout menjadi `w-full` dengan padding adaptif (`px-4 sm:px-6 md:px-8`), sehingga seluruh kolom PIC Report 1 (Daniel, Marlina, Sifa, Marisa, Bintang, Qona, Febri, Dea, dll) dan tabel Report 2 terbentang lebar tanpa terpotong di layar TV kantor atau monitor widescreen.
+- **Pembersihan Banner Status / Last Update Turnover pada Live Display**:
+  - Menyembunyikan banner turnover indicator (`.turnover-report-banner`) sepenuhnya pada halaman publik display sehingga layout langsung fokus dan bersih ke tabel Report 1 tanpa memakan ruang vertikal layar TV.
+  - Menghapus teks waktu pembaruan manual (*"File turnover terupdate per: ..."*) karena data transaksi turnover kini bersumber secara realtime langsung dari database MySQL.
 - **Auto-Lookup Cross-Selling Langsung via API MySQL (`/api/croselling-records`)**:
   - Menyediakan endpoint API JSON berkecepatan tinggi `GET /api/croselling-records?format=client&sosmed_only=1` (~80KB) yang membaca 1.346 baris item faktur terkait sosmed langsung dari database MySQL dalam hitungan milidetik.
   - Memperbarui `loadCrosellingDataAsync()` untuk memprioritaskan endpoint SQL ini, menghindari ketergantungan download file Excel 6.6MB yang lambat.
   - Nilai Omzet (DPP) dan Gross Profit (GP) tetap murni bersumber dari transaksi turnover, sementara evaluasi unit Gadget dan akumulasi Aksesoris (>50K) ter-lookup secara presisi O(1) berdasarkan `Document Number`.
 - **Perbaikan Bug TypeError & Indikator Turnover Banner**:
   - Memperbaiki fatal error `TypeError: Cannot set properties of null (setting 'innerText')` pada `renderReport2Tables` yang disebabkan elemen DOM yang tidak ada di tampilan publik (`timegoneDayBadge` dan `kpiTimegoneVal`).
-  - Crash tersebut sebelumnya memutus proses rendering Report 2 dan menyebabkan banner turnover terjebak di status `"Memuat status..."`.
-  - Menambahkan proteksi null-guarding pada seluruh manipulasi DOM Report 2 dan menambahkan fallback timestamp otomatis pada inisialisasi banner.
+  - Menambahkan proteksi null-guarding pada seluruh manipulasi DOM Report 2.
   - Memperbarui fungsi `setReportViewMode` agar mendukung mode `'all'` (menampilkan Report 1 dan Report 2 sekaligus) serta mengingat preferensi di `localStorage`.
+- **Rencana & Proyeksi Rilis Berikutnya (Next Update / Roadmap)**:
+  - *Engine Auto-Claim Format Keep via WhatsApp Reaction*: Integrasi listener Baileys di cloud PaaS otomatis (Render.com) untuk mendengarkan event `messages.reaction` di 18 grup WhatsApp cabang.
+  - *Logika Siapa Cepat Dia Dapat*: Otomasi penguncian staf sales yang memberikan reaksi emoji pertama kali pada pesan format keep, mengubah status transaksi menjadi `ON PROGRESS` dan menetapkan `Followed Up By` secara instan tanpa perlu input manual.
 
 ## [V2.8.4] - 2026-11-12
 ### Tampilan Penuh Feedback Tim FU & Penghapusan Notifikasi Progress Update Status
