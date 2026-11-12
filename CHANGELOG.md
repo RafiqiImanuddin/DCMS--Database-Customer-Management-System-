@@ -1,5 +1,15 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.8.2] - 2026-11-12
+### Pembersihan UI Sync Manual & Transformasi Pusat Notifikasi Realtime
+- **Penghapusan Tombol Sync & Pill Status di Format Keep**:
+  - Menghapus badge pill `Sumber: Realtime MySQL (Fonnte)` dan tombol `Refresh Realtime` di tab Format Keep karena sistem sudah terhubung penuh secara realtime otomatis.
+- **Transformasi Dropdown Lonceng Header menjadi Pusat Notifikasi Murni**:
+  - Menghapus kartu status sync manual (`Database Format Keep`, `Sync otomatis tiap 3 menit`, tombol `Sync Sekarang`).
+  - Mengubah dropdown lonceng menjadi **Pusat Notifikasi** yang bersih dan lapang khusus untuk notifikasi aktivitas tim, upload data, dan alert sistem secara realtime.
+- **Pembersihan Background Worker**:
+  - Menonaktifkan polling periodic sync Google Sheets (`/api/sync-keep`) setiap 3 menit di `dcms-notification-sync.js`, menghemat resource server dan bandwidth.
+
 ## [V2.8.1] - 2026-11-12
 ### Sinkronisasi Timezone WITA (UTC+8), Optimasi Performa 240x Format Keep, dan Pembaruan Webhook Fonnte
 - **Sinkronisasi Timezone WITA (Asia/Makassar, UTC+8)**:

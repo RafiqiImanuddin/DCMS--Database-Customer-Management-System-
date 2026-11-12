@@ -49,17 +49,16 @@
                             <div id="dcmsNotificationMenu" class="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-4 z-[999999] hidden transition-all duration-200 transform origin-top-right scale-95 opacity-0">
                                 <!-- Header -->
                                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2.5">
                                         <div class="size-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                                            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                                <polyline points="23 4 23 10 17 10"></polyline>
-                                                <polyline points="1 20 1 14 7 14"></polyline>
-                                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                                             </svg>
                                         </div>
                                         <div>
-                                            <h4 class="text-xs font-black text-slate-900 tracking-tight">Auto-Sync & Notifikasi</h4>
-                                            <span class="text-[10px] text-slate-400 font-medium">Google Sheets Live Data</span>
+                                            <h4 class="text-xs font-black text-slate-900 tracking-tight">Pusat Notifikasi</h4>
+                                            <span class="text-[10px] text-slate-400 font-medium">Aktivitas & Pemberitahuan Sistem</span>
                                         </div>
                                     </div>
                                     <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -68,36 +67,13 @@
                                     </span>
                                 </div>
 
-                                <!-- Sync Status Card -->
-                                <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-2">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-slate-500 text-[11px]">Database Format Keep:</span>
-                                        <span id="dcmsKeepCountText" class="font-extrabold text-slate-900">13.184 Transaksi</span>
-                                    </div>
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-slate-500 text-[11px]">Pembaruan Terakhir:</span>
-                                        <span id="dcmsLastSyncText" class="font-semibold text-slate-700 text-[11px]">Memuat...</span>
-                                    </div>
-                                    <div class="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
-                                        <span class="text-[10px] text-slate-400">Sync otomatis tiap 3 menit</span>
-                                        <button type="button" id="btnHeaderGlobalSync" onclick="window.triggerManualSyncKeep()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm shadow-emerald-600/20 transition cursor-pointer">
-                                            <svg id="syncIconSpin" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                <polyline points="23 4 23 10 17 10"></polyline>
-                                                <polyline points="1 20 1 14 7 14"></polyline>
-                                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                                            </svg>
-                                            <span id="syncBtnLabel">Sync Sekarang</span>
-                                        </button>
-                                    </div>
-                                </div>
-
                                 <!-- Notification Activity Feed -->
                                 <div class="mt-3">
                                     <div class="flex items-center justify-between mb-2">
-                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Aktivitas Pembaruan</span>
+                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Notifikasi Aktivitas</span>
                                         <button type="button" onclick="window.clearDcmsNotifications()" class="text-[10px] font-semibold text-slate-400 hover:text-rose-600 transition cursor-pointer">Bersihkan</button>
                                     </div>
-                                    <div id="dcmsNotificationList" class="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar text-xs">
+                                    <div id="dcmsNotificationList" class="max-h-72 overflow-y-auto space-y-2 pr-1 custom-scrollbar text-xs">
                                         <!-- Items will be dynamically inserted here -->
                                     </div>
                                 </div>

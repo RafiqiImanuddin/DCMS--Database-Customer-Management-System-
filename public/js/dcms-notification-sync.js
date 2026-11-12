@@ -348,153 +348,42 @@
     }
   });
 
+  const NOTIF_POLL_INTERVAL_MS = 20 * 1000; // 20 detik polling notifikasi tim
+
   // =========================================================================
-  // 4. BACKGROUND AUTO-SYNC & MANUAL SYNC ENGINE
+  // 4. BACKGROUND NOTIFICATION ENGINE
   // =========================================================================
   async function runKeepSync({ isManual = false, force = false } = {}) {
-    if (isSyncing) return;
-    isSyncing = true;
-
-    const syncBtnLabel = document.getElementById('syncBtnLabel');
-    const syncIconSpin = document.getElementById('syncIconSpin');
-    if (syncBtnLabel) syncBtnLabel.textContent = 'Syncing...';
-    if (syncIconSpin) syncIconSpin.classList.add('animate-spin');
-
-    // Also animate header button if exists in subbar
-    const headerBtn = document.getElementById('headerBtnSyncSheets');
-    if (headerBtn) {
-      headerBtn.classList.add('opacity-75', 'pointer-events-none');
-    }
-
-    try {
-      const url = `/api/sync-keep?force=${force ? 1 : 0}&t=${Date.now()}`;
-      const res = await fetch(url, {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP Error ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      if (data.success) {
-        const rowCount = data.total_rows || 0;
-        const formattedCount = Number(rowCount).toLocaleString('id-ID');
-
-        // Update UI counters in dropdown
-        const countEl = document.getElementById('dcmsKeepCountText');
-        if (countEl) countEl.textContent = `${formattedCount} Transaksi`;
-
-        const lastSyncEl = document.getElementById('dcmsLastSyncText');
-        if (lastSyncEl) lastSyncEl.textContent = data.synced_at_formatted || formatCurrentTime();
-
-        // Check if there was actual change or if it was manually triggered
-        if (data.has_changed) {
-          showDcmsToast({
-            title: 'Database Diperbarui!',
-            message: `Ditemukan transaksi baru (${formattedCount} data). Database berhasil disinkronkan otomatis.`,
-            type: 'success',
-            duration: 6000,
-          });
-
-          addDcmsNotification({
-            title: 'Update Database Diterapkan',
-            message: `Sinkronisasi realtime berhasil memuat total ${formattedCount} data transaksi terbaru.`,
-            type: 'success',
-          });
-
-          // Sinyal ke seluruh modul (Workspace Sosmed, Format Keep, dll)
-          window.dispatchEvent(new CustomEvent('dcms:keep-synced', { detail: data }));
-        } else if (isManual) {
-          showDcmsToast({
-            title: 'Sinkronisasi Selesai',
-            message: `Seluruh data (${formattedCount} data transaksi) sudah mutakhir di database DCMS.`,
-            type: 'success',
-            duration: 4000,
-          });
-
-          addDcmsNotification({
-            title: 'Sinkronisasi Manual Berhasil',
-            message: `Pengecekan selesai, seluruh ${formattedCount} transaksi sudah yang terbaru.`,
-            type: 'success',
-          });
-
-          window.dispatchEvent(new CustomEvent('dcms:keep-synced', { detail: data }));
-        }
-      }
-    } catch (err) {
-      console.warn('[Auto-Sync Error]', err);
-      if (isManual) {
-        showDcmsToast({
-          title: 'Gagal Sinkronisasi',
-          message: 'Terjadi kendala saat menghubungi server Google Sheets: ' + (err.message || 'Koneksi terputus'),
-          type: 'error',
-          duration: 5000,
-        });
-      }
-    } finally {
-      isSyncing = false;
-      if (syncBtnLabel) syncBtnLabel.textContent = 'Sync Sekarang';
-      if (syncIconSpin) syncIconSpin.classList.remove('animate-spin');
-      if (headerBtn) {
-        headerBtn.classList.remove('opacity-75', 'pointer-events-none');
-      }
+    if (isManual) {
+      await fetchTeamNotifications(true);
     }
   }
 
   function triggerManualSyncKeep() {
-    runKeepSync({ isManual: true, force: true });
+    fetchTeamNotifications(true);
   }
   window.triggerManualSyncKeep = triggerManualSyncKeep;
 
-  // Check initial database status on page load
-  async function fetchInitialStatus() {
-    try {
-      const res = await fetch(`/api/database-status?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.keep) {
-          const count = data.keep.totalRows || 0;
-          const countEl = document.getElementById('dcmsKeepCountText');
-          if (countEl) countEl.textContent = `${Number(count).toLocaleString('id-ID')} Transaksi`;
-
-          const lastSyncEl = document.getElementById('dcmsLastSyncText');
-          if (lastSyncEl) lastSyncEl.textContent = data.keep.lastSyncFormatted || 'Baru saja';
-        }
-      }
-    } catch (e) {}
-  }
-
-  // Schedule background periodic sync
+  // Schedule background periodic notification polling
   function startBackgroundAutoSync() {
     if (syncTimer) clearInterval(syncTimer);
 
-    // Initial notifications & status fetch
+    // Initial notifications fetch
     setTimeout(() => {
       fetchTeamNotifications(false);
-      fetchInitialStatus();
     }, 1000);
 
-    // Initial background check after 10s if on workspace
-    setTimeout(() => {
-      runKeepSync({ isManual: false, force: false });
-    }, 10000);
-
-    // Periodic check every 3 minutes for sheets & team notifications
+    // Periodic check every 20 seconds for team notifications
     syncTimer = setInterval(() => {
       if (!document.hidden) {
         fetchTeamNotifications(false);
-        runKeepSync({ isManual: false, force: false });
       }
-    }, SYNC_INTERVAL_MS);
+    }, NOTIF_POLL_INTERVAL_MS);
 
     // Catch up when user switches back to tab if it was hidden
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         fetchTeamNotifications(false);
-        fetchInitialStatus();
       }
     });
   }

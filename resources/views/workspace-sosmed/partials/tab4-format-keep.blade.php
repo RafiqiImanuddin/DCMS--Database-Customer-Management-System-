@@ -13,16 +13,6 @@
                 </div>
                 <h1 class="mt-1 text-2xl font-black text-slate-900">Format Keep Customer</h1>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <div class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-sm" id="keepStatusPill">
-                    <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span id="customerHeroSub">Realtime Fonnte &rarr; SQL</span>
-                </div>
-                <button type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 cursor-pointer" id="btnSyncKeepData" onclick="syncLiveKeepData()" title="Muat ulang data transaksi dari database DCMS Realtime">
-                    <svg class="size-3.5 text-brand-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
-                    <span>Refresh Realtime</span>
-                </button>
-            </div>
         </div>
 
         <!-- 2. Metric Cards: Color Palette & Border-L Selaras Customer & Outreach -->
