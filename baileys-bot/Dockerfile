@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Install git and build essentials required by npm/baileys
+RUN apk add --no-cache git python3 make g++
+
 # Set working directory
 WORKDIR /app
 
