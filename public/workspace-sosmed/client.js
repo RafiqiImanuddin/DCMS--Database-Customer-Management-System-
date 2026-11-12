@@ -7825,25 +7825,6 @@ async function pollServerSyncStatus() {
         lastKnownSyncStatus.photosMtime = status.photos.mtimeMs;
       }
     }
-
-    // F. Deteksi jika Data Keep DCMS diperbarui otomatis dari server
-    if (status.keep && status.keep.exists && status.keep.mtimeMs) {
-      if (lastKnownSyncStatus.keepMtime && status.keep.mtimeMs > lastKnownSyncStatus.keepMtime) {
-        console.log('🔄 [Sync Engine] Data Keep baru terdeteksi dari background sync!');
-        lastKnownSyncStatus.keepMtime = status.keep.mtimeMs;
-        await loadKeepData(true);
-        if (typeof window.showDcmsToast === 'function') {
-          window.showDcmsToast({
-            title: 'Data Keep Realtime Diperbarui!',
-            message: `Data transaksi berhasil disinkronkan (${rawKeepRows.length.toLocaleString('id-ID')} data).`,
-            type: 'success',
-            duration: 4000
-          });
-        }
-      } else if (!lastKnownSyncStatus.keepMtime) {
-        lastKnownSyncStatus.keepMtime = status.keep.mtimeMs;
-      }
-    }
   } catch (err) {
     // Silent fail if network briefly disconnected
   }
