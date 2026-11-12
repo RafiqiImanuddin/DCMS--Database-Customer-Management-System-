@@ -1,5 +1,18 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.8.1] - 2026-11-12
+### Sinkronisasi Timezone WITA (UTC+8), Optimasi Performa 240x Format Keep, dan Pembaruan Webhook Fonnte
+- **Sinkronisasi Timezone WITA (Asia/Makassar, UTC+8)**:
+  - Mengubah konfigurasi `APP_TIMEZONE` dan default Laravel menjadi `Asia/Makassar` (WITA / UTC+8).
+  - Controller `SosmedKeepWebhookController` mencatat dan memformat `keep_timestamp` serta `server_time` secara presisi dalam zona waktu WITA.
+  - Memperbarui parser tampilan frontend `formatKeepDisplayTime` dan `formatKeepDisplayDate` di `client.js` untuk mendeteksi ISO UTC dan menampilkannya akurat dalam waktu lokal WITA.
+  - Menyesuaikan riwayat transaksi yang terekam pada hari ini (+8 jam) agar sinkron dengan jam pengiriman WhatsApp asli.
+- **Optimasi Performa Pengambilan Data Format Keep (240x Lebih Cepat)**:
+  - Menurunkan batas awal kueri `/api/sosmed-keeps` dari 25.000 baris menjadi 3.000 baris terbaru (seluruh data bulan berjalan).
+  - Waktu muat terpangkas dari 26 detik (19.5 MB) menjadi hanya 0.19 detik (2.3 MB), mencegah timeout Error 524 pada Cloudflare Tunnel.
+- **Pembaruan Parameter Device Webhook Fonnte**:
+  - Mendaftarkan flag `group=true` dan `personal=true` ke API Fonnte untuk menjamin pesan dari chat pribadi maupun grup WhatsApp diteruskan tanpa hambatan.
+
 ## [V2.8] - 2026-11-12
 ### Sub-Menu Navigasi Format Keep, Auto-Lookup Cross-Selling vs Omzet & GP, Pembersihan Autofill Pencarian, dan Cloudflare Tunnel
 - **Restrukturisasi Navigasi Sidebar Format Keep**:

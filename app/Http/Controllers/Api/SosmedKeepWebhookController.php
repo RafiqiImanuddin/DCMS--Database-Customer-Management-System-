@@ -145,7 +145,16 @@ class SosmedKeepWebhookController extends Controller
             5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
             9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
         ];
-        $now = now();
+        $now = now('Asia/Makassar');
+        if ($reqTs = $request->input('timestamp')) {
+            try {
+                if (is_numeric($reqTs)) {
+                    $now = Carbon::createFromTimestamp((int) $reqTs, 'Asia/Makassar');
+                } else {
+                    $now = Carbon::parse($reqTs)->setTimezone('Asia/Makassar');
+                }
+            } catch (\Throwable) {}
+        }
         $periode = ($monthNames[$now->month] ?? 'Bulan').'-'.substr((string) $now->year, -2);
         $cabang = $this->fonnteService->detectCabangFromRemarks($keep['remaks'] ?? '', $request->input('group_name'));
 
@@ -184,7 +193,7 @@ class SosmedKeepWebhookController extends Controller
 
         $newKeep = SosmedKeep::create([
             'message_id' => $messageId,
-            'keep_timestamp' => $now,
+            'keep_timestamp' => $now->format('Y-m-d H:i:s'),
             'nomor_sender' => (string) $nomorPengirim,
             'grup_id' => (string) $groupId,
             'sender' => (string) $senderName,
@@ -329,9 +338,9 @@ class SosmedKeepWebhookController extends Controller
                 });
             }
 
-            $limit = (int) $request->input('limit', 25000);
+            $limit = (int) $request->input('limit', 3000);
             if ($limit <= 0 || $limit > 50000) {
-                $limit = 25000;
+                $limit = 3000;
             }
 
             $fields = [
@@ -395,7 +404,7 @@ class SosmedKeepWebhookController extends Controller
                 'success' => true,
                 'count' => 0,
                 'latest_id' => $maxId,
-                'server_time' => now()->format('Y-m-d H:i:s'),
+                'server_time' => now('Asia/Makassar')->format('Y-m-d H:i:s'),
                 'data' => [],
             ]);
         }
@@ -437,7 +446,7 @@ class SosmedKeepWebhookController extends Controller
             'success' => true,
             'count' => $newKeeps->count(),
             'latest_id' => $maxId,
-            'server_time' => now()->format('Y-m-d H:i:s'),
+            'server_time' => now('Asia/Makassar')->format('Y-m-d H:i:s'),
             'data' => $newKeeps,
         ]);
     }

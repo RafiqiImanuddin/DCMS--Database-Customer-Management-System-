@@ -33,9 +33,12 @@ class FonnteService
                 ->withoutVerifying()
                 ->asForm()
                 ->post('https://api.fonnte.com/update-device', [
+                    'device' => $device['device'] ?? '6282357712674',
                     'name' => $deviceName,
                     'webhook' => $webhookUrl,
                     'autoread' => 'true',
+                    'personal' => 'true',
+                    'group' => 'true',
                 ]);
 
             $json = $res->json() ?? [];

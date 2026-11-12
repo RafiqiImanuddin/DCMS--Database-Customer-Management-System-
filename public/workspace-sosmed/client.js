@@ -2713,6 +2713,15 @@ function formatKeepDisplayDate(ts) {
   }
   if (typeof ts === 'string') {
     const trimmed = ts.trim();
+    if (trimmed.endsWith('Z') || trimmed.includes('+00:00')) {
+      try {
+        const d = new Date(trimmed);
+        if (!isNaN(d.getTime())) {
+          const dWITA = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+          return `${dWITA.getDate()} ${months[dWITA.getMonth()]} ${dWITA.getFullYear()}`;
+        }
+      } catch (e) {}
+    }
     // 1. ISO format: 2026-11-05 or 2026-11-05T21:10:56... or 2026-11-05 21:10:56
     const datePart = trimmed.split('T')[0].split(' ')[0];
     const isoParts = datePart.split('-');
@@ -2763,6 +2772,16 @@ function formatKeepDisplayTime(ts) {
   }
   if (typeof ts === 'string') {
     const trimmed = ts.trim();
+    // Jika timestamp memiliki penanda UTC (akhiran Z atau +00:00), konversikan ke timezone WITA (UTC+8)
+    if (trimmed.endsWith('Z') || trimmed.includes('+00:00')) {
+      try {
+        const d = new Date(trimmed);
+        if (!isNaN(d.getTime())) {
+          const timeStr = d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Makassar', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          return `${timeStr.replace(/\./g, ':')} WITA`;
+        }
+      } catch (e) {}
+    }
     if (trimmed.includes('T') || trimmed.includes(' ')) {
       const timePart = trimmed.includes('T') ? trimmed.split('T')[1] : trimmed.split(' ')[1];
       if (timePart) {
