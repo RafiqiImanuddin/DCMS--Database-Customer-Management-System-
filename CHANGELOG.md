@@ -1,5 +1,15 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.8.4] - 2026-11-12
+### Tampilan Penuh Feedback Tim FU & Penghapusan Notifikasi Progress Update Status
+- **Tampilan Penuh (Full Text) Feedback Tim FU**:
+  - Mengubah input Feedback Tim FU dari single-line text yang terpotong menjadi multi-line `<textarea>` auto-wrap dan auto-expanding.
+  - Memperluas lebar kolom tabel menjadi 17% (`min-w-[200px]`) dan menambahkan kalkulasi tinggi otomatis agar seluruh isi catatan tim FU terbaca utuh tanpa terpotong.
+  - Tetap mempertahankan fitur autosave instan ke MySQL saat user selesai mengetik (`onchange`) dengan animasi indikator hijau.
+- **Penghapusan Notifikasi Progress Simpan Status & AR**:
+  - Menghapus pemanggilan pop-up progress bar hitam (`startSmoothProgress`) saat mengubah status transaksi atau nomor faktur AR.
+  - Mengubah proses simpan status dan nomor AR menjadi operasi instan murni non-blocking di latar belakang tanpa mengganggu tampilan layar admin.
+
 ## [V2.8.3] - 2026-11-12
 ### Kolom Cabang Format Keep, Filter Kartu Metrik Interaktif (Clickable), & Pemetaan Grup WhatsApp
 - **Kolom Cabang di Tabel Format Keep**:

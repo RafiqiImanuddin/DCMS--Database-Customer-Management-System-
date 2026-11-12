@@ -3086,16 +3086,16 @@ function renderKeepPage() {
       <td class="px-3 py-3.5 align-middle text-center">${cabangBadgeHtml}</td>
       <td class="px-3 py-3.5 align-middle text-center">${arHtml}</td>
       <td class="px-3 py-3.5 align-middle text-center">${statusPillHtml}</td>
-      <td class="px-4 py-3 align-middle text-left">
-        <input 
-          type="text" 
-          class="w-full min-w-[150px] max-w-[280px] rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10 shadow-xs transition"
-          value="${escapeHtml(r['Feedback Tim FU'] || '')}"
+      <td class="px-4 py-3 align-middle text-left min-w-[200px]">
+        <textarea 
+          rows="2"
+          class="w-full rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white focus:bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/10 shadow-xs transition leading-relaxed resize-y"
           placeholder="Tulis feedback FU..."
-          title="Ketik feedback lalu klik di luar atau tekan Enter untuk menyimpan"
+          title="Ketik feedback lalu klik di luar untuk menyimpan"
           onchange="saveKeepFeedbackInline(this, '${rawWA}', ${keepRowIdx})"
-          onkeydown="if(event.key==='Enter'){this.blur();}"
-        />
+          oninput="this.style.height = 'auto'; this.style.height = (this.scrollHeight + 2) + 'px';"
+          style="min-height: ${Math.max(42, Math.min(140, Math.ceil(((r['Feedback Tim FU'] || '').trim().length || 1) / 28) * 20))}px;"
+        >${escapeHtml(r['Feedback Tim FU'] || '')}</textarea>
       </td>
       <td class="px-3 py-3.5 align-middle text-center">
         <button type="button" class="grid size-7 mx-auto place-items-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:border-brand-500 hover:bg-brand-50 hover:text-brand-600 transition shadow-xs cursor-pointer" onclick="openARDetailModalFromKeep(${keepRowIdx})" title="Buka Detail Faktur">
@@ -4579,28 +4579,12 @@ async function triggerBackgroundKeepStatusSync(rawWA, newVal, oldVal, onRollback
 
   const syncKey = keepId ? `id_${keepId}` : normWA;
   pendingKeepStatusUpdates.set(syncKey, newVal);
-  const phoneDisplay = normWA ? formatPhoneDisplay(rawWA) : `ID #${keepId}`;
-
-  // Tampilkan notifikasi persentase bergerak aktif
-  const prog = startSmoothProgress({
-    id: `prog-keep-${syncKey}`,
-    title: `⚡ Simpan Status ${phoneDisplay}`,
-    detail: `Menyimpan status "${newVal || 'KOSONG'}" ke database DCMS...`
-  });
 
   try {
     await updateKeepStatusInGoogleSheets(rawWA, newVal, keepId);
     pendingKeepStatusUpdates.delete(syncKey);
-    prog.complete({
-      title: `✅ Status ${phoneDisplay} Berhasil Disimpan!`,
-      detail: `Status "${newVal || 'KOSONG'}" sukses tersimpan di database MySQL`
-    });
   } catch (err) {
     console.error('Realtime update status keep gagal:', err);
-    prog.fail({
-      title: `❌ Gagal Simpan ${phoneDisplay}`,
-      detail: err.message || 'Koneksi database DCMS terganggu'
-    });
     if (pendingKeepStatusUpdates.get(syncKey) === newVal) {
       pendingKeepStatusUpdates.delete(syncKey);
       if (typeof onRollback === 'function') {
@@ -4642,26 +4626,10 @@ async function triggerBackgroundReportARSync(rawWA, newAR, oldAR, onRollback, ke
   const normWA = String(rawWA || '').replace(/\D/g, '');
   if (!normWA && !keepId) return;
 
-  const phoneDisplay = normWA ? formatPhoneDisplay(rawWA) : `ID #${keepId}`;
-  const syncKey = keepId ? `id_${keepId}` : normWA;
-  const prog = startSmoothProgress({
-    id: `prog-ar-${syncKey}`,
-    title: `⚡ Simpan Report AR ${phoneDisplay}`,
-    detail: `Menyimpan nomor AR "${newAR || '-'}" ke database DCMS...`
-  });
-
   try {
     await updateReportARInGoogleSheets(rawWA, newAR, keepId);
-    prog.complete({
-      title: `✅ Report AR Berhasil Disimpan!`,
-      detail: `Nomor AR "${newAR || '-'}" sukses tersimpan di database MySQL.`
-    });
   } catch (err) {
     console.error('Realtime update Report AR gagal:', err);
-    prog.fail({
-      title: `❌ Gagal Simpan AR ${phoneDisplay}`,
-      detail: err.message || 'Koneksi database DCMS terganggu'
-    });
     if (typeof onRollback === 'function') {
       onRollback(err);
     }
