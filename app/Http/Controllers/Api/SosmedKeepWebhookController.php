@@ -51,22 +51,28 @@ class SosmedKeepWebhookController extends Controller
         }
 
         // =========================================================================
-        // 3. FITUR BOT VPS: PENCARIAN BOTTOM-UP BERDASARKAN NO HP CUSTOMER (UPDATE KOLOM AC)
+        // 3. FITUR BOT BAILEYS / VPS: AUTO-CLAIM REACTION JEMPOL (UPDATE KOLOM AC & STATUS ON PROGRESS)
         // =========================================================================
         if ($action === 'UPDATE_REACTION_FU') {
+            $messageId = $request->input('message_id') ?? $request->input('messageId');
             $custPhone = $request->input('customerPhone') ?? $request->input('customer_phone') ?? $request->input('nomorWA');
             $nomorFU = $request->input('nomorFU') ?? $request->input('nomor_fu');
+            $salesName = $request->input('salesName') ?? $request->input('sales_name') ?? $request->input('nama_sales');
+            $id = $request->input('id');
 
-            return response()->json($this->updateNomorFUByCustomerPhone($custPhone, $nomorFU));
+            return response()->json($this->updateNomorFUByCustomerPhone($custPhone, $nomorFU, $messageId, $salesName, $id));
         }
 
         // =========================================================================
-        // 4. FITUR BATAL JEMPOL: KOSONGKAN KOLOM AC BERDASARKAN NO HP CUSTOMER
+        // 4. FITUR BATAL JEMPOL: KOSONGKAN KOLOM AC & KEMBALIKAN STATUS KE PENDING
         // =========================================================================
         if ($action === 'CLEAR_REACTION_FU') {
+            $messageId = $request->input('message_id') ?? $request->input('messageId');
             $custPhone = $request->input('customerPhone') ?? $request->input('customer_phone') ?? $request->input('nomorWA');
+            $nomorFU = $request->input('nomorFU') ?? $request->input('nomor_fu');
+            $id = $request->input('id');
 
-            return response()->json($this->clearNomorFUByCustomerPhone($custPhone));
+            return response()->json($this->clearNomorFUByCustomerPhone($custPhone, $nomorFU, $messageId, $id));
         }
 
         // =========================================================================
@@ -545,67 +551,171 @@ class SosmedKeepWebhookController extends Controller
     }
 
     /**
-     * Update Reaction FU Bot VPS (isi Kolom AC / nomor_fu)
+     * Update Reaction FU Bot Baileys / VPS (Auto-Claim Logika Siapa Cepat Dia Dapat)
      */
-    private function updateNomorFUByCustomerPhone(?string $customerPhone, ?string $nomorFU): array
+    private function updateNomorFUByCustomerPhone(?string $customerPhone, ?string $nomorFU, ?string $messageId = null, ?string $salesName = null, mixed $id = null): array
     {
-        if (! $customerPhone || ! $nomorFU) {
-            return ['success' => false, 'message' => 'Nomor Customer atau Nomor FU kosong'];
+        if (! $customerPhone && ! $messageId && ! $id) {
+            return ['success' => false, 'message' => 'Parameter pencarian (Nomor Customer, Message ID, atau ID Keep) kosong'];
         }
 
-        $cleanCustPhone = preg_replace('/\D/', '', (string) $customerPhone);
-        $last9 = substr($cleanCustPhone, -9);
-        $cleanNomorFU = trim((string) $nomorFU);
+        if (! $nomorFU) {
+            return ['success' => false, 'message' => 'Nomor WhatsApp staf follow up (nomor_fu) kosong'];
+        }
 
-        // Bottom-Up Search: Order by ID DESC (transaksi terbaru)
-        $keep = SosmedKeep::where(function ($q) use ($cleanCustPhone, $last9) {
-            $q->where('nomor_wa', $cleanCustPhone)
-                ->orWhere('nomor_wa', 'like', "%{$last9}");
-        })->latest('id')->first();
+        $cleanNomorFU = preg_replace('/\D/', '', (string) $nomorFU);
+        if ($cleanNomorFU === '') {
+            $cleanNomorFU = trim((string) $nomorFU);
+        }
+
+        // Cari record keep: 1) by ID, 2) by message_id WhatsApp, 3) by nomor_wa customer (Bottom-Up)
+        $keep = null;
+        if ($id) {
+            $keep = SosmedKeep::find($id);
+        }
+
+        if (! $keep && $messageId) {
+            $keep = SosmedKeep::where('message_id', $messageId)->first();
+        }
+
+        if (! $keep && $customerPhone) {
+            $cleanCustPhone = preg_replace('/\D/', '', (string) $customerPhone);
+            if ($cleanCustPhone !== '') {
+                $last9 = substr($cleanCustPhone, -9);
+                $keep = SosmedKeep::where(function ($q) use ($cleanCustPhone, $last9) {
+                    $q->where('nomor_wa', $cleanCustPhone)
+                        ->orWhere('nomor_wa', 'like', "%{$last9}");
+                })->latest('id')->first();
+            }
+        }
 
         if (! $keep) {
-            return ['success' => false, 'message' => "Nomor Customer {$customerPhone} tidak ditemukan di database."];
+            $target = $messageId ? "Message ID {$messageId}" : ($customerPhone ?? "ID {$id}");
+            return ['success' => false, 'message' => "Data transaksi format keep ({$target}) tidak ditemukan di database."];
+        }
+
+        // =========================================================================
+        // ATURAN "SIAPA CEPAT DIA DAPAT": Jika sudah diklaim orang lain, tolak klaim baru!
+        // =========================================================================
+        $existingCleanFU = preg_replace('/\D/', '', (string) $keep->nomor_fu);
+        $incomingCleanFU = preg_replace('/\D/', '', (string) $cleanNomorFU);
+
+        if (! empty($existingCleanFU) && $existingCleanFU !== $incomingCleanFU) {
+            $holder = $keep->nama_tim_follow_up ?: $keep->nomor_fu;
+            return [
+                'success' => false,
+                'already_claimed' => true,
+                'claimed_by' => $keep->nomor_fu,
+                'claimed_by_name' => $keep->nama_tim_follow_up,
+                'message' => "Format keep ini sudah diklaim lebih dulu oleh {$holder}.",
+                'row' => $keep->id,
+                'customer' => $keep->nomor_wa,
+            ];
+        }
+
+        // Deteksi Nama Sales otomatis dari master tabel employees jika nama belum disediakan
+        if (empty($salesName)) {
+            $last9FU = substr($incomingCleanFU, -9);
+            $emp = \App\Models\Employee::where(function ($q) use ($incomingCleanFU, $last9FU) {
+                $q->where('phone', $incomingCleanFU);
+                if ($last9FU !== '') {
+                    $q->orWhere('phone', 'like', "%{$last9FU}");
+                }
+            })->first();
+
+            if ($emp) {
+                $salesName = $emp->name;
+            }
         }
 
         $keep->nomor_fu = $cleanNomorFU;
+        if ($salesName) {
+            $keep->nama_tim_follow_up = $salesName;
+        }
+
+        // Otomatis ubah status transaksi menjadi 'ON PROGRESS' jika belum closing/lost
+        $currStatus = strtoupper(trim((string) $keep->status));
+        if (empty($currStatus) || in_array($currStatus, ['PENDING', 'BELUM DIINPUT', 'NEW'], true)) {
+            $keep->status = 'ON PROGRESS';
+        }
         $keep->save();
+
+        $picDisplayName = $keep->nama_tim_follow_up ?: $cleanNomorFU;
 
         return [
             'success' => true,
-            'message' => "Berhasil dicatat ke database baris ID {$keep->id}",
+            'claimed' => true,
+            'message' => "Format keep berhasil diklaim oleh {$picDisplayName} (Baris ID {$keep->id})",
             'row' => $keep->id,
-            'customer' => $cleanCustPhone,
+            'customer' => $keep->nomor_wa,
             'pic' => $cleanNomorFU,
+            'pic_name' => $keep->nama_tim_follow_up,
+            'status' => $keep->status,
         ];
     }
 
     /**
-     * Clear Reaction FU Bot VPS (Batal Jempol)
+     * Clear Reaction FU Bot Baileys / VPS (Batal Jempol)
      */
-    private function clearNomorFUByCustomerPhone(?string $customerPhone): array
+    private function clearNomorFUByCustomerPhone(?string $customerPhone, ?string $nomorFU = null, ?string $messageId = null, mixed $id = null): array
     {
-        if (! $customerPhone) {
-            return ['success' => false, 'message' => 'Nomor Customer kosong'];
+        if (! $customerPhone && ! $messageId && ! $id) {
+            return ['success' => false, 'message' => 'Parameter pencarian (Nomor Customer, Message ID, atau ID Keep) kosong'];
         }
 
-        $cleanCustPhone = preg_replace('/\D/', '', (string) $customerPhone);
-        $last9 = substr($cleanCustPhone, -9);
+        // Cari record keep
+        $keep = null;
+        if ($id) {
+            $keep = SosmedKeep::find($id);
+        }
 
-        $keep = SosmedKeep::where(function ($q) use ($cleanCustPhone, $last9) {
-            $q->where('nomor_wa', $cleanCustPhone)
-                ->orWhere('nomor_wa', 'like', "%{$last9}");
-        })->latest('id')->first();
+        if (! $keep && $messageId) {
+            $keep = SosmedKeep::where('message_id', $messageId)->first();
+        }
+
+        if (! $keep && $customerPhone) {
+            $cleanCustPhone = preg_replace('/\D/', '', (string) $customerPhone);
+            if ($cleanCustPhone !== '') {
+                $last9 = substr($cleanCustPhone, -9);
+                $keep = SosmedKeep::where(function ($q) use ($cleanCustPhone, $last9) {
+                    $q->where('nomor_wa', $cleanCustPhone)
+                        ->orWhere('nomor_wa', 'like', "%{$last9}");
+                })->latest('id')->first();
+            }
+        }
 
         if (! $keep) {
-            return ['success' => false, 'message' => 'Nomor Customer tidak ditemukan untuk dikosongkan.'];
+            return ['success' => false, 'message' => 'Data format keep tidak ditemukan untuk dikosongkan.'];
         }
 
+        // Validasi pembatal: Jika nomorFU dikirim, pastikan yang membatalkan adalah yang sebelumnya mengunci
+        if ($nomorFU) {
+            $existingCleanFU = preg_replace('/\D/', '', (string) $keep->nomor_fu);
+            $incomingCleanFU = preg_replace('/\D/', '', (string) $nomorFU);
+            if (! empty($existingCleanFU) && $existingCleanFU !== $incomingCleanFU) {
+                return [
+                    'success' => false,
+                    'message' => 'Anda tidak dapat membatalkan klaim follow-up milik sales lain.',
+                ];
+            }
+        }
+
+        $prevPIC = $keep->nama_tim_follow_up ?: $keep->nomor_fu;
         $keep->nomor_fu = null;
+        $keep->nama_tim_follow_up = null;
+
+        // Jika statusnya saat ini ON PROGRESS, kembalikan menjadi PENDING
+        if (strtoupper(trim((string) $keep->status)) === 'ON PROGRESS') {
+            $keep->status = 'PENDING';
+        }
         $keep->save();
 
         return [
             'success' => true,
-            'message' => "Nomor FU untuk baris ID {$keep->id} berhasil dikosongkan.",
+            'unclaimed' => true,
+            'message' => "Klaim follow up oleh {$prevPIC} pada baris ID {$keep->id} berhasil dibatalkan.",
+            'row' => $keep->id,
+            'customer' => $keep->nomor_wa,
         ];
     }
 

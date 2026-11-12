@@ -1,5 +1,24 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.9.0] - 2026-11-12
+### Engine Auto-Claim Format Keep via WhatsApp Reaction (Baileys Listener & Render.com Cloud Deployment)
+- **Implementasi Bot Listener WhatsApp Baileys Mandiri (`baileys-bot/`)**:
+  - Dibuat sebagai modul layanan mikro mandiri berbasis Node.js 20 dan `@whiskeysockets/baileys` yang siap di-deploy secara instan ke cloud PaaS gratis seperti **Render.com**.
+  - Dilengkapi antarmuka Web Dashboard responsif (`GET /`) untuk memantau status koneksi, scan QR code langsung di peramban, serta fitur **Pairing Code 8-digit** (`POST /api/pair`) tanpa perlu akses terminal interaktif.
+  - Listener event `messages.upsert` cerdas dengan buffer in-memory (1.000 pesan terakhir) untuk merekam nomor telepon konsumen dari format keep di grup.
+  - Listener event `messages.reaction` untuk mendeteksi reaksi emoji (👍, 🙋‍♂️, ✅, dll.) dari staf sales di 18 grup WhatsApp cabang secara realtime 24/7.
+  - Dilengkapi mekanisme anti-sleep interval otomatis untuk menjaga Web Service Render tetap aktif.
+- **Logika "Siapa Cepat Dia Dapat" (*First-Reaction Wins*) pada Backend DCMS**:
+  - Peningkatan controller `SosmedKeepWebhookController` pada aksi `UPDATE_REACTION_FU` dan `CLEAR_REACTION_FU`.
+  - Pengecekan ketat: Transaksi format keep hanya terkunci kepada sales yang memberikan reaksi emoji pertama kali. Jika sales lain bereaksi belakangan pada keep yang sama, sistem otomatis menolak klaim dan mempertahankan sales pertama.
+  - Otomatis mengubah status transaksi format keep menjadi **`ON PROGRESS`** begitu diklaim.
+  - Pencocokan nomor WhatsApp sales secara otomatis ke master tabel `employees` di MySQL untuk mencatat nama lengkap sales di kolom `Nama Tim Follow Up`.
+  - Dukungan fitur **Batal Jempol (*Unclaim*)**: jika sales yang mengunci mencabut reaksinya, transaksi dikembalikan ke status `PENDING` sehingga dapat diklaim oleh rekan kerja lainnya.
+- **Arsip Konfigurasi Cloud Blueprint & Dokumentasi Lengkap**:
+  - Berkas `baileys-bot/render.yaml` untuk deploy 1-klik di Render.com.
+  - Berkas `baileys-bot/Dockerfile` untuk opsi deployment berbasis container/VPS.
+  - Panduan deploy bertahap berbahasa Indonesia di `baileys-bot/README.md`.
+
 ## [V2.8.5] - 2026-11-12
 ### Tampilan Full Screen Live Display (/display), Auto-Lookup Cross-Selling Cepat O(1) MySQL, & Perbaikan Bug Indikator Turnover
 - **Tampilan Full Screen Lebar Penuh (W-Full) di Live Office Display (`/display`)**:

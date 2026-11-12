@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: dcms-baileys-reaction-bot
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: baileys-bot
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.12.0
+      - key: DCMS_WEBHOOK_URL
+        value: https://dcms-sosmed.my.id/api/fonnte-webhook
+      - key: DCMS_API_KEY
+        value: dcms2026
+      - key: TARGET_GROUPS
+        value: ""

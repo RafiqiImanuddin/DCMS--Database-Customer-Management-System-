@@ -132,56 +132,120 @@ class FonnteWebhookAndSettingsTest extends TestCase
 
     public function test_fonnte_webhook_action_update_reaction_fu(): void
     {
-        SosmedKeep::create([
+        \App\Models\Employee::create([
+            'nik' => 'SLS-BJM-09',
+            'name' => 'Budi Santoso',
+            'phone' => '081299998888',
+            'cabang' => 'Banjarmasin',
+            'role' => 'Sales Toko',
+            'status' => 'active',
+        ]);
+
+        $keep = SosmedKeep::create([
             'nama' => 'Citra Lestari',
             'nomor_wa' => '6287899887766',
             'barang_keep' => 'iPad Air 5',
             'remarks' => 'SOSMED 3',
+            'message_id' => 'MSG_WA_KEEP_999',
+            'status' => 'PENDING',
         ]);
 
-        $payload = [
+        // 1. Klaim pertama oleh Budi Santoso (081299998888) -> Harus Berhasil & status jadi ON PROGRESS
+        $payload1 = [
             'action' => 'UPDATE_REACTION_FU',
+            'message_id' => 'MSG_WA_KEEP_999',
             'customerPhone' => '087899887766',
-            'nomorFU' => 'FU-101',
+            'nomorFU' => '081299998888',
         ];
 
-        $response = $this->post(route('api.fonnte_webhook'), $payload);
-        $response->assertOk();
-        $response->assertJson([
+        $response1 = $this->post(route('api.fonnte_webhook'), $payload1);
+        $response1->assertOk();
+        $response1->assertJson([
             'success' => true,
-            'pic' => 'FU-101',
+            'claimed' => true,
+            'status' => 'ON PROGRESS',
+            'pic_name' => 'Budi Santoso',
         ]);
 
         $this->assertDatabaseHas('sosmed_keeps', [
-            'nomor_wa' => '6287899887766',
-            'nomor_fu' => 'FU-101',
+            'id' => $keep->id,
+            'nomor_fu' => '081299998888',
+            'nama_tim_follow_up' => 'Budi Santoso',
+            'status' => 'ON PROGRESS',
+        ]);
+
+        // 2. ATURAN SIAPA CEPAT DIA DAPAT: Sales kedua (0855112233) mencoba klaim format keep yang sama -> Harus DITOLAK
+        $payload2 = [
+            'action' => 'UPDATE_REACTION_FU',
+            'message_id' => 'MSG_WA_KEEP_999',
+            'customerPhone' => '087899887766',
+            'nomorFU' => '0855112233',
+        ];
+
+        $response2 = $this->post(route('api.fonnte_webhook'), $payload2);
+        $response2->assertOk();
+        $response2->assertJson([
+            'success' => false,
+            'already_claimed' => true,
+            'claimed_by' => '081299998888',
+        ]);
+
+        // Data tetap milik Budi Santoso
+        $this->assertDatabaseHas('sosmed_keeps', [
+            'id' => $keep->id,
+            'nomor_fu' => '081299998888',
         ]);
     }
 
     public function test_fonnte_webhook_action_clear_reaction_fu(): void
     {
-        SosmedKeep::create([
+        $keep = SosmedKeep::create([
             'nama' => 'Citra Lestari',
             'nomor_wa' => '6287899887766',
             'barang_keep' => 'iPad Air 5',
             'remarks' => 'SOSMED 3',
-            'nomor_fu' => 'FU-101',
+            'message_id' => 'MSG_WA_CLEAR_001',
+            'nomor_fu' => '081299998888',
+            'nama_tim_follow_up' => 'Budi Santoso',
+            'status' => 'ON PROGRESS',
         ]);
 
-        $payload = [
+        // 1. Sales lain mencoba batalkan -> Ditolak
+        $payloadUnauthorized = [
             'action' => 'CLEAR_REACTION_FU',
+            'message_id' => 'MSG_WA_CLEAR_001',
             'customerPhone' => '087899887766',
+            'nomorFU' => '0855112233',
         ];
 
-        $response = $this->post(route('api.fonnte_webhook'), $payload);
+        $resUnauthorized = $this->post(route('api.fonnte_webhook'), $payloadUnauthorized);
+        $resUnauthorized->assertOk();
+        $resUnauthorized->assertJson(['success' => false]);
+        $this->assertDatabaseHas('sosmed_keeps', [
+            'id' => $keep->id,
+            'nomor_fu' => '081299998888',
+        ]);
+
+        // 2. Sales yang mengunci (Budi Santoso) membatalkan klaim -> Berhasil & status kembali PENDING
+        $payloadValid = [
+            'action' => 'CLEAR_REACTION_FU',
+            'message_id' => 'MSG_WA_CLEAR_001',
+            'customerPhone' => '087899887766',
+            'nomorFU' => '081299998888',
+        ];
+
+        $response = $this->post(route('api.fonnte_webhook'), $payloadValid);
         $response->assertOk();
         $response->assertJson([
             'success' => true,
+            'unclaimed' => true,
         ]);
 
         $this->assertDatabaseHas('sosmed_keeps', [
-            'nomor_wa' => '6287899887766',
+            'id' => $keep->id,
             'nomor_fu' => null,
+            'nama_tim_follow_up' => null,
+            'status' => 'PENDING',
         ]);
     }
 
