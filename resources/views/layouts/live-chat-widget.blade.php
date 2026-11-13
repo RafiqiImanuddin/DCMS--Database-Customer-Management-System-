@@ -987,6 +987,37 @@
                             hasNewInbound = true;
                             latestInboundMsg = m;
                         }
+
+                        // Sinkronkan juga pesan baru dari webhook langsung ke gadgetmart_omni_threads
+                        try {
+                            const threads = JSON.parse(localStorage.getItem('gadgetmart_omni_threads') || '{}');
+                            const ph = normalizePhone(m.phone);
+                            if (ph) {
+                                if (!threads[ph]) threads[ph] = [];
+                                const threadExists = threads[ph].some(tMsg => tMsg.id === m.messageId);
+                                if (!threadExists) {
+                                    threads[ph].push({
+                                        id: m.messageId,
+                                        sender: m.direction === 'inbound' ? (m.sender || 'PIC') : 'ADMIN',
+                                        senderName: m.senderName || (m.direction === 'inbound' ? 'PIC' : 'Admin'),
+                                        text: m.message || '',
+                                        message: m.message || '',
+                                        timestamp: m.timestamp || Date.now(),
+                                        mediaUrl: m.media_url || null,
+                                        messageType: m.media_type || 'text',
+                                        fromMe: m.direction !== 'inbound'
+                                    });
+                                    if (typeof saveOmniThreads === 'function') {
+                                        saveOmniThreads(threads);
+                                    } else {
+                                        localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(threads));
+                                    }
+                                    if (typeof renderOmniInboxModule === 'function') {
+                                        renderOmniInboxModule();
+                                    }
+                                }
+                            }
+                        } catch (eOmni) {}
                     }
                 });
 
@@ -1033,34 +1064,117 @@
     }
 
     function getGroupedChats() {
+        // PRIORITAS 1: Sinkronisasi 100% langsung dengan engine Tab 9 (Inbox Follow-Up) jika getOmniPicChats tersedia
+        if (typeof getOmniPicChats === 'function') {
+            try {
+                const omniChats = getOmniPicChats();
+                if (Array.isArray(omniChats) && omniChats.length > 0) {
+                    return omniChats.map(c => {
+                        const targetPh = normalizePhone(c.picWA || c.cleanKey || c.key);
+                        return {
+                            phone: targetPh,
+                            name: c.picName || formatDcmsPhoneDisplay(targetPh),
+                            lastMessage: c.lastMessageText || '',
+                            lastTime: c.latestEpochMs || 0,
+                            lastDirection: (c.lastSender === 'ADMIN' || c.lastSender === 'admin') ? 'outbound' : 'inbound',
+                            cabang: c.cabang || '-',
+                            isUnresponded: Boolean(c.isUnresponded),
+                            isResolved: Boolean(c.isResolved),
+                            pendingCount: c.pendingCount || 0,
+                            messages: (c.messages || []).map(m => ({
+                                messageId: m.id || ('omni_' + (m.timestamp || Date.now())),
+                                phone: targetPh,
+                                message: m.text || m.message || '',
+                                timestamp: m.timestamp || Date.now(),
+                                direction: (m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe) ? 'outbound' : 'inbound',
+                                sender: (m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe) ? 'ADMIN' : 'PIC',
+                                senderName: m.senderName || c.picName || 'PIC',
+                                media_url: m.mediaUrl || m.media_url || null,
+                                media_type: m.messageType || m.media_type || null,
+                                reply_to: m.replyTo || m.reply_to || null
+                            }))
+                        };
+                    });
+                }
+            } catch (e) {
+                console.warn('getOmniPicChats bridge warning:', e);
+            }
+        }
+
+        // PRIORITAS 2: Baca dari localStorage gadgetmart_omni_threads (Inbox Follow-Up) agar data selalu sinkron
+        const omniThreads = (() => {
+            try { return JSON.parse(localStorage.getItem('gadgetmart_omni_threads') || '{}'); } catch(e) { return {}; }
+        })();
+
         const groups = {};
+
+        // 1. Muat seluruh percakapan yang ada di Inbox Follow-Up
+        Object.keys(omniThreads).forEach(k => {
+            const ph = normalizePhone(k);
+            if (!ph) return;
+            const msgs = omniThreads[k] || [];
+            if (msgs.length === 0) return;
+
+            const lastM = msgs[msgs.length - 1];
+            let name = 'PIC ' + ph;
+            let cabang = '-';
+            if (typeof getMasterDataPICs === 'function') {
+                const pics = getMasterDataPICs();
+                const matched = pics.find(p => p.wa && normalizePhone(p.wa) === ph);
+                if (matched && matched.picName) {
+                    name = matched.picName;
+                    cabang = matched.cabang || '-';
+                }
+            }
+
+            groups[ph] = {
+                phone: ph,
+                name: name,
+                cabang: cabang,
+                lastMessage: lastM.text || lastM.message || '',
+                lastTime: lastM.timestamp || Date.now(),
+                lastDirection: (lastM.sender === 'ADMIN' || lastM.sender === 'admin') ? 'outbound' : 'inbound',
+                messages: msgs.map(m => ({
+                    messageId: m.id,
+                    phone: ph,
+                    message: m.text || m.message || '',
+                    timestamp: m.timestamp || Date.now(),
+                    direction: (m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe) ? 'outbound' : 'inbound',
+                    sender: (m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe) ? 'ADMIN' : 'PIC',
+                    senderName: m.senderName || name,
+                    media_url: m.mediaUrl || m.media_url || null,
+                    media_type: m.messageType || m.media_type || null,
+                    reply_to: m.replyTo || m.reply_to || null
+                }))
+            };
+        });
+
+        // 2. Gabungkan dengan dcmsLwMessages (pesan realtime dari server/webhook)
         dcmsLwMessages.forEach(m => {
             const ph = normalizePhone(m.phone);
             if (!ph) return;
-
-            // Jangan gunakan 'Admin' sebagai nama kontak!
-            let validSenderName = '';
-            const sName = String(m.senderName || '').trim();
-            if (sName && sName.toLowerCase() !== 'admin' && !sName.toLowerCase().startsWith('admin')) {
-                validSenderName = sName;
-            }
-
             if (!groups[ph]) {
+                let validSenderName = '';
+                const sName = String(m.senderName || '').trim();
+                if (sName && sName.toLowerCase() !== 'admin' && !sName.toLowerCase().startsWith('admin')) {
+                    validSenderName = sName;
+                }
                 groups[ph] = {
                     phone: ph,
-                    name: validSenderName,
+                    name: validSenderName || formatDcmsPhoneDisplay(ph),
+                    cabang: '-',
                     lastMessage: m.message || (m.media_type ? ('[' + m.media_type + ']') : ''),
                     lastTime: m.timestamp,
                     lastDirection: m.direction || 'inbound',
                     messages: []
                 };
             }
-            groups[ph].messages.push(m);
-            groups[ph].lastMessage = m.message || (m.media_type ? ('[' + m.media_type + ']') : '');
-            groups[ph].lastTime = m.timestamp;
-            groups[ph].lastDirection = m.direction || 'inbound';
-            if (validSenderName && (!groups[ph].name || groups[ph].name.includes('PIC ') || groups[ph].name.toLowerCase() === 'admin')) {
-                groups[ph].name = validSenderName;
+            const exists = groups[ph].messages.some(ex => ex.messageId && m.messageId && ex.messageId === m.messageId);
+            if (!exists) {
+                groups[ph].messages.push(m);
+                groups[ph].lastMessage = m.message || (m.media_type ? ('[' + m.media_type + ']') : '');
+                groups[ph].lastTime = m.timestamp;
+                groups[ph].lastDirection = m.direction || 'inbound';
             }
         });
 
@@ -1276,7 +1390,20 @@
         const stream = document.getElementById('dcmsLwMessagesStream');
         if (!stream || !dcmsLwActivePhone) return;
 
-        const messages = dcmsLwMessages.filter(m => normalizePhone(m.phone) === dcmsLwActivePhone);
+        // Ambil riwayat pesan lengkap dari getGroupedChats() (Inbox Follow-Up + pesan realtime)
+        const chats = getGroupedChats();
+        const activeChat = chats.find(c => normalizePhone(c.phone) === normalizePhone(dcmsLwActivePhone));
+        let messages = (activeChat && Array.isArray(activeChat.messages) && activeChat.messages.length > 0)
+            ? [...activeChat.messages]
+            : dcmsLwMessages.filter(m => normalizePhone(m.phone) === normalizePhone(dcmsLwActivePhone));
+
+        // Urutkan pesan dari yang paling lama ke paling baru (kronologis)
+        messages.sort((a, b) => {
+            const tA = isNaN(a.timestamp) ? (new Date(a.timestamp).getTime() || 0) : (Number(a.timestamp) < 1e11 ? Number(a.timestamp) * 1000 : Number(a.timestamp));
+            const tB = isNaN(b.timestamp) ? (new Date(b.timestamp).getTime() || 0) : (Number(b.timestamp) < 1e11 ? Number(b.timestamp) * 1000 : Number(b.timestamp));
+            return tA - tB;
+        });
+
         if (messages.length === 0) {
             stream.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:11.5px;">Belum ada riwayat percakapan dengan nomor ini. Silakan kirim pesan follow up langsung di bawah:</div>';
             return;
@@ -1284,16 +1411,19 @@
 
         let html = '';
         messages.forEach(m => {
-            const isOut = m.direction === 'outbound' || m.sender === 'ADMIN';
+            const isOut = m.direction === 'outbound' || m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe;
             const timeStr = formatTime(m.timestamp);
             const tick = isOut ? '<span style="color:#0284c7; font-size:10px; margin-left:3px;">✓✓</span>' : '';
-            const mediaTag = m.media_type === 'image' 
+            const isImg = m.media_type === 'image' || m.mediaType === 'image';
+            const isDoc = m.media_type === 'document' || m.mediaType === 'document';
+            const mediaTag = isImg 
                 ? '<div style="font-size:11px; color:#0284c7; margin-bottom:4px; font-weight:600;">📷 Foto WhatsApp</div>'
-                : (m.media_type === 'document' ? '<div style="font-size:11px; color:#0284c7; margin-bottom:4px; font-weight:600;">📄 Dokumen WhatsApp</div>' : '');
+                : (isDoc ? '<div style="font-size:11px; color:#0284c7; margin-bottom:4px; font-weight:600;">📄 Dokumen WhatsApp</div>' : '');
 
+            const msgContent = m.message || m.text || '';
             html += '<div class="dcms-lw-bubble ' + (isOut ? 'dcms-lw-bubble-out' : 'dcms-lw-bubble-in') + '">' +
                 mediaTag +
-                '<div class="dcms-lw-bubble-text">' + formatDcmsLiveMessage(m.message) + '</div>' +
+                '<div class="dcms-lw-bubble-text">' + formatDcmsLiveMessage(msgContent) + '</div>' +
                 '<div class="dcms-lw-bubble-meta">' + timeStr + tick + '</div>' +
             '</div>';
         });
@@ -1323,15 +1453,45 @@
             messageId: 'out_' + now,
             phone: targetPhone,
             message: text,
+            text: text,
             timestamp: now,
             direction: 'outbound',
             sender: 'ADMIN',
             status: 'sent'
         };
 
-        // Optimistic UI
+        // 1. Optimistic UI di widget
         dcmsLwMessages.push(tempMsg);
+
+        // 2. Sinkronkan langsung ke localStorage gadgetmart_omni_threads (Inbox Follow-Up)
+        try {
+            const threads = JSON.parse(localStorage.getItem('gadgetmart_omni_threads') || '{}');
+            const threadKey = targetPhone;
+            if (!threads[threadKey]) threads[threadKey] = [];
+            threads[threadKey].push({
+                id: tempMsg.messageId,
+                messageId: tempMsg.messageId,
+                sender: 'ADMIN',
+                senderName: 'Admin (Anda)',
+                text: text,
+                message: text,
+                timestamp: now,
+                fromMe: true
+            });
+            if (typeof saveOmniThreads === 'function') {
+                saveOmniThreads(threads);
+            } else {
+                localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(threads));
+            }
+            if (typeof renderOmniInboxModule === 'function') {
+                renderOmniInboxModule();
+            }
+        } catch (errOmni) {
+            console.warn('Gagal sinkron widget ke omniThreads:', errOmni);
+        }
+
         renderActiveRoomMessages();
+        renderChatsList();
         input.value = '';
         input.focus();
         if (btn) btn.disabled = true;
@@ -1372,7 +1532,15 @@
         });
     };
 
-    // Auto-polling setiap 12 detik
+    // Ekspos fungsi rendering Live Chat Widget ke global window agar Tab 9 Inbox Follow-Up dapat memanggil secara realtime
+    window.renderDcmsLwChatsList = renderChatsList;
+    window.updateDcmsLwUnreadBadge = updateUnreadBadge;
+    window.renderDcmsLwActiveRoomMessages = renderActiveRoomMessages;
+    window.renderChatsList = renderChatsList;
+    window.updateUnreadBadge = updateUnreadBadge;
+    window.renderActiveRoomMessages = renderActiveRoomMessages;
+
+    // Auto-polling setiap 5 detik
     document.addEventListener('DOMContentLoaded', function() {
         checkTabVisibility();
         loadDcmsLiveWidgetData(false);

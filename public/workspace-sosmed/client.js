@@ -11752,6 +11752,23 @@ function getOmniThreads() {
 
     if (modified) {
       localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
+
+    // Sinkronisasi realtime ke Live Chat Widget di pojok kanan bawah
+    if (typeof window.renderDcmsLwChatsList === 'function') {
+      try { window.renderDcmsLwChatsList(); } catch (e) {}
+    } else if (typeof renderChatsList === 'function') {
+      try { renderChatsList(); } catch (e) {}
+    }
+    if (typeof window.updateDcmsLwUnreadBadge === 'function') {
+      try { window.updateDcmsLwUnreadBadge(); } catch (e) {}
+    } else if (typeof updateUnreadBadge === 'function') {
+      try { updateUnreadBadge(); } catch (e) {}
+    }
+    if (typeof window.renderDcmsLwActiveRoomMessages === 'function') {
+      try { window.renderDcmsLwActiveRoomMessages(); } catch (e) {}
+    } else if (typeof renderActiveRoomMessages === 'function') {
+      try { renderActiveRoomMessages(); } catch (e) {}
+    }
     }
     return cleaned;
   } catch (e) {
@@ -11779,6 +11796,23 @@ function saveOmniThreads(threads) {
       });
     });
     localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
+
+    // Sinkronisasi realtime ke Live Chat Widget di pojok kanan bawah
+    if (typeof window.renderDcmsLwChatsList === 'function') {
+      try { window.renderDcmsLwChatsList(); } catch (e) {}
+    } else if (typeof renderChatsList === 'function') {
+      try { renderChatsList(); } catch (e) {}
+    }
+    if (typeof window.updateDcmsLwUnreadBadge === 'function') {
+      try { window.updateDcmsLwUnreadBadge(); } catch (e) {}
+    } else if (typeof updateUnreadBadge === 'function') {
+      try { updateUnreadBadge(); } catch (e) {}
+    }
+    if (typeof window.renderDcmsLwActiveRoomMessages === 'function') {
+      try { window.renderDcmsLwActiveRoomMessages(); } catch (e) {}
+    } else if (typeof renderActiveRoomMessages === 'function') {
+      try { renderActiveRoomMessages(); } catch (e) {}
+    }
   } catch (e) {
     console.warn('saveOmniThreads warning:', e);
   }
