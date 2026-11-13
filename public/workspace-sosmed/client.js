@@ -3077,7 +3077,7 @@ function renderKeepPage() {
 
     // 5. TIM FOLLOW UP CELL (Auto-Claim via Webhook Reaction Baileys/WhatsApp)
     const fuName = String(r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || '').trim();
-    const rawFU = String(r['Nomor FU'] || r['nomor_fu'] || r['Nomor Follow Up'] || r['nomor_follow_up'] || '').trim();
+    const rawFU = String(r['Nomor Follow Up'] || r['nomor_follow_up'] || r['Nomor FU'] || r['nomor_fu'] || '').trim();
     const cleanFUDigits = rawFU.replace(/\D/g, '');
     const normFU = normalizePhone(cleanFUDigits);
     const displayFU = formatPhoneDisplay(cleanFUDigits) || rawFU;
@@ -3085,14 +3085,14 @@ function renderKeepPage() {
     let fuHtml = '';
     if (fuName || cleanFUDigits) {
       const fuInitials = fuName ? getCustomerInitials(fuName) : 'FU';
-      const fuDisplayName = fuName || 'Staf Cabang';
+      const fuDisplayName = fuName || 'Tim Follow Up';
       fuHtml = `
         <div class="flex items-center gap-2.5">
-          <div class="size-7 rounded-lg bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs" title="Staf Follow Up: ${escapeHtml(fuDisplayName)}">
+          <div class="size-7 rounded-lg bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs" title="Tim Follow Up: ${escapeHtml(fuDisplayName)}">
             ${fuInitials}
           </div>
           <div class="min-w-0">
-            <div class="font-bold text-slate-800 text-xs truncate max-w-[140px]" title="${escapeHtml(fuDisplayName)}">
+            <div class="font-bold text-slate-800 text-xs truncate max-w-[160px]" title="${escapeHtml(fuDisplayName)}">
               ${escapeHtml(fuDisplayName)}
             </div>
             ${(normFU && normFU.length >= 8 && !window.IS_GUEST) ? `
@@ -3106,7 +3106,7 @@ function renderKeepPage() {
       `;
     } else {
       fuHtml = `
-        <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/80 border border-dashed border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-400 italic whitespace-nowrap" title="Belum ada respon reaksi dari tim sales toko">
+        <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/80 border border-dashed border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-400 italic whitespace-nowrap" title="Belum ada respon reaksi jempol dari tim follow up">
           <span class="size-1.5 rounded-full bg-slate-300"></span>
           <span>Belum di-claim</span>
         </span>

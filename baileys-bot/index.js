@@ -153,7 +153,7 @@ async function startBaileysSocket() {
   });
 
   // ----------------------------------------------------------------------------
-  // LISTENER 1: SIMPAN FORMAT KEEP MASUK KE IN-MEMORY CACHE
+  // LISTENER 1: SIMPAN FORMAT KEEP MASUK KE IN-MEMORY CACHE & DETEKSI REAKSI UPSERT
   // ----------------------------------------------------------------------------
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (!Array.isArray(messages)) return;
@@ -165,25 +165,38 @@ async function startBaileysSocket() {
       // Abaikan jika bukan dari grup
       if (!remoteJid.endsWith('@g.us')) continue;
 
-      // Ambil isi teks pesan
+      // 1A. Deteksi reaksi emoji via messages.upsert (lengkap dengan pushName WhatsApp)
+      const reactionMsg = msg.message?.reactionMessage;
+      if (reactionMsg && reactionMsg.key) {
+        const targetMessageId = reactionMsg.key.id;
+        // Orang yang me-react adalah participant pengirim pesan reaksi ini (Tim Follow Up)
+        const reactorJid = msg.key?.participant || msg.participant || (msg.key?.fromMe ? (sock.user?.id || '') : '');
+        const emoji = (reactionMsg.text || '').trim();
+        const pushName = msg.pushName || '';
+        await handleReactionEvent(targetMessageId, remoteJid, reactorJid, emoji, pushName);
+        continue;
+      }
+
+      // 1B. Ambil isi teks pesan format keep
       const text = msg.message?.conversation ||
         msg.message?.extendedTextMessage?.text ||
         msg.message?.imageMessage?.caption || '';
 
       if (!text) continue;
 
-      // Cek apakah format keep
+      // Cek apakah format keep yang dikirimkan oleh Tim Admin Sosmed
       const isFormatKeep = /format\s*(?:keep|kredit|po|preorder)|barang\s*(?:keep|po|kredit)|remar?ks/i.test(text);
       if (isFormatKeep) {
         const custPhone = extractCustomerPhone(text);
-        const sender = (msg.key.participant || msg.participant || '').replace(/@.+/, '');
+        // Sender di sini adalah Admin Sosmed yang mengirimkan format keep ke grup
+        const adminSosmedSender = (msg.key.participant || msg.participant || '').replace(/@.+/, '');
 
         messageCache.set(msg.key.id, {
           id: msg.key.id,
           remoteJid,
           text,
           customerPhone: custPhone,
-          sender,
+          adminSosmed: adminSosmedSender,
           timestamp: Date.now()
         });
 
@@ -193,13 +206,13 @@ async function startBaileysSocket() {
           messageCache.delete(firstKey);
         }
 
-        logger.info(`[Keep Masuk] ID: ${msg.key.id} di grup ${remoteJid} (Customer: ${custPhone || '-'})`);
+        logger.info(`[Keep Masuk dari Admin Sosmed] ID: ${msg.key.id} di grup ${remoteJid} (Customer: ${custPhone || '-'}, Admin: ${adminSosmedSender})`);
       }
     }
   });
 
   // ----------------------------------------------------------------------------
-  // LISTENER 2: REAKSI EMOJI WHATSAPP (AUTO-CLAIM FORMAT KEEP)
+  // LISTENER 2: REAKSI EMOJI WHATSAPP DARI TIM FOLLOW UP
   // ----------------------------------------------------------------------------
   sock.ev.on('messages.reaction', async (reactions) => {
     if (!Array.isArray(reactions)) return;
@@ -207,88 +220,91 @@ async function startBaileysSocket() {
     for (const r of reactions) {
       try {
         const remoteJid = r.key?.remoteJid || '';
-
-        // Hanya proses reaksi di dalam grup
-        if (!remoteJid.endsWith('@g.us')) continue;
-
-        // Cek filter grup jika TARGET_GROUPS ditentukan
-        if (TARGET_GROUPS.length > 0 && !TARGET_GROUPS.includes(remoteJid)) {
-          continue;
-        }
-
         const targetMessageId = r.key?.id;
-        if (!targetMessageId) continue;
 
-        // Deteksi staf sales pengirim reaksi (participant di grup)
-        const rawSender = r.reaction?.key?.participant || r.key?.participant || r.participant || '';
-        const salesPhone = rawSender.replace(/@.+/, '').replace(/\D/g, '');
-        if (!salesPhone) continue;
-
-        // Emoji yang diberikan (kosong jika reaksi dibatalkan/dihapus)
+        // PENTING: Orang yang me-react (Tim Follow Up) diambil dari r.reaction.key.participant!
+        // JANGAN pernah menggunakan r.key.participant karena itu adalah pengirim format keep (Admin Sosmed)
+        const reactorJid = r.reaction?.key?.participant || 
+                           (r.reaction?.key?.fromMe ? (sock.user?.id || '') : '') || 
+                           r.participant || '';
         const emoji = (r.reaction?.text || '').trim();
 
-        const cachedKeep = messageCache.get(targetMessageId);
-        const custPhone = cachedKeep ? cachedKeep.customerPhone : '';
-
-        if (emoji !== '') {
-          // =====================================================================
-          // AKSI: KLAIM TRANSAKSI (UPDATE_REACTION_FU)
-          // =====================================================================
-          logger.info(`[Reaksi Baru] ${emoji} oleh ${salesPhone} pada pesan ${targetMessageId}`);
-
-          const payload = {
-            action: 'UPDATE_REACTION_FU',
-            message_id: targetMessageId,
-            customerPhone: custPhone,
-            nomorFU: salesPhone,
-            emoji: emoji,
-            group_id: remoteJid
-          };
-
-          const dcmsRes = await sendToDCMS(payload);
-
-          addReactionLog({
-            type: 'CLAIM',
-            group: remoteJid.replace('@g.us', ''),
-            sales: salesPhone,
-            emoji: emoji,
-            message_id: targetMessageId,
-            customer: custPhone,
-            status: dcmsRes.claimed ? 'BERHASIL' : (dcmsRes.already_claimed ? 'DITOLAK_LATE' : 'GAGAL'),
-            response: dcmsRes.message || JSON.stringify(dcmsRes)
-          });
-        } else {
-          // =====================================================================
-          // AKSI: BATAL JEMPOL (CLEAR_REACTION_FU)
-          // =====================================================================
-          logger.info(`[Reaksi Batal] Jempol dicabut oleh ${salesPhone} pada pesan ${targetMessageId}`);
-
-          const payload = {
-            action: 'CLEAR_REACTION_FU',
-            message_id: targetMessageId,
-            customerPhone: custPhone,
-            nomorFU: salesPhone,
-            group_id: remoteJid
-          };
-
-          const dcmsRes = await sendToDCMS(payload);
-
-          addReactionLog({
-            type: 'UNCLAIM',
-            group: remoteJid.replace('@g.us', ''),
-            sales: salesPhone,
-            emoji: '❌ (Batal)',
-            message_id: targetMessageId,
-            customer: custPhone,
-            status: dcmsRes.unclaimed ? 'BERHASIL' : 'GAGAL',
-            response: dcmsRes.message || JSON.stringify(dcmsRes)
-          });
-        }
+        await handleReactionEvent(targetMessageId, remoteJid, reactorJid, emoji);
       } catch (err) {
         logger.error('[Error Reaksi]', err.message);
       }
     }
   });
+
+  // Helper pemrosesan reaksi emoji Tim Follow Up
+  async function handleReactionEvent(targetMessageId, remoteJid, reactorJid, emoji, pushName = '') {
+    if (!targetMessageId || !remoteJid) return;
+    if (!remoteJid.endsWith('@g.us')) return;
+    if (TARGET_GROUPS.length > 0 && !TARGET_GROUPS.includes(remoteJid)) return;
+
+    // Nomor HP staf Tim Follow Up yang me-react format keep
+    const fuPhone = (reactorJid || '').replace(/@.+/, '').replace(/\D/g, '');
+    if (!fuPhone) return;
+
+    const cachedKeep = messageCache.get(targetMessageId);
+    const custPhone = cachedKeep ? cachedKeep.customerPhone : '';
+
+    if (emoji !== '') {
+      // =====================================================================
+      // AKSI: TIM FOLLOW UP MENGKLAIM FORMAT KEEP (UPDATE_REACTION_FU)
+      // =====================================================================
+      logger.info(`[Reaksi Tim Follow Up] ${emoji} oleh ${fuPhone}${pushName ? ' (' + pushName + ')' : ''} pada pesan keep ${targetMessageId}`);
+
+      const payload = {
+        action: 'UPDATE_REACTION_FU',
+        message_id: targetMessageId,
+        customerPhone: custPhone,
+        nomorFU: fuPhone,
+        sales_name: pushName || '',
+        emoji: emoji,
+        group_id: remoteJid
+      };
+
+      const dcmsRes = await sendToDCMS(payload);
+
+      addReactionLog({
+        type: 'CLAIM',
+        group: remoteJid.replace('@g.us', ''),
+        sales: fuPhone + (pushName ? ` (${pushName})` : ''),
+        emoji: emoji,
+        message_id: targetMessageId,
+        customer: custPhone,
+        status: dcmsRes.claimed ? 'BERHASIL' : (dcmsRes.already_claimed ? 'DITOLAK_LATE' : 'GAGAL'),
+        response: dcmsRes.message || JSON.stringify(dcmsRes)
+      });
+    } else {
+      // =====================================================================
+      // AKSI: TIM FOLLOW UP MEMBATALKAN REAKSI (CLEAR_REACTION_FU)
+      // =====================================================================
+      logger.info(`[Reaksi Tim Follow Up Batal] Reaksi dicabut oleh ${fuPhone} pada pesan keep ${targetMessageId}`);
+
+      const payload = {
+        action: 'CLEAR_REACTION_FU',
+        message_id: targetMessageId,
+        customerPhone: custPhone,
+        nomorFU: fuPhone,
+        group_id: remoteJid
+      };
+
+      const dcmsRes = await sendToDCMS(payload);
+
+      addReactionLog({
+        type: 'UNCLAIM',
+        group: remoteJid.replace('@g.us', ''),
+        sales: fuPhone,
+        emoji: '❌ (Batal)',
+        message_id: targetMessageId,
+        customer: custPhone,
+        status: dcmsRes.unclaimed ? 'BERHASIL' : 'GAGAL',
+        response: dcmsRes.message || JSON.stringify(dcmsRes)
+      });
+    }
+  }
 }
 
 // ==============================================================================

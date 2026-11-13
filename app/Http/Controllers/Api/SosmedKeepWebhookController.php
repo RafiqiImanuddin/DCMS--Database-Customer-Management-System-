@@ -636,22 +636,42 @@ class SosmedKeepWebhookController extends Controller
             ];
         }
 
-        // Deteksi Nama Sales otomatis dari master tabel employees jika nama belum disediakan
+        // Deteksi Nama Tim Follow Up otomatis:
+        // 1) Dari histori data tim follow up di sosmed_keeps (332 nama resmi tim follow up beserta kode NIK)
+        // 2) Fallback master employee jika nomor terdaftar
         if (empty($salesName)) {
             $last9FU = substr($incomingCleanFU, -9);
-            $emp = \App\Models\Employee::where(function ($q) use ($incomingCleanFU, $last9FU) {
-                $q->where('phone', $incomingCleanFU);
+            $existingKeepFU = SosmedKeep::where(function ($q) use ($incomingCleanFU, $last9FU) {
+                $q->where('nomor_follow_up', $incomingCleanFU)
+                    ->orWhere('nomor_fu', $incomingCleanFU);
                 if ($last9FU !== '') {
-                    $q->orWhere('phone', 'like', "%{$last9FU}");
+                    $q->orWhere('nomor_follow_up', 'like', "%{$last9FU}")
+                        ->orWhere('nomor_fu', 'like', "%{$last9FU}");
                 }
-            })->first();
+            })
+            ->whereNotNull('nama_tim_follow_up')
+            ->where('nama_tim_follow_up', '!=', '')
+            ->latest('id')
+            ->first();
 
-            if ($emp) {
-                $salesName = $emp->name;
+            if ($existingKeepFU && ! empty($existingKeepFU->nama_tim_follow_up)) {
+                $salesName = $existingKeepFU->nama_tim_follow_up;
+            } else {
+                $emp = \App\Models\Employee::where(function ($q) use ($incomingCleanFU, $last9FU) {
+                    $q->where('phone', $incomingCleanFU);
+                    if ($last9FU !== '') {
+                        $q->orWhere('phone', 'like', "%{$last9FU}");
+                    }
+                })->first();
+
+                if ($emp) {
+                    $salesName = $emp->name;
+                }
             }
         }
 
         $keep->nomor_fu = $cleanNomorFU;
+        $keep->nomor_follow_up = $cleanNomorFU;
         if ($salesName) {
             $keep->nama_tim_follow_up = $salesName;
         }
@@ -723,8 +743,9 @@ class SosmedKeepWebhookController extends Controller
             }
         }
 
-        $prevPIC = $keep->nama_tim_follow_up ?: $keep->nomor_fu;
+        $prevPIC = $keep->nama_tim_follow_up ?: ($keep->nomor_follow_up ?: $keep->nomor_fu);
         $keep->nomor_fu = null;
+        $keep->nomor_follow_up = null;
         $keep->nama_tim_follow_up = null;
 
         // Jika statusnya saat ini ON PROGRESS, kembalikan menjadi PENDING

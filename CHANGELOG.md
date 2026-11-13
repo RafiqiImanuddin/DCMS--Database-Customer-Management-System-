@@ -5,17 +5,21 @@
 - **Kolom Baru "TIM FOLLOW UP" pada Tabel Format Keep Customer (Tab 4)**:
   - Menambahkan kolom permanen **Tim Follow Up** di antara kolom `Report AR` dan `Status` pada tabel antarmuka Workspace Sosmed.
   - Memperluas lebar tabel (`min-w-[1360px]`) dan mengatur distribusi proporsi lebar kolom agar informasi staf terlihat rapi, jelas, dan proporsional.
-- **Tampilan Identitas Staf Sales yang Mengklaim Transaksi**:
-  - Menampilkan badge inisial avatar berwarna emerald, nama lengkap staf sales (diambil otomatis dari webhook reaction bot Baileys yang mencocokkan ke tabel master `employees`), serta nomor telepon WhatsApp.
-  - Nomor telepon dilengkapi tautan langsung *Click-to-Chat* (`wa.me/{nomor}`) untuk mempermudah admin menghubungi staf yang bertugas.
+- **Penyelarasan Logika Tim Admin Sosmed vs Tim Follow Up**:
+  - Memastikan pemisahan peran yang presisi: Pesan format keep di grup dikirim oleh **Tim Admin Sosmed** (tercatat di kolom `Sender`), sedangkan reaksi emoji (jempol 👍) dilakukan oleh **Tim Follow Up** toko/cabang yang bertugas menindaklanjuti customer.
+  - Pada bot Baileys (`baileys-bot/index.js`), nomor HP tim follow up diambil secara ketat dari pengirim reaksi (`reaction.key.participant` atau `reactionMessage`), dan tidak pernah mengambil pengirim format keep (`key.participant`).
+  - Pencocokan nama Tim Follow Up secara otomatis dari histori 332 data PIC Follow Up di tabel `sosmed_keeps` berdasarkan nomor HP (misal: `BJM.SC.005 - MAESA NURANDINI`, `SC.BJMA.05 - MEGA`, dll), serta sinkronisasi ganda ke kolom `nomor_follow_up` dan `nomor_fu`.
+- **Tampilan Identitas Staf Tim Follow Up yang Mengklaim**:
+  - Menampilkan badge inisial avatar berwarna emerald, nama lengkap staf tim follow up, serta nomor telepon WhatsApp.
+  - Nomor telepon dilengkapi tautan langsung *Click-to-Chat* (`wa.me/{nomor}`) untuk mempermudah admin sosmed menghubungi tim follow up yang bertugas dalam 1 klik.
   - Mendukung enkripsi/masking nomor telepon otomatis (`DataMasker`) ketika pengguna masuk sebagai Tamu/Guest mode.
 - **Indikator Transaksi Belum Terklaim**:
-  - Jika format keep belum mendapatkan respon emoji/reaksi dari tim toko cabang, kolom menampilkan status indikator `[Belum di-claim]` dengan penanda visual abu-abu halus (*waiting response*).
+  - Jika format keep baru masuk dan belum mendapatkan respon reaksi emoji dari tim follow up, kolom menampilkan status indikator `[Belum di-claim]` dengan penanda visual abu-abu halus (*waiting response*).
 - **Sinkronisasi Pembaruan Realtime Tanpa Reload Browser**:
   - Memperbarui API `GET /api/sosmed-keeps/latest` agar mendukung parameter `updated_since`.
   - Frontend polling otomatis mendeteksi perubahan data format keep yang diklaim oleh bot Baileys di latar belakang dan memperbarui baris data di memori serta me-render ulang tabel dalam interval 3 detik tanpa mengganggu sesi pengguna.
 - **Peningkatan Pencarian Fleksibel (Search Bar Filter)**:
-  - Kotak pencarian format keep kini mendukung pencarian nama staf sales follow up dan nomor telepon sales, baik di sisi filter frontend JavaScript maupun backend query SQL.
+  - Kotak pencarian format keep kini mendukung pencarian nama staf tim follow up dan nomor telepon follow up, baik di sisi filter frontend JavaScript maupun backend query SQL.
 
 ## [V2.9.0] - 2026-11-12
 ### Engine Auto-Claim Format Keep via WhatsApp Reaction (Baileys Listener & Render.com Cloud Deployment)
