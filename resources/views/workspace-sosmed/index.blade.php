@@ -66,6 +66,10 @@
         @include('workspace-sosmed.partials.tab9-inbox-fu')
     @endif
 
+    @if ($user?->canAccessFeature('workspace_ola_cabang') || $user?->canAccessFeature('workspace_format_keep'))
+        @include('workspace-sosmed.partials.tab10-ola-cabang')
+    @endif
+
     @include('workspace-sosmed.partials.modals')
     @include('workspace-sosmed.partials.scripts')
 </div>

@@ -208,14 +208,15 @@
 
                 @php
                     $canSeeKeepGroup = $currentUser->canAccessFeature('workspace_format_keep')
+                        || $currentUser->canAccessFeature('workspace_ola_cabang')
                         || $currentUser->canAccessFeature('workspace_cek_ar')
                         || $currentUser->canAccessFeature('workspace_tracking_ar')
                         || $currentUser->canAccessFeature('workspace_klaim_ar');
-                    $isKeepGroupActive = ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [3, 4, 5, 6]));
+                    $isKeepGroupActive = ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [3, 4, 5, 6, 10]));
                 @endphp
 
                 @if ($canSeeKeepGroup)
-                <!-- 3. Format Keep (Parent Dropdown dengan Sub Menu: Data Format Keep, Cek Status AR, Tracking AR, Klaim AR) -->
+                <!-- 3. Format Keep (Parent Dropdown dengan Sub Menu: Data Format Keep, Dashboard OLA Cabang, Cek Status AR, Tracking AR, Klaim AR) -->
                 <div class="space-y-1" id="format-keep-nav-container">
                     <div id="wrap-format-keep-btn" class="flex items-center justify-between rounded-xl transition {{ $isKeepGroupActive ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                         <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]) }}" data-tab="4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4);if(window.toggleFormatKeepSubmenu){window.toggleFormatKeepSubmenu(null, true);}return false;}" class="workspace-sidebar-link flex-1 flex items-center gap-3 px-3.5 py-2.5 font-semibold transition min-w-0 {{ $isKeepGroupActive ? 'text-white' : 'text-slate-300 hover:text-white' }}">
@@ -227,12 +228,19 @@
                         </button>
                     </div>
 
-                    <!-- Sub Menu Format Keep: Data Format Keep, Cek Status AR, Tracking AR, Klaim AR -->
+                    <!-- Sub Menu Format Keep: Data Format Keep, Dashboard OLA Cabang, Cek Status AR, Tracking AR, Klaim AR -->
                     <div id="submenu-format-keep" class="pl-4 pr-1 space-y-1 {{ $isKeepGroupActive ? '' : 'hidden' }}">
                         @if ($currentUser->canAccessFeature('workspace_format_keep'))
                         <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]) }}" data-tab="4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(4);}return false;}" id="subitem-keep-tab4" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 4) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
                             <span class="shrink-0 text-amber-400">📋</span>
                             <span class="truncate">Format Keep</span>
+                        </a>
+                        @endif
+
+                        @if ($currentUser->canAccessFeature('workspace_ola_cabang') || $currentUser->canAccessFeature('workspace_format_keep'))
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 10]) }}" data-tab="10" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(10);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(10);}return false;}" id="subitem-keep-tab10" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 10) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
+                            <span class="shrink-0 text-yellow-400">🏆</span>
+                            <span class="truncate">Dashboard OLA Cabang</span>
                         </a>
                         @endif
 
@@ -598,11 +606,12 @@ window.toggleFormatKeepSubmenu = function(e, openOnly) {
 window.updateKeepSubmenuActive = function(tabIndex) {
     const subMap = {
         4: 'subitem-keep-tab4',
+        10: 'subitem-keep-tab10',
         3: 'subitem-keep-tab3',
         5: 'subitem-keep-tab5',
         6: 'subitem-keep-tab6'
     };
-    [3, 4, 5, 6].forEach(function(t) {
+    [3, 4, 5, 6, 10].forEach(function(t) {
         const el = document.getElementById(subMap[t]);
         if (el) {
             if (t === parseInt(tabIndex, 10)) {

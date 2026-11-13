@@ -146,6 +146,12 @@ class User extends Authenticatable
                 'category' => 'Workspace Sosmed',
                 'default_roles' => ['admin'],
             ],
+            'workspace_ola_cabang' => [
+                'name' => 'Workspace: Dashboard OLA Cabang',
+                'description' => 'Akses Tab 10: Dashboard performa OLA / SLA kecepatan respon claim keep cabang.',
+                'category' => 'Workspace Sosmed',
+                'default_roles' => ['admin'],
+            ],
             'workspace_tracking_ar' => [
                 'name' => 'Workspace: Tracking AR',
                 'description' => 'Akses Tab 5: Riwayat pelacakan dan konfirmasi pelunasan piutang AR.',
@@ -329,7 +335,16 @@ class User extends Authenticatable
         }
 
         if ($this->permissions !== null && is_array($this->permissions)) {
-            return in_array($feature, $this->permissions, true);
+            if (in_array($feature, $this->permissions, true)) {
+                return true;
+            }
+
+            // Fallback: Dashboard OLA Cabang otomatis terbuka jika Format Keep diizinkan
+            if ($feature === 'workspace_ola_cabang') {
+                return in_array('workspace_format_keep', $this->permissions, true);
+            }
+
+            return false;
         }
 
         // Fallback izin bawaan jika permissions belum diatur secara eksplisit

@@ -311,8 +311,8 @@
                                 <p>Disiplin respon tindak lanjut keep lead customer (&le;15 menit) antar cabang toko Gadgetmart.</p>
                             </div>
                             <div>
-                                <button type="button" class="btn btn-sm btn-brand cursor-pointer" onclick="switchTab(4)" style="border-radius: 12px; font-weight: 700; padding: 8px 16px; display: inline-flex; align-items: center; gap: 6px;">
-                                    <span>Buka Detail Leaderboard Format Keep</span>
+                                <button type="button" class="btn btn-sm btn-brand cursor-pointer" onclick="switchTab(10)" style="border-radius: 12px; font-weight: 700; padding: 8px 16px; display: inline-flex; align-items: center; gap: 6px;">
+                                    <span>Buka Dashboard OLA Cabang</span>
                                     <span>&rarr;</span>
                                 </button>
                             </div>

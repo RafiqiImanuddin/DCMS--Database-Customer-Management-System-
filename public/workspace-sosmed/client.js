@@ -1343,7 +1343,7 @@ function toggleSidebarMobile() {
 
 function switchTab(tabIndex) {
   currentActiveTab = tabIndex;
-  for (let i = 1; i <= 9; i++) {
+  for (let i = 1; i <= 10; i++) {
     const btn = document.getElementById(`tabBtn${i}`);
     const content = document.getElementById(`tabContent${i}`);
     if (btn) btn.classList.toggle('active', i === tabIndex);
@@ -1360,17 +1360,18 @@ function switchTab(tabIndex) {
     6: 'Klaim AR',
     7: 'Arsip Pencapaian Bulanan',
     8: 'Pengaturan Admin',
-    9: 'Omnichannel Inbox FU (Preview)'
+    9: 'Omnichannel Inbox FU (Preview)',
+    10: 'Dashboard OLA Cabang'
   };
   const activeModEl = document.getElementById('activeModuleName');
   if (activeModEl) {
     activeModEl.textContent = moduleNames[tabIndex] || 'Dashboard';
   }
 
-  // Sembunyikan subbar header di menu Format Keep (Tab 4)
+  // Sembunyikan subbar header di menu Format Keep (Tab 4) dan Dashboard OLA (Tab 10)
   const headerWrapper = document.getElementById('workspaceHeaderWrapper') || document.querySelector('.workspace-header-wrapper');
   if (headerWrapper) {
-    headerWrapper.style.display = (tabIndex === 4) ? 'none' : '';
+    headerWrapper.style.display = (tabIndex === 4 || tabIndex === 10) ? 'none' : '';
   }
 
   closeWorkspaceMenu();
@@ -1402,12 +1403,10 @@ function switchTab(tabIndex) {
   if (tabIndex === 4) {
     if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
     if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
-    if (typeof initOLADashboardState === 'function') initOLADashboardState();
     if (rawKeepRows.length === 0) {
       loadKeepData();
     } else {
       renderKeepPage();
-      if (typeof renderBranchOLADashboard === 'function') renderBranchOLADashboard();
     }
   }
   if (tabIndex === 5 && rawAuditARList.length === 0) runARMissingSosmedAudit();
@@ -1419,6 +1418,15 @@ function switchTab(tabIndex) {
     renderAdminPhotoTable();
   }
   if (tabIndex === 9) renderOmniInboxModule();
+  if (tabIndex === 10) {
+    if (rawKeepRows.length === 0) {
+      loadKeepData(() => {
+        if (typeof renderTab10OLADashboard === 'function') renderTab10OLADashboard();
+      });
+    } else {
+      if (typeof renderTab10OLADashboard === 'function') renderTab10OLADashboard();
+    }
+  }
 }
 window.switchTab = switchTab;
 
@@ -3404,6 +3412,367 @@ function filterKeepByBranch(branchName) {
   }
 }
 window.filterKeepByBranch = filterKeepByBranch;
+
+// =========================================================================
+// TAB 10: DEDICATED DASHBOARD TOP PERFORMANCE OLA / SLA CABANG
+// =========================================================================
+let tab10OlaChartInstance = null;
+let tab10DonutChartInstance = null;
+let currentTab10Scope = 'PERIOD';
+
+function setTab10Scope(scope) {
+  currentTab10Scope = scope;
+  const btnPeriod = document.getElementById('tab10BtnScopePeriod');
+  const btnToday = document.getElementById('tab10BtnScopeToday');
+  if (btnPeriod && btnToday) {
+    if (scope === 'TODAY') {
+      btnToday.className = 'rounded-lg px-3 py-1.5 text-xs font-bold transition bg-white text-brand-700 shadow-xs cursor-pointer';
+      btnPeriod.className = 'rounded-lg px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-800 cursor-pointer';
+    } else {
+      btnPeriod.className = 'rounded-lg px-3 py-1.5 text-xs font-bold transition bg-white text-brand-700 shadow-xs cursor-pointer';
+      btnToday.className = 'rounded-lg px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-800 cursor-pointer';
+    }
+  }
+  renderTab10OLADashboard();
+}
+window.setTab10Scope = setTab10Scope;
+
+function refreshTab10Data() {
+  if (typeof syncLiveKeepData === 'function') {
+    syncLiveKeepData(() => {
+      renderTab10OLADashboard();
+    });
+  } else {
+    loadKeepData(() => {
+      renderTab10OLADashboard();
+    });
+  }
+}
+window.refreshTab10Data = refreshTab10Data;
+
+function jumpToKeepWithBranchFilter(branchName) {
+  if (typeof switchTab === 'function') switchTab(4);
+  setTimeout(() => {
+    if (typeof filterKeepByBranch === 'function') filterKeepByBranch(branchName);
+  }, 100);
+}
+window.jumpToKeepWithBranchFilter = jumpToKeepWithBranchFilter;
+
+function renderTab10OLADashboard() {
+  const container = document.getElementById('tabContent10');
+  if (!container) return;
+
+  if (!rawKeepRows || rawKeepRows.length === 0) {
+    if (typeof loadKeepData === 'function') {
+      loadKeepData(() => {
+        renderTab10OLADashboard();
+      });
+    }
+    return;
+  }
+
+  const periodSelect = document.getElementById('tab10FilterPeriode');
+  const periodVal = periodSelect ? periodSelect.value : 'November-26';
+
+  let sourceRows = rawKeepRows;
+  if (periodVal !== 'ALL') {
+    sourceRows = rawKeepRows.filter(r => {
+      const p = String(r['PERIODE'] || '').trim().toLowerCase();
+      return p === periodVal.toLowerCase();
+    });
+  }
+
+  const { branches, totals } = getBranchOLASummary(sourceRows, currentTab10Scope);
+
+  // 1. Update 4 Metric KPI Cards
+  const topBranch = branches[0];
+  const elTopName = document.getElementById('tab10TopBranchName');
+  const elTopMeta = document.getElementById('tab10TopBranchMeta');
+  if (elTopName) elTopName.innerText = topBranch ? topBranch.name : '-';
+  if (elTopMeta) elTopMeta.innerText = topBranch ? `Kepatuhan SLA ${topBranch.complianceRate}% (${topBranch.onTime}/${topBranch.total} Tepat Waktu)` : 'Belum ada data';
+
+  const elNetRate = document.getElementById('tab10NetworkRate');
+  const elNetMeta = document.getElementById('tab10NetworkMeta');
+  if (elNetRate) elNetRate.innerText = `${totals.networkComplianceRate}%`;
+  if (elNetMeta) elNetMeta.innerText = `${totals.totalOnTime.toLocaleString('id-ID')} dari ${totals.totalKeep.toLocaleString('id-ID')} lead tepat waktu (≤15m)`;
+
+  const elOverdue = document.getElementById('tab10OverdueCount');
+  if (elOverdue) elOverdue.innerText = totals.totalOverdue.toLocaleString('id-ID');
+
+  const elTotalWin = document.getElementById('tab10TotalWin');
+  const elWinMeta = document.getElementById('tab10WinMeta');
+  if (elTotalWin) elTotalWin.innerText = totals.totalWin.toLocaleString('id-ID');
+  if (elWinMeta) {
+    const winRate = totals.totalKeep > 0 ? Math.round((totals.totalWin / totals.totalKeep) * 100) : 0;
+    elWinMeta.innerText = `Closing rate: ${winRate}% (${totals.totalWin} transaksi deal)`;
+  }
+
+  // 2. Render Leaderboard Matrix Table
+  const tbody = document.getElementById('tab10LeaderboardBody');
+  if (tbody) {
+    if (branches.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-8 text-center text-slate-400">Tidak ada data cabang untuk filter yang dipilih.</td></tr>`;
+    } else {
+      let tbodyHtml = '';
+      branches.forEach((b, idx) => {
+        const rank = idx + 1;
+        let rankBadge = '';
+        if (rank === 1) {
+          rankBadge = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-black text-xs shadow-2xs">🥇 1</span>`;
+        } else if (rank === 2) {
+          rankBadge = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-black text-xs shadow-2xs">🥈 2</span>`;
+        } else if (rank === 3) {
+          rankBadge = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-700/10 text-amber-800 font-black text-xs shadow-2xs">🥉 3</span>`;
+        } else {
+          rankBadge = `<span class="font-bold text-slate-500 font-mono text-xs">#${rank}</span>`;
+        }
+
+        let barColor = 'bg-emerald-500';
+        let textColor = 'text-emerald-700';
+        if (b.complianceRate < 70) {
+          barColor = 'bg-rose-500';
+          textColor = 'text-rose-700';
+        } else if (b.complianceRate < 85) {
+          barColor = 'bg-amber-500';
+          textColor = 'text-amber-700';
+        }
+
+        tbodyHtml += `
+          <tr class="hover:bg-slate-50/80 transition cursor-pointer select-none" onclick="jumpToKeepWithBranchFilter('${escapeHtml(b.name)}')">
+            <td class="px-4 py-3 text-center align-middle whitespace-nowrap">${rankBadge}</td>
+            <td class="px-4 py-3 text-left align-middle whitespace-nowrap">
+              <span class="inline-flex items-center gap-1 rounded-lg bg-sky-50 border border-sky-200/80 px-2.5 py-1 text-xs font-bold text-sky-800 tracking-tight shadow-2xs">
+                <span class="size-1.5 rounded-full bg-sky-500"></span>
+                <span>${escapeHtml(b.name)}</span>
+              </span>
+            </td>
+            <td class="px-3 py-3 text-center align-middle font-bold text-slate-800 whitespace-nowrap">${b.total.toLocaleString('id-ID')}</td>
+            <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+              <span class="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-xs">
+                <span class="text-emerald-500 font-bold">✓</span>
+                ${b.onTime.toLocaleString('id-ID')}
+              </span>
+            </td>
+            <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+              ${b.overdue > 0 
+                ? `<span class="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded text-xs shadow-2xs animate-pulse"><span class="size-1.5 rounded-full bg-rose-500"></span>${b.overdue}</span>`
+                : `<span class="text-slate-400 font-mono text-xs">0</span>`}
+            </td>
+            <td class="px-3 py-3 text-center align-middle font-semibold text-slate-600 whitespace-nowrap">${b.pending.toLocaleString('id-ID')}</td>
+            <td class="px-4 py-3 text-left align-middle min-w-[160px]">
+              <div class="flex items-center gap-2">
+                <div class="w-24 bg-slate-100 rounded-full h-2.5 overflow-hidden shrink-0">
+                  <div class="${barColor} h-2.5 rounded-full transition-all duration-300" style="width: ${b.complianceRate}%;"></div>
+                </div>
+                <span class="inline-flex items-center text-xs font-bold ${textColor}">
+                  ${b.complianceRate}%
+                </span>
+              </div>
+            </td>
+            <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+              <div class="text-xs font-bold text-slate-900">${b.win} Deal</div>
+              <div class="text-[10px] text-slate-400">${b.winRate}% Closing</div>
+            </td>
+            <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+              <button type="button" class="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50 transition shadow-2xs cursor-pointer" onclick="event.stopPropagation(); jumpToKeepWithBranchFilter('${escapeHtml(b.name)}')" title="Buka data keep untuk cabang ${escapeHtml(b.name)}">
+                <span>Cek</span>
+                <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = tbodyHtml;
+    }
+  }
+
+  // 3. Render Chart.js Bar Chart (matching user reference screenshot!)
+  renderTab10BarChart(branches);
+
+  // 4. Render Chart.js Donut Chart
+  renderTab10DonutChart(totals);
+}
+window.renderTab10OLADashboard = renderTab10OLADashboard;
+
+function renderTab10BarChart(branches) {
+  const canvas = document.getElementById('tab10OlaChartCanvas');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (tab10OlaChartInstance) {
+    try { tab10OlaChartInstance.destroy(); } catch (e) {}
+    tab10OlaChartInstance = null;
+  }
+
+  const topBranches = branches.slice(0, 12);
+  const labels = topBranches.map(b => b.name);
+  const onTimeData = topBranches.map(b => b.onTime);
+  const overdueData = topBranches.map(b => b.overdue);
+  const targetLineData = topBranches.map(b => Math.round(b.total * 0.9));
+
+  const ctx = canvas.getContext('2d');
+  tab10OlaChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          type: 'line',
+          label: 'Target SLA 90%',
+          data: targetLineData,
+          borderColor: '#1e293b',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointBackgroundColor: '#1e293b',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          fill: false,
+          tension: 0.1,
+          order: 1
+        },
+        {
+          type: 'bar',
+          label: 'Tepat Waktu (≤15m)',
+          data: onTimeData,
+          backgroundColor: '#c9182b',
+          hoverBackgroundColor: '#a51122',
+          borderRadius: 6,
+          borderSkipped: false,
+          barPercentage: 0.65,
+          categoryPercentage: 0.8,
+          order: 2
+        },
+        {
+          type: 'bar',
+          label: 'Overdue (>15m)',
+          data: overdueData,
+          backgroundColor: '#94a3b8',
+          hoverBackgroundColor: '#64748b',
+          borderRadius: 6,
+          borderSkipped: false,
+          barPercentage: 0.65,
+          categoryPercentage: 0.8,
+          order: 3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#ffffff',
+          titleFont: { weight: 'bold', size: 12 },
+          bodyColor: '#e2e8f0',
+          bodyFont: { size: 11 },
+          padding: 12,
+          cornerRadius: 10,
+          boxPadding: 4,
+          callbacks: {
+            title: function(items) {
+              return items.length > 0 ? items[0].label : '';
+            },
+            afterBody: function(items) {
+              if (items.length > 0) {
+                const idx = items[0].dataIndex;
+                const b = topBranches[idx];
+                if (b) {
+                  return `Kepatuhan OLA: ${b.complianceRate}%\nTotal Keep: ${b.total} Lead`;
+                }
+              }
+              return '';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            font: { size: 10, weight: '600' },
+            color: '#64748b',
+            maxRotation: 35,
+            minRotation: 0
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: '#f1f5f9',
+            drawBorder: false
+          },
+          ticks: {
+            font: { size: 10 },
+            color: '#94a3b8',
+            precision: 0
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderTab10DonutChart(totals) {
+  const canvas = document.getElementById('tab10DonutChartCanvas');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (tab10DonutChartInstance) {
+    try { tab10DonutChartInstance.destroy(); } catch (e) {}
+    tab10DonutChartInstance = null;
+  }
+
+  const elOnTime = document.getElementById('tab10DonutStatOnTime');
+  const elOverdue = document.getElementById('tab10DonutStatOverdue');
+  const elPending = document.getElementById('tab10DonutStatPending');
+  if (elOnTime) elOnTime.innerText = totals.totalOnTime.toLocaleString('id-ID');
+  if (elOverdue) elOverdue.innerText = totals.totalOverdue.toLocaleString('id-ID');
+  if (elPending) elPending.innerText = totals.totalPending.toLocaleString('id-ID');
+
+  const ctx = canvas.getContext('2d');
+  tab10DonutChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Tepat Waktu (≤15m)', 'Overdue (>15m)', 'Pending Belum Claim'],
+      datasets: [
+        {
+          data: [totals.totalOnTime, totals.totalOverdue, totals.totalPending],
+          backgroundColor: ['#10b981', '#f43f5e', '#cbd5e1'],
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#ffffff',
+          titleFont: { weight: 'bold' },
+          padding: 10,
+          cornerRadius: 8
+        }
+      },
+      cutout: '72%'
+    }
+  });
+}
 
 function formatPickupDate(val) {
   if (!val || val === '-') return '-';
