@@ -6,6 +6,7 @@ use App\Models\ActivityNotification;
 use App\Models\BroadcastMedia;
 use App\Models\Employee;
 use App\Models\Setting;
+use App\Models\SosmedKeep;
 use App\Models\WhatsAppChat;
 use App\Models\WhatsAppMessage;
 use App\Services\WatzapService;
@@ -14,6 +15,7 @@ use App\Support\WorkspaceUrlCipher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -146,10 +148,32 @@ class WorkspaceSosmedController extends Controller
             ->values()
             ->all();
 
+        $followUpPics = Cache::remember('workspace_follow_up_pics_directory_v2', 300, function () {
+            return SosmedKeep::whereNotNull('nama_tim_follow_up')
+                ->where('nama_tim_follow_up', '!=', '')
+                ->whereNotNull('nomor_follow_up')
+                ->where('nomor_follow_up', '!=', '')
+                ->selectRaw('TRIM(nama_tim_follow_up) as picName, TRIM(nomor_follow_up) as wa, TRIM(cabang) as cabang, count(*) as total')
+                ->groupBy('picName', 'wa', 'cabang')
+                ->orderByDesc('total')
+                ->take(300)
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'picName' => $item->picName,
+                        'wa' => $item->wa,
+                        'cabang' => $item->cabang ?: '-',
+                        'total' => (int) $item->total,
+                    ];
+                })
+                ->all();
+        });
+
         return [
             'matrix_weights' => $matrixWeights,
             'monthly_targets' => $monthlyTargets,
             'employees' => $employees,
+            'follow_up_pics' => $followUpPics,
         ];
     }
 

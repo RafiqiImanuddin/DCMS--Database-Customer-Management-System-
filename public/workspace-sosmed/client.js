@@ -3953,42 +3953,55 @@ function openManualAssignFUModal(keepRowIdx) {
   if (nameInput) nameInput.value = curFUName;
   if (phoneInput) phoneInput.value = curFUPhone;
 
-  // Populate dropdown master PIC
+  // Populate dropdown master PIC dengan prioritas cabang baris customer
   if (selectPicEl) {
-    let picOptions = '<option value="">-- Ketik Manual atau Pilih Master PIC --</option>';
-    if (typeof getMasterDataPICs === 'function') {
-      const pics = getMasterDataPICs();
-      if (Array.isArray(pics) && pics.length > 0) {
-        // Kelompokkan PIC cabang yang sama lebih dahulu
-        const sameBranch = [];
-        const otherBranch = [];
+    const pics = (typeof getMasterDataPICs === 'function') ? getMasterDataPICs() : [];
+    const cleanCabang = (cabang && cabang !== '-') ? cabang.toUpperCase() : '';
 
-        pics.forEach(p => {
-          if (!p.picName) return;
-          const isMatchCabang = cabang && p.cabang && (cabang.toLowerCase().includes(p.cabang.toLowerCase()) || p.cabang.toLowerCase().includes(cabang.toLowerCase()));
-          if (isMatchCabang) sameBranch.push(p);
-          else otherBranch.push(p);
-        });
+    const sameBranch = [];
+    const otherBranchMap = {};
 
-        if (sameBranch.length > 0) {
-          picOptions += `<optgroup label="PIC Cabang ${escapeHtml(cabang || 'Ini')}">`;
-          sameBranch.forEach(p => {
-            const val = JSON.stringify({ name: p.picName, phone: p.wa || '' }).replace(/"/g, '&quot;');
-            picOptions += `<option value="${val}">★ ${escapeHtml(p.picName)} (${escapeHtml(p.wa || '-')})</option>`;
-          });
-          picOptions += '</optgroup>';
+    if (Array.isArray(pics) && pics.length > 0) {
+      pics.forEach(p => {
+        if (!p.picName) return;
+        const isMatch = cleanCabang && isCabangMatching(cleanCabang, p.cabang, p.picName);
+        if (isMatch) {
+          sameBranch.push(p);
+        } else {
+          const branchKey = (p.cabang && p.cabang !== '-') ? p.cabang.toUpperCase() : 'LAINNYA';
+          if (!otherBranchMap[branchKey]) otherBranchMap[branchKey] = [];
+          otherBranchMap[branchKey].push(p);
         }
-
-        if (otherBranch.length > 0) {
-          picOptions += '<optgroup label="PIC Cabang Lain / Semua">';
-          otherBranch.forEach(p => {
-            const val = JSON.stringify({ name: p.picName, phone: p.wa || '' }).replace(/"/g, '&quot;');
-            picOptions += `<option value="${val}">${escapeHtml(p.picName)} - ${escapeHtml(p.cabang || '-')} (${escapeHtml(p.wa || '-')})</option>`;
-          });
-          picOptions += '</optgroup>';
-        }
-      }
+      });
     }
+
+    let picOptions = '';
+    if (sameBranch.length > 0) {
+      picOptions += `<option value="">-- ⭐ Prioritas Cabang ${escapeHtml(cleanCabang)} (${sameBranch.length} PIC) --</option>`;
+      picOptions += `<optgroup label="⭐ PRIORITAS PIC CABANG ${escapeHtml(cleanCabang)} (${sameBranch.length} PIC)">`;
+      sameBranch.forEach(p => {
+        const val = JSON.stringify({ name: p.picName, phone: p.wa || '' }).replace(/"/g, '&quot;');
+        picOptions += `<option value="${val}">⭐ ${escapeHtml(p.picName)} (${escapeHtml(p.wa || '-')})</option>`;
+      });
+      picOptions += '</optgroup>';
+    } else {
+      picOptions += '<option value="">-- Ketik Manual atau Pilih Master PIC --</option>';
+    }
+
+    // Cabang-cabang lainnya terkelompok rapi sesuai nama cabang
+    const otherBranchKeys = Object.keys(otherBranchMap).sort();
+    if (otherBranchKeys.length > 0) {
+      otherBranchKeys.forEach(bKey => {
+        const bPics = otherBranchMap[bKey];
+        picOptions += `<optgroup label="Cabang ${escapeHtml(bKey)} (${bPics.length} PIC)">`;
+        bPics.forEach(p => {
+          const val = JSON.stringify({ name: p.picName, phone: p.wa || '' }).replace(/"/g, '&quot;');
+          picOptions += `<option value="${val}">${escapeHtml(p.picName)} (${escapeHtml(p.wa || '-')})</option>`;
+        });
+        picOptions += '</optgroup>';
+      });
+    }
+
     selectPicEl.innerHTML = picOptions;
     selectPicEl.value = '';
   }
@@ -11800,50 +11813,173 @@ function parseOmniTimestamp(raw) {
 }
 
 // --------------------------------------------------------------------------
-// MASTER DATA PIC FU MANAGEMENT
+// MASTER DATA PIC FU MANAGEMENT & CABANG MATCHING
 // --------------------------------------------------------------------------
+const CABANG_ALIASES = {
+  'TANJUNG': ['TANJUNG', 'TJG', 'TJGC'],
+  'TJG': ['TANJUNG', 'TJG', 'TJGC'],
+  'PONTIANAK': ['PONTIANAK', 'PTK', 'PTKC', 'PTK.SAM', 'PTK.XMI', 'PTK.APP'],
+  'PTK': ['PONTIANAK', 'PTK', 'PTKC'],
+  'SAMPIT': ['SAMPIT', 'SPT', 'SPTC', 'SPT.VIV', 'SC.SPT'],
+  'SPT': ['SAMPIT', 'SPT', 'SPTC'],
+  'BALIKPAPAN': ['BALIKPAPAN', 'BPP', 'BPPC', 'BP2'],
+  'BPP': ['BALIKPAPAN', 'BPP', 'BPPC', 'BP2'],
+  'BANJARMASIN': ['BANJARMASIN', 'BJMA', 'BJMC', 'BJM', 'BANJARMASIN AREA'],
+  'BANJARMASIN AREA': ['BANJARMASIN', 'BJMA', 'BJMC', 'BJM', 'BANJARMASIN AREA'],
+  'BJMA': ['BJMA', 'BANJARMASIN'],
+  'BJMC': ['BJMC', 'BANJARMASIN'],
+  'BANJARBARU': ['BANJARBARU', 'BJB', 'BJBC'],
+  'BJB': ['BANJARBARU', 'BJB', 'BJBC'],
+  'MARTAPURA': ['MARTAPURA', 'MTP', 'MTPC'],
+  'MTP': ['MARTAPURA', 'MTP', 'MTPC'],
+  'BATULICIN': ['BATULICIN', 'BTC', 'BTCC'],
+  'BTC': ['BATULICIN', 'BTC', 'BTCC'],
+  'PELAIHARI': ['PELAIHARI', 'PLH', 'PLHC'],
+  'PLH': ['PELAIHARI', 'PLH', 'PLHC'],
+  'SUNGAI DANAU': ['SUNGAI DANAU', 'SDN', 'SDNC'],
+  'SDN': ['SUNGAI DANAU', 'SDN', 'SDNC'],
+  'AMUNTAI': ['AMUNTAI', 'AMT', 'AMTC'],
+  'AMT': ['AMUNTAI', 'AMT', 'AMTC'],
+  'KAPUAS': ['KAPUAS', 'KPS', 'KPSC'],
+  'KPS': ['KAPUAS', 'KPS', 'KPSC'],
+  'KOTABARU': ['KOTABARU', 'KTB', 'KTBC'],
+  'KTB': ['KOTABARU', 'KTB', 'KTBC'],
+  'BATAS KOTA': ['BATAS KOTA', 'BBK', 'BBKC'],
+  'BBK': ['BATAS KOTA', 'BBK', 'BBKC']
+};
+
+function resolveCabangFromPicName(name) {
+  if (!name) return '';
+  const n = String(name).toUpperCase();
+  if (n.includes('TJG') || n.includes('TANJUNG')) return 'TANJUNG';
+  if (n.includes('PTK') || n.includes('PONTIANAK')) return 'PONTIANAK';
+  if (n.includes('SPT') || n.includes('SAMPIT')) return 'SAMPIT';
+  if (n.includes('BPP') || n.includes('BP2') || n.includes('BALIKPAPAN')) return 'BALIKPAPAN';
+  if (n.includes('BJMA')) return 'BJMA';
+  if (n.includes('BJMC') || n.includes('BJMX')) return 'BJMC';
+  if (n.includes('BJM') || n.includes('BANJARMASIN')) return 'BANJARMASIN AREA';
+  if (n.includes('BJB') || n.includes('BANJARBARU')) return 'BANJARBARU';
+  if (n.includes('MTP') || n.includes('MARTAPURA')) return 'MARTAPURA';
+  if (n.includes('BTC') || n.includes('BATULICIN')) return 'BATULICIN';
+  if (n.includes('PLH') || n.includes('PELAIHARI')) return 'PELAIHARI';
+  if (n.includes('SDN') || n.includes('SUNGAI DANAU')) return 'SUNGAI DANAU';
+  if (n.includes('AMT') || n.includes('AMUNTAI')) return 'AMUNTAI';
+  if (n.includes('KPS') || n.includes('KAPUAS')) return 'KAPUAS';
+  if (n.includes('KTB') || n.includes('KOTABARU')) return 'KOTABARU';
+  if (n.includes('BBK') || n.includes('BATAS KOTA')) return 'BATAS KOTA';
+  return '';
+}
+
+function isCabangMatching(targetCabang, picCabang, picName) {
+  if (!targetCabang || targetCabang === '-') return false;
+  const tc = String(targetCabang).trim().toUpperCase();
+  const pc = String(picCabang || '').trim().toUpperCase();
+  const pn = String(picName || '').trim().toUpperCase();
+
+  // Direct exact/substring match
+  if (pc && pc !== '-' && (pc === tc || pc.includes(tc) || tc.includes(pc))) return true;
+
+  // Aliases check
+  const aliases = CABANG_ALIASES[tc] || [tc];
+  for (const alias of aliases) {
+    if (pc && pc.includes(alias)) return true;
+    if (pn && pn.includes(alias)) return true;
+  }
+  return false;
+}
+
+function seedMasterDataFromKeepRows() {
+  const masterMap = new Map();
+
+  const addPic = (name, phone, branch) => {
+    const cleanName = String(name || '').trim();
+    const cleanWA = cleanPhoneDigits(phone);
+    let cleanBranch = String(branch || '').trim();
+    if (!cleanName || cleanName === '-' || cleanName === '""' || !cleanWA || cleanWA.length < 8) return;
+
+    if ((!cleanBranch || cleanBranch === '-') && cleanName) {
+      cleanBranch = resolveCabangFromPicName(cleanName) || '-';
+    }
+
+    if (!masterMap.has(cleanWA)) {
+      masterMap.set(cleanWA, {
+        wa: cleanWA,
+        picName: cleanName,
+        cabang: cleanBranch || '-'
+      });
+    } else {
+      const existing = masterMap.get(cleanWA);
+      if ((!existing.cabang || existing.cabang === '-') && cleanBranch && cleanBranch !== '-') {
+        existing.cabang = cleanBranch;
+      }
+    }
+  };
+
+  // 1. Dari Initial Settings follow_up_pics (Database SOSMED)
+  if (window.WORKSPACE_INITIAL_SETTINGS && Array.isArray(window.WORKSPACE_INITIAL_SETTINGS.follow_up_pics)) {
+    window.WORKSPACE_INITIAL_SETTINGS.follow_up_pics.forEach(p => {
+      addPic(p.picName || p.name, p.wa || p.phone, p.cabang);
+    });
+  }
+
+  // 2. Dari rawKeepRows
+  if (Array.isArray(rawKeepRows) && rawKeepRows.length > 0) {
+    for (let i = 0; i < rawKeepRows.length; i++) {
+      const r = rawKeepRows[i];
+      const waRaw = r['Nomor Follow Up'] || r['nomor_follow_up'] || r['Nomor FU'] || r['nomor_fu'] || '';
+      const nameRaw = (r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || r['Nama Tim FU'] || '').trim();
+      const gid = r['Grup ID'] || r['grup_id'] || '';
+      const cabangRaw = (r['Cabang'] || r['cabang'] || (gid && KEEP_GROUP_CABANG_MAP[gid] ? KEEP_GROUP_CABANG_MAP[gid].cabang : '') || '-').trim();
+      addPic(nameRaw, waRaw, cabangRaw);
+    }
+  }
+
+  // 3. Dari dynamicMasterSales (karyawan sales DCMS)
+  if (Array.isArray(dynamicMasterSales) && dynamicMasterSales.length > 0) {
+    dynamicMasterSales.forEach(s => {
+      if (s.name && s.phone) {
+        addPic(s.name, s.phone, s.cabang || '-');
+      }
+    });
+  }
+
+  const result = Array.from(masterMap.values());
+  if (result.length > 0) {
+    saveMasterDataPICs(result);
+  }
+  return result;
+}
+
 function getMasterDataPICs() {
+  const seeded = seedMasterDataFromKeepRows();
   try {
     const raw = localStorage.getItem(OMNI_MASTER_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const map = new Map();
+        seeded.forEach(p => map.set(p.wa, p));
+        parsed.forEach(p => {
+          if (p.wa && !map.has(p.wa)) {
+            map.set(p.wa, p);
+          } else if (p.wa && map.has(p.wa)) {
+            const cur = map.get(p.wa);
+            if ((!cur.cabang || cur.cabang === '-') && p.cabang && p.cabang !== '-') {
+              cur.cabang = p.cabang;
+            }
+          }
+        });
+        return Array.from(map.values());
+      }
     }
   } catch (e) {}
-  return seedMasterDataFromKeepRows();
+  return seeded;
 }
 
 function saveMasterDataPICs(list) {
   try {
     localStorage.setItem(OMNI_MASTER_STORAGE_KEY, JSON.stringify(list || []));
   } catch (e) {}
-}
-
-function seedMasterDataFromKeepRows() {
-  const masterMap = new Map();
-  if (Array.isArray(rawKeepRows) && rawKeepRows.length > 0) {
-    for (let i = 0; i < rawKeepRows.length; i++) {
-      const r = rawKeepRows[i];
-      const waRaw = r['Nomor Follow Up'] || r['Nomor FU'] || '';
-      const nameRaw = (r['Nama Tim Follow Up'] || r['Nama Tim FU'] || '').trim();
-      const cabangRaw = (r['Cabang'] || '-').trim();
-      const cleanWA = cleanPhoneDigits(waRaw);
-      if (cleanWA && cleanWA.length >= 8 && nameRaw && nameRaw !== '-' && nameRaw !== '""') {
-        if (!masterMap.has(cleanWA)) {
-          masterMap.set(cleanWA, {
-            wa: cleanWA,
-            picName: nameRaw,
-            cabang: cabangRaw || '-'
-          });
-        }
-      }
-    }
-  }
-  const result = Array.from(masterMap.values());
-  if (result.length > 0) {
-    saveMasterDataPICs(result);
-  }
-  return result;
 }
 
 function syncMasterDataFromKeepCSV() {
