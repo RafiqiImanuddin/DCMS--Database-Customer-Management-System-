@@ -67,7 +67,62 @@
             </div>
         </div>
 
-        <!-- 3. Metric KPI Cards -->
+        <!-- 3. Banner KPI Status: Total Keep, Unassign, On Progress, Need to Check, Closing WIN, Lose, Closing Rate -->
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            <!-- Total Keep -->
+            <div class="dcms-card p-3.5 border-l-4 border-l-brand-500 cursor-pointer hover:shadow-md transition" onclick="switchTab(4); setTimeout(() => filterByKeepStatus('ALL'), 200);" title="Total format keep (Klik untuk buka Format Keep)">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Keep</span>
+                <div class="mt-1.5 text-2xl font-black text-slate-900" id="tab10KpiTotalKeep">0</div>
+                <div class="mt-0.5 text-[11px] text-slate-400">Total data transaksi</div>
+            </div>
+
+            <!-- Unassign (Belum di-claim FU) -->
+            <div class="dcms-card p-3.5 border-l-4 border-l-amber-500 cursor-pointer hover:shadow-md transition" onclick="switchTab(4); setTimeout(() => filterByKeepStatus('UNASSIGN'), 200);" title="Belum ada tim follow up / belum di-claim (Klik untuk buka Format Keep)">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Unassign</span>
+                    <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
+                </div>
+                <div class="mt-1.5 text-2xl font-black text-amber-700" id="tab10KpiUnassign">0</div>
+                <div class="mt-0.5 text-[11px] text-amber-600 font-semibold">Belum di-claim FU</div>
+            </div>
+
+            <!-- On Progress -->
+            <div class="dcms-card p-3.5 border-l-4 border-l-sky-500 cursor-pointer hover:shadow-md transition" onclick="switchTab(4); setTimeout(() => filterByKeepStatus('ON PROGRESS'), 200);" title="Sedang ditindaklanjuti (Klik untuk buka Format Keep)">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-sky-800">On Progress</span>
+                <div class="mt-1.5 text-2xl font-black text-sky-600" id="tab10KpiProgress">0</div>
+                <div class="mt-0.5 text-[11px] text-slate-400">Sedang diproses</div>
+            </div>
+
+            <!-- Need to Check -->
+            <div class="dcms-card p-3.5 border-l-4 border-l-orange-500 cursor-pointer hover:shadow-md transition" onclick="switchTab(4); setTimeout(() => filterByKeepStatus('NEED TO CHECK'), 200);" title="Perlu kroscek admin (Klik untuk buka Format Keep)">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-orange-700">Need to Check</span>
+                <div class="mt-1.5 text-2xl font-black text-orange-600" id="tab10KpiNeedToCheck">0</div>
+                <div class="mt-0.5 text-[11px] text-slate-400">Perlu kroscek</div>
+            </div>
+
+            <!-- Closing WIN -->
+            <div class="dcms-card p-3.5 border-l-4 border-l-emerald-500 cursor-pointer hover:shadow-md transition" onclick="switchTab(4); setTimeout(() => filterByKeepStatus('WIN'), 200);" title="Closing deal (Klik untuk buka Format Keep)">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Closing WIN</span>
+                <div class="mt-1.5 text-2xl font-black text-emerald-700" id="tab10KpiWin">0</div>
+                <div class="mt-0.5 text-[11px] text-slate-400">Closing sukses</div>
+            </div>
+
+            <!-- Lose / Cancel -->
+            <div class="dcms-card p-3.5 border-l-4 border-l-rose-500 cursor-pointer hover:shadow-md transition" onclick="switchTab(4); setTimeout(() => filterByKeepStatus('LOSE'), 200);" title="Batal / tidak respon (Klik untuk buka Format Keep)">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Lose / Cancel</span>
+                <div class="mt-1.5 text-2xl font-black text-rose-600" id="tab10KpiLose">0</div>
+                <div class="mt-0.5 text-[11px] text-slate-400">Batal / no respon</div>
+            </div>
+
+            <!-- Closing Rate -->
+            <div class="dcms-card p-3.5 border-l-4 border-l-purple-500 cursor-pointer hover:shadow-md transition" onclick="switchTab(4); setTimeout(() => filterByKeepStatus('WIN'), 200);" title="Rasio Keberhasilan WIN (Klik untuk buka Format Keep)">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-purple-800">Closing Rate</span>
+                <div class="mt-1.5 text-2xl font-black text-purple-700" id="tab10KpiClosingRate">0%</div>
+                <div class="mt-0.5 text-[11px] text-slate-400">Rasio WIN</div>
+            </div>
+        </div>
+
+        <!-- 3.5. Metric KPI Cards Khusus OLA / SLA -->
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <!-- Card 1: Top Cabang #1 -->
             <div class="dcms-card p-4 border-l-4 border-l-amber-500">

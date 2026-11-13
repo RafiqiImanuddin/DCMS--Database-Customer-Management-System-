@@ -2561,9 +2561,20 @@ const KEEP_GROUP_CABANG_MAP = {
   '120363429226529886@g.us': { cabang: 'BJMC', grup: 'Tes BOT' },
 };
 
+function isKeepUnassigned(r) {
+  if (!r) return false;
+  const fuName = String(r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || '').trim();
+  const rawFU = String(r['Nomor Follow Up'] || r['nomor_follow_up'] || r['Nomor FU'] || r['nomor_fu'] || '').trim();
+  const cleanDigits = rawFU.replace(/\D/g, '');
+  const hasPIC = (fuName && fuName !== '-' && fuName !== '""') || (cleanDigits.length >= 8);
+  return !hasPIC;
+}
+window.isKeepUnassigned = isKeepUnassigned;
+
 function updateKeepActiveCardStyle(currentStatus) {
   const cards = {
     'ALL': document.getElementById('cardKeepTotal'),
+    'UNASSIGN': document.getElementById('cardKeepUnassign'),
     'WIN': document.getElementById('cardKeepWin'),
     'NEED TO CHECK': document.getElementById('cardKeepNeedToCheck'),
     'ON PROGRESS': document.getElementById('cardKeepProgress'),
@@ -2646,9 +2657,12 @@ function applyKeepFilters() {
   let needToCheckCount = 0;
   let progressCount = 0;
   let loseCount = 0;
+  let unassignCount = 0;
 
   baseRows.forEach(r => {
     const st = String(r['Status'] || '').toUpperCase();
+    if (isKeepUnassigned(r)) unassignCount++;
+
     if (st === 'WIN') winCount++;
     else if (st === 'NEED TO CHECK') needToCheckCount++;
     else if (st.includes('PROGRESS')) progressCount++;
@@ -2659,6 +2673,7 @@ function applyKeepFilters() {
   const closingRate = total > 0 ? Math.round((winCount / total) * 100) : 0;
 
   if (document.getElementById('keepTotalCount')) document.getElementById('keepTotalCount').innerText = total.toLocaleString('id-ID');
+  if (document.getElementById('keepUnassignCount')) document.getElementById('keepUnassignCount').innerText = unassignCount.toLocaleString('id-ID');
   if (document.getElementById('keepWinCount')) document.getElementById('keepWinCount').innerText = winCount.toLocaleString('id-ID');
   if (document.getElementById('keepNeedToCheckCount')) document.getElementById('keepNeedToCheckCount').innerText = needToCheckCount.toLocaleString('id-ID');
   if (document.getElementById('keepProgressCount')) document.getElementById('keepProgressCount').innerText = progressCount.toLocaleString('id-ID');
@@ -2673,6 +2688,8 @@ function applyKeepFilters() {
   // 3. Terapkan Filter Status pada data tabel
   if (statusVal === 'ALL') {
     filteredKeepRows = baseRows;
+  } else if (statusVal === 'UNASSIGN') {
+    filteredKeepRows = baseRows.filter(r => isKeepUnassigned(r));
   } else if (statusVal === 'OLA_OVERDUE') {
     filteredKeepRows = baseRows.filter(r => {
       const ola = getKeepOLAMeta(r);
@@ -3484,7 +3501,42 @@ function renderTab10OLADashboard() {
 
   const { branches, totals } = getBranchOLASummary(sourceRows, currentTab10Scope);
 
-  // 1. Update 4 Metric KPI Cards
+  // 0. Update 7 Banner KPI Cards (Total Keep, Unassign, On Progress, Need to Check, Closing WIN, Lose, Closing Rate)
+  let tab10Win = 0;
+  let tab10Progress = 0;
+  let tab10NeedToCheck = 0;
+  let tab10Lose = 0;
+  let tab10Unassign = 0;
+
+  sourceRows.forEach(r => {
+    const st = String(r['Status'] || '').toUpperCase();
+    if (isKeepUnassigned(r)) tab10Unassign++;
+    if (st === 'WIN') tab10Win++;
+    else if (st === 'NEED TO CHECK') tab10NeedToCheck++;
+    else if (st.includes('PROGRESS')) tab10Progress++;
+    else if (st === 'LOSE' || st === 'TAKE OUT' || st.includes('CANCEL') || st.includes('BATAL')) tab10Lose++;
+  });
+
+  const tab10Total = sourceRows.length;
+  const tab10ClosingRate = tab10Total > 0 ? Math.round((tab10Win / tab10Total) * 100) : 0;
+
+  const elKpiTotal = document.getElementById('tab10KpiTotalKeep');
+  const elKpiUnassign = document.getElementById('tab10KpiUnassign');
+  const elKpiProgress = document.getElementById('tab10KpiProgress');
+  const elKpiNeedToCheck = document.getElementById('tab10KpiNeedToCheck');
+  const elKpiWin = document.getElementById('tab10KpiWin');
+  const elKpiLose = document.getElementById('tab10KpiLose');
+  const elKpiRate = document.getElementById('tab10KpiClosingRate');
+
+  if (elKpiTotal) elKpiTotal.innerText = tab10Total.toLocaleString('id-ID');
+  if (elKpiUnassign) elKpiUnassign.innerText = tab10Unassign.toLocaleString('id-ID');
+  if (elKpiProgress) elKpiProgress.innerText = tab10Progress.toLocaleString('id-ID');
+  if (elKpiNeedToCheck) elKpiNeedToCheck.innerText = tab10NeedToCheck.toLocaleString('id-ID');
+  if (elKpiWin) elKpiWin.innerText = tab10Win.toLocaleString('id-ID');
+  if (elKpiLose) elKpiLose.innerText = tab10Lose.toLocaleString('id-ID');
+  if (elKpiRate) elKpiRate.innerText = `${tab10ClosingRate}%`;
+
+  // 1. Update 4 Metric KPI Cards OLA
   const topBranch = branches[0];
   const elTopName = document.getElementById('tab10TopBranchName');
   const elTopMeta = document.getElementById('tab10TopBranchMeta');
