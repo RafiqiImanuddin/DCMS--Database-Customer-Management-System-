@@ -412,9 +412,9 @@ class WatzapService
         $clean = preg_replace('/\D/', '', $clean) ?? '';
         if (str_starts_with($clean, '08')) {
             $clean = '62'.substr($clean, 1);
-        } elseif (str_starts_with($clean, '8')) {
+        } elseif (str_starts_with($clean, '8') && strlen($clean) <= 13) {
             $clean = '62'.$clean;
-        } elseif (! str_starts_with($clean, '62') && $clean !== '') {
+        } elseif (! str_starts_with($clean, '62') && strlen($clean) >= 9 && strlen($clean) <= 13) {
             $clean = '62'.$clean;
         }
 

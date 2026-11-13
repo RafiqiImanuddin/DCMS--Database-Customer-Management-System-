@@ -92,6 +92,26 @@ function extractCustomerPhone(text) {
   return '';
 }
 
+/**
+ * Ekstraksi teks dari berbagai tipe struktur pesan WhatsApp Baileys
+ * (termasuk disappearing/ephemeralMessage, viewOnce, dan media caption).
+ */
+function getMessageText(message) {
+  if (!message) return '';
+  if (message.ephemeralMessage) {
+    message = message.ephemeralMessage.message;
+  }
+  if (message.viewOnceMessage) {
+    message = message.viewOnceMessage.message;
+  }
+  if (!message) return '';
+  return message.conversation ||
+    message.extendedTextMessage?.text ||
+    message.imageMessage?.caption ||
+    message.documentMessage?.caption ||
+    message.videoMessage?.caption || '';
+}
+
 // ==============================================================================
 // 3. AUTO-SAVE & SINKRONISASI SESI AUTH CLOUD (ANTI-LOGOUT DARI REDEPLOY RENDER)
 // ==============================================================================
@@ -288,7 +308,8 @@ async function startBaileysSocket() {
         group: 'GLOBAL',
         sales: sock.user.id.split(':')[0],
         emoji: '🟢',
-        message: 'Bot WhatsApp berhasil terhubung ke jaringan WhatsApp.'
+        status: 'ONLINE',
+        response: 'Bot WhatsApp berhasil terhubung ke jaringan WhatsApp.'
       });
       // Pastikan sesi langsung tersimpan ke DCMS saat koneksi terbuka
       schedulePushSessionToDCMS(authDir);
@@ -393,21 +414,23 @@ async function startBaileysSocket() {
       // CABANG B: JALUR GRUP (REAKSI EMOJI AUTO-CLAIM & FORMAT KEEP CACHING)
       // ========================================================================
       // 1A. Deteksi reaksi emoji via messages.upsert (lengkap dengan pushName WhatsApp)
-      const reactionMsg = msg.message?.reactionMessage;
+      const reactionMsg = msg.message?.reactionMessage || msg.message?.ephemeralMessage?.message?.reactionMessage;
       if (reactionMsg && reactionMsg.key) {
         const targetMessageId = reactionMsg.key.id;
         // Orang yang me-react adalah participant pengirim pesan reaksi ini (Tim Follow Up)
-        const reactorJid = msg.key?.participant || msg.participant || (msg.key?.fromMe ? (sock.user?.id || '') : '');
+        const reactorJid = msg.key?.participantPn ||
+                           msg.key?.participant ||
+                           msg.participant ||
+                           (msg.key?.fromMe ? (sock.user?.id || '') : '') || '';
         const emoji = (reactionMsg.text || '').trim();
         const pushName = msg.pushName || '';
+        logger.info(`[Event messages.upsert reaction] Target: ${targetMessageId}, By: ${reactorJid}, Emoji: "${emoji}", PushName: "${pushName}"`);
         await handleReactionEvent(targetMessageId, remoteJid, reactorJid, emoji, pushName);
         continue;
       }
 
       // 1B. Ambil isi teks pesan format keep
-      const text = msg.message?.conversation ||
-        msg.message?.extendedTextMessage?.text ||
-        msg.message?.imageMessage?.caption || '';
+      const text = getMessageText(msg.message);
 
       if (!text) continue;
 
@@ -416,7 +439,7 @@ async function startBaileysSocket() {
       if (isFormatKeep) {
         const custPhone = extractCustomerPhone(text);
         // Sender di sini adalah Admin Sosmed yang mengirimkan format keep ke grup
-        const adminSosmedSender = (msg.key.participant || msg.participant || '').replace(/@.+/, '');
+        const adminSosmedSender = (msg.key?.participantPn || msg.key?.participant || msg.participant || '').replace(/@.+/, '');
 
         messageCache.set(msg.key.id, {
           id: msg.key.id,
@@ -434,6 +457,21 @@ async function startBaileysSocket() {
         }
 
         logger.info(`[Keep Masuk dari Admin Sosmed] ID: ${msg.key.id} di grup ${remoteJid} (Customer: ${custPhone || '-'}, Admin: ${adminSosmedSender})`);
+
+        // Forward juga format keep ke DCMS agar tersimpan di database MySQL bahkan jika nomor Fonnte belum dimasukkan ke grup
+        const keepPayload = {
+          message: text,
+          sender: remoteJid,
+          member: adminSosmedSender,
+          isGroup: true,
+          inboxid: msg.key.id,
+          id: msg.key.id,
+          name: msg.pushName || 'Admin Sosmed',
+          timestamp: Math.round(Date.now() / 1000)
+        };
+        sendToDCMS(keepPayload).catch(err => {
+          logger.warn(`[Auto-Sync Keep ke DCMS] Gagal: ${err.message}`);
+        });
       }
     }
   });
@@ -446,14 +484,17 @@ async function startBaileysSocket() {
 
     for (const r of reactions) {
       try {
+        logger.info(`[Event messages.reaction Raw] ${JSON.stringify(r)}`);
         const remoteJid = r.key?.remoteJid || '';
         const targetMessageId = r.key?.id;
 
-        // PENTING: Orang yang me-react (Tim Follow Up) diambil dari r.reaction.key.participant!
-        // JANGAN pernah menggunakan r.key.participant karena itu adalah pengirim format keep (Admin Sosmed)
-        const reactorJid = r.reaction?.key?.participant || 
-                           (r.reaction?.key?.fromMe ? (sock.user?.id || '') : '') || 
-                           r.participant || '';
+        // Di Baileys, pembuat reaksi dalam grup ada di r.key.participant (atau r.participantPn / r.participant)
+        const reactorJid = r.key?.participantPn ||
+                           r.participantPn ||
+                           r.key?.participant ||
+                           r.participant ||
+                           (r.key?.fromMe ? (sock.user?.id || '') : '') ||
+                           (r.reaction?.key?.fromMe ? (sock.user?.id || '') : '') || '';
         const emoji = (r.reaction?.text || '').trim();
 
         await handleReactionEvent(targetMessageId, remoteJid, reactorJid, emoji);

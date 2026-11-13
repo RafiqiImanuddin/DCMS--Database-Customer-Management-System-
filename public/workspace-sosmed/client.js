@@ -10386,7 +10386,8 @@ function isGroupWhatsApp(raw) {
   const s = String(raw);
   if (s.includes('@g.us')) return true;
   const d = s.replace(/\D/g, '');
-  return d.startsWith('120363') || d.length > 16;
+  // Hanya grup WhatsApp (awalan 120363). Jangan batasi d.length > 16 karena akun WhatsApp LID (Linked Identity) memiliki 15-18 digit angka unik.
+  return d.startsWith('120363');
 }
 
 function parseOmniTimestamp(raw) {
@@ -10966,9 +10967,9 @@ function getIndexedOmniKeeps() {
 
 function getOmniPicChats() {
   const threads = getOmniThreads();
-  // Filter ketat: HANYA chat personal, TOLAK grup WhatsApp
+  // Filter ketat: HANYA chat personal (termasuk WhatsApp LID), TOLAK grup WhatsApp
   const activeKeys = Object.keys(threads).filter(function(k) {
-    return !k.includes('@g.us') && !k.startsWith('120363') && k.length <= 16 && Array.isArray(threads[k]) && threads[k].length > 0;
+    return !k.includes('@g.us') && !k.startsWith('120363') && Array.isArray(threads[k]) && threads[k].length > 0;
   });
 
   if (activeKeys.length === 0) return [];
