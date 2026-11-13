@@ -496,6 +496,69 @@ class WorkspaceSosmedController extends Controller
         ]);
     }
 
+    public function assignKeepFU(Request $request): JsonResponse
+    {
+        $id = $request->input('id');
+        $nomorWA = $request->input('nomorWA') ?? $request->input('nomor_wa', '');
+        $namaFU = trim((string) ($request->input('nama_fu') ?? $request->input('nama_tim_follow_up') ?? ''));
+        $nomorFU = trim((string) ($request->input('nomor_fu') ?? $request->input('nomor_follow_up') ?? ''));
+
+        if (! $id && ! $nomorWA) {
+            return response()->json(['error' => 'ID transaksi atau Nomor WA customer wajib diisi.'], 400);
+        }
+
+        if (empty($namaFU) && empty($nomorFU)) {
+            return response()->json(['error' => 'Nama tim follow up atau nomor HP wajib diisi.'], 400);
+        }
+
+        $cleanNomorFU = preg_replace('/\D/', '', $nomorFU);
+        if ($cleanNomorFU !== '') {
+            if (str_starts_with($cleanNomorFU, '08')) {
+                $cleanNomorFU = '628'.substr($cleanNomorFU, 2);
+            } elseif (str_starts_with($cleanNomorFU, '8')) {
+                $cleanNomorFU = '62'.$cleanNomorFU;
+            }
+        }
+
+        $cleanCustPhone = preg_replace('/\D/', '', (string) $nomorWA);
+        $last9 = $cleanCustPhone !== '' ? substr($cleanCustPhone, -9) : '';
+
+        $keep = null;
+        if ($id) {
+            $keep = \App\Models\SosmedKeep::find($id);
+        }
+
+        if (! $keep && $cleanCustPhone !== '') {
+            $keep = \App\Models\SosmedKeep::where(function ($q) use ($cleanCustPhone, $last9) {
+                $q->where('nomor_wa', $cleanCustPhone)
+                    ->orWhere('nomor_wa', 'like', "%{$last9}");
+            })->latest('id')->first();
+        }
+
+        if ($keep) {
+            $keep->nama_tim_follow_up = $namaFU ?: $keep->nama_tim_follow_up;
+            $keep->nomor_fu = $cleanNomorFU ?: $keep->nomor_fu;
+            $keep->nomor_follow_up = $cleanNomorFU ?: $keep->nomor_follow_up;
+
+            $currStatus = strtoupper(trim((string) $keep->status));
+            if (empty($currStatus) || in_array($currStatus, ['PENDING', 'BELUM DIINPUT', 'NEW'], true)) {
+                $keep->status = 'ON PROGRESS';
+            }
+            $keep->save();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tim Follow Up berhasil di-assign secara manual!',
+            'id' => $keep ? $keep->id : $id,
+            'customer' => $keep ? $keep->nomor_wa : $nomorWA,
+            'pic_name' => $keep ? $keep->nama_tim_follow_up : $namaFU,
+            'pic_phone' => $keep ? $keep->nomor_fu : $cleanNomorFU,
+            'status' => $keep ? $keep->status : 'ON PROGRESS',
+            'mysql_updated' => (bool) $keep,
+        ]);
+    }
+
     public function chatAi(Request $request): JsonResponse
     {
         $prompt = $request->input('prompt', '');

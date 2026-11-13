@@ -3894,6 +3894,207 @@ window.openStatusChangeQuickModal = openStatusChangeQuickModal;
 window.closeKeepStatusModal = closeKeepStatusModal;
 window.selectQuickKeepStatus = selectQuickKeepStatus;
 
+let currentManualAssignContext = null;
+
+function openManualAssignFUModal(keepRowIdx) {
+  const row = filteredKeepRows[keepRowIdx];
+  if (!row) return;
+
+  currentManualAssignContext = { keepRowIdx, row };
+  const modal = document.getElementById('assignManualFUModal');
+  if (!modal) return;
+
+  const custNameEl = document.getElementById('assignManualCustName');
+  const custWAEl = document.getElementById('assignManualCustWA');
+  const barangEl = document.getElementById('assignManualBarang');
+  const cabangEl = document.getElementById('assignManualCabang');
+  const nameInput = document.getElementById('assignManualFUName');
+  const phoneInput = document.getElementById('assignManualFUPhone');
+  const selectPicEl = document.getElementById('assignManualSelectPic');
+
+  const custName = row['Nama'] || row['Customer'] || '-';
+  const rawWA = row['Nomor WhatsApp'] || row['nomor_wa'] || row['WA'] || '-';
+  const barang = row['Barang'] || row['Barang Keep'] || row['barang'] || '-';
+  const cabang = String(row['Cabang'] || (row['Grup ID'] && KEEP_GROUP_CABANG_MAP[row['Grup ID']] ? KEEP_GROUP_CABANG_MAP[row['Grup ID']].cabang : '') || '-').trim();
+
+  if (custNameEl) custNameEl.innerText = custName;
+  if (custWAEl) custWAEl.innerText = rawWA;
+  if (barangEl) barangEl.innerText = barang;
+  if (cabangEl) cabangEl.innerText = cabang || '-';
+
+  const curFUName = String(row['Nama Tim Follow Up'] || row['nama_tim_follow_up'] || row['fu_name'] || '').trim();
+  const curFUPhone = String(row['Nomor Follow Up'] || row['nomor_follow_up'] || row['Nomor FU'] || row['nomor_fu'] || '').trim();
+
+  if (nameInput) nameInput.value = curFUName;
+  if (phoneInput) phoneInput.value = curFUPhone;
+
+  // Populate dropdown master PIC
+  if (selectPicEl) {
+    let picOptions = '<option value="">-- Ketik Manual atau Pilih Master PIC --</option>';
+    if (typeof getMasterDataPICs === 'function') {
+      const pics = getMasterDataPICs();
+      if (Array.isArray(pics) && pics.length > 0) {
+        // Kelompokkan PIC cabang yang sama lebih dahulu
+        const sameBranch = [];
+        const otherBranch = [];
+
+        pics.forEach(p => {
+          if (!p.picName) return;
+          const isMatchCabang = cabang && p.cabang && (cabang.toLowerCase().includes(p.cabang.toLowerCase()) || p.cabang.toLowerCase().includes(cabang.toLowerCase()));
+          if (isMatchCabang) sameBranch.push(p);
+          else otherBranch.push(p);
+        });
+
+        if (sameBranch.length > 0) {
+          picOptions += `<optgroup label="PIC Cabang ${escapeHtml(cabang || 'Ini')}">`;
+          sameBranch.forEach(p => {
+            const val = JSON.stringify({ name: p.picName, phone: p.wa || '' }).replace(/"/g, '&quot;');
+            picOptions += `<option value="${val}">★ ${escapeHtml(p.picName)} (${escapeHtml(p.wa || '-')})</option>`;
+          });
+          picOptions += '</optgroup>';
+        }
+
+        if (otherBranch.length > 0) {
+          picOptions += '<optgroup label="PIC Cabang Lain / Semua">';
+          otherBranch.forEach(p => {
+            const val = JSON.stringify({ name: p.picName, phone: p.wa || '' }).replace(/"/g, '&quot;');
+            picOptions += `<option value="${val}">${escapeHtml(p.picName)} - ${escapeHtml(p.cabang || '-')} (${escapeHtml(p.wa || '-')})</option>`;
+          });
+          picOptions += '</optgroup>';
+        }
+      }
+    }
+    selectPicEl.innerHTML = picOptions;
+    selectPicEl.value = '';
+  }
+
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    if (nameInput) nameInput.focus();
+  }, 50);
+}
+
+function closeAssignManualFUModal() {
+  const modal = document.getElementById('assignManualFUModal');
+  if (modal) modal.style.display = 'none';
+  currentManualAssignContext = null;
+}
+
+function onSelectMasterPicChanged(val) {
+  if (!val) return;
+  try {
+    const data = JSON.parse(val);
+    const nameInput = document.getElementById('assignManualFUName');
+    const phoneInput = document.getElementById('assignManualFUPhone');
+    if (nameInput && data.name) nameInput.value = data.name;
+    if (phoneInput && data.phone) phoneInput.value = data.phone;
+  } catch (e) {}
+}
+
+async function submitAssignManualFU(event) {
+  if (event) event.preventDefault();
+  if (!currentManualAssignContext) return;
+
+  const { keepRowIdx, row } = currentManualAssignContext;
+  const nameInput = document.getElementById('assignManualFUName');
+  const phoneInput = document.getElementById('assignManualFUPhone');
+
+  const fuName = (nameInput ? nameInput.value : '').trim();
+  let fuPhone = (phoneInput ? phoneInput.value : '').trim();
+
+  if (!fuName) {
+    alert('Silakan masukkan Nama Tim Follow Up.');
+    if (nameInput) nameInput.focus();
+    return;
+  }
+  if (!fuPhone) {
+    alert('Silakan masukkan Nomor WhatsApp/HP Tim Follow Up.');
+    if (phoneInput) phoneInput.focus();
+    return;
+  }
+
+  // Normalisasi nomor telepon
+  let cleanPhone = fuPhone.replace(/\D/g, '');
+  if (cleanPhone.startsWith('08')) cleanPhone = '628' + cleanPhone.slice(2);
+  else if (cleanPhone.startsWith('8')) cleanPhone = '628' + cleanPhone.slice(1);
+
+  // 1. OPTIMISTIC UPDATE LANGSUNG DI TABEL (0ms)
+  row['Nama Tim Follow Up'] = fuName;
+  row['nama_tim_follow_up'] = fuName;
+  row['fu_name'] = fuName;
+  row['Nomor Follow Up'] = cleanPhone;
+  row['nomor_follow_up'] = cleanPhone;
+  row['Nomor FU'] = cleanPhone;
+  row['nomor_fu'] = cleanPhone;
+
+  const currentSt = String(row['Status'] || '').trim().toUpperCase();
+  if (!currentSt || currentSt === 'PENDING' || currentSt === 'BELUM DIINPUT' || currentSt === 'NEW') {
+    row['Status'] = 'ON PROGRESS';
+  }
+
+  if (filteredKeepRows[keepRowIdx]) {
+    filteredKeepRows[keepRowIdx]['Nama Tim Follow Up'] = fuName;
+    filteredKeepRows[keepRowIdx]['nama_tim_follow_up'] = fuName;
+    filteredKeepRows[keepRowIdx]['fu_name'] = fuName;
+    filteredKeepRows[keepRowIdx]['Nomor Follow Up'] = cleanPhone;
+    filteredKeepRows[keepRowIdx]['nomor_follow_up'] = cleanPhone;
+    filteredKeepRows[keepRowIdx]['Nomor FU'] = cleanPhone;
+    filteredKeepRows[keepRowIdx]['nomor_fu'] = cleanPhone;
+    if (!currentSt || currentSt === 'PENDING' || currentSt === 'BELUM DIINPUT' || currentSt === 'NEW') {
+      filteredKeepRows[keepRowIdx]['Status'] = 'ON PROGRESS';
+    }
+  }
+
+  renderKeepPage();
+  closeAssignManualFUModal();
+  if (typeof showSaveToast === 'function') {
+    showSaveToast(`✓ Tim Follow Up berhasil di-assign ke ${fuName}!`);
+  }
+
+  // 2. SINKRONISASI KE DATABASE SQL DCMS
+  try {
+    const rawWA = row['Nomor WhatsApp'] || row['nomor_wa'] || '';
+    const normCustWA = String(rawWA).replace(/\D/g, '');
+    const keepId = row.id || null;
+
+    const res = await fetch('/api/assign-keep-fu', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        id: keepId,
+        nomorWA: normCustWA,
+        nama_fu: fuName,
+        nomor_fu: cleanPhone
+      })
+    });
+
+    if (!res.ok) {
+      console.warn('Backend assign-keep-fu non-200, mencoba webhook fonnte...');
+      await fetch('/api/fonnte-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'UPDATE_REACTION_FU',
+          id: keepId,
+          nomorWA: normCustWA,
+          nomor_fu: cleanPhone,
+          nama_sales: fuName
+        })
+      });
+    }
+  } catch (err) {
+    console.error('Gagal simpan assign manual ke backend:', err);
+  }
+}
+
+window.openManualAssignFUModal = openManualAssignFUModal;
+window.closeAssignManualFUModal = closeAssignManualFUModal;
+window.onSelectMasterPicChanged = onSelectMasterPicChanged;
+window.submitAssignManualFU = submitAssignManualFU;
+
 function renderKeepPage() {
   const tbody = document.getElementById('keepTableBody');
   if (!tbody) return;
@@ -4026,8 +4227,15 @@ function renderKeepPage() {
             ${fuInitials}
           </div>
           <div class="min-w-0">
-            <div class="font-bold text-slate-800 text-xs truncate max-w-[160px] cursor-pointer hover:text-emerald-700 transition" title="Klik untuk membuka Live Chat WhatsApp & follow up keep ini" onclick="openDcmsFollowUpLiveChatFromKeep(${keepRowIdx})">
-              ${escapeHtml(fuDisplayName)}
+            <div class="flex items-center gap-1.5">
+              <div class="font-bold text-slate-800 text-xs truncate max-w-[145px] cursor-pointer hover:text-emerald-700 transition" title="Klik untuk membuka Live Chat WhatsApp & follow up keep ini" onclick="openDcmsFollowUpLiveChatFromKeep(${keepRowIdx})">
+                ${escapeHtml(fuDisplayName)}
+              </div>
+              ${(!window.IS_GUEST) ? `
+                <button type="button" class="text-slate-300 hover:text-indigo-600 transition p-0.5 rounded cursor-pointer shrink-0" title="Ubah / Re-assign Tim Follow Up" onclick="openManualAssignFUModal(${keepRowIdx})">
+                  <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              ` : ''}
             </div>
             ${(isValidMobile && !window.IS_GUEST) ? `
               <div class="flex items-center gap-1.5">
@@ -4051,10 +4259,11 @@ function renderKeepPage() {
       `;
     } else {
       fuHtml = `
-        <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/80 border border-dashed border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-400 italic whitespace-nowrap" title="Belum ada respon reaksi jempol dari tim follow up">
-          <span class="size-1.5 rounded-full bg-slate-300"></span>
-          <span>Belum di-claim</span>
-        </span>
+        <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 border border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/70 hover:text-indigo-700 px-2 py-0.5 text-[11px] font-semibold text-slate-500 transition cursor-pointer shadow-2xs group" onclick="openManualAssignFUModal(${keepRowIdx})" title="Klik untuk assign manual Tim Follow Up (Nama & No HP)">
+          <span class="size-1.5 rounded-full bg-amber-400 group-hover:scale-125 transition"></span>
+          <span>• Belum di-claim</span>
+          <svg class="size-3 text-slate-400 group-hover:text-indigo-600 ml-0.5 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
       `;
     }
 

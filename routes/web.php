@@ -181,6 +181,8 @@ $registerSosmedApiRoutes = function () {
     Route::get('/sync-keep', [WorkspaceSosmedController::class, 'syncKeep'])->name('api.sosmed.sync_keep');
     Route::match(['get', 'post'], '/update-keep-status', [WorkspaceSosmedController::class, 'updateKeepStatus'])->name('api.sosmed.update_keep_status');
     Route::match(['get', 'post'], '/update-report-ar', [WorkspaceSosmedController::class, 'updateReportAr'])->name('api.sosmed.update_report_ar');
+    Route::match(['get', 'post'], '/assign-keep-fu', [WorkspaceSosmedController::class, 'assignKeepFU'])->name('api.sosmed.assign_keep_fu');
+    Route::match(['get', 'post'], '/api/assign-keep-fu', [WorkspaceSosmedController::class, 'assignKeepFU'])->name('api.sosmed.assign_keep_fu_alias');
     Route::match(['get', 'post'], '/webhook/fonnte-keep', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.sosmed.webhook_fonnte_keep');
     Route::match(['get', 'post'], '/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook');
     Route::match(['get', 'post'], '/api/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook_alias');
