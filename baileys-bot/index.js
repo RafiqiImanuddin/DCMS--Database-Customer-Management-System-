@@ -475,6 +475,7 @@ async function startBaileysSocket() {
 
         // Forward juga format keep ke DCMS agar tersimpan di database MySQL bahkan jika nomor Fonnte belum dimasukkan ke grup
         const keepPayload = {
+          source: 'BAILEYS_BOT',
           message: text,
           sender: remoteJid,
           member: adminSosmedSender,

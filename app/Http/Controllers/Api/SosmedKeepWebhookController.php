@@ -206,9 +206,23 @@ class SosmedKeepWebhookController extends Controller
         }
 
         // =========================================================================
-        // ANTI-DUPLIKASI (DUAL-FORWARD PROTECTION: FONNTE + BAILEYS BOT)
+        // ANTI-DUPLIKASI SUPER KETAT (DUAL-FORWARD PROTECTION: FONNTE + BAILEYS BOT)
         // Mencegah pesan format keep yang sama tersimpan dobel di MySQL.
         // =========================================================================
+        $cleanCustNumber = preg_replace('/\D/', '', (string) ($keep['nomor'] ?? ''));
+        if (str_starts_with($cleanCustNumber, '08')) {
+            $normalizedCust = '628'.substr($cleanCustNumber, 2);
+        } elseif (str_starts_with($cleanCustNumber, '8')) {
+            $normalizedCust = '62'.$cleanCustNumber;
+        } else {
+            $normalizedCust = $cleanCustNumber;
+        }
+        $last8 = strlen($cleanCustNumber) >= 8 ? substr($cleanCustNumber, -8) : $cleanCustNumber;
+
+        $cleanBarang = strtolower(trim(preg_replace('/[^a-z0-9]/', '', (string) ($keep['barang'] ?? ''))));
+        $cleanNama = strtolower(trim(preg_replace('/[^a-z0-9]/', '', (string) ($keep['nama'] ?? ''))));
+
+        // 1. Cek langsung by message_id jika ada
         if (! empty($messageId)) {
             $existingById = SosmedKeep::where('message_id', $messageId)->first();
             if ($existingById) {
@@ -221,31 +235,61 @@ class SosmedKeepWebhookController extends Controller
             }
         }
 
-        $custNumber = trim((string) ($keep['nomor'] ?? ''));
-        $custBarang = trim((string) ($keep['barang'] ?? ''));
-        if (! empty($custNumber) && ! empty($custBarang)) {
-            $recentDuplicate = SosmedKeep::where('nomor_wa', $custNumber)
-                ->where('barang_keep', $custBarang)
-                ->where('created_at', '>=', now()->subSeconds(180))
-                ->latest('id')
-                ->first();
+        // 2. Cek duplikasi cerdas pada 150 data format keep terbaru
+        $recentKeeps = SosmedKeep::orderBy('id', 'desc')->take(150)->get();
+        $foundDuplicate = null;
 
-            if ($recentDuplicate) {
-                // Jika data yang sudah ada belum punya message_id dan payload ini membawanya, update message_id
-                if (empty($recentDuplicate->message_id) && ! empty($messageId)) {
-                    $recentDuplicate->update(['message_id' => $messageId]);
-                }
-                Log::info('Format Keep Duplicate Ignored by Content (within 180s)', [
-                    'nomor_wa' => $custNumber,
-                    'barang' => $custBarang,
-                    'existing_id' => $recentDuplicate->id,
-                ]);
-                return response()->json([
-                    'status' => 200,
-                    'message' => 'DUPLICATE_CONTENT_IGNORED',
-                    'id' => $recentDuplicate->id,
-                ]);
+        foreach ($recentKeeps as $cand) {
+            // Cek kesamaan message_id
+            if (! empty($messageId) && ! empty($cand->message_id) && $cand->message_id === $messageId) {
+                $foundDuplicate = $cand;
+                break;
             }
+
+            // Cek kesamaan nomor WhatsApp (8 digit terakhir)
+            $candCleanWA = preg_replace('/\D/', '', (string) $cand->nomor_wa);
+            $candLast8 = strlen($candCleanWA) >= 8 ? substr($candCleanWA, -8) : $candCleanWA;
+            $samePhone = (! empty($last8) && ! empty($candLast8) && $last8 === $candLast8);
+
+            // Cek kesamaan barang dan nama
+            $candCleanBarang = strtolower(trim(preg_replace('/[^a-z0-9]/', '', (string) $cand->barang_keep)));
+            $candCleanNama = strtolower(trim(preg_replace('/[^a-z0-9]/', '', (string) $cand->nama)));
+
+            $sameBarang = (! empty($cleanBarang) && ! empty($candCleanBarang) && (
+                $cleanBarang === $candCleanBarang ||
+                str_contains($cleanBarang, $candCleanBarang) ||
+                str_contains($candCleanBarang, $cleanBarang)
+            ));
+            $sameNama = (! empty($cleanNama) && ! empty($candCleanNama) && $cleanNama === $candCleanNama);
+
+            // Jika nomor sama DAN (barang sama ATAU nama sama)
+            if ($samePhone && ($sameBarang || $sameNama)) {
+                $diffSec = abs($cand->created_at ? now()->diffInSeconds($cand->created_at) : 0);
+                // Batas toleransi 15 menit (900 detik)
+                if ($diffSec < 900 || empty($cand->created_at)) {
+                    $foundDuplicate = $cand;
+                    break;
+                }
+            }
+        }
+
+        if ($foundDuplicate) {
+            // Jika data yang sudah ada belum punya message_id (misal dari Fonnte) dan payload ini membawanya (dari Baileys),
+            // update message_id agar reaksi emoji Baileys tetap bisa mengklaim baris ini!
+            if (empty($foundDuplicate->message_id) && ! empty($messageId)) {
+                $foundDuplicate->update(['message_id' => $messageId]);
+            }
+            Log::info('Format Keep Duplicate Blocked by Smart Deduplication', [
+                'existing_id' => $foundDuplicate->id,
+                'customer' => $normalizedCust,
+                'barang' => $keep['barang'] ?? '',
+                'incoming_message_id' => $messageId,
+            ]);
+            return response()->json([
+                'status' => 200,
+                'message' => 'DUPLICATE_CONTENT_IGNORED',
+                'id' => $foundDuplicate->id,
+            ]);
         }
 
         $newKeep = SosmedKeep::create([
@@ -257,7 +301,7 @@ class SosmedKeepWebhookController extends Controller
             'grup' => (string) $grupName,
             'jenis_chat' => $jenisChat,
             'nama' => $keep['nama'] ?? '',
-            'nomor_wa' => $keep['nomor'] ?? '',
+            'nomor_wa' => $normalizedCust ?: ($keep['nomor'] ?? ''),
             'barang_keep' => $keep['barang'] ?? '',
             'tanggal_ambil' => $keep['tanggal'] ?? '',
             'catatan' => $keep['catatan'] ?? '',

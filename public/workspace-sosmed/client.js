@@ -2207,7 +2207,32 @@ async function loadKeepData(isSilent = false) {
     if (resSql.ok) {
       const json = await resSql.json();
       if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
-        rawKeepRows = json.data.map((item, idx) => ({
+        // Deduplikasi cerdas di client: satukan duplikat ganda jika ada 2 pesan sama dari Fonnte + Baileys
+        const deduplicated = [];
+        const seenMap = new Map();
+
+        json.data.forEach((item) => {
+          const cleanWA = String(item.nomor_wa || '').replace(/\D/g, '');
+          const last8 = cleanWA.length >= 8 ? cleanWA.slice(-8) : cleanWA;
+          const cleanBarang = String(item.barang_keep || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cleanNama = String(item.nama || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const dedupeKey = last8 ? `${last8}_${cleanBarang.slice(0, 16)}` : `id_${item.id}`;
+
+          if (seenMap.has(dedupeKey)) {
+            const existingIdx = seenMap.get(dedupeKey);
+            const existing = deduplicated[existingIdx];
+            // Jika baris yang sudah ada belum di-claim tapi item duplikat sudah di-claim, ganti dengan item yang sudah di-claim
+            if ((!existing.nama_tim_follow_up && item.nama_tim_follow_up) || (!existing.nomor_fu && item.nomor_fu)) {
+              deduplicated[existingIdx] = item;
+            }
+            return;
+          }
+
+          seenMap.set(dedupeKey, deduplicated.length);
+          deduplicated.push(item);
+        });
+
+        rawKeepRows = deduplicated.map((item, idx) => ({
           'id': item.id || null,
           'Timestamp': item.keep_timestamp || '',
           'Nomor Sender': item.nomor_sender || '',
@@ -4557,7 +4582,30 @@ async function pollLatestKeepData() {
           latestKnownKeepId = numId;
         }
 
-        if (Array.isArray(rawKeepRows) && rawKeepRows.some(r => r.id === item.id)) {
+        // Cek duplikasi di client: ID sama ATAU (Nomor WA sama & Barang Keep sama)
+        const itemCleanWA = String(item.nomor_wa || '').replace(/\D/g, '');
+        const itemLast8 = itemCleanWA.length >= 8 ? itemCleanWA.slice(-8) : itemCleanWA;
+        const itemCleanBarang = String(item.barang_keep || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const existingDupIdx = Array.isArray(rawKeepRows) ? rawKeepRows.findIndex(r => {
+          if (r.id === item.id) return true;
+          if (!itemLast8) return false;
+          const rCleanWA = String(r['Nomor WA'] || r.nomor_wa || '').replace(/\D/g, '');
+          const rLast8 = rCleanWA.length >= 8 ? rCleanWA.slice(-8) : rCleanWA;
+          if (rLast8 !== itemLast8) return false;
+          const rCleanBarang = String(r['Barang Keep'] || r.barang_keep || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          return (rCleanBarang === itemCleanBarang || rCleanBarang.includes(itemCleanBarang) || itemCleanBarang.includes(rCleanBarang));
+        }) : -1;
+
+        if (existingDupIdx !== -1) {
+          // Jika row lama belum diklaim tapi data baru membawa klaim tim follow up, perbarui baris lama
+          const existingRow = rawKeepRows[existingDupIdx];
+          if ((!existingRow['Nama Tim Follow Up'] && item.nama_tim_follow_up) || (!existingRow['Nomor Follow Up'] && item.nomor_fu)) {
+            existingRow['Nama Tim Follow Up'] = item.nama_tim_follow_up || existingRow['Nama Tim Follow Up'];
+            existingRow['Nomor Follow Up'] = item.nomor_fu || existingRow['Nomor Follow Up'];
+            existingRow['Status'] = item.status || existingRow['Status'];
+            hasUpdates = true;
+          }
           return;
         }
 
