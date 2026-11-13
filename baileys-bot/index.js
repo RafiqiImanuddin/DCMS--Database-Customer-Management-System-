@@ -504,14 +504,90 @@ async function startBaileysSocket() {
     }
   });
 
+  // Cache Group Metadata in-memory untuk pemetaan cepat LID ke nomor WhatsApp (628xxx)
+  const groupMetadataCache = new Map();
+
+  async function getGroupMetadataCached(groupId) {
+    if (!sock) return null;
+    const cached = groupMetadataCache.get(groupId);
+    if (cached && (Date.now() - cached.time) < 10 * 60 * 1000) {
+      return cached.data;
+    }
+    try {
+      const data = await sock.groupMetadata(groupId);
+      if (data) {
+        groupMetadataCache.set(groupId, { time: Date.now(), data });
+      }
+      return data;
+    } catch (e) {
+      return cached?.data || null;
+    }
+  }
+
+  /**
+   * Mengonversi JID participant grup WhatsApp (baik @s.whatsapp.net maupun @lid)
+   * menjadi nomor telepon WhatsApp asli (format 628xxx).
+   */
+  async function resolveParticipantPhone(reactorJid, remoteJid, pushName = '') {
+    if (!reactorJid) return '';
+
+    // 1. Jika sudah mengandung @s.whatsapp.net (nomor HP standar WhatsApp)
+    if (reactorJid.includes('@s.whatsapp.net')) {
+      const num = reactorJid.split('@')[0].split(':')[0].replace(/\D/g, '');
+      if (num.length >= 9 && num.length <= 15) {
+        return num;
+      }
+    }
+
+    // 2. Jika merupakan @lid, gunakan internal signalRepository.lidMapping bawaan Baileys
+    if (reactorJid.endsWith('@lid') && sock?.signalRepository?.lidMapping?.getPNForLID) {
+      try {
+        const pn = await sock.signalRepository.lidMapping.getPNForLID(reactorJid);
+        if (pn && pn.includes('@s.whatsapp.net')) {
+          const cleanPn = pn.split('@')[0].split(':')[0].replace(/\D/g, '');
+          if (cleanPn.length >= 9 && cleanPn.length <= 15) {
+            logger.info(`[LID Resolved via signalRepo] ${reactorJid} -> ${cleanPn}`);
+            return cleanPn;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 3. Cari dari groupMetadata participants (WhatsApp group memetakan p.id dan p.lid)
+    if (remoteJid && remoteJid.endsWith('@g.us')) {
+      try {
+        const meta = await getGroupMetadataCached(remoteJid);
+        if (meta && Array.isArray(meta.participants)) {
+          const matched = meta.participants.find(p => 
+            p.lid === reactorJid || 
+            p.id === reactorJid || 
+            (p.lid && reactorJid && p.lid.replace(/@.+/, '') === reactorJid.replace(/@.+/, ''))
+          );
+          if (matched) {
+            const candidate = matched.id || matched.pn || matched.jid || '';
+            if (candidate.includes('@s.whatsapp.net')) {
+              const cleanPn = candidate.split('@')[0].split(':')[0].replace(/\D/g, '');
+              if (cleanPn.length >= 9 && cleanPn.length <= 15) {
+                logger.info(`[LID Resolved via groupMetadata] ${reactorJid} -> ${cleanPn}`);
+                return cleanPn;
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    return (reactorJid || '').replace(/@.+/, '').replace(/\D/g, '');
+  }
+
   // Helper pemrosesan reaksi emoji Tim Follow Up
   async function handleReactionEvent(targetMessageId, remoteJid, reactorJid, emoji, pushName = '') {
     if (!targetMessageId || !remoteJid) return;
     if (!remoteJid.endsWith('@g.us')) return;
     if (TARGET_GROUPS.length > 0 && !TARGET_GROUPS.includes(remoteJid)) return;
 
-    // Nomor HP staf Tim Follow Up yang me-react format keep
-    const fuPhone = (reactorJid || '').replace(/@.+/, '').replace(/\D/g, '');
+    // Nomor HP staf Tim Follow Up yang me-react format keep (resolusi LID -> 628xxx)
+    const fuPhone = await resolveParticipantPhone(reactorJid, remoteJid, pushName);
     if (!fuPhone) return;
 
     const cachedKeep = messageCache.get(targetMessageId);

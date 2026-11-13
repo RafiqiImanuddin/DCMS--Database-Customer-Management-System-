@@ -3079,8 +3079,21 @@ function renderKeepPage() {
     const fuName = String(r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || '').trim();
     const rawFU = String(r['Nomor Follow Up'] || r['nomor_follow_up'] || r['Nomor FU'] || r['nomor_fu'] || '').trim();
     const cleanFUDigits = rawFU.replace(/\D/g, '');
-    const normFU = normalizePhone(cleanFUDigits);
-    const displayFU = formatPhoneDisplay(cleanFUDigits) || rawFU;
+
+    // Resolusi nomor WhatsApp asli jika nomor_fu berupa WhatsApp LID (15-18 digit acak)
+    let actualPhone = cleanFUDigits;
+    const isLid = cleanFUDigits.length > 13 || (!cleanFUDigits.startsWith('628') && !cleanFUDigits.startsWith('08') && !cleanFUDigits.startsWith('8'));
+    if (isLid && fuName) {
+      const masterPics = getMasterDataPICs();
+      const matched = masterPics.find(m => m.picName && m.picName.toLowerCase().includes(fuName.toLowerCase()) && m.wa && m.wa.length >= 9 && m.wa.length <= 14);
+      if (matched && matched.wa) {
+        actualPhone = matched.wa.replace(/\D/g, '');
+      }
+    }
+
+    const normFU = normalizePhone(actualPhone);
+    const isValidMobile = normFU.startsWith('628') && normFU.length >= 10 && normFU.length <= 15;
+    const displayFU = isValidMobile ? formatPhoneDisplay(normFU) : (rawFU || '-');
 
     let fuHtml = '';
     if (fuName || cleanFUDigits) {
@@ -3095,12 +3108,17 @@ function renderKeepPage() {
             <div class="font-bold text-slate-800 text-xs truncate max-w-[160px]" title="${escapeHtml(fuDisplayName)}">
               ${escapeHtml(fuDisplayName)}
             </div>
-            ${(normFU && normFU.length >= 8 && !window.IS_GUEST) ? `
-              <a href="https://wa.me/${normFU}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition" title="Hubungi tim follow up via WhatsApp">
+            ${(isValidMobile && !window.IS_GUEST) ? `
+              <a href="https://wa.me/${normFU}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition" title="Hubungi tim follow up via WhatsApp: wa.me/${normFU}">
                 <span class="size-1.5 rounded-full bg-emerald-500"></span>
                 <span>${displayFU}</span>
               </a>
-            ` : (displayFU ? `<span class="text-[11px] text-slate-500 font-mono">${displayFU}</span>` : '')}
+            ` : (displayFU ? `
+              <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 font-mono hover:text-indigo-600 transition" title="ID WhatsApp: ${escapeHtml(displayFU)} (Klik untuk salin)" onclick="navigator.clipboard && navigator.clipboard.writeText('${escapeHtml(displayFU)}'); if (typeof showSaveToast === 'function') showSaveToast('ID WhatsApp disalin: ${escapeHtml(displayFU)}');" style="cursor: pointer;">
+                <span class="size-1.5 rounded-full bg-slate-400"></span>
+                <span>${displayFU}</span>
+              </span>
+            ` : '')}
           </div>
         </div>
       `;

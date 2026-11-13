@@ -591,6 +591,43 @@ class SosmedKeepWebhookController extends Controller
             $cleanNomorFU = trim((string) $nomorFU);
         }
 
+        // Resolusi nomor WhatsApp asli jika nomor_fu berupa WhatsApp LID (15-18 digit acak)
+        $isLidNumber = strlen($cleanNomorFU) > 13 || (! str_starts_with($cleanNomorFU, '628') && ! str_starts_with($cleanNomorFU, '08') && ! str_starts_with($cleanNomorFU, '8'));
+
+        if ($isLidNumber && ! empty($salesName)) {
+            // 1. Cek tabel employees berdasarkan nama tim follow up
+            $emp = \App\Models\Employee::where('name', 'like', "%{$salesName}%")
+                ->whereNotNull('phone')
+                ->where('phone', '!=', '')
+                ->first();
+            if ($emp && ! empty($emp->phone)) {
+                $realPhone = preg_replace('/\D/', '', (string) $emp->phone);
+                if (strlen($realPhone) >= 9 && strlen($realPhone) <= 15) {
+                    $cleanNomorFU = str_starts_with($realPhone, '08') ? ('62'.substr($realPhone, 1)) : (str_starts_with($realPhone, '8') ? ('62'.$realPhone) : $realPhone);
+                    $isLidNumber = false;
+                }
+            }
+
+            // 2. Cek histori data format keep sebelumnya yang pernah diklaim nama ini
+            if ($isLidNumber) {
+                $pastKeep = SosmedKeep::where('nama_tim_follow_up', 'like', "%{$salesName}%")
+                    ->where(function ($q) {
+                        $q->where('nomor_fu', 'like', '628%')
+                            ->orWhere('nomor_fu', 'like', '08%')
+                            ->orWhere('nomor_follow_up', 'like', '628%');
+                    })
+                    ->latest('id')
+                    ->first();
+                if ($pastKeep) {
+                    $pastNum = $pastKeep->nomor_fu ?: $pastKeep->nomor_follow_up;
+                    $cleanPastNum = preg_replace('/\D/', '', (string) $pastNum);
+                    if ($cleanPastNum) {
+                        $cleanNomorFU = $cleanPastNum;
+                    }
+                }
+            }
+        }
+
         // Cari record keep: 1) by ID, 2) by message_id WhatsApp, 3) by nomor_wa customer (Bottom-Up)
         $keep = null;
         if ($id) {
