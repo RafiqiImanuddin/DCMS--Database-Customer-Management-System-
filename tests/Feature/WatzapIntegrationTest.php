@@ -552,4 +552,34 @@ class WatzapIntegrationTest extends TestCase
                 'exists' => false,
             ]);
     }
+
+    public function test_keep_webhook_ignores_duplicate_within_180_seconds(): void
+    {
+        $keepText = "Format Keep\nNama : Budi Santoso\nNomor WA : 081234567890\nBarang : Samsung A55 5G\nRemaks : SOSMED 1\nCabang : Gadgetmart Banjarmasin";
+
+        // 1. First keep webhook request (e.g. from Fonnte)
+        $res1 = $this->postJson('/api/fonnte-webhook', [
+            'message' => $keepText,
+            'sender' => '120363001@g.us',
+            'id' => 'fonnte_msg_1001',
+        ]);
+        $res1->assertOk();
+
+        // Phone is normalized to 6281234567890
+        $initialCount = \App\Models\SosmedKeep::where('nomor_wa', 'like', '%81234567890')->count();
+        $this->assertEquals(1, $initialCount);
+
+        // 2. Second keep webhook request 1 second later (e.g. from Baileys Bot dual forward)
+        $res2 = $this->postJson('/api/fonnte-webhook', [
+            'message' => $keepText,
+            'sender' => '120363001@g.us',
+            'id' => 'baileys_msg_1002',
+        ]);
+        $res2->assertOk();
+        $res2->assertJson(['message' => 'DUPLICATE_CONTENT_IGNORED']);
+
+        // Must still be 1, never duplicated!
+        $finalCount = \App\Models\SosmedKeep::where('nomor_wa', 'like', '%81234567890')->count();
+        $this->assertEquals(1, $finalCount);
+    }
 }

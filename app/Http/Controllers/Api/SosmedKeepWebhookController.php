@@ -205,6 +205,49 @@ class SosmedKeepWebhookController extends Controller
             $item = 'ASUS';
         }
 
+        // =========================================================================
+        // ANTI-DUPLIKASI (DUAL-FORWARD PROTECTION: FONNTE + BAILEYS BOT)
+        // Mencegah pesan format keep yang sama tersimpan dobel di MySQL.
+        // =========================================================================
+        if (! empty($messageId)) {
+            $existingById = SosmedKeep::where('message_id', $messageId)->first();
+            if ($existingById) {
+                Log::info('Format Keep Duplicate Ignored by message_id', ['message_id' => $messageId]);
+                return response()->json([
+                    'status' => 200,
+                    'message' => 'DUPLICATE_MESSAGE_ID_IGNORED',
+                    'id' => $existingById->id,
+                ]);
+            }
+        }
+
+        $custNumber = trim((string) ($keep['nomor'] ?? ''));
+        $custBarang = trim((string) ($keep['barang'] ?? ''));
+        if (! empty($custNumber) && ! empty($custBarang)) {
+            $recentDuplicate = SosmedKeep::where('nomor_wa', $custNumber)
+                ->where('barang_keep', $custBarang)
+                ->where('created_at', '>=', now()->subSeconds(180))
+                ->latest('id')
+                ->first();
+
+            if ($recentDuplicate) {
+                // Jika data yang sudah ada belum punya message_id dan payload ini membawanya, update message_id
+                if (empty($recentDuplicate->message_id) && ! empty($messageId)) {
+                    $recentDuplicate->update(['message_id' => $messageId]);
+                }
+                Log::info('Format Keep Duplicate Ignored by Content (within 180s)', [
+                    'nomor_wa' => $custNumber,
+                    'barang' => $custBarang,
+                    'existing_id' => $recentDuplicate->id,
+                ]);
+                return response()->json([
+                    'status' => 200,
+                    'message' => 'DUPLICATE_CONTENT_IGNORED',
+                    'id' => $recentDuplicate->id,
+                ]);
+            }
+        }
+
         $newKeep = SosmedKeep::create([
             'message_id' => $messageId,
             'keep_timestamp' => $now->format('Y-m-d H:i:s'),

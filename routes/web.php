@@ -238,6 +238,34 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
             $actionTitle = 'PENCOCOKAN FORMAT KEEP VS CROSS-SELLING (CLOSING WIN)';
             \Illuminate\Support\Facades\Artisan::call('keep:match-cross-selling');
             $actionOutput = \Illuminate\Support\Facades\Artisan::output();
+        } elseif ($action === 'clean-duplicate-keeps') {
+            $actionTitle = 'PEMBERSIHAN DUPLIKASI DATA FORMAT KEEP';
+            $duplicates = \App\Models\SosmedKeep::whereNotNull('nomor_wa')
+                ->where('nomor_wa', '!=', '')
+                ->select('nomor_wa', 'barang_keep', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
+                ->groupBy('nomor_wa', 'barang_keep')
+                ->having('total', '>', 1)
+                ->get();
+
+            $deletedCount = 0;
+            foreach ($duplicates as $dup) {
+                $rows = \App\Models\SosmedKeep::where('nomor_wa', $dup->nomor_wa)
+                    ->where('barang_keep', $dup->barang_keep)
+                    ->orderByDesc('id')
+                    ->get();
+
+                // Cari baris yang paling lengkap (misal yang sudah di-claim ON PROGRESS / WIN)
+                $keepRow = $rows->first(fn ($r) => in_array(strtoupper((string) $r->status), ['ON PROGRESS', 'WIN', 'LOSE']) || ! empty($r->nomor_fu))
+                    ?? $rows->first();
+
+                foreach ($rows as $r) {
+                    if ($r->id !== $keepRow->id) {
+                        $r->delete();
+                        $deletedCount++;
+                    }
+                }
+            }
+            $actionOutput = "Berhasil membersihkan {$deletedCount} baris data keep duplikat!\nData keep yang memiliki status aktif (On Progress / Win) dan nomor follow up tetap dipertahankan.";
         } else {
             \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
             $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
