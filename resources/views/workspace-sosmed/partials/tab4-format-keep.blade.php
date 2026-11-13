@@ -13,23 +13,6 @@
                 </div>
                 <h1 class="mt-1 text-2xl font-black text-slate-900">Format Keep Customer</h1>
             </div>
-
-            @if(auth()->check() && auth()->user()->isSuperAdmin())
-            @php $isDeleteKeepEnabled = \App\Models\Setting::get('superadmin_keep_delete_enabled', '1') !== '0'; @endphp
-            <div class="flex items-center gap-3 bg-white border border-slate-200/90 px-3.5 py-2 rounded-xl shadow-xs cursor-pointer select-none transition hover:border-slate-300" onclick="toggleSuperadminKeepDelete(!document.getElementById('toggleSuperadminDeleteKeep').checked)" title="Klik untuk mengaktifkan / menonaktifkan fitur tombol hapus keep">
-                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <svg class="size-4 text-rose-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                    <span>Fitur Hapus:</span>
-                </div>
-                <div id="sliderSuperadminDeleteKeep" style="position:relative; width:38px; height:22px; background:{{ $isDeleteKeepEnabled ? '#ef4444' : '#cbd5e1' }}; border-radius:12px; transition:all 0.2s ease-in-out; display:inline-block; vertical-align:middle; flex-shrink:0;">
-                    <div style="position:absolute; top:2px; left:{{ $isDeleteKeepEnabled ? '18px' : '2px' }}; width:18px; height:18px; background:#ffffff; border-radius:50%; transition:all 0.2s ease-in-out; box-shadow:0 1px 3px rgba(0,0,0,0.25);"></div>
-                </div>
-                <input type="checkbox" id="toggleSuperadminDeleteKeep" style="display:none;" onchange="toggleSuperadminKeepDelete(this.checked)" {{ $isDeleteKeepEnabled ? 'checked' : '' }}>
-                <span id="labelSuperadminDeleteKeep" class="text-xs font-extrabold" style="color: {{ $isDeleteKeepEnabled ? '#e11d48' : '#64748b' }};">
-                    {{ $isDeleteKeepEnabled ? 'Aktif' : 'Nonaktif' }}
-                </span>
-            </div>
-            @endif
         </div>
 
         <!-- 2. Metric Cards: Color Palette & Border-L Selaras Customer & Outreach (Clickable Filters) -->

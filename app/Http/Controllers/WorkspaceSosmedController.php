@@ -561,8 +561,8 @@ class WorkspaceSosmedController extends Controller
 
     public function deleteKeep(Request $request): JsonResponse
     {
-        if (! auth()->check() || ! auth()->user()->isSuperAdmin()) {
-            return response()->json(['error' => 'Akses ditolak. Fitur hapus format keep hanya untuk Superadmin.'], 403);
+        if (! auth()->check() || ! auth()->user()->canAccessFeature('workspace_format_keep_delete')) {
+            return response()->json(['error' => 'Akses ditolak: Anda tidak memiliki hak akses untuk menghapus data format keep.'], 403);
         }
 
         $id = $request->input('id');

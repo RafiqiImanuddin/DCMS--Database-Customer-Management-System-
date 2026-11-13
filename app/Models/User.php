@@ -146,6 +146,12 @@ class User extends Authenticatable
                 'category' => 'Workspace Sosmed',
                 'default_roles' => ['admin'],
             ],
+            'workspace_format_keep_delete' => [
+                'name' => 'Workspace: Hapus Data Format Keep',
+                'description' => 'Izin menghapus baris transaksi booking / keep customer di Tab 4 Format Keep.',
+                'category' => 'Workspace Sosmed',
+                'default_roles' => [],
+            ],
             'workspace_ola_cabang' => [
                 'name' => 'Workspace: Dashboard OLA Cabang',
                 'description' => 'Akses Tab 10: Dashboard performa OLA / SLA kecepatan respon claim keep cabang.',
@@ -287,6 +293,7 @@ class User extends Authenticatable
                 'predictions_download',
                 'broadcasts_create',
                 'monitoring_sales_export',
+                'workspace_format_keep_delete',
             ];
 
             return array_values(array_diff(array_keys(static::availableFeatures()), $blockedForGuest));
@@ -329,6 +336,7 @@ class User extends Authenticatable
                 'predictions_download',
                 'broadcasts_create',
                 'monitoring_sales_export',
+                'workspace_format_keep_delete',
             ];
 
             return ! in_array($feature, $blockedForGuest, true);

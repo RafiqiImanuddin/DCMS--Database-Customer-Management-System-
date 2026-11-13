@@ -176,4 +176,83 @@ class UserPermissionChecklistTest extends TestCase
         $res2->assertSessionHas('success');
         $this->assertTrue($admin->fresh()->canAccessFeature('workspace_live_chat_widget'));
     }
+
+    public function test_workspace_format_keep_delete_permission_is_configurable_via_checklist(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+        $admin = User::factory()->admin()->create();
+        $staff = User::factory()->create(['role' => 'user']);
+
+        // 1. Available features contains workspace_format_keep_delete
+        $this->assertArrayHasKey('workspace_format_keep_delete', User::availableFeatures());
+
+        // 2. Superadmin has access by default
+        $this->assertTrue($superadmin->canAccessFeature('workspace_format_keep_delete'));
+
+        // 3. Regular staff does NOT have access by default
+        $this->assertFalse($staff->canAccessFeature('workspace_format_keep_delete'));
+
+        // 4. Superadmin grants workspace_format_keep_delete to staff via checklist
+        $res = $this->actingAs($superadmin)->put(route('settings.users.permissions.update', $staff), [
+            'permissions' => ['dashboard', 'workspace_format_keep', 'workspace_format_keep_delete'],
+        ]);
+        $res->assertSessionHas('success');
+        $this->assertTrue($staff->fresh()->canAccessFeature('workspace_format_keep_delete'));
+
+        // 5. Superadmin revokes it
+        $res2 = $this->actingAs($superadmin)->put(route('settings.users.permissions.update', $staff), [
+            'permissions' => ['dashboard', 'workspace_format_keep'],
+        ]);
+        $res2->assertSessionHas('success');
+        $this->assertFalse($staff->fresh()->canAccessFeature('workspace_format_keep_delete'));
+    }
+
+    public function test_delete_keep_endpoint_respects_workspace_format_keep_delete_permission(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+        $staffWithoutPerm = User::factory()->create([
+            'role' => 'user',
+            'permissions' => ['workspace_format_keep'],
+        ]);
+        $staffWithPerm = User::factory()->create([
+            'role' => 'user',
+            'permissions' => ['workspace_format_keep', 'workspace_format_keep_delete'],
+        ]);
+
+        $keep = \App\Models\SosmedKeep::create([
+            'customer_name' => 'Budi Test',
+            'nomor_wa' => '081234567899',
+            'barang_keep' => 'iPhone 15',
+            'cabang' => 'Banjarmasin',
+            'status' => 'PENDING',
+        ]);
+
+        // Staff without permission -> 403 Forbidden
+        $resDenied = $this->actingAs($staffWithoutPerm)->postJson('/api/delete-keep', [
+            'id' => $keep->id,
+        ]);
+        $resDenied->assertStatus(403);
+        $this->assertDatabaseHas('sosmed_keeps', ['id' => $keep->id]);
+
+        // Staff with permission -> 200 OK
+        $resAllowed = $this->actingAs($staffWithPerm)->postJson('/api/delete-keep', [
+            'id' => $keep->id,
+        ]);
+        $resAllowed->assertStatus(200);
+        $this->assertDatabaseMissing('sosmed_keeps', ['id' => $keep->id]);
+
+        // Superadmin also can delete
+        $keep2 = \App\Models\SosmedKeep::create([
+            'customer_name' => 'Siti Test',
+            'nomor_wa' => '089876543211',
+            'barang_keep' => 'Samsung A55',
+            'cabang' => 'Samarinda',
+            'status' => 'PENDING',
+        ]);
+        $resSuper = $this->actingAs($superadmin)->postJson('/api/delete-keep', [
+            'id' => $keep2->id,
+        ]);
+        $resSuper->assertStatus(200);
+        $this->assertDatabaseMissing('sosmed_keeps', ['id' => $keep2->id]);
+    }
 }

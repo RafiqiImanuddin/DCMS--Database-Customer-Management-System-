@@ -4122,51 +4122,26 @@ window.submitAssignManualFU = submitAssignManualFU;
 
 let currentDeleteKeepContext = null;
 
-function isSuperadminDeleteKeepEnabled() {
-  if (typeof window.SUPERADMIN_KEEP_DELETE_ENABLED === 'undefined') {
-    return Boolean(window.IS_SUPERADMIN);
+function canDeleteKeepFormat() {
+  if (typeof window.CAN_DELETE_KEEP !== 'undefined') {
+    return Boolean(window.CAN_DELETE_KEEP);
   }
-  return Boolean(window.IS_SUPERADMIN && window.SUPERADMIN_KEEP_DELETE_ENABLED);
+  return Boolean(window.IS_SUPERADMIN && !window.IS_GUEST);
+}
+
+function isSuperadminDeleteKeepEnabled() {
+  return canDeleteKeepFormat();
 }
 
 async function toggleSuperadminKeepDelete(checked) {
-  window.SUPERADMIN_KEEP_DELETE_ENABLED = Boolean(checked);
-  const checkbox = document.getElementById('toggleSuperadminDeleteKeep');
-  if (checkbox) checkbox.checked = checked;
-
-  const slider = document.getElementById('sliderSuperadminDeleteKeep');
-  if (slider) {
-    slider.style.background = checked ? '#ef4444' : '#cbd5e1';
-    const knob = slider.firstElementChild;
-    if (knob) knob.style.left = checked ? '18px' : '2px';
-  }
-
-  const label = document.getElementById('labelSuperadminDeleteKeep');
-  if (label) {
-    label.innerText = checked ? 'Aktif' : 'Nonaktif';
-    label.style.color = checked ? '#e11d48' : '#64748b';
-  }
-
-  // Simpan ke database via backend endpoint
-  try {
-    await fetch('/api/toggle-keep-delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ enabled: checked })
-    });
-  } catch (e) {
-    console.warn('Gagal simpan toggle-keep-delete ke server:', e);
-  }
-
+  // Backward compatibility stub jika dipanggil dari luar
+  window.CAN_DELETE_KEEP = Boolean(checked);
   renderKeepPage();
-  if (typeof showSaveToast === 'function') {
-    showSaveToast(checked ? '✓ Fitur Hapus Format Keep diaktifkan (Superadmin)' : 'Fitur Hapus Format Keep dinonaktifkan');
-  }
 }
 
 function confirmDeleteKeepRow(keepRowIdx) {
-  if (!isSuperadminDeleteKeepEnabled()) {
-    alert('Fitur hapus format keep sedang dinonaktifkan.');
+  if (!canDeleteKeepFormat()) {
+    alert('Akses ditolak: Anda tidak memiliki hak akses untuk menghapus data format keep.');
     return;
   }
 
@@ -4293,10 +4268,10 @@ function renderKeepPage() {
     const keepRowIdx = startIdx + i;
     const olaMeta = getKeepOLAMeta(r);
 
-    // 1. CUSTOMER CELL: Avatar Circle + Name Bold + Phone Subtext (Dengan tombol hapus Superadmin di sebelah kiri nama)
-    const canDeleteKeep = isSuperadminDeleteKeepEnabled();
+    // 1. CUSTOMER CELL: Avatar Circle + Name Bold + Phone Subtext (Dengan tombol hapus jika memiliki izin)
+    const canDeleteKeep = canDeleteKeepFormat();
     const deleteBtnHtml = canDeleteKeep ? `
-      <button type="button" class="size-7 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white border border-rose-200/90 flex items-center justify-center shrink-0 transition cursor-pointer shadow-2xs group" onclick="confirmDeleteKeepRow(${keepRowIdx})" title="Hapus format keep ini (Akses Superadmin)">
+      <button type="button" class="size-7 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white border border-rose-200/90 flex items-center justify-center shrink-0 transition cursor-pointer shadow-2xs group" onclick="confirmDeleteKeepRow(${keepRowIdx})" title="Hapus format keep ini">
         <svg class="size-3.5 text-rose-500 group-hover:text-white transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
       </button>
     ` : '';
