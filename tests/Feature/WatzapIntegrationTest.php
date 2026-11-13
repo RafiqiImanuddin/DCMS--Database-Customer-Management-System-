@@ -474,4 +474,82 @@ class WatzapIntegrationTest extends TestCase
         $this->assertEquals('BAILEYS_GATEWAY', $response->json('entry.gateway'));
         $this->assertEquals('6281987654321', $response->json('entry.phone'));
     }
+
+    public function test_baileys_session_requires_valid_api_key(): void
+    {
+        Setting::set('baileys_bot_api_key', 'dcms2026');
+
+        $response = $this->withHeaders(['X-Api-Key' => 'wrong_key'])
+            ->getJson('/api/baileys-session');
+
+        $response->assertStatus(401)
+            ->assertJson(['success' => false]);
+    }
+
+    public function test_baileys_session_pull_empty_when_no_session(): void
+    {
+        Setting::forget('baileys_auth_session');
+        Setting::set('baileys_bot_api_key', 'dcms2026');
+
+        $response = $this->withHeaders(['X-Api-Key' => 'dcms2026'])
+            ->getJson('/api/baileys-session');
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'exists' => false,
+                'session' => null,
+            ]);
+    }
+
+    public function test_baileys_session_push_pull_delete_lifecycle(): void
+    {
+        Setting::set('baileys_bot_api_key', 'dcms2026');
+
+        $dummySession = [
+            'creds.json' => '{"registrationId":1234,"account":{"details":"mock_details"}}',
+            'app-state-sync-key-1.json' => '{"keyData":"mock_key"}',
+        ];
+
+        // 1. Simpan sesi (Push)
+        $pushResponse = $this->withHeaders(['X-Api-Key' => 'dcms2026'])
+            ->postJson('/api/baileys-session', [
+                'session' => $dummySession,
+            ]);
+
+        $pushResponse->assertOk()
+            ->assertJson([
+                'success' => true,
+                'count' => 2,
+            ]);
+
+        // 2. Ambil sesi (Pull)
+        $pullResponse = $this->withHeaders(['X-Api-Key' => 'dcms2026'])
+            ->getJson('/api/baileys-session');
+
+        $pullResponse->assertOk()
+            ->assertJson([
+                'success' => true,
+                'exists' => true,
+                'count' => 2,
+            ]);
+        $this->assertEquals($dummySession['creds.json'], $pullResponse->json()['session']['creds.json']);
+
+        // 3. Hapus sesi (Delete saat logout)
+        $deleteResponse = $this->withHeaders(['X-Api-Key' => 'dcms2026'])
+            ->deleteJson('/api/baileys-session');
+
+        $deleteResponse->assertOk()
+            ->assertJson(['success' => true]);
+
+        // 4. Verifikasi setelah dihapus
+        $verifyResponse = $this->withHeaders(['X-Api-Key' => 'dcms2026'])
+            ->getJson('/api/baileys-session');
+
+        $verifyResponse->assertOk()
+            ->assertJson([
+                'success' => true,
+                'exists' => false,
+            ]);
+    }
 }

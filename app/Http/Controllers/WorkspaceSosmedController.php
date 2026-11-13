@@ -691,6 +691,102 @@ class WorkspaceSosmedController extends Controller
         return response()->json($status);
     }
 
+    /**
+     * Endpoint API Sinkronisasi Sesi Baileys (Cloud Auto-Save).
+     * Memungkinkan bot Baileys di cloud (Render.com) menyimpan dan memulihkan
+     * kredensial multi-file auth ke database DCMS secara otomatis tanpa perlu scan QR ulang.
+     */
+    public function baileysSession(Request $request, WatzapService $watzapService): JsonResponse
+    {
+        $providedKey = (string) ($request->header('X-Api-Key') ?? $request->header('X-API-KEY') ?? $request->query('key') ?? $request->input('key'));
+        $expectedKey = $watzapService->getBaileysApiKey();
+
+        if (empty($providedKey) || ! hash_equals($expectedKey, $providedKey)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized: API Key Baileys tidak valid.',
+            ], 401);
+        }
+
+        // 1. GET: Ambil snapshot sesi auth yang tersimpan di database DCMS
+        if ($request->isMethod('get')) {
+            $rawSession = (string) Setting::get('baileys_auth_session', '');
+            $session = ! empty($rawSession) ? json_decode($rawSession, true) : null;
+
+            if (empty($session) || ! is_array($session) || empty($session['creds.json'])) {
+                return response()->json([
+                    'success' => true,
+                    'exists' => false,
+                    'session' => null,
+                    'message' => 'Belum ada sesi auth Baileys tersimpan di database.',
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'exists' => true,
+                'count' => count($session),
+                'saved_at' => Setting::get('baileys_auth_saved_at'),
+                'session' => $session,
+                'message' => 'Sesi auth Baileys berhasil dimuat dari database.',
+            ]);
+        }
+
+        // 2. POST: Simpan atau perbarui snapshot sesi auth ke database DCMS
+        if ($request->isMethod('post')) {
+            $session = $request->input('session');
+
+            if (! is_array($session) || empty($session['creds.json'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payload sesi tidak valid. File creds.json wajib disertakan.',
+                ], 422);
+            }
+
+            // Sanitasi nama file untuk keamanan (mencegah directory traversal)
+            $cleanSession = [];
+            foreach ($session as $fileName => $fileContent) {
+                $baseName = basename((string) $fileName);
+                if (preg_match('/^[a-zA-Z0-9_\-\.]+$/', $baseName) && is_string($fileContent)) {
+                    $cleanSession[$baseName] = $fileContent;
+                }
+            }
+
+            if (empty($cleanSession['creds.json'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sanitasi gagal: creds.json tidak valid.',
+                ], 422);
+            }
+
+            Setting::set('baileys_auth_session', json_encode($cleanSession));
+            Setting::set('baileys_auth_saved_at', now()->toIso8601String());
+
+            return response()->json([
+                'success' => true,
+                'count' => count($cleanSession),
+                'saved_at' => now()->toIso8601String(),
+                'message' => 'Sesi auth Baileys berhasil disimpan ke database DCMS.',
+            ]);
+        }
+
+        // 3. DELETE: Hapus sesi auth tersimpan (misal saat logout dari WhatsApp)
+        if ($request->isMethod('delete')) {
+            Setting::forget('baileys_auth_session');
+            Setting::forget('baileys_auth_saved_at');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sesi auth Baileys berhasil dihapus dari database DCMS.',
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Metode HTTP tidak didukung.',
+        ], 405);
+    }
+
     public function watzapWebhook(Request $request, WatzapService $watzapService): JsonResponse
     {
         $msgFile = $this->storagePath.DIRECTORY_SEPARATOR.'watzap_messages.json';

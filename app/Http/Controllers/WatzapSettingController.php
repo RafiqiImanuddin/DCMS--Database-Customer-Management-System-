@@ -97,6 +97,8 @@ class WatzapSettingController extends Controller
             'baileysBotUrl' => $baileysBotUrl,
             'baileysBotApiKey' => $baileysBotApiKey,
             'baileysStatus' => $baileysStatus,
+            'baileysAuthSavedAt' => Setting::get('baileys_auth_saved_at'),
+            'baileysHasSavedSession' => ! empty(Setting::get('baileys_auth_session')),
             'fonnteToken' => $fonnteToken,
             'fonnteAutoreply' => $fonnteAutoreply,
             'fonnteAutoreplyMsg' => $fonnteAutoreplyMsg,

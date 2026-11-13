@@ -32,6 +32,10 @@ const DCMS_INBOX_WEBHOOK_URL = process.env.DCMS_INBOX_WEBHOOK_URL ||
   (DCMS_WEBHOOK_URL.includes('fonnte-webhook') 
     ? DCMS_WEBHOOK_URL.replace('fonnte-webhook', 'watzap-webhook') 
     : 'https://dcms-sosmed.my.id/api/watzap-webhook');
+const DCMS_SESSION_URL = process.env.DCMS_SESSION_URL || 
+  (DCMS_WEBHOOK_URL.includes('fonnte-webhook') 
+    ? DCMS_WEBHOOK_URL.replace('fonnte-webhook', 'baileys-session') 
+    : 'https://dcms-sosmed.my.id/api/baileys-session');
 const DCMS_API_KEY = process.env.DCMS_API_KEY || 'dcms2026';
 const TARGET_GROUPS = (process.env.TARGET_GROUPS || '')
   .split(',')
@@ -48,6 +52,10 @@ let currentQR = null;
 let currentPairingCode = null;
 let connectedUser = null;
 let lastDisconnectReason = null;
+let isSessionRestoredFromDCMS = false;
+let lastSessionPushedAt = null;
+let pushSessionTimeout = null;
+let isPushingSession = false;
 
 // Riwayat buffer in-memory untuk pesan keep (maksimal 1.000 pesan terakhir)
 const messageCache = new Map();
@@ -85,12 +93,134 @@ function extractCustomerPhone(text) {
 }
 
 // ==============================================================================
-// 3. INISIALISASI BAILEYS WHATSAPP CLIENT
+// 3. AUTO-SAVE & SINKRONISASI SESI AUTH CLOUD (ANTI-LOGOUT DARI REDEPLOY RENDER)
+// ==============================================================================
+/**
+ * Memulihkan sesi auth Baileys dari database DCMS saat bot boot di Render.com.
+ * Ini memastikan bot tidak perlu scan QR ulang setiap kali Render rebuild/redeploy container.
+ */
+async function pullSessionFromDCMS(authDir) {
+  try {
+    logger.info(`[Auto-Save] Memeriksa cadangan sesi di database DCMS (${DCMS_SESSION_URL})...`);
+    const res = await axios.get(DCMS_SESSION_URL, {
+      headers: {
+        'X-Api-Key': DCMS_API_KEY
+      },
+      timeout: 10000
+    });
+
+    if (res.data && res.data.success && res.data.exists && res.data.session) {
+      const sessionFiles = res.data.session;
+      const fileNames = Object.keys(sessionFiles);
+
+      if (fileNames.length > 0 && sessionFiles['creds.json']) {
+        if (!fs.existsSync(authDir)) {
+          fs.mkdirSync(authDir, { recursive: true });
+        }
+
+        for (const fileName of fileNames) {
+          const content = sessionFiles[fileName];
+          if (typeof content === 'string') {
+            fs.writeFileSync(path.join(authDir, fileName), content, 'utf8');
+          }
+        }
+
+        isSessionRestoredFromDCMS = true;
+        logger.info(`[Auto-Save] ✅ Berhasil memulihkan ${fileNames.length} file sesi dari DCMS! Bot akan langsung terhubung tanpa scan QR.`);
+        return true;
+      }
+    }
+    logger.info('[Auto-Save] Belum ada cadangan sesi di DCMS atau sesi kosong. Menunggu scan QR baru.');
+  } catch (err) {
+    logger.warn(`[Auto-Save] Gagal memulihkan sesi dari DCMS: ${err.message}`);
+  }
+  return false;
+}
+
+/**
+ * Menyimpan snapshot seluruh file auth Baileys ke database DCMS secara berkala.
+ * Menggunakan debounce 2.5 detik agar efisien dan tidak flooding HTTP saat handshaking keys.
+ */
+function schedulePushSessionToDCMS(authDir) {
+  if (pushSessionTimeout) {
+    clearTimeout(pushSessionTimeout);
+  }
+
+  pushSessionTimeout = setTimeout(async () => {
+    if (isPushingSession) return;
+    isPushingSession = true;
+
+    try {
+      if (!fs.existsSync(authDir)) return;
+      const credsPath = path.join(authDir, 'creds.json');
+      if (!fs.existsSync(credsPath)) return;
+
+      const files = fs.readdirSync(authDir);
+      const sessionPayload = {};
+
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const filePath = path.join(authDir, file);
+          sessionPayload[file] = fs.readFileSync(filePath, 'utf8');
+        }
+      }
+
+      if (!sessionPayload['creds.json']) return;
+
+      const res = await axios.post(DCMS_SESSION_URL, {
+        session: sessionPayload
+      }, {
+        headers: {
+          'X-Api-Key': DCMS_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000,
+        maxContentLength: 50 * 1024 * 1024
+      });
+
+      if (res.data && res.data.success) {
+        lastSessionPushedAt = new Date().toISOString();
+        logger.info(`[Auto-Save] ☁️ Sesi auth WhatsApp berhasil dicadangkan ke database DCMS (${res.data.count} file).`);
+      }
+    } catch (err) {
+      logger.warn(`[Auto-Save] Gagal mencadangkan sesi ke DCMS: ${err.message}`);
+    } finally {
+      isPushingSession = false;
+    }
+  }, 2500);
+}
+
+/**
+ * Menghapus sesi auth di database DCMS saat WhatsApp terdeteksi logout permanen.
+ */
+async function clearSessionInDCMS() {
+  try {
+    logger.warn('[Auto-Save] Menghapus sesi auth di database DCMS karena perangkat logout...');
+    await axios.delete(DCMS_SESSION_URL, {
+      headers: {
+        'X-Api-Key': DCMS_API_KEY
+      },
+      timeout: 10000
+    });
+    logger.info('[Auto-Save] Sesi auth berhasil dibersihkan dari database DCMS.');
+  } catch (err) {
+    logger.warn(`[Auto-Save] Gagal menghapus sesi di DCMS: ${err.message}`);
+  }
+}
+
+// ==============================================================================
+// 4. INISIALISASI BAILEYS WHATSAPP CLIENT
 // ==============================================================================
 async function startBaileysSocket() {
   const authDir = path.join(__dirname, 'auth_info');
   if (!fs.existsSync(authDir)) {
     fs.mkdirSync(authDir, { recursive: true });
+  }
+
+  // Jika folder auth_info lokal belum memiliki creds.json (misal setelah redeploy Render),
+  // coba ambil sesi cadangan dari database DCMS terlebih dahulu
+  if (!fs.existsSync(path.join(authDir, 'creds.json'))) {
+    await pullSessionFromDCMS(authDir);
   }
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
@@ -109,8 +239,11 @@ async function startBaileysSocket() {
     syncFullHistory: false
   });
 
-  // Simpan kredensial setiap kali diperbarui
-  sock.ev.on('creds.update', saveCreds);
+  // Simpan kredensial setiap kali diperbarui & cadangkan ke database DCMS
+  sock.ev.on('creds.update', async () => {
+    await saveCreds();
+    schedulePushSessionToDCMS(authDir);
+  });
 
   // Monitor Pembaruan Koneksi (QR, Status, Reconnect)
   sock.ev.on('connection.update', async (update) => {
@@ -139,6 +272,10 @@ async function startBaileysSocket() {
         }, 5000);
       } else {
         logger.error('Sesi telah Logout dari perangkat WhatsApp. Hapus folder auth_info untuk scan ulang.');
+        await clearSessionInDCMS();
+        try {
+          fs.rmSync(authDir, { recursive: true, force: true });
+        } catch (e) {}
       }
     } else if (connection === 'open') {
       connectionState = 'CONNECTED';
@@ -153,6 +290,8 @@ async function startBaileysSocket() {
         emoji: '🟢',
         message: 'Bot WhatsApp berhasil terhubung ke jaringan WhatsApp.'
       });
+      // Pastikan sesi langsung tersimpan ke DCMS saat koneksi terbuka
+      schedulePushSessionToDCMS(authDir);
     }
   });
 
@@ -462,6 +601,11 @@ app.get('/api/status', (req, res) => {
     name: connectedUser?.name || 'Bot DCMS',
     hasQR: Boolean(currentQR),
     uptime: Math.round(process.uptime()),
+    cloudAutoSave: {
+      enabled: true,
+      restoredFromDCMS: isSessionRestoredFromDCMS,
+      lastPushedAt: lastSessionPushedAt
+    },
     timestamp: new Date().toISOString()
   });
 });
@@ -700,6 +844,10 @@ app.get('/', (req, res) => {
             <h3 style="color: #065f46; font-size: 15px; font-weight: bold;">WhatsApp Aktif & Siap!</h3>
             <p style="color: #047857; font-size: 12px; margin-top: 4px;">Akun: <strong>${connectedUser?.id?.split(':')[0]}</strong></p>
             <p style="color: #047857; font-size: 12px;">Nama: ${connectedUser?.name || 'Bot DCMS'}</p>
+            <div style="margin-top: 12px; padding: 8px 12px; background: #ffffff; border-radius: 8px; border: 1px solid #6ee7b7; font-size: 11px; color: #047857; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>☁️</span>
+              <span><strong>Cloud Auto-Save Aktif:</strong> Sesi aman di database DCMS. Jika Render redeploy, bot langsung konek tanpa scan ulang.</span>
+            </div>
           </div>
         ` : `
           <div class="qr-box">

@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhook/*',
             'fonnte-webhook',
             'watzap-webhook',
+            'baileys-session',
+            'api/baileys-session',
             'system/*',
         ]);
         $middleware->web(append: [

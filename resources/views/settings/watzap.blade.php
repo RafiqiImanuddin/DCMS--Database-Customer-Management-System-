@@ -373,6 +373,23 @@
                     <span class="text-xs text-slate-500">Status Socket</span>
                     <span class="font-mono text-xs font-bold text-slate-900">{{ $baileysStatus['status'] ?? 'OFFLINE' }}</span>
                 </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-white/80 p-3">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs text-slate-500">Auto-Save Cloud</span>
+                        <span class="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Anti-Logout</span>
+                    </div>
+                    @if(!empty($baileysHasSavedSession))
+                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600" title="{{ !empty($baileysAuthSavedAt) ? 'Tersimpan: ' . \Carbon\Carbon::parse($baileysAuthSavedAt)->diffForHumans() : '' }}">
+                            <svg class="size-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg>
+                            Tersimpan di DCMS
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1 text-[11px] text-amber-600">
+                            <span class="size-1.5 rounded-full bg-amber-500"></span>
+                            Menunggu Scan Pertama
+                        </span>
+                    @endif
+                </div>
             </div>
 
             <div class="mt-4 space-y-2">
