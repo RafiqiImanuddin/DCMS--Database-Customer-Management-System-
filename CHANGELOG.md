@@ -1,5 +1,22 @@
 # Changelog DCMS Gadgetmart
 
+## [V2.9.1] - 2026-11-13
+### Penambahan Kolom Tim Follow Up (Nama & No. HP) dari Webhook Reaction WhatsApp & Sinkronisasi Realtime
+- **Kolom Baru "TIM FOLLOW UP" pada Tabel Format Keep Customer (Tab 4)**:
+  - Menambahkan kolom permanen **Tim Follow Up** di antara kolom `Report AR` dan `Status` pada tabel antarmuka Workspace Sosmed.
+  - Memperluas lebar tabel (`min-w-[1360px]`) dan mengatur distribusi proporsi lebar kolom agar informasi staf terlihat rapi, jelas, dan proporsional.
+- **Tampilan Identitas Staf Sales yang Mengklaim Transaksi**:
+  - Menampilkan badge inisial avatar berwarna emerald, nama lengkap staf sales (diambil otomatis dari webhook reaction bot Baileys yang mencocokkan ke tabel master `employees`), serta nomor telepon WhatsApp.
+  - Nomor telepon dilengkapi tautan langsung *Click-to-Chat* (`wa.me/{nomor}`) untuk mempermudah admin menghubungi staf yang bertugas.
+  - Mendukung enkripsi/masking nomor telepon otomatis (`DataMasker`) ketika pengguna masuk sebagai Tamu/Guest mode.
+- **Indikator Transaksi Belum Terklaim**:
+  - Jika format keep belum mendapatkan respon emoji/reaksi dari tim toko cabang, kolom menampilkan status indikator `[Belum di-claim]` dengan penanda visual abu-abu halus (*waiting response*).
+- **Sinkronisasi Pembaruan Realtime Tanpa Reload Browser**:
+  - Memperbarui API `GET /api/sosmed-keeps/latest` agar mendukung parameter `updated_since`.
+  - Frontend polling otomatis mendeteksi perubahan data format keep yang diklaim oleh bot Baileys di latar belakang dan memperbarui baris data di memori serta me-render ulang tabel dalam interval 3 detik tanpa mengganggu sesi pengguna.
+- **Peningkatan Pencarian Fleksibel (Search Bar Filter)**:
+  - Kotak pencarian format keep kini mendukung pencarian nama staf sales follow up dan nomor telepon sales, baik di sisi filter frontend JavaScript maupun backend query SQL.
+
 ## [V2.9.0] - 2026-11-12
 ### Engine Auto-Claim Format Keep via WhatsApp Reaction (Baileys Listener & Render.com Cloud Deployment)
 - **Implementasi Bot Listener WhatsApp Baileys Mandiri (`baileys-bot/`)**:

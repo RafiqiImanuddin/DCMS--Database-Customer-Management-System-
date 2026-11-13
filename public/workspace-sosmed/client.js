@@ -2619,10 +2619,12 @@ function applyKeepFilters() {
       if (!repAR.includes(reportARVal)) return false;
     }
 
-    // 5. Keyword search (Name, Phone, Item, AR, Notes, Cabang, Sosmed)
+    // 5. Keyword search (Name, Phone, Item, AR, Notes, Cabang, Sosmed, Tim FU)
     if (keyword) {
       const cab = String(r['Cabang'] || (r['Grup ID'] && KEEP_GROUP_CABANG_MAP[r['Grup ID']] ? KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang : '') || '');
-      const combined = `${r['Nama'] || ''} ${r['Nomor WA'] || ''} ${r['Barang Keep'] || ''} ${r['REPORT AR'] || ''} ${r['Catatan'] || ''} ${r['Feedback Tim FU'] || ''} ${cab} ${r['Kode Sosmed'] || ''}`.toLowerCase();
+      const fuName = String(r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || '');
+      const fuPhone = String(r['Nomor FU'] || r['nomor_fu'] || r['Nomor Follow Up'] || '');
+      const combined = `${r['Nama'] || ''} ${r['Nomor WA'] || ''} ${r['Barang Keep'] || ''} ${r['REPORT AR'] || ''} ${r['Catatan'] || ''} ${r['Feedback Tim FU'] || ''} ${cab} ${r['Kode Sosmed'] || ''} ${fuName} ${fuPhone}`.toLowerCase();
       if (!combined.includes(keyword)) return false;
     }
 
@@ -3003,7 +3005,7 @@ function renderKeepPage() {
   if (btnNext) btnNext.disabled = keepCurrentPage >= maxPage;
 
   if (pageRows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" class="px-6 py-12 text-center text-xs font-medium text-slate-400 bg-white">Tidak ada data customer untuk filter yang dipilih.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" class="px-6 py-12 text-center text-xs font-medium text-slate-400 bg-white">Tidak ada data customer untuk filter yang dipilih.</td></tr>`;
     return;
   }
 
@@ -3073,6 +3075,44 @@ function renderKeepPage() {
       </span>
     ` : `<span class="text-xs text-slate-400 font-medium">-</span>`;
 
+    // 5. TIM FOLLOW UP CELL (Auto-Claim via Webhook Reaction Baileys/WhatsApp)
+    const fuName = String(r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || '').trim();
+    const rawFU = String(r['Nomor FU'] || r['nomor_fu'] || r['Nomor Follow Up'] || r['nomor_follow_up'] || '').trim();
+    const cleanFUDigits = rawFU.replace(/\D/g, '');
+    const normFU = normalizePhone(cleanFUDigits);
+    const displayFU = formatPhoneDisplay(cleanFUDigits) || rawFU;
+
+    let fuHtml = '';
+    if (fuName || cleanFUDigits) {
+      const fuInitials = fuName ? getCustomerInitials(fuName) : 'FU';
+      const fuDisplayName = fuName || 'Staf Cabang';
+      fuHtml = `
+        <div class="flex items-center gap-2.5">
+          <div class="size-7 rounded-lg bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs" title="Staf Follow Up: ${escapeHtml(fuDisplayName)}">
+            ${fuInitials}
+          </div>
+          <div class="min-w-0">
+            <div class="font-bold text-slate-800 text-xs truncate max-w-[140px]" title="${escapeHtml(fuDisplayName)}">
+              ${escapeHtml(fuDisplayName)}
+            </div>
+            ${(normFU && normFU.length >= 8 && !window.IS_GUEST) ? `
+              <a href="https://wa.me/${normFU}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition" title="Hubungi tim follow up via WhatsApp">
+                <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                <span>${displayFU}</span>
+              </a>
+            ` : (displayFU ? `<span class="text-[11px] text-slate-500 font-mono">${displayFU}</span>` : '')}
+          </div>
+        </div>
+      `;
+    } else {
+      fuHtml = `
+        <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/80 border border-dashed border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-400 italic whitespace-nowrap" title="Belum ada respon reaksi dari tim sales toko">
+          <span class="size-1.5 rounded-full bg-slate-300"></span>
+          <span>Belum di-claim</span>
+        </span>
+      `;
+    }
+
     const tr = document.createElement('tr');
     tr.setAttribute('data-keep-id', r.id || '');
     let rowClass = `border-b border-slate-100 hover:bg-slate-50/80 transition ${ (rawSt === 'LOSE' || rawSt === 'TAKE OUT') ? 'bg-rose-50/30' : '' }`;
@@ -3096,6 +3136,7 @@ function renderKeepPage() {
       <td class="px-3 py-3.5 align-middle text-center"><span class="inline-flex items-center rounded-lg bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700 font-mono tracking-tight">${r['Kode Sosmed'] || '-'}</span></td>
       <td class="px-3 py-3.5 align-middle text-center">${cabangBadgeHtml}</td>
       <td class="px-3 py-3.5 align-middle text-center">${arHtml}</td>
+      <td class="px-4 py-3.5 align-middle text-left">${fuHtml}</td>
       <td class="px-3 py-3.5 align-middle text-center">${statusPillHtml}</td>
       <td class="px-4 py-3 align-middle text-left min-w-[200px]">
         <textarea 
@@ -3124,6 +3165,7 @@ function renderKeepPage() {
 let latestKnownKeepId = 0;
 let keepRealtimePollingInterval = null;
 let isKeepPollingRunning = false;
+let lastKeepPollServerTime = '';
 
 function playKeepNotificationChime() {
   try {
@@ -3304,18 +3346,45 @@ async function pollLatestKeepData() {
         if (initJson && initJson.latest_id) {
           latestKnownKeepId = parseInt(initJson.latest_id, 10) || 0;
         }
+        if (initJson && initJson.server_time) {
+          lastKeepPollServerTime = initJson.server_time;
+        }
       }
       isKeepPollingRunning = false;
       return;
     }
 
-    const res = await fetch(`/api/sosmed-keeps/latest?after_id=${latestKnownKeepId}&t=${Date.now()}`);
+    const res = await fetch(`/api/sosmed-keeps/latest?after_id=${latestKnownKeepId}&updated_since=${encodeURIComponent(lastKeepPollServerTime || '')}&t=${Date.now()}`);
     if (!res.ok) {
       isKeepPollingRunning = false;
       return;
     }
 
     const json = await res.json();
+    if (json && json.server_time) {
+      lastKeepPollServerTime = json.server_time;
+    }
+
+    // 1. Tangani update pada data format keep yang sudah ada (misal: auto-claim reaksi staf sales)
+    let hasUpdates = false;
+    if (json && json.success && Array.isArray(json.updated) && json.updated.length > 0) {
+      json.updated.forEach(upItem => {
+        if (!upItem || !upItem.id) return;
+        const numId = parseInt(upItem.id, 10);
+        const match = (rawKeepRows || []).find(r => parseInt(r.id, 10) === numId);
+        if (match) {
+          if (upItem.nomor_follow_up) match['Nomor Follow Up'] = upItem.nomor_follow_up;
+          if (upItem.nama_tim_follow_up) match['Nama Tim Follow Up'] = upItem.nama_tim_follow_up;
+          if (upItem.nomor_fu) match['Nomor FU'] = upItem.nomor_fu;
+          if (upItem.status) match['Status'] = upItem.status;
+          if (upItem.feedback_tim_fu) match['Feedback Tim FU'] = upItem.feedback_tim_fu;
+          if (upItem.report_ar) match['REPORT AR'] = upItem.report_ar;
+          hasUpdates = true;
+        }
+      });
+    }
+
+    // 2. Tangani penambahan format keep baru
     if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
       if (json.latest_id && json.latest_id > latestKnownKeepId) {
         latestKnownKeepId = json.latest_id;
@@ -3399,6 +3468,11 @@ async function pollLatestKeepData() {
         if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 4) {
           renderKeepPage();
         }
+      }
+    } else if (hasUpdates) {
+      applyKeepFilters();
+      if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 4) {
+        renderKeepPage();
       }
     }
   } catch (err) {

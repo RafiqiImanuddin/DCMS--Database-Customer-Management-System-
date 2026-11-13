@@ -345,9 +345,12 @@ class SosmedKeepWebhookController extends Controller
                 $query->where(function ($q) use ($search, $digits) {
                     $q->where('nama', 'like', "%{$search}%")
                         ->orWhere('barang_keep', 'like', "%{$search}%")
-                        ->orWhere('report_ar', 'like', "%{$search}%");
+                        ->orWhere('report_ar', 'like', "%{$search}%")
+                        ->orWhere('nama_tim_follow_up', 'like', "%{$search}%");
                     if ($digits !== '') {
-                        $q->orWhere('nomor_wa', 'like', "%{$digits}%");
+                        $q->orWhere('nomor_wa', 'like', "%{$digits}%")
+                            ->orWhere('nomor_fu', 'like', "%{$digits}%")
+                            ->orWhere('nomor_follow_up', 'like', "%{$digits}%");
                     }
                 });
             }
@@ -412,33 +415,50 @@ class SosmedKeepWebhookController extends Controller
     {
         $afterId = (int) $request->input('after_id', 0);
         $maxId = (int) SosmedKeep::max('id');
-
-        if ($afterId <= 0 || $maxId <= $afterId) {
-            return response()->json([
-                'success' => true,
-                'count' => 0,
-                'latest_id' => $maxId,
-                'server_time' => now('Asia/Makassar')->format('Y-m-d H:i:s'),
-                'data' => [],
-            ]);
-        }
+        $updatedSince = $request->input('updated_since');
 
         $fields = [
             'id', 'keep_timestamp', 'nomor_sender', 'grup_id', 'sender', 'grup', 'jenis_chat',
             'nama', 'nomor_wa', 'barang_keep', 'tanggal_ambil', 'catatan', 'remarks',
             'kode_sosmed', 'report_ar', 'tanggal_input_ar', 'ar_vlookup', 'tanggal_vlookup',
             'cabang', 'evidence', 'nomor_follow_up', 'nama_tim_follow_up', 'status',
-            'feedback_tim_fu', 'nama_toko_kompetitor', 'user_kredit', 'periode', 'item', 'nomor_fu'
+            'feedback_tim_fu', 'nama_toko_kompetitor', 'user_kredit', 'periode', 'item', 'nomor_fu',
+            'updated_at'
         ];
 
-        $newKeeps = SosmedKeep::where('id', '>', $afterId)
-            ->latest('id')
-            ->limit(30)
-            ->toBase()
-            ->get($fields);
+        $existingCols = \Illuminate\Support\Facades\Schema::getColumnListing('sosmed_keeps');
+        $validFields = ! empty($existingCols) ? array_values(array_intersect($fields, $existingCols)) : ['*'];
+
+        $newKeeps = collect();
+        if ($afterId > 0 && $maxId > $afterId) {
+            $newKeeps = SosmedKeep::where('id', '>', $afterId)
+                ->latest('id')
+                ->limit(30)
+                ->toBase()
+                ->get($validFields);
+        }
+
+        $updatedKeeps = collect();
+        if (! empty($updatedSince)) {
+            try {
+                $sinceDt = \Carbon\Carbon::parse($updatedSince);
+                $updatedKeeps = SosmedKeep::where('updated_at', '>=', $sinceDt)
+                    ->where(function ($q) use ($afterId) {
+                        if ($afterId > 0) {
+                            $q->where('id', '<=', $afterId);
+                        }
+                    })
+                    ->latest('updated_at')
+                    ->limit(30)
+                    ->toBase()
+                    ->get($validFields);
+            } catch (\Throwable) {
+                // Ignore parse errors
+            }
+        }
 
         if ($request->user()?->isGuest()) {
-            $newKeeps = $newKeeps->map(function ($k) {
+            $maskFn = function ($k) {
                 $arr = (array) $k;
                 if (isset($arr['nomor_wa'])) {
                     $arr['nomor_wa'] = \App\Support\DataMasker::maskPhone($arr['nomor_wa']);
@@ -453,15 +473,18 @@ class SosmedKeepWebhookController extends Controller
                     $arr['nomor_fu'] = \App\Support\DataMasker::maskPhone($arr['nomor_fu']);
                 }
                 return (object) $arr;
-            });
+            };
+            $newKeeps = $newKeeps->map($maskFn);
+            $updatedKeeps = $updatedKeeps->map($maskFn);
         }
 
         return response()->json([
             'success' => true,
             'count' => $newKeeps->count(),
             'latest_id' => $maxId,
-            'server_time' => now('Asia/Makassar')->format('Y-m-d H:i:s'),
+            'server_time' => now('Asia/Makassar')->toIso8601String(),
             'data' => $newKeeps,
+            'updated' => $updatedKeeps,
         ]);
     }
 
