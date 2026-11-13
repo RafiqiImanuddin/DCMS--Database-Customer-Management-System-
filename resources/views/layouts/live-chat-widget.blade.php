@@ -306,19 +306,27 @@
     border-top: 1px solid #e2e8f0;
     padding: 8px 10px;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 8px;
 }
+.dcms-lw-input-bar textarea,
 .dcms-lw-input-bar input {
     flex: 1;
     border: 1px solid #cbd5e1;
-    border-radius: 20px;
-    padding: 8px 14px;
-    font-size: 12.5px;
+    border-radius: 14px;
+    padding: 8px 12px;
+    font-size: 12px;
     outline: none;
     background: #f8fafc;
     transition: all 0.15s;
+    resize: none;
+    height: 38px;
+    max-height: 110px;
+    line-height: 1.45;
+    font-family: inherit;
+    box-sizing: border-box;
 }
+.dcms-lw-input-bar textarea:focus,
 .dcms-lw-input-bar input:focus {
     border-color: #10b981;
     background: #ffffff;
@@ -649,7 +657,7 @@
 
                 {{-- Input Bar --}}
                 <div class="dcms-lw-input-bar">
-                    <input type="text" id="dcmsLwInput" placeholder="Ketik balasan singkat..." onkeydown="handleDcmsLiveWidgetKey(event)">
+                    <textarea id="dcmsLwInput" rows="1" placeholder="Ketik pesan... (Enter kirim, Shift+Enter baris baru)" onkeydown="handleDcmsLiveWidgetKey(event)" oninput="this.style.height='auto'; this.style.height=Math.min(this.scrollHeight, 110)+'px';"></textarea>
                     <button type="button" id="dcmsLwBtnSend" class="dcms-lw-btn-send" onclick="sendDcmsLiveWidgetReply()" title="Kirim Balasan (Enter)">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:2px;">
                             <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -1067,7 +1075,7 @@
         renderChatsList(query);
     };
 
-    window.openDcmsLiveWidgetRoom = function(phone, name) {
+    window.openDcmsLiveWidgetRoom = function(phone, name, prefillMessage) {
         dcmsLwActivePhone = phone;
         dcmsLwActiveName = name;
 
@@ -1081,9 +1089,43 @@
 
         const input = document.getElementById('dcmsLwInput');
         if (input) {
-            input.value = '';
-            input.focus();
+            input.value = prefillMessage || '';
+            input.style.height = 'auto';
+            if (prefillMessage) {
+                input.style.height = Math.min(input.scrollHeight || 60, 110) + 'px';
+            } else {
+                input.style.height = '38px';
+            }
+            setTimeout(() => {
+                input.focus();
+                if (input.setSelectionRange) {
+                    input.setSelectionRange(input.value.length, input.value.length);
+                }
+            }, 60);
         }
+    };
+
+    window.openDcmsFollowUpLiveChat = function(phone, name, keepDetails) {
+        if (!phone) return;
+        const norm = normalizePhone(phone);
+        const win = document.getElementById('dcmsLwWindow');
+        if (win && win.style.display !== 'flex') {
+            toggleDcmsLiveWidget(true);
+        }
+
+        let prefill = '';
+        if (keepDetails && typeof keepDetails === 'object') {
+            prefill = `Halo kak ${name || 'Tim Follow Up'}, mau konfirmasi tindak lanjut format keep:\n` +
+                      `• Customer: ${keepDetails.customer || '-'}\n` +
+                      `• No. WA: ${keepDetails.wa || '-'}\n` +
+                      `• Barang: ${keepDetails.barang || '-'}\n` +
+                      `• Cabang: ${keepDetails.cabang || '-'}\n` +
+                      `• Tgl Ambil: ${keepDetails.tglAmbil || '-'}\n` +
+                      (keepDetails.catatan ? `• Catatan: ${keepDetails.catatan}\n` : '') +
+                      `\nApakah customer-nya sudah dihubungi kak? Mohon infonya ya, terima kasih 🙏`;
+        }
+
+        openDcmsLiveWidgetRoom(norm, name || ('PIC ' + norm), prefill);
     };
 
     window.closeDcmsLiveWidgetRoom = function() {
@@ -1100,7 +1142,7 @@
 
         const messages = dcmsLwMessages.filter(m => normalizePhone(m.phone) === dcmsLwActivePhone);
         if (messages.length === 0) {
-            stream.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:11.5px;">Belum ada pesan dengan nomor ini.</div>';
+            stream.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:11.5px;">Belum ada riwayat percakapan dengan nomor ini. Silakan kirim pesan follow up langsung di bawah:</div>';
             return;
         }
 
@@ -1125,7 +1167,7 @@
     }
 
     window.handleDcmsLiveWidgetKey = function(e) {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             sendDcmsLiveWidgetReply();
         }

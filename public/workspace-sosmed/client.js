@@ -3101,18 +3101,24 @@ function renderKeepPage() {
       const fuDisplayName = fuName || 'Tim Follow Up';
       fuHtml = `
         <div class="flex items-center gap-2.5">
-          <div class="size-7 rounded-lg bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs" title="Tim Follow Up: ${escapeHtml(fuDisplayName)}">
+          <div class="size-7 rounded-lg bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs cursor-pointer hover:bg-emerald-500/20 hover:scale-105 transition" title="Klik untuk membuka Live Chat WhatsApp & follow up keep ini" onclick="openDcmsFollowUpLiveChatFromKeep(${keepRowIdx})">
             ${fuInitials}
           </div>
           <div class="min-w-0">
-            <div class="font-bold text-slate-800 text-xs truncate max-w-[160px]" title="${escapeHtml(fuDisplayName)}">
+            <div class="font-bold text-slate-800 text-xs truncate max-w-[160px] cursor-pointer hover:text-emerald-700 transition" title="Klik untuk membuka Live Chat WhatsApp & follow up keep ini" onclick="openDcmsFollowUpLiveChatFromKeep(${keepRowIdx})">
               ${escapeHtml(fuDisplayName)}
             </div>
             ${(isValidMobile && !window.IS_GUEST) ? `
-              <a href="https://wa.me/${normFU}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition" title="Hubungi tim follow up via WhatsApp: wa.me/${normFU}">
-                <span class="size-1.5 rounded-full bg-emerald-500"></span>
-                <span>${displayFU}</span>
-              </a>
+              <div class="flex items-center gap-1.5">
+                <button type="button" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline transition cursor-pointer text-left" onclick="openDcmsFollowUpLiveChatFromKeep(${keepRowIdx})" title="Buka Live Chat Widget untuk follow up format keep ini">
+                  <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                  <span>${displayFU}</span>
+                  <svg class="size-3 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </button>
+                <a href="https://wa.me/${normFU}" target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-emerald-600 transition p-0.5" title="Buka di tab WhatsApp Web: wa.me/${normFU}">
+                  <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
             ` : (displayFU ? `
               <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 font-mono hover:text-indigo-600 transition" title="ID WhatsApp: ${escapeHtml(displayFU)} (Klik untuk salin)" onclick="navigator.clipboard && navigator.clipboard.writeText('${escapeHtml(displayFU)}'); if (typeof showSaveToast === 'function') showSaveToast('ID WhatsApp disalin: ${escapeHtml(displayFU)}');" style="cursor: pointer;">
                 <span class="size-1.5 rounded-full bg-slate-400"></span>
@@ -3641,6 +3647,83 @@ function openARDetailModalFromKeep(keepIndex) {
   }
   openARDetailModal(arDoc, row);
 }
+
+function openDcmsFollowUpLiveChatFromKeep(keepIndex) {
+  const row = filteredKeepRows[keepIndex];
+  if (!row) return;
+
+  const fuName = String(row['Nama Tim Follow Up'] || row['nama_tim_follow_up'] || row['fu_name'] || '').trim();
+  const rawFU = String(row['Nomor Follow Up'] || row['nomor_follow_up'] || row['Nomor FU'] || row['nomor_fu'] || '').trim();
+  const cleanFUDigits = rawFU.replace(/\D/g, '');
+
+  let actualPhone = cleanFUDigits;
+  const isLid = cleanFUDigits.length > 13 || (!cleanFUDigits.startsWith('628') && !cleanFUDigits.startsWith('08') && !cleanFUDigits.startsWith('8'));
+  if (isLid && fuName) {
+    const masterPics = getMasterDataPICs();
+    const matched = masterPics.find(m => m.picName && m.picName.toLowerCase().includes(fuName.toLowerCase()) && m.wa && m.wa.length >= 9 && m.wa.length <= 14);
+    if (matched && matched.wa) {
+      actualPhone = matched.wa.replace(/\D/g, '');
+    }
+  }
+
+  const normFU = normalizePhone(actualPhone);
+  if (!normFU || normFU.length < 8) {
+    if (typeof showSaveToast === 'function') {
+      showSaveToast('Nomor WhatsApp tim follow up belum tersedia.');
+    } else {
+      alert('Nomor WhatsApp tim follow up belum tersedia.');
+    }
+    return;
+  }
+
+  const custName = row['Nama'] || '-';
+  const rawWA = String(row['Nomor WA'] || '').replace(/\D/g, '');
+  const custWA = formatPhoneDisplay(rawWA) || '-';
+  const barang = row['Barang Keep'] || row['barang_keep'] || row['Barang'] || '-';
+  const cabang = row['Cabang'] || (row['Grup ID'] && KEEP_GROUP_CABANG_MAP[row['Grup ID']] ? KEEP_GROUP_CABANG_MAP[row['Grup ID']].cabang : '') || '-';
+  const tglAmbil = row['Tgl. Ambil'] || row['tgl_ambil'] || row['Tanggal Ambil'] || '-';
+  const catatan = row['Catatan'] || row['catatan'] || '';
+
+  const keepDetails = {
+    customer: custName,
+    wa: custWA,
+    barang: barang,
+    cabang: cabang,
+    tglAmbil: tglAmbil,
+    catatan: catatan
+  };
+
+  const displayName = fuName || ('PIC ' + normFU);
+
+  if (typeof window.openDcmsFollowUpLiveChat === 'function') {
+    window.openDcmsFollowUpLiveChat(normFU, displayName, keepDetails);
+  } else if (typeof window.openDcmsLiveWidgetRoom === 'function') {
+    if (typeof window.toggleDcmsLiveWidget === 'function') {
+      window.toggleDcmsLiveWidget(true);
+    }
+    const prefill = `Halo kak ${displayName}, mau konfirmasi tindak lanjut format keep:\n` +
+                    `• Customer: ${custName} (${custWA})\n` +
+                    `• Barang: ${barang}\n` +
+                    `• Cabang: ${cabang}\n` +
+                    `• Tgl Ambil: ${tglAmbil}\n` +
+                    (catatan ? `• Catatan: ${catatan}\n` : '') +
+                    `\nApakah customer-nya sudah dihubungi kak? Mohon infonya ya, terima kasih 🙏`;
+    window.openDcmsLiveWidgetRoom(normFU, displayName, prefill);
+  } else {
+    // Fallback external WhatsApp Web
+    const text = encodeURIComponent(
+      `Halo kak ${displayName}, mau konfirmasi tindak lanjut format keep:\n` +
+      `• Customer: ${custName} (${custWA})\n` +
+      `• Barang: ${barang}\n` +
+      `• Cabang: ${cabang}\n` +
+      `• Tgl Ambil: ${tglAmbil}\n` +
+      (catatan ? `• Catatan: ${catatan}\n` : '') +
+      `\nApakah customer-nya sudah dihubungi kak? Terima kasih 🙏`
+    );
+    window.open(`https://wa.me/${normFU}?text=${text}`, '_blank');
+  }
+}
+window.openDcmsFollowUpLiveChatFromKeep = openDcmsFollowUpLiveChatFromKeep;
 
 function pickBestKeep(matchedKeeps, postingDate) {
   if (!matchedKeeps || matchedKeeps.length === 0) return null;
