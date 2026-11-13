@@ -1402,10 +1402,12 @@ function switchTab(tabIndex) {
   if (tabIndex === 4) {
     if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
     if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
+    if (typeof initOLADashboardState === 'function') initOLADashboardState();
     if (rawKeepRows.length === 0) {
       loadKeepData();
     } else {
       renderKeepPage();
+      if (typeof renderBranchOLADashboard === 'function') renderBranchOLADashboard();
     }
   }
   if (tabIndex === 5 && rawAuditARList.length === 0) runARMissingSosmedAudit();
@@ -2655,6 +2657,11 @@ function applyKeepFilters() {
   if (document.getElementById('keepLoseCount')) document.getElementById('keepLoseCount').innerText = loseCount.toLocaleString('id-ID');
   if (document.getElementById('keepClosingRate')) document.getElementById('keepClosingRate').innerText = `${closingRate}%`;
 
+  // Render / Update Dashboard Top Performance OLA / SLA Cabang
+  if (typeof renderBranchOLADashboard === 'function') {
+    renderBranchOLADashboard(baseRows);
+  }
+
   // 3. Terapkan Filter Status pada data tabel
   if (statusVal === 'ALL') {
     filteredKeepRows = baseRows;
@@ -3060,6 +3067,343 @@ function getKeepOLAMeta(r, olaLimitMinutes = 15) {
   }
 }
 window.getKeepOLAMeta = getKeepOLAMeta;
+
+// =========================================================================
+// DASHBOARD TOP PERFORMANCE OLA / SLA CABANG (LEADERBOARD & METRICS)
+// =========================================================================
+let currentOLADashboardScope = 'PERIOD'; // 'PERIOD' or 'TODAY'
+let isOLADashboardCollapsed = false;
+
+function setOLADashboardScope(scope) {
+  currentOLADashboardScope = scope;
+  const btnPeriod = document.getElementById('btnOLAPeriodSelected');
+  const btnToday = document.getElementById('btnOLAPeriodToday');
+  if (btnPeriod && btnToday) {
+    if (scope === 'TODAY') {
+      btnToday.className = 'rounded-lg px-2.5 py-1 text-xs font-bold transition bg-white text-brand-700 shadow-xs cursor-pointer';
+      btnPeriod.className = 'rounded-lg px-2.5 py-1 text-xs font-semibold transition text-slate-500 hover:text-slate-800 cursor-pointer';
+    } else {
+      btnPeriod.className = 'rounded-lg px-2.5 py-1 text-xs font-bold transition bg-white text-brand-700 shadow-xs cursor-pointer';
+      btnToday.className = 'rounded-lg px-2.5 py-1 text-xs font-semibold transition text-slate-500 hover:text-slate-800 cursor-pointer';
+    }
+  }
+  if (typeof renderBranchOLADashboard === 'function') {
+    renderBranchOLADashboard();
+  }
+}
+window.setOLADashboardScope = setOLADashboardScope;
+
+function toggleOLADashboardView() {
+  const body = document.getElementById('olaDashboardBody');
+  const txt = document.getElementById('txtToggleOLADashboard');
+  const icon = document.getElementById('iconToggleOLADashboard');
+  if (!body) return;
+  isOLADashboardCollapsed = !isOLADashboardCollapsed;
+  if (isOLADashboardCollapsed) {
+    body.style.display = 'none';
+    if (txt) txt.innerText = 'Tampilkan';
+    if (icon) icon.style.transform = 'rotate(180deg)';
+  } else {
+    body.style.display = 'block';
+    if (txt) txt.innerText = 'Ciutkan';
+    if (icon) icon.style.transform = 'rotate(0deg)';
+  }
+  try {
+    localStorage.setItem('dcms_ola_dashboard_collapsed', isOLADashboardCollapsed ? '1' : '0');
+  } catch (e) {}
+}
+window.toggleOLADashboardView = toggleOLADashboardView;
+
+function initOLADashboardState() {
+  try {
+    const isCollapsed = localStorage.getItem('dcms_ola_dashboard_collapsed') === '1';
+    if (isCollapsed) {
+      isOLADashboardCollapsed = true;
+      const body = document.getElementById('olaDashboardBody');
+      const txt = document.getElementById('txtToggleOLADashboard');
+      const icon = document.getElementById('iconToggleOLADashboard');
+      if (body) body.style.display = 'none';
+      if (txt) txt.innerText = 'Tampilkan';
+      if (icon) icon.style.transform = 'rotate(180deg)';
+    }
+  } catch (e) {}
+}
+
+function getBranchOLASummary(sourceRows, scope = 'PERIOD') {
+  if (!Array.isArray(sourceRows) || sourceRows.length === 0) {
+    return {
+      branches: [],
+      totals: { totalKeep: 0, totalOnTime: 0, totalOverdue: 0, totalPending: 0, totalWin: 0, networkComplianceRate: 0 }
+    };
+  }
+
+  let rows = sourceRows;
+  if (scope === 'TODAY') {
+    const today = new Date();
+    rows = sourceRows.filter(r => {
+      const ts = r['Timestamp'] || r['keep_timestamp'] || r.created_at;
+      const d = parseKeepDateObj(ts);
+      if (!d) return false;
+      return d.toDateString() === today.toDateString();
+    });
+  }
+
+  const branchMap = {};
+
+  rows.forEach(r => {
+    let cab = String(r['Cabang'] || '').trim();
+    if (!cab && r['Grup ID'] && KEEP_GROUP_CABANG_MAP[r['Grup ID']]) {
+      cab = KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang;
+    }
+    if (!cab || cab === '-' || cab === '""') {
+      cab = 'LAINNYA';
+    }
+    cab = cab.toUpperCase();
+
+    if (!branchMap[cab]) {
+      branchMap[cab] = {
+        name: cab,
+        total: 0,
+        claimed: 0,
+        onTime: 0,
+        overdue: 0,
+        pending: 0,
+        win: 0,
+        lose: 0
+      };
+    }
+
+    const b = branchMap[cab];
+    b.total++;
+
+    const rawSt = String(r['Status'] || '').trim().toUpperCase();
+    if (rawSt === 'WIN') b.win++;
+    if (rawSt === 'LOSE' || rawSt === 'TAKE OUT' || rawSt.includes('CANCEL') || rawSt.includes('BATAL')) b.lose++;
+
+    const ola = getKeepOLAMeta(r, 15);
+    if (ola.isClaimed) {
+      b.claimed++;
+      b.onTime++; // Lead sudah di-claim tim FU
+    } else {
+      b.pending++;
+      if (ola.isOverdue) {
+        b.overdue++;
+      } else {
+        b.onTime++; // Belum lewat 15 menit
+      }
+    }
+  });
+
+  const branchList = Object.values(branchMap).map(b => {
+    const complianceRate = b.total > 0 ? Math.round((b.onTime / b.total) * 100) : 0;
+    const winRate = b.total > 0 ? Math.round((b.win / b.total) * 100) : 0;
+    return {
+      ...b,
+      complianceRate,
+      winRate
+    };
+  });
+
+  // Urutkan peringkat cabang:
+  // 1. Kepatuhan OLA % tertinggi
+  // 2. Overdue terminimal
+  // 3. Total Closing WIN terbanyak
+  // 4. Total Keep terbanyak
+  branchList.sort((a, b) => {
+    if (b.complianceRate !== a.complianceRate) return b.complianceRate - a.complianceRate;
+    if (a.overdue !== b.overdue) return a.overdue - b.overdue;
+    if (b.win !== a.win) return b.win - a.win;
+    return b.total - a.total;
+  });
+
+  let totalKeep = 0;
+  let totalOnTime = 0;
+  let totalOverdue = 0;
+  let totalPending = 0;
+  let totalWin = 0;
+
+  branchList.forEach(b => {
+    totalKeep += b.total;
+    totalOnTime += b.onTime;
+    totalOverdue += b.overdue;
+    totalPending += b.pending;
+    totalWin += b.win;
+  });
+
+  const networkComplianceRate = totalKeep > 0 ? Math.round((totalOnTime / totalKeep) * 100) : 0;
+
+  return {
+    branches: branchList,
+    totals: {
+      totalKeep,
+      totalOnTime,
+      totalOverdue,
+      totalPending,
+      totalWin,
+      networkComplianceRate
+    }
+  };
+}
+window.getBranchOLASummary = getBranchOLASummary;
+
+function renderBranchOLADashboard(baseRows = null) {
+  const container = document.getElementById('branchOLADashboardContainer');
+  if (!container) return;
+
+  const rows = baseRows || (typeof filteredKeepRows !== 'undefined' && filteredKeepRows.length > 0 ? filteredKeepRows : rawKeepRows);
+  const data = getBranchOLASummary(rows, currentOLADashboardScope);
+  const { branches, totals } = data;
+
+  // 1. Update 4 Highlight Cards
+  const topBranch = branches[0];
+  const elTopName = document.getElementById('olaTopBranchName');
+  const elTopMeta = document.getElementById('olaTopBranchMeta');
+  if (elTopName) {
+    elTopName.innerText = topBranch ? topBranch.name : '-';
+  }
+  if (elTopMeta) {
+    elTopMeta.innerText = topBranch 
+      ? `Kepatuhan SLA ${topBranch.complianceRate}% (${topBranch.onTime}/${topBranch.total} Tepat Waktu)` 
+      : 'Belum ada data';
+  }
+
+  const elNetRate = document.getElementById('olaNetworkComplianceRate');
+  const elNetMeta = document.getElementById('olaNetworkComplianceMeta');
+  if (elNetRate) elNetRate.innerText = `${totals.networkComplianceRate}%`;
+  if (elNetMeta) elNetMeta.innerText = `${totals.totalOnTime.toLocaleString('id-ID')} dari ${totals.totalKeep.toLocaleString('id-ID')} lead tepat waktu`;
+
+  const elOverdue = document.getElementById('olaTotalOverdueCount');
+  if (elOverdue) elOverdue.innerText = totals.totalOverdue.toLocaleString('id-ID');
+
+  const elWin = document.getElementById('olaTotalClosingWin');
+  const elWinMeta = document.getElementById('olaClosingRateMeta');
+  if (elWin) elWin.innerText = totals.totalWin.toLocaleString('id-ID');
+  if (elWinMeta) {
+    const winRate = totals.totalKeep > 0 ? Math.round((totals.totalWin / totals.totalKeep) * 100) : 0;
+    elWinMeta.innerText = `Closing rate: ${winRate}% (${totals.totalWin} deal)`;
+  }
+
+  // Update Tab 1 Executive Dashboard cards if present
+  const dashTopBranch = document.getElementById('dashOLATopBranch');
+  const dashTopMeta = document.getElementById('dashOLATopMeta');
+  if (dashTopBranch) dashTopBranch.innerText = topBranch ? topBranch.name : '-';
+  if (dashTopMeta) dashTopMeta.innerText = topBranch ? `Kepatuhan SLA ${topBranch.complianceRate}% (${topBranch.onTime}/${topBranch.total})` : 'Belum ada data';
+
+  const dashNetRate = document.getElementById('dashOLANetworkRate');
+  const dashNetMeta = document.getElementById('dashOLANetworkMeta');
+  if (dashNetRate) dashNetRate.innerText = `${totals.networkComplianceRate}%`;
+  if (dashNetMeta) dashNetMeta.innerText = `${totals.totalOnTime.toLocaleString('id-ID')} dari ${totals.totalKeep.toLocaleString('id-ID')} tepat waktu`;
+
+  const dashOverdue = document.getElementById('dashOLAOverdueCount');
+  if (dashOverdue) dashOverdue.innerText = totals.totalOverdue.toLocaleString('id-ID');
+
+  const dashWin = document.getElementById('dashOLATotalWin');
+  const dashWinMeta = document.getElementById('dashOLATotalWinMeta');
+  if (dashWin) dashWin.innerText = totals.totalWin.toLocaleString('id-ID');
+  if (dashWinMeta) {
+    const winRate = totals.totalKeep > 0 ? Math.round((totals.totalWin / totals.totalKeep) * 100) : 0;
+    dashWinMeta.innerText = `Closing rate: ${winRate}% (${totals.totalWin} deal)`;
+  }
+
+  // 2. Render Leaderboard Table Rows
+  const tbody = document.getElementById('olaBranchTableBody');
+  if (!tbody) return;
+
+  if (branches.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Tidak ada data cabang untuk periode ini</td></tr>`;
+    return;
+  }
+
+  let html = '';
+  branches.forEach((b, idx) => {
+    const rank = idx + 1;
+    let rankBadge = '';
+    if (rank === 1) {
+      rankBadge = `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-black text-xs shadow-2xs">🥇 1</span>`;
+    } else if (rank === 2) {
+      rankBadge = `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 font-black text-xs shadow-2xs">🥈 2</span>`;
+    } else if (rank === 3) {
+      rankBadge = `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-700/10 text-amber-800 font-black text-xs shadow-2xs">🥉 3</span>`;
+    } else {
+      rankBadge = `<span class="font-bold text-slate-500 font-mono text-xs">#${rank}</span>`;
+    }
+
+    let barColor = 'bg-emerald-500';
+    let textColor = 'text-emerald-700';
+    if (b.complianceRate < 70) {
+      barColor = 'bg-rose-500';
+      textColor = 'text-rose-700';
+    } else if (b.complianceRate < 85) {
+      barColor = 'bg-amber-500';
+      textColor = 'text-amber-700';
+    }
+
+    html += `
+      <tr class="hover:bg-slate-50/80 transition cursor-pointer select-none" onclick="filterKeepByBranch('${escapeHtml(b.name)}')">
+        <td class="px-3.5 py-2.5 text-center align-middle whitespace-nowrap">${rankBadge}</td>
+        <td class="px-3.5 py-2.5 text-left align-middle whitespace-nowrap">
+          <div class="flex items-center gap-1.5">
+            <span class="inline-flex items-center gap-1 rounded-lg bg-sky-50 border border-sky-200/80 px-2 py-0.5 text-xs font-bold text-sky-800 tracking-tight shadow-2xs">
+              <span class="size-1.5 rounded-full bg-sky-500"></span>
+              <span>${escapeHtml(b.name)}</span>
+            </span>
+          </div>
+        </td>
+        <td class="px-3 py-2.5 text-center align-middle font-bold text-slate-800 whitespace-nowrap">${b.total.toLocaleString('id-ID')}</td>
+        <td class="px-3 py-2.5 text-center align-middle whitespace-nowrap">
+          <span class="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[11px]">
+            <span class="text-emerald-500 font-bold">✓</span>
+            ${b.onTime}
+          </span>
+        </td>
+        <td class="px-3 py-2.5 text-center align-middle whitespace-nowrap">
+          ${b.overdue > 0 
+            ? `<span class="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[11px] shadow-2xs animate-pulse"><span class="size-1.5 rounded-full bg-rose-500"></span>${b.overdue}</span>`
+            : `<span class="text-slate-400 font-mono text-[11px]">0</span>`}
+        </td>
+        <td class="px-3 py-2.5 text-center align-middle font-medium text-slate-600 whitespace-nowrap">${b.pending}</td>
+        <td class="px-3.5 py-2.5 text-left align-middle min-w-[140px]">
+          <div class="flex items-center gap-2">
+            <div class="w-20 bg-slate-100 rounded-full h-2 overflow-hidden shrink-0">
+              <div class="${barColor} h-2 rounded-full transition-all duration-300" style="width: ${b.complianceRate}%;"></div>
+            </div>
+            <span class="inline-flex items-center text-[11px] font-bold ${textColor}">
+              ${b.complianceRate}%
+            </span>
+          </div>
+        </td>
+        <td class="px-3.5 py-2.5 text-center align-middle whitespace-nowrap">
+          <button type="button" class="inline-flex items-center justify-center size-7 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-brand-600 hover:border-brand-300 transition shadow-2xs cursor-pointer" onclick="event.stopPropagation(); filterKeepByBranch('${escapeHtml(b.name)}')" title="Filter tabel untuk cabang ${escapeHtml(b.name)}">
+            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
+}
+window.renderBranchOLADashboard = renderBranchOLADashboard;
+
+function filterKeepByBranch(branchName) {
+  if (!branchName) return;
+  const searchInput = document.getElementById('keepSearchInput');
+  if (!searchInput) return;
+  const cleanBranch = branchName.trim();
+  if (searchInput.value.trim().toLowerCase() === cleanBranch.toLowerCase()) {
+    searchInput.value = '';
+  } else {
+    searchInput.value = cleanBranch;
+  }
+  if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
+  if (typeof applyKeepFilters === 'function') applyKeepFilters();
+  
+  const table = document.getElementById('keepTable');
+  if (table) {
+    table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+window.filterKeepByBranch = filterKeepByBranch;
 
 function formatPickupDate(val) {
   if (!val || val === '-') return '-';
@@ -10107,6 +10451,7 @@ async function initSosmedApp() {
   try { populateAdminPanel(getMasterSales()); } catch (e) { console.warn('populateAdminPanel error:', e); }
   try { onAdminTargetMonthChange(); } catch (e) { console.warn('onAdminTargetMonthChange error:', e); }
   try { renderArchiveGrid(); } catch (e) { console.warn('renderArchiveGrid error:', e); }
+  try { initOLADashboardState(); } catch (e) {}
 
   // 3. Muat data turnover SQL (cepat ~50ms) & langsung render Report 1 dan 2
   try { await loadAllDefaultFiles(); } catch (e) { console.error('loadAllDefaultFiles error:', e); }

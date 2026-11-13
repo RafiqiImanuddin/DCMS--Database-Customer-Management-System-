@@ -301,5 +301,45 @@
                             <!-- Populated dynamically via renderSalesLeaderboard() -->
                         </div>
                     </div>
+
+                    <!-- 4. Top Performance OLA / SLA Cabang (Executive Snapshot) -->
+                    <div class="card-tegas leaderboard-container-card mb-28" id="olaExecutiveSnapshotSection">
+                        <div class="leaderboard-header-bar flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div class="leaderboard-title-group">
+                                <span class="leaderboard-eyebrow">CUSTOMER RESPONSE &amp; CLAIM SLA</span>
+                                <h2>⏱️ TOP PERFORMANCE OLA / SLA CABANG</h2>
+                                <p>Disiplin respon tindak lanjut keep lead customer (&le;15 menit) antar cabang toko Gadgetmart.</p>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-brand cursor-pointer" onclick="switchTab(4)" style="border-radius: 12px; font-weight: 700; padding: 8px 16px; display: inline-flex; align-items: center; gap: 6px;">
+                                    <span>Buka Detail Leaderboard Format Keep</span>
+                                    <span>&rarr;</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4" id="olaExecutiveCardsGrid">
+                            <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-200">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">🥇 Top Disiplin</span>
+                                <div class="mt-1 text-lg font-black text-slate-900" id="dashOLATopBranch">-</div>
+                                <div class="text-xs text-amber-700 font-semibold" id="dashOLATopMeta">Kepatuhan SLA: -</div>
+                            </div>
+                            <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-200">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">🎯 Kepatuhan Jaringan</span>
+                                <div class="mt-1 text-lg font-black text-emerald-700" id="dashOLANetworkRate">-</div>
+                                <div class="text-xs text-slate-500" id="dashOLANetworkMeta">Lead di-claim &le;15m</div>
+                            </div>
+                            <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-200 cursor-pointer hover:bg-rose-50/80 transition" onclick="switchTab(4); setTimeout(() => filterByKeepStatus('OLA_OVERDUE'), 200);" title="Klik untuk cek lead Overdue">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-rose-700">🚨 Overdue Belum Claim</span>
+                                <div class="mt-1 text-lg font-black text-rose-700" id="dashOLAOverdueCount">0</div>
+                                <div class="text-xs text-rose-600 font-medium">&gt;15 menit terlambat (Cek detail)</div>
+                            </div>
+                            <div class="p-4 rounded-xl bg-indigo-500/10 border border-indigo-200 cursor-pointer hover:bg-indigo-50/80 transition" onclick="switchTab(4);" title="Buka Format Keep">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">✨ Total Closing WIN</span>
+                                <div class="mt-1 text-lg font-black text-indigo-700" id="dashOLATotalWin">0</div>
+                                <div class="text-xs text-indigo-600 font-semibold" id="dashOLATotalWinMeta">Transaksi closing keep</div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 

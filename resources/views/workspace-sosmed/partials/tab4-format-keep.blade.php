@@ -90,6 +90,109 @@
             </div>
         </div>
 
+        <!-- 2.5. DASHBOARD TOP PERFORMANCE OLA / SLA CABANG -->
+        <div class="dcms-card p-4 sm:p-5 border border-slate-200/90 shadow-xs rounded-2xl bg-gradient-to-b from-white to-slate-50/50" id="branchOLADashboardContainer">
+            <!-- Header with Title & Controls -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="size-9 sm:size-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-black text-lg sm:text-xl shrink-0 border border-amber-500/20 shadow-2xs">
+                        🏆
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h2 class="text-sm sm:text-base font-black text-slate-900 tracking-tight">Top Performance OLA / SLA Cabang</h2>
+                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                <span class="size-1.5 rounded-full bg-emerald-500"></span>
+                                Standar Respon: &le;15 Menit
+                            </span>
+                        </div>
+                        <p class="text-[11px] sm:text-xs text-slate-500 mt-0.5">Peringkat kecepatan respon, disiplin claim, dan kepatuhan SLA antar cabang toko</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 self-end sm:self-auto">
+                    <!-- Filter Waktu Cepat (Hari Ini vs Periode Terpilih) -->
+                    <div class="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold text-slate-600">
+                        <button type="button" id="btnOLAPeriodSelected" class="rounded-lg px-2.5 py-1 text-xs font-bold transition bg-white text-brand-700 shadow-xs cursor-pointer" onclick="setOLADashboardScope('PERIOD')">Periode Terpilih</button>
+                        <button type="button" id="btnOLAPeriodToday" class="rounded-lg px-2.5 py-1 text-xs font-semibold transition text-slate-500 hover:text-slate-800 cursor-pointer" onclick="setOLADashboardScope('TODAY')">Hari Ini Saja</button>
+                    </div>
+
+                    <!-- Toggle Minimize / Expand Button -->
+                    <button type="button" id="btnToggleOLADashboard" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition shadow-2xs cursor-pointer" onclick="toggleOLADashboardView()" title="Tampilkan / Ciutkan Detail Leaderboard">
+                        <span id="txtToggleOLADashboard">Ciutkan</span>
+                        <svg id="iconToggleOLADashboard" class="size-3.5 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Collapsible Content -->
+            <div id="olaDashboardBody" class="mt-4 space-y-4">
+                <!-- 4 Highlights KPI Cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <!-- Highlight 1: Top Branch #1 -->
+                    <div class="p-3.5 rounded-xl bg-amber-500/5 border border-amber-200/80">
+                        <div class="flex items-center justify-between text-amber-700">
+                            <span class="text-[11px] font-bold uppercase tracking-wider">🥇 Juara #1 Terdisiplin</span>
+                            <span class="text-[10px] font-black bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Rank 1</span>
+                        </div>
+                        <div class="mt-1.5 text-base sm:text-lg font-black text-slate-900 truncate" id="olaTopBranchName">-</div>
+                        <div class="mt-0.5 text-[11px] text-amber-700 font-semibold truncate" id="olaTopBranchMeta">Kepatuhan OLA: 0%</div>
+                    </div>
+
+                    <!-- Highlight 2: Network Average SLA -->
+                    <div class="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-200/80">
+                        <div class="flex items-center justify-between text-emerald-700">
+                            <span class="text-[11px] font-bold uppercase tracking-wider">🎯 Kepatuhan SLA Jaringan</span>
+                            <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                        </div>
+                        <div class="mt-1.5 text-base sm:text-lg font-black text-emerald-700" id="olaNetworkComplianceRate">0%</div>
+                        <div class="mt-0.5 text-[11px] text-slate-500 truncate" id="olaNetworkComplianceMeta">0 dari 0 lead tepat waktu</div>
+                    </div>
+
+                    <!-- Highlight 3: Overdue Leads (Clickable Filter) -->
+                    <div class="p-3.5 rounded-xl bg-rose-500/5 border border-rose-200/80 cursor-pointer hover:bg-rose-50/80 transition" onclick="filterByKeepStatus('OLA_OVERDUE')" title="Klik untuk memfilter lead Overdue di tabel">
+                        <div class="flex items-center justify-between text-rose-700">
+                            <span class="text-[11px] font-bold uppercase tracking-wider">🚨 Total Leads Overdue</span>
+                            <span class="size-2 rounded-full bg-rose-500 animate-ping"></span>
+                        </div>
+                        <div class="mt-1.5 text-base sm:text-lg font-black text-rose-700" id="olaTotalOverdueCount">0</div>
+                        <div class="mt-0.5 text-[11px] text-rose-600 font-medium truncate">&gt;15 menit belum di-claim (Klik cek)</div>
+                    </div>
+
+                    <!-- Highlight 4: Total Closing WIN -->
+                    <div class="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-200/80 cursor-pointer hover:bg-indigo-50/80 transition" onclick="filterByKeepStatus('WIN')" title="Klik untuk memfilter transaksi Closing WIN">
+                        <div class="flex items-center justify-between text-indigo-700">
+                            <span class="text-[11px] font-bold uppercase tracking-wider">✨ Total Closing WIN</span>
+                            <svg class="size-3.5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33"/></svg>
+                        </div>
+                        <div class="mt-1.5 text-base sm:text-lg font-black text-indigo-700" id="olaTotalClosingWin">0</div>
+                        <div class="mt-0.5 text-[11px] text-slate-500 truncate" id="olaClosingRateMeta">Closing rate transaksi cabang</div>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Table Container -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200/80 bg-white">
+                    <table class="w-full min-w-[760px] text-left text-xs" id="olaBranchTable">
+                        <thead class="bg-slate-50/90 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3.5 py-2.5 text-center" style="width: 8%;">Rank</th>
+                                <th class="px-3.5 py-2.5 text-left" style="width: 24%;">Cabang Toko</th>
+                                <th class="px-3 py-2.5 text-center" style="width: 11%;">Total Keep</th>
+                                <th class="px-3 py-2.5 text-center" style="width: 12%;">Tepat Waktu (&le;15m)</th>
+                                <th class="px-3 py-2.5 text-center" style="width: 12%;">Overdue (&gt;15m)</th>
+                                <th class="px-3 py-2.5 text-center" style="width: 11%;">Pending</th>
+                                <th class="px-3.5 py-2.5 text-left" style="width: 16%;">Kepatuhan OLA</th>
+                                <th class="px-3.5 py-2.5 text-center" style="width: 6%;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="olaBranchTableBody" class="divide-y divide-slate-100">
+                            <tr><td colspan="8" class="px-4 py-6 text-center text-xs text-slate-400">Memuat performa OLA cabang...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- 3. Filter Bar: Rapi, 1-Row / Responsive Grid Selaras Customer & Outreach -->
         <div class="dcms-card p-4">
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 items-center" id="keepFilterSection">
