@@ -11532,6 +11532,25 @@ function matchPicFromMasterData(waNumber, fallbackName, fallbackCabang) {
       matched: true
     };
   }
+
+  // Jika merupakan WhatsApp LID atau nomor belum cocok, cocokkan berdasarkan kesamaan nama
+  if (fallbackName && (clean.length > 13 || !clean.startsWith('628'))) {
+    const fClean = String(fallbackName).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const foundByName = master.find(m => {
+      if (!m.picName) return false;
+      const mClean = m.picName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return (mClean.length >= 4 && fClean.includes(mClean)) || (fClean.length >= 4 && mClean.includes(fClean));
+    });
+    if (foundByName) {
+      return {
+        wa: foundByName.wa,
+        picName: foundByName.picName,
+        cabang: foundByName.cabang || fallbackCabang || '-',
+        matched: true
+      };
+    }
+  }
+
   return {
     wa: waNumber,
     picName: fallbackName || ('PIC (' + clean + ')'),

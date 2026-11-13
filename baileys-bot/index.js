@@ -353,7 +353,18 @@ async function startBaileysSocket() {
           mediaType = 'document';
         }
 
-        const senderPhone = remoteJid.replace(/@.+/, '').replace(/\D/g, '');
+        let senderPhone = remoteJid.replace(/@.+/, '').replace(/\D/g, '');
+        let resolvedPhone = null;
+
+        // Jika remoteJid adalah WhatsApp LID (Linked Identifier, format @lid), coba resolve ke nomor HP asli
+        if (remoteJid.endsWith('@lid') || (senderPhone.length > 13 && !senderPhone.startsWith('628'))) {
+          resolvedPhone = await resolveParticipantPhone(remoteJid, '', msg.pushName);
+          if (resolvedPhone) {
+            senderPhone = resolvedPhone;
+            logger.info(`[LID Resolved] Berhasil memetakan LID ${remoteJid} ke nomor asli: ${resolvedPhone}`);
+          }
+        }
+
         const senderName = msg.pushName || ('Staf ' + senderPhone);
         const messageId = msg.key.id;
 
@@ -384,7 +395,7 @@ async function startBaileysSocket() {
           event: 'message',
           payload: {
             id: messageId,
-            from: remoteJid,
+            from: resolvedPhone ? (resolvedPhone + '@s.whatsapp.net') : remoteJid,
             fromMe: false,
             body: text || (mediaType ? `[${mediaType}]` : ''),
             pushname: senderName,

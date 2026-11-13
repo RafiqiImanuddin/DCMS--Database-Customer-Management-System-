@@ -1080,6 +1080,55 @@
             }
         });
 
+        // Auto-merge WhatsApp LID (panjang > 13 digit) dengan kontak nomor asli yang cocok
+        const phones = Object.keys(groups);
+        phones.forEach(ph => {
+            const isLid = ph.length > 13 || (!ph.startsWith('628') && !ph.startsWith('08') && !ph.startsWith('8'));
+            if (!isLid) return;
+
+            const lidGroup = groups[ph];
+            if (!lidGroup) return;
+
+            const lidCleanName = String(lidGroup.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            let targetRealPhone = null;
+
+            phones.forEach(otherPh => {
+                if (otherPh === ph) return;
+                const otherIsLid = otherPh.length > 13 || (!otherPh.startsWith('628') && !otherPh.startsWith('08') && !otherPh.startsWith('8'));
+                if (otherIsLid) return; // Hanya merge ke nomor HP asli
+
+                const otherGroup = groups[otherPh];
+                if (!otherGroup) return;
+                const otherCleanName = String(otherGroup.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                if (lidCleanName && otherCleanName) {
+                    if (otherCleanName.includes(lidCleanName) || lidCleanName.includes(otherCleanName)) {
+                        targetRealPhone = otherPh;
+                    }
+                }
+            });
+
+            if (targetRealPhone && groups[targetRealPhone]) {
+                const realGroup = groups[targetRealPhone];
+                // Gabungkan pesan LID ke dalam riwayat nomor asli
+                realGroup.messages.push(...lidGroup.messages);
+                // Urutkan ulang pesan berdasarkan timestamp
+                realGroup.messages.sort((a, b) => {
+                    const tA = isNaN(a.timestamp) ? (new Date(a.timestamp).getTime() || 0) : Number(a.timestamp);
+                    const tB = isNaN(b.timestamp) ? (new Date(b.timestamp).getTime() || 0) : Number(b.timestamp);
+                    return tA - tB;
+                });
+                const lastMsg = realGroup.messages[realGroup.messages.length - 1];
+                if (lastMsg) {
+                    realGroup.lastMessage = lastMsg.message || (lastMsg.media_type ? ('[' + lastMsg.media_type + ']') : '');
+                    realGroup.lastTime = lastMsg.timestamp;
+                    realGroup.lastDirection = lastMsg.direction || 'inbound';
+                }
+                // Hapus grup LID terpisah agar menyatu
+                delete groups[ph];
+            }
+        });
+
         // Urutkan percakapan dari yang paling baru
         return Object.values(groups).sort((a, b) => {
             const tA = isNaN(a.lastTime) ? (new Date(a.lastTime).getTime() || 0) : (Number(a.lastTime) < 1e11 ? Number(a.lastTime) * 1000 : Number(a.lastTime));
