@@ -389,4 +389,88 @@ class WatzapIntegrationTest extends TestCase
         $this->assertEquals('WORKING', $response->json('status'));
         $this->assertEquals('6285111426699@c.us', $response->json('me.id'));
     }
+
+    public function test_superadmin_can_update_baileys_gateway_settings(): void
+    {
+        $superadmin = User::factory()->create(['role' => 'superadmin']);
+
+        $response = $this->actingAs($superadmin)->post(route('settings.watzap.update'), [
+            'target_tab' => 'inbox',
+            'baileys_bot_enabled' => '1',
+            'baileys_bot_url' => 'https://dcms-baileys-bot.onrender.com',
+            'baileys_bot_api_key' => 'secret_baileys_key',
+        ]);
+
+        $response->assertRedirect(route('settings.watzap.index', ['tab' => 'inbox']));
+        $this->assertEquals('https://dcms-baileys-bot.onrender.com', Setting::get('baileys_bot_url'));
+        $this->assertEquals('secret_baileys_key', Setting::get('baileys_bot_api_key'));
+        $this->assertEquals('1', Setting::get('baileys_bot_enabled'));
+    }
+
+    public function test_superadmin_can_check_baileys_status_via_ajax(): void
+    {
+        $superadmin = User::factory()->create(['role' => 'superadmin']);
+
+        Http::fake([
+            'http://127.0.0.1:3000/api/status' => Http::response([
+                'success' => true,
+                'connected' => true,
+                'state' => 'CONNECTED',
+                'phone' => '6289988776655',
+                'name' => 'Bot DCMS Khusus',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($superadmin)->postJson(route('settings.watzap.check_baileys'));
+
+        $response->assertOk();
+        $this->assertTrue($response->json('success'));
+        $this->assertEquals('CONNECTED', $response->json('status'));
+        $this->assertEquals('6289988776655', $response->json('phone'));
+    }
+
+    public function test_send_omnichannel_prioritizes_baileys_gateway(): void
+    {
+        Setting::set('baileys_bot_enabled', '1');
+        Setting::set('baileys_bot_url', 'http://127.0.0.1:3000');
+
+        Http::fake([
+            'http://127.0.0.1:3000/api/send-message' => Http::response([
+                'success' => true,
+                'message_id' => 'baileys_msg_9999',
+                'status' => '200',
+                'phone' => '628123456789',
+            ], 200),
+        ]);
+
+        $service = app(WatzapService::class);
+        $result = $service->sendOmnichannel('08123456789', 'Halo tim follow up!');
+
+        $this->assertTrue($result['success']);
+        $this->assertEquals('BAILEYS_GATEWAY', $result['source']);
+        $this->assertEquals('baileys_msg_9999', $result['message_id']);
+    }
+
+    public function test_inbound_baileys_gateway_message_via_watzap_webhook(): void
+    {
+        $payload = [
+            'event' => 'message',
+            'payload' => [
+                'id' => 'baileys_in_123',
+                'from' => '6281987654321@s.whatsapp.net',
+                'fromMe' => false,
+                'body' => 'Siap admin, order keep ini saya follow up ke customer.',
+                'pushname' => 'Staf Mega Gadgetmart',
+                'source' => 'BAILEYS_GATEWAY',
+            ],
+        ];
+
+        $response = $this->postJson(route('api.sosmed.watzap_webhook'), $payload);
+
+        $response->assertOk();
+        $this->assertEquals('200', $response->json('status'));
+        $this->assertEquals('baileys_in_123', $response->json('entry.messageId'));
+        $this->assertEquals('BAILEYS_GATEWAY', $response->json('entry.gateway'));
+        $this->assertEquals('6281987654321', $response->json('entry.phone'));
+    }
 }

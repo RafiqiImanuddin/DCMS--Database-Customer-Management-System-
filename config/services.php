@@ -46,4 +46,10 @@ return [
         'web_url' => env('WATZAP_WEB_URL', 'https://watzap.chat'),
     ],
 
+    'baileys' => [
+        'url' => env('BAILEYS_BOT_URL', 'http://127.0.0.1:3000'),
+        'api_key' => env('BAILEYS_BOT_API_KEY', 'dcms2026'),
+        'enabled' => env('BAILEYS_BOT_ENABLED', true),
+    ],
+
 ];

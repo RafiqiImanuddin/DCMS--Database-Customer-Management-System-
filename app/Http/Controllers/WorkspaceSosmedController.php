@@ -681,6 +681,12 @@ class WorkspaceSosmedController extends Controller
         $status = $watzapService->getDeviceStatus('inbox');
         $status['waha_enabled'] = $watzapService->isWahaEnabled();
         $status['waha_url'] = $watzapService->getWahaUrl();
+        $status['baileys_enabled'] = $watzapService->isBaileysEnabled();
+        $status['baileys_url'] = $watzapService->getBaileysUrl();
+
+        if ($watzapService->isBaileysEnabled()) {
+            $status['baileys_status'] = $watzapService->getBaileysStatus();
+        }
 
         return response()->json($status);
     }
@@ -758,9 +764,16 @@ class WorkspaceSosmedController extends Controller
 
             $gatewayPhone = '6285111426699';
             try {
-                $wahaStatus = $watzapService->getWahaStatus();
-                if (! empty($wahaStatus['me']['id'])) {
-                    $gatewayPhone = preg_replace('/\D/', '', (string) $wahaStatus['me']['id']);
+                if ($watzapService->isBaileysEnabled()) {
+                    $bStatus = $watzapService->getBaileysStatus();
+                    if (! empty($bStatus['phone'])) {
+                        $gatewayPhone = preg_replace('/\D/', '', (string) $bStatus['phone']);
+                    }
+                } elseif ($watzapService->isWahaEnabled()) {
+                    $wahaStatus = $watzapService->getWahaStatus();
+                    if (! empty($wahaStatus['me']['id'])) {
+                        $gatewayPhone = preg_replace('/\D/', '', (string) $wahaStatus['me']['id']);
+                    }
                 }
             } catch (\Throwable) {
             }
@@ -856,7 +869,7 @@ class WorkspaceSosmedController extends Controller
                 'direction' => $direction,
                 'sender' => $senderRole,
                 'senderName' => $senderName,
-                'gateway' => 'WAHA_VPS',
+                'gateway' => ($p['source'] ?? '') === 'BAILEYS_GATEWAY' ? 'BAILEYS_GATEWAY' : 'WAHA_VPS',
                 'raw' => $data,
             ];
 

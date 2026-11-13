@@ -275,7 +275,63 @@
                 @csrf
                 <input type="hidden" name="target_tab" value="inbox">
 
-                <!-- 1. DUAL-GATEWAY UTAMA: WAHA VPS (Self-Hosted WhatsApp API) -->
+                <!-- 0. ONE GATEWAY: BAILEYS BOT (NOMOR KHUSUS: REACTION & INBOX) -->
+                <div class="rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-indigo-50/70 via-white to-slate-50 p-5 shadow-xs space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-100 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <span class="grid size-8 place-items-center rounded-xl bg-indigo-600 text-white shadow-sm font-bold text-xs">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                            </span>
+                            <div>
+                                <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                                    <span>One Gateway: Baileys Bot (Nomor Khusus Reaction & Inbox)</span>
+                                    <span class="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-black text-indigo-800">Rekomendasi</span>
+                                </h3>
+                                <p class="text-[11px] text-slate-500">Nomor khusus terpadu untuk auto-claim Keep via reaksi 👍 di 18 grup dan chat personal 2 arah dengan Tim Follow Up.</p>
+                            </div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="baileys_bot_enabled" value="1" {{ old('baileys_bot_enabled', $baileysBotEnabled) ? 'checked' : '' }} @disabled(! $isSuperAdmin) class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            <span class="ml-2 text-xs font-bold text-slate-800">Aktifkan Baileys</span>
+                        </label>
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="baileys_bot_url" class="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-700">
+                                URL Server Baileys Bot <span class="text-rose-500">*</span>
+                            </label>
+                            <input id="baileys_bot_url" name="baileys_bot_url" type="text" value="{{ old('baileys_bot_url', $baileysBotUrl) }}" @disabled(! $isSuperAdmin) placeholder="http://127.0.0.1:3000 atau https://dcms-baileys-bot.onrender.com" class="dcms-input font-mono text-xs">
+                            <p class="mt-1 text-[11px] text-slate-400">Endpoint HTTP API Baileys Bot (Render.com atau VPS).</p>
+                        </div>
+                        <div>
+                            <label for="baileys_bot_api_key" class="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-700">
+                                X-Api-Key Baileys Bot
+                            </label>
+                            <input id="baileys_bot_api_key" name="baileys_bot_api_key" type="password" autocomplete="new-password" data-lpignore="true" value="{{ old('baileys_bot_api_key', $baileysBotApiKey) }}" @disabled(! $isSuperAdmin) placeholder="dcms2026" class="dcms-input font-mono text-xs">
+                            <p class="mt-1 text-[11px] text-slate-400">Kunci keamanan untuk header otentikasi X-Api-Key.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                        <div class="flex items-center gap-2">
+                            @if($isSuperAdmin)
+                            <button type="button" id="btn-check-baileys" onclick="checkBaileysConnection()" class="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-white px-3.5 py-2 text-xs font-bold text-indigo-800 shadow-2xs hover:bg-indigo-50 transition">
+                                <svg class="size-3.5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                <span>Tes Koneksi Baileys</span>
+                            </button>
+                            @endif
+                            <a href="{{ $baileysBotUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition">
+                                <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                <span>Buka Web Dashboard Baileys (Scan QR)</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div id="baileys-check-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
+                </div>
+
+                <!-- 1. DUAL-GATEWAY CADANGAN: WAHA VPS (Self-Hosted WhatsApp API) -->
                 <div class="rounded-2xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 p-5 shadow-xs space-y-4">
                     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-100 pb-3">
                         <div class="flex items-center gap-2.5">
@@ -352,6 +408,45 @@
 
     <!-- Kolom Kanan: Status Device & Panduan Inbox -->
     <div class="space-y-6">
+        <!-- Status One Gateway: Baileys Bot (Nomor Khusus) -->
+        <section class="dcms-card p-6 border-2 border-indigo-500/30 bg-gradient-to-br from-indigo-50/30 to-white">
+            <div class="flex items-center justify-between">
+                <h2 class="font-black text-slate-900 flex items-center gap-1.5">
+                    <span>⚡ Status Baileys Bot</span>
+                    <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black text-indigo-800">One Gateway</span>
+                </h2>
+                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold {{ ($baileysStatus['online'] ?? false) ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800' }}">
+                    <span class="size-2 rounded-full {{ ($baileysStatus['online'] ?? false) ? 'bg-emerald-500' : 'bg-rose-500' }}"></span>
+                    {{ ($baileysStatus['online'] ?? false) ? 'Terhubung' : 'Terputus' }}
+                </span>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">Nomor Khusus: Reaksi Keep (Tab 4) & Chat Personal Tim FU (Tab 9).</p>
+
+            <div class="mt-4 space-y-3">
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-white/80 p-3">
+                    <span class="text-xs text-slate-500">Nomor Khusus Gateway</span>
+                    <span class="font-mono text-xs font-bold text-indigo-700">
+                        {{ !empty($baileysStatus['phone']) ? $baileysStatus['phone'] : '-' }}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-white/80 p-3">
+                    <span class="text-xs text-slate-500">Nama Bot WhatsApp</span>
+                    <span class="text-xs font-semibold text-slate-900">{{ $baileysStatus['name'] ?? 'Bot DCMS' }}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-white/80 p-3">
+                    <span class="text-xs text-slate-500">Status Socket</span>
+                    <span class="font-mono text-xs font-bold text-slate-900">{{ $baileysStatus['status'] ?? 'OFFLINE' }}</span>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a href="{{ $baileysBotUrl }}" target="_blank" rel="noopener noreferrer" class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    Buka Dashboard Bot / Scan QR
+                </a>
+            </div>
+        </section>
+
         <!-- Status Gateway Utama: WAHA VPS -->
         <section class="dcms-card p-6 border-2 border-emerald-500/20">
             <div class="flex items-center justify-between">
@@ -924,6 +1019,59 @@ async function checkApiConnection() {
             badge.className = 'rounded px-2 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-800';
             badge.textContent = 'Error';
             msg.textContent = 'Koneksi gagal: ' + err.message;
+        } else {
+            alert('Koneksi gagal: ' + err.message);
+        }
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+async function checkBaileysConnection() {
+    const btn = document.getElementById('btn-check-baileys');
+    const fb = document.getElementById('baileys-check-feedback');
+    if (!btn) return;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block animate-spin mr-1">↻</span> Memeriksa Baileys Bot...';
+
+    if (fb) {
+        fb.className = 'mt-2.5 text-xs font-semibold text-slate-500';
+        fb.textContent = 'Menghubungi server Baileys Gateway...';
+        fb.classList.remove('hidden');
+    }
+
+    try {
+        const response = await fetch('{{ route("settings.watzap.check_baileys") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        });
+
+        const data = await response.json();
+        if (fb) {
+            if (data.success && data.status === 'CONNECTED') {
+                const phone = data.phone || '-';
+                const name = data.name || 'Bot DCMS';
+                fb.className = 'mt-2.5 text-xs font-semibold text-indigo-900 bg-indigo-50 border border-indigo-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '✅ <strong>Koneksi Sukses:</strong> Baileys Bot Online! Nomor Khusus Gateway: <strong>' + phone + '</strong> (' + name + ').';
+            } else if (data.success) {
+                fb.className = 'mt-2.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '⚠️ <strong>Peringatan:</strong> Server Baileys aktif namun socket berstatus: <code>' + (data.status || 'WAITING_QR') + '</code>. Silakan buka Dashboard untuk scan QR atau pairing.';
+            } else {
+                fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3 leading-relaxed';
+                fb.innerHTML = '❌ <strong>Gagal:</strong> ' + (data.message || 'Koneksi ke Baileys Bot gagal.');
+            }
+        } else {
+            alert(data.message || (data.success ? 'Koneksi Berhasil' : 'Koneksi Gagal'));
+        }
+    } catch (err) {
+        if (fb) {
+            fb.className = 'mt-2.5 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3';
+            fb.textContent = 'Koneksi gagal: ' + err.message;
         } else {
             alert('Koneksi gagal: ' + err.message);
         }

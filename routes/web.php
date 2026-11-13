@@ -109,6 +109,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/watzap/register-webhook', [WatzapSettingController::class, 'registerWebhook'])->name('settings.watzap.register_webhook');
     Route::get('/settings/watzap/get-webhook', [WatzapSettingController::class, 'getWebhookStatus'])->name('settings.watzap.get_webhook');
     Route::post('/settings/watzap/check-waha', [WatzapSettingController::class, 'checkWaha'])->name('settings.watzap.check_waha');
+    Route::post('/settings/watzap/check-baileys', [WatzapSettingController::class, 'checkBaileys'])->name('settings.watzap.check_baileys');
     Route::post('/settings/watzap/check-fonnte', [WatzapSettingController::class, 'checkFonnte'])->name('settings.watzap.check_fonnte');
     Route::post('/settings/watzap/register-fonnte-webhook', [WatzapSettingController::class, 'registerFonnteWebhook'])->name('settings.watzap.register_fonnte_webhook');
     Route::post('/settings/watzap/test-send-fonnte', [WatzapSettingController::class, 'testSendFonnte'])->name('settings.watzap.test_send_fonnte');

@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
             'webhook/*',
             'fonnte-webhook',
+            'watzap-webhook',
             'system/*',
         ]);
         $middleware->web(append: [

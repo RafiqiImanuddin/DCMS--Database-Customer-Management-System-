@@ -28,6 +28,10 @@ const {
 // ==============================================================================
 const PORT = process.env.PORT || 3000;
 const DCMS_WEBHOOK_URL = process.env.DCMS_WEBHOOK_URL || 'https://dcms-sosmed.my.id/api/fonnte-webhook';
+const DCMS_INBOX_WEBHOOK_URL = process.env.DCMS_INBOX_WEBHOOK_URL || 
+  (DCMS_WEBHOOK_URL.includes('fonnte-webhook') 
+    ? DCMS_WEBHOOK_URL.replace('fonnte-webhook', 'watzap-webhook') 
+    : 'https://dcms-sosmed.my.id/api/watzap-webhook');
 const DCMS_API_KEY = process.env.DCMS_API_KEY || 'dcms2026';
 const TARGET_GROUPS = (process.env.TARGET_GROUPS || '')
   .split(',')
@@ -153,7 +157,8 @@ async function startBaileysSocket() {
   });
 
   // ----------------------------------------------------------------------------
-  // LISTENER 1: SIMPAN FORMAT KEEP MASUK KE IN-MEMORY CACHE & DETEKSI REAKSI UPSERT
+  // ----------------------------------------------------------------------------
+  // LISTENER 1: SINGLE GATEWAY (REACTION GRUP + INBOX PERSONAL DM)
   // ----------------------------------------------------------------------------
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (!Array.isArray(messages)) return;
@@ -162,9 +167,92 @@ async function startBaileysSocket() {
       if (!msg.key || !msg.message) continue;
       const remoteJid = msg.key.remoteJid || '';
 
-      // Abaikan jika bukan dari grup
-      if (!remoteJid.endsWith('@g.us')) continue;
+      // Abaikan status broadcast WhatsApp
+      if (remoteJid === 'status@broadcast') continue;
 
+      // ========================================================================
+      // CABANG A: JALUR INBOX PERSONAL (DM TIM FOLLOW UP / STAF CABANG)
+      // ========================================================================
+      if (!remoteJid.endsWith('@g.us')) {
+        // Abaikan pesan yang dikirim oleh bot sendiri
+        if (msg.key.fromMe) continue;
+
+        const text = msg.message?.conversation ||
+          msg.message?.extendedTextMessage?.text ||
+          msg.message?.imageMessage?.caption ||
+          msg.message?.documentMessage?.caption || '';
+
+        let mediaType = null;
+        if (msg.message?.imageMessage) {
+          mediaType = 'image';
+        } else if (msg.message?.documentMessage) {
+          mediaType = 'document';
+        }
+
+        const senderPhone = remoteJid.replace(/@.+/, '').replace(/\D/g, '');
+        const senderName = msg.pushName || ('Staf ' + senderPhone);
+        const messageId = msg.key.id;
+
+        // Ekstraksi Quoted Reply (jika staf membalas pesan tertentu)
+        let replyTo = null;
+        const contextInfo = msg.message?.extendedTextMessage?.contextInfo ||
+          msg.message?.imageMessage?.contextInfo ||
+          msg.message?.documentMessage?.contextInfo;
+
+        if (contextInfo && contextInfo.quotedMessage) {
+          const quotedBody = contextInfo.quotedMessage.conversation ||
+            contextInfo.quotedMessage.extendedTextMessage?.text ||
+            contextInfo.quotedMessage.imageMessage?.caption || '';
+          if (quotedBody) {
+            replyTo = {
+              id: contextInfo.stanzaId || '',
+              text: quotedBody,
+              body: quotedBody,
+              senderName: 'Admin'
+            };
+          }
+        }
+
+        logger.info(`[Inbox DM Masuk] Dari ${senderName} (${senderPhone}): ${(text || '[' + (mediaType || 'Pesan') + ']').substring(0, 50)}`);
+
+        // Forward pesan masuk ke Webhook Inbox DCMS
+        const inboxPayload = {
+          event: 'message',
+          payload: {
+            id: messageId,
+            from: remoteJid,
+            fromMe: false,
+            body: text || (mediaType ? `[${mediaType}]` : ''),
+            pushname: senderName,
+            timestamp: msg.messageTimestamp,
+            hasMedia: Boolean(mediaType),
+            mediaType: mediaType,
+            replyTo: replyTo,
+            source: 'BAILEYS_GATEWAY'
+          }
+        };
+
+        sendToDCMSInbox(inboxPayload).catch(err => {
+          logger.error('[DCMS Inbox Gagal]', err.message);
+        });
+
+        addReactionLog({
+          type: 'INBOX_IN',
+          group: 'DM_PERSONAL',
+          sales: senderPhone + (senderName ? ` (${senderName})` : ''),
+          emoji: '💬',
+          message_id: messageId,
+          customer: senderPhone,
+          status: 'DITERUSKAN',
+          response: (text || `[${mediaType}]`).substring(0, 50)
+        });
+
+        continue;
+      }
+
+      // ========================================================================
+      // CABANG B: JALUR GRUP (REAKSI EMOJI AUTO-CLAIM & FORMAT KEEP CACHING)
+      // ========================================================================
       // 1A. Deteksi reaksi emoji via messages.upsert (lengkap dengan pushName WhatsApp)
       const reactionMsg = msg.message?.reactionMessage;
       if (reactionMsg && reactionMsg.key) {
@@ -310,6 +398,7 @@ async function startBaileysSocket() {
 // ==============================================================================
 // 4. FORWARDER HTTP KE WEBHOOK DCMS
 // ==============================================================================
+// 4A. Forwarder Reaksi Format Keep (Tab 4)
 async function sendToDCMS(payload) {
   try {
     const res = await axios.post(DCMS_WEBHOOK_URL, payload, {
@@ -327,12 +416,30 @@ async function sendToDCMS(payload) {
   }
 }
 
+// 4B. Forwarder Chat Personal Masuk (Inbox Tab 9)
+async function sendToDCMSInbox(payload) {
+  try {
+    const res = await axios.post(DCMS_INBOX_WEBHOOK_URL, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-KEY': DCMS_API_KEY
+      },
+      timeout: 12000
+    });
+    return res.data || { success: true };
+  } catch (err) {
+    const errorMsg = err.response?.data?.message || err.message;
+    logger.error(`[DCMS Inbox Webhook Gagal] ${errorMsg}`);
+    return { success: false, message: `Koneksi DCMS Inbox Gagal: ${errorMsg}` };
+  }
+}
+
 // ==============================================================================
-// 5. SERVER EXPRESS WEB DASHBOARD (RENDER.COM COMPATIBLE)
+// 5. SERVER EXPRESS WEB DASHBOARD & API GATEWAY (RENDER.COM COMPATIBLE)
 // ==============================================================================
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Endpoint Healthcheck untuk Render
 app.get('/health', (req, res) => {
@@ -342,6 +449,120 @@ app.get('/health', (req, res) => {
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString()
   });
+});
+
+// Endpoint Status Lengkap untuk DCMS Backend / Dashboard
+app.get('/api/status', (req, res) => {
+  const botPhone = connectedUser?.id ? connectedUser.id.split(':')[0].replace(/\D/g, '') : null;
+  res.json({
+    success: true,
+    connected: connectionState === 'CONNECTED',
+    state: connectionState,
+    phone: botPhone,
+    name: connectedUser?.name || 'Bot DCMS',
+    hasQR: Boolean(currentQR),
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Endpoint API Kirim Pesan Outbound (Dipanggil oleh DCMS Tab 9 saat Admin Membalas Chat)
+app.post('/api/send-message', async (req, res) => {
+  const apiKey = req.headers['x-api-key'] || req.query.api_key;
+  if (DCMS_API_KEY && apiKey && apiKey !== DCMS_API_KEY) {
+    return res.status(401).json({ success: false, message: 'Invalid API Key' });
+  }
+
+  if (connectionState !== 'CONNECTED' || !sock) {
+    return res.status(503).json({
+      success: false,
+      message: 'WhatsApp Bot belum terhubung! Silakan scan QR atau pairing terlebih dahulu.'
+    });
+  }
+
+  try {
+    const rawPhone = req.body.phone || req.body.chatId || '';
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '62' + cleanPhone.substring(1);
+    }
+    if (!cleanPhone || cleanPhone.length < 9) {
+      return res.status(400).json({ success: false, message: 'Nomor telepon tujuan tidak valid.' });
+    }
+
+    const jid = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
+    const message = (req.body.message || req.body.text || '').trim();
+    const mediaUrl = req.body.media_url || req.body.file_url || null;
+    const fileBase64 = req.body.file_base64 || null;
+    const mediaType = req.body.media_type || (mediaUrl && /\.(jpg|jpeg|png|webp|gif)/i.test(mediaUrl) ? 'image' : 'document');
+    const replyToId = req.body.reply_to || req.body.replyToId || null;
+    const replyText = req.body.reply_text || '';
+
+    let quoteOptions = {};
+    if (replyToId) {
+      quoteOptions.quoted = {
+        key: {
+          remoteJid: jid,
+          id: replyToId,
+          fromMe: false
+        },
+        message: {
+          conversation: replyText || 'Pesan'
+        }
+      };
+    }
+
+    let sentResult = null;
+
+    if (fileBase64) {
+      const buffer = Buffer.from(fileBase64, 'base64');
+      const mimetype = req.body.mimetype || 'application/octet-stream';
+      const filename = req.body.filename || `file_${Date.now()}`;
+      if (mediaType === 'image' || mimetype.startsWith('image/')) {
+        sentResult = await sock.sendMessage(jid, { image: buffer, caption: message }, quoteOptions);
+      } else {
+        sentResult = await sock.sendMessage(jid, { document: buffer, mimetype, fileName: filename, caption: message }, quoteOptions);
+      }
+    } else if (mediaUrl) {
+      if (mediaType === 'image') {
+        sentResult = await sock.sendMessage(jid, { image: { url: mediaUrl }, caption: message }, quoteOptions);
+      } else {
+        const filename = req.body.filename || path.basename(mediaUrl.split('?')[0]) || 'document.pdf';
+        sentResult = await sock.sendMessage(jid, { document: { url: mediaUrl }, fileName: filename, caption: message }, quoteOptions);
+      }
+    } else {
+      sentResult = await sock.sendMessage(jid, { text: message }, quoteOptions);
+    }
+
+    const sentId = sentResult?.key?.id || `out_${Date.now()}`;
+    logger.info(`[Outbound Chat Terkirim] ID: ${sentId} ke ${cleanPhone}`);
+
+    addReactionLog({
+      type: 'INBOX_OUT',
+      group: 'DM_PERSONAL',
+      sales: cleanPhone,
+      emoji: '📤',
+      message_id: sentId,
+      customer: cleanPhone,
+      status: 'TERKIRIM',
+      response: message.substring(0, 50) || (mediaType ? `[${mediaType}]` : '-')
+    });
+
+    return res.json({
+      success: true,
+      message_id: sentId,
+      messageId: sentId,
+      status: '200',
+      phone: cleanPhone,
+      message: 'Pesan berhasil dikirim via Baileys WhatsApp Gateway'
+    });
+  } catch (err) {
+    logger.error('[Outbound Gagal]', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Gagal mengirim pesan via WhatsApp'
+    });
+  }
 });
 
 // Endpoint Dapatkan Pairing Code (Alternatif Scan QR untuk Cloud Deployment)
@@ -387,17 +608,48 @@ app.get('/', (req, res) => {
     ? `🟢 TERHUBUNG (${connectedUser?.id?.split(':')[0] || 'Bot WhatsApp'})`
     : (connectionState === 'WAITING_QR' ? '🟡 MENUNGGU SCAN QR / PAIRING' : '🔴 TERPUTUS / RECONNECTING');
 
-  const rows = reactionLogs.map((l, i) => `
+  const rows = reactionLogs.map((l, i) => {
+    let typeBg = '#ecfdf5';
+    let typeColor = '#047857';
+    if (l.type === 'UNCLAIM') {
+      typeBg = '#fef2f2';
+      typeColor = '#b91c1c';
+    } else if (l.type === 'INBOX_IN') {
+      typeBg = '#eff6ff';
+      typeColor = '#1d4ed8';
+    } else if (l.type === 'INBOX_OUT') {
+      typeBg = '#f5f3ff';
+      typeColor = '#6d28d9';
+    } else if (l.type === 'SYSTEM') {
+      typeBg = '#f8fafc';
+      typeColor = '#475569';
+    }
+
+    let statusBg = '#d1fae5';
+    let statusColor = '#065f46';
+    if (l.status === 'DITOLAK_LATE') {
+      statusBg = '#fef3c7';
+      statusColor = '#92400e';
+    } else if (l.status === 'GAGAL') {
+      statusBg = '#fee2e2';
+      statusColor = '#991b1b';
+    } else if (l.status === 'DITERUSKAN' || l.status === 'TERKIRIM') {
+      statusBg = '#e0e7ff';
+      statusColor = '#3730a3';
+    }
+
+    return `
     <tr style="border-bottom: 1px solid #f1f5f9; font-size: 12px;">
       <td style="padding: 10px; font-weight: bold; color: #475569;">${l.time}</td>
-      <td style="padding: 10px;"><span style="background: ${l.type === 'CLAIM' ? '#ecfdf5' : '#fef2f2'}; color: ${l.type === 'CLAIM' ? '#047857' : '#b91c1c'}; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 11px;">${l.type}</span></td>
+      <td style="padding: 10px;"><span style="background: ${typeBg}; color: ${typeColor}; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 11px;">${l.type}</span></td>
       <td style="padding: 10px; font-family: monospace;">${l.sales || '-'}</td>
       <td style="padding: 10px; font-size: 16px;">${l.emoji || '-'}</td>
       <td style="padding: 10px; font-family: monospace; color: #64748b;">${l.group || '-'}</td>
-      <td style="padding: 10px;"><span style="background: ${l.status === 'BERHASIL' ? '#d1fae5' : (l.status === 'DITOLAK_LATE' ? '#fef3c7' : '#fee2e2')}; color: ${l.status === 'BERHASIL' ? '#065f46' : (l.status === 'DITOLAK_LATE' ? '#92400e' : '#991b1b')}; padding: 3px 8px; border-radius: 6px; font-weight: bold;">${l.status}</span></td>
+      <td style="padding: 10px;"><span style="background: ${statusBg}; color: ${statusColor}; padding: 3px 8px; border-radius: 6px; font-weight: bold;">${l.status}</span></td>
       <td style="padding: 10px; color: #334155;">${l.response || '-'}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   res.send(`
 <!DOCTYPE html>

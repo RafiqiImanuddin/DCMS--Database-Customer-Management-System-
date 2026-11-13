@@ -46,6 +46,12 @@ class WatzapSettingController extends Controller
         $wahaSession = $watzap->getWahaSession();
         $wahaStatus = ($activeTab === 'inbox') ? $watzap->getWahaStatus() : ['online' => false, 'status' => 'Disabled'];
 
+        // Kredensial Baileys Gateway (One Gateway Nomor Khusus: Reaction + Inbox)
+        $baileysBotEnabled = $watzap->isBaileysEnabled();
+        $baileysBotUrl = $watzap->getBaileysUrl();
+        $baileysBotApiKey = $watzap->getBaileysApiKey();
+        $baileysStatus = ($activeTab === 'inbox' || $activeTab === 'fonnte') ? $watzap->getBaileysStatus() : ['online' => false, 'status' => 'Disabled'];
+
         // Kredensial Fonnte (Bot Keep & Webhook Migrasi Spreadsheet)
         $fonnteToken = Setting::get('fonnte_token', 'NMGid9rgBKYAAyZ7wmSn');
         $fonnteAutoreply = Setting::get('fonnte_autoreply_enabled', '1');
@@ -63,6 +69,7 @@ class WatzapSettingController extends Controller
             $inboxApiKey = $inboxApiKey ? 'wt_sec_********' : '';
             $inboxNumberKey = $inboxNumberKey ? 'nk_********' : '';
             $wahaApiKey = $wahaApiKey ? '********' : '';
+            $baileysBotApiKey = $baileysBotApiKey ? '********' : '';
             $fonnteToken = $fonnteToken ? '********' : '';
             $availableSenders = [];
         }
@@ -86,6 +93,10 @@ class WatzapSettingController extends Controller
             'wahaApiKey' => $wahaApiKey,
             'wahaSession' => $wahaSession,
             'wahaStatus' => $wahaStatus,
+            'baileysBotEnabled' => $baileysBotEnabled,
+            'baileysBotUrl' => $baileysBotUrl,
+            'baileysBotApiKey' => $baileysBotApiKey,
+            'baileysStatus' => $baileysStatus,
             'fonnteToken' => $fonnteToken,
             'fonnteAutoreply' => $fonnteAutoreply,
             'fonnteAutoreplyMsg' => $fonnteAutoreplyMsg,
@@ -119,6 +130,9 @@ class WatzapSettingController extends Controller
             'waha_vps_url' => ['nullable', 'url', 'max:255'],
             'waha_api_key' => ['nullable', 'string', 'max:255'],
             'waha_session' => ['nullable', 'string', 'max:255'],
+            'baileys_bot_enabled' => ['nullable', 'in:0,1'],
+            'baileys_bot_url' => ['nullable', 'string', 'max:255'],
+            'baileys_bot_api_key' => ['nullable', 'string', 'max:255'],
             'fonnte_token' => ['nullable', 'string', 'max:255'],
             'fonnte_autoreply_enabled' => ['nullable', 'in:0,1'],
             'fonnte_autoreply_message' => ['nullable', 'string', 'max:2000'],
@@ -163,6 +177,17 @@ class WatzapSettingController extends Controller
         }
         if ($request->has('waha_session')) {
             Setting::set('waha_session', trim($validated['waha_session'] ?? 'default'));
+        }
+
+        // Simpan Konfigurasi Baileys Gateway (One Gateway Nomor Khusus)
+        if ($request->has('baileys_bot_enabled')) {
+            Setting::set('baileys_bot_enabled', $validated['baileys_bot_enabled'] ?? '1');
+        }
+        if ($request->has('baileys_bot_url')) {
+            Setting::set('baileys_bot_url', trim($validated['baileys_bot_url'] ?? 'http://127.0.0.1:3000'));
+        }
+        if ($request->has('baileys_bot_api_key')) {
+            Setting::set('baileys_bot_api_key', trim($validated['baileys_bot_api_key'] ?? ''));
         }
 
         // Simpan Konfigurasi Fonnte (Bot Keep & Webhook Migrasi Spreadsheet)
@@ -290,6 +315,21 @@ class WatzapSettingController extends Controller
             'status' => $res['status'],
             'session' => $res['name'],
             'me' => $res['me'],
+            'message' => $res['message'],
+        ]);
+    }
+
+    public function checkBaileys(Request $request, WatzapService $watzap): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $res = $watzap->getBaileysStatus();
+
+        return response()->json([
+            'success' => $res['online'],
+            'status' => $res['status'],
+            'phone' => $res['phone'] ?? null,
+            'name' => $res['name'] ?? null,
             'message' => $res['message'],
         ]);
     }

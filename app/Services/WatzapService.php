@@ -75,6 +75,66 @@ class WatzapService
         return (string) Setting::get('waha_enabled', '1') !== '0';
     }
 
+    public function getBaileysUrl(): string
+    {
+        return rtrim((string) Setting::get('baileys_bot_url', (string) config('services.baileys.url', env('BAILEYS_BOT_URL', 'http://127.0.0.1:3000'))), '/');
+    }
+
+    public function getBaileysApiKey(): string
+    {
+        return trim((string) Setting::get('baileys_bot_api_key', (string) config('services.baileys.api_key', env('BAILEYS_BOT_API_KEY', 'dcms2026'))));
+    }
+
+    public function isBaileysEnabled(): bool
+    {
+        return (string) Setting::get('baileys_bot_enabled', (string) env('BAILEYS_BOT_ENABLED', '1')) === '1';
+    }
+
+    /**
+     * Check status bot Baileys Gateway.
+     *
+     * @return array{online: bool, status: string, phone: string|null, name: string|null, message: string}
+     */
+    public function getBaileysStatus(): array
+    {
+        $baileysUrl = $this->getBaileysUrl();
+        $apiKey = $this->getBaileysApiKey();
+
+        try {
+            $res = Http::timeout(3)
+                ->withHeaders(['X-Api-Key' => $apiKey])
+                ->get("{$baileysUrl}/api/status");
+
+            if ($res->ok()) {
+                $data = $res->json();
+
+                return [
+                    'online' => ! empty($data['connected']),
+                    'status' => (string) ($data['state'] ?? 'UNKNOWN'),
+                    'phone' => ! empty($data['phone']) ? (string) $data['phone'] : null,
+                    'name' => ! empty($data['name']) ? (string) $data['name'] : 'Bot DCMS',
+                    'message' => ! empty($data['connected']) ? 'Baileys Bot Terhubung' : 'Baileys Bot Belum Terhubung (Scan QR)',
+                ];
+            }
+        } catch (Throwable $e) {
+            return [
+                'online' => false,
+                'status' => 'OFFLINE',
+                'phone' => null,
+                'name' => null,
+                'message' => 'Tidak dapat terhubung ke server Baileys: '.$e->getMessage(),
+            ];
+        }
+
+        return [
+            'online' => false,
+            'status' => 'DISCONNECTED',
+            'phone' => null,
+            'name' => null,
+            'message' => 'Status Baileys tidak aktif',
+        ];
+    }
+
     /**
      * Check status session WAHA VPS.
      *
@@ -383,7 +443,58 @@ class WatzapService
             ];
         }
 
-        // 1. Prioritaskan Pengiriman via WAHA VPS (Super Cepat & Native Quoted Reply)
+        // 1. Prioritaskan Baileys Bot Gateway jika aktif (Single Gateway Nomor Khusus)
+        if ($this->isBaileysEnabled()) {
+            try {
+                $baileysUrl = $this->getBaileysUrl();
+                $payload = [
+                    'phone' => $cleanPhone,
+                    'message' => $message,
+                ];
+
+                if ($fileData && ! empty($fileData['base64'])) {
+                    $payload['file_base64'] = (string) $fileData['base64'];
+                    $payload['mimetype'] = $fileData['mimetype'] ?? ($mediaType === 'image' ? 'image/jpeg' : 'application/octet-stream');
+                    $payload['filename'] = $fileData['filename'] ?? ('file_'.time());
+                    $payload['media_type'] = $mediaType ?: 'document';
+                } elseif ($mediaUrl) {
+                    $payload['media_url'] = $mediaUrl;
+                    $payload['media_type'] = $mediaType ?: 'image';
+                }
+
+                $replyId = $replyTo['id'] ?? $replyTo['messageId'] ?? null;
+                if ($replyId) {
+                    $payload['reply_to'] = (string) $replyId;
+                    $payload['reply_text'] = (string) ($replyTo['text'] ?? $replyTo['body'] ?? '');
+                }
+
+                $response = Http::timeout(6)
+                    ->withHeaders([
+                        'Content-Type' => 'application/json',
+                        'X-Api-Key' => $this->getBaileysApiKey(),
+                    ])
+                    ->post("{$baileysUrl}/api/send-message", $payload);
+
+                if ($response->successful()) {
+                    $json = $response->json();
+                    $msgId = (string) ($json['message_id'] ?? $json['messageId'] ?? ('baileys_'.time()));
+
+                    return [
+                        'success' => true,
+                        'source' => 'BAILEYS_GATEWAY',
+                        'message_id' => $msgId,
+                        'status' => '200',
+                        'message' => 'Pesan berhasil dikirim via Baileys Bot Gateway.',
+                        'data' => is_array($json) ? $json : [],
+                        'raw' => $response->body(),
+                    ];
+                }
+            } catch (Throwable) {
+                // Fallback lanjut ke WAHA VPS atau WatZap Cloud jika Baileys offline
+            }
+        }
+
+        // 2. Prioritaskan Pengiriman via WAHA VPS (Super Cepat & Native Quoted Reply)
         if ($this->isWahaEnabled()) {
             try {
                 $hasFile = ($fileData && ! empty($fileData['base64'])) || ! empty($mediaUrl);
