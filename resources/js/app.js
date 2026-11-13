@@ -167,7 +167,7 @@ importUploadForm?.addEventListener('submit', (event) => {
         } else {
             let errorMsg = xhr.status === 413
                 ? 'Ukuran berkas terlalu besar melebihi batas server (maksimal 40 MB).'
-                : 'Gagal mengunggah data.';
+                : 'Gagal mengunggah data [HTTP ' + xhr.status + '].';
             try {
                 const res = JSON.parse(xhr.responseText);
                 if (res.errors && Object.keys(res.errors).length > 0) {
@@ -175,7 +175,19 @@ importUploadForm?.addEventListener('submit', (event) => {
                 } else if (res.message) {
                     errorMsg = res.message;
                 }
-            } catch {}
+            } catch {
+                if (xhr.status === 504 || xhr.status === 502) {
+                    errorMsg = 'Server timeout [HTTP ' + xhr.status + ']: Waktu proses server terlampaui saat memproses file. Disarankan menaikkan max_execution_time di cPanel.';
+                } else if (xhr.status === 419) {
+                    errorMsg = 'Sesi form telah kedaluwarsa [HTTP 419]. Silakan muat ulang (refresh) halaman lalu coba unggah kembali.';
+                } else if (xhr.status === 500) {
+                    errorMsg = 'Terjadi kesalahan internal server [HTTP 500]. Silakan periksa kapasitas memori (memory_limit) atau log error di cPanel.';
+                } else if (xhr.responseText) {
+                    const cleanText = xhr.responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                    if (cleanText) errorMsg = 'Error [HTTP ' + xhr.status + ']: ' + cleanText.slice(0, 200);
+                }
+            }
+            console.error('Import upload failed:', xhr.status, xhr.responseText);
             alert(errorMsg);
             resetUploadState();
         }

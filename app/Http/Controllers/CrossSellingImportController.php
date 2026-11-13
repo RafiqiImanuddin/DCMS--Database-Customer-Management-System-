@@ -369,24 +369,29 @@ class CrossSellingImportController extends Controller
 
             // Sync langsung ke Workspace Sosmed
             try {
-                $turnoverBytes = file_get_contents($validated['turnover_file']->getRealPath());
-                $nowMs = (string) round(microtime(true) * 1000);
-                $uploaderName = $request->user()->name ?? 'Superadmin';
-                $origTurnoverName = $validated['turnover_file']->getClientOriginalName();
+                $turnoverDiskPath = Storage::disk('local')->path($storedTurnoverPath);
+                $turnoverBytes = @file_get_contents($turnoverDiskPath) ?: @file_get_contents($validated['turnover_file']->getRealPath());
+                if ($turnoverBytes) {
+                    $nowMs = (string) round(microtime(true) * 1000);
+                    $uploaderName = $request->user()->name ?? 'Superadmin';
+                    $origTurnoverName = $validated['turnover_file']->getClientOriginalName();
 
-                Setting::updateOrCreate(['key' => 'workspace_turnover_mtime'], ['value' => $nowMs]);
-                Setting::updateOrCreate(['key' => 'workspace_turnover_uploader'], ['value' => $uploaderName]);
-                Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $origTurnoverName]);
-                Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($turnoverBytes)]);
-                try {
-                    Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($turnoverBytes)]);
-                } catch (\Throwable $b64Err) {
-                    \Illuminate\Support\Facades\Log::warning('Workspace turnover base64 warning: ' . $b64Err->getMessage());
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_mtime'], ['value' => $nowMs]);
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_uploader'], ['value' => $uploaderName]);
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $origTurnoverName]);
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($turnoverBytes)]);
+                    if (strlen($turnoverBytes) < 6 * 1024 * 1024) {
+                        try {
+                            Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($turnoverBytes)]);
+                        } catch (\Throwable $b64Err) {
+                            \Illuminate\Support\Facades\Log::warning('Workspace turnover base64 warning: ' . $b64Err->getMessage());
+                        }
+                    }
+
+                    $targetTurnover = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'turnover.xlsx');
+                    \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($targetTurnover));
+                    @file_put_contents($targetTurnover, $turnoverBytes);
                 }
-
-                $targetTurnover = public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'turnover.xlsx');
-                \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($targetTurnover));
-                @file_put_contents($targetTurnover, $turnoverBytes);
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Workspace turnover sync warning: ' . $e->getMessage());
             }

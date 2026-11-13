@@ -63,15 +63,17 @@ class TurnoverImporter
         $errors = [];
         $minimumDate = null;
         $maximumDate = null;
+        $path = Storage::disk('local')->path($import->stored_path);
 
         try {
-            DB::transaction(function () use ($import, &$rowCount, &$successCount, &$errors, &$minimumDate, &$maximumDate): void {
-                $path = Storage::disk('local')->path($import->stored_path);
+            DB::transaction(function () use ($path, $import, &$rowCount, &$successCount, &$errors, &$minimumDate, &$maximumDate): void {
                 Turnover::where('turnover_import_id', $import->id)->delete();
 
                 $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
                 if ($extension === 'csv') {
                     $this->importCsv($path, $import, $rowCount, $successCount, $errors, $minimumDate, $maximumDate);
+                } elseif ($extension === 'xlsx' && class_exists(\ZipArchive::class)) {
+                    $this->importXlsx($path, $import, $rowCount, $successCount, $errors, $minimumDate, $maximumDate);
                 } else {
                     $this->importSpreadsheet($path, $import, $rowCount, $successCount, $errors, $minimumDate, $maximumDate);
                 }
@@ -80,7 +82,7 @@ class TurnoverImporter
                     'status' => 'completed',
                     'row_count' => $rowCount,
                     'success_count' => $successCount,
-                    'failed_count' => $rowCount - $successCount,
+                    'failed_count' => max(0, $rowCount - $successCount),
                     'period_start' => $minimumDate?->toDateString(),
                     'period_end' => $maximumDate?->toDateString(),
                     'batch_label' => $minimumDate && $maximumDate
@@ -88,41 +90,192 @@ class TurnoverImporter
                         : null,
                     'error_log' => $errors ? implode("\n", array_slice($errors, 0, 50)) : null,
                 ]);
+            });
 
-                // Sync binary to Supabase settings table & local workspace folder
-                try {
-                    $fileBinary = @file_get_contents($path);
-                    if ($fileBinary) {
-                        $nowMs = (string) round(microtime(true) * 1000);
-                        $uploader = $import->user?->name ?? 'Superadmin';
-                        Setting::updateOrCreate(['key' => 'workspace_turnover_mtime'], ['value' => $nowMs]);
-                        Setting::updateOrCreate(['key' => 'workspace_turnover_uploader'], ['value' => $uploader]);
-                        Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $import->original_name]);
-                        Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($fileBinary)]);
+            // Sync binary to Supabase settings table & local workspace folder (di luar transaksi agar tidak membebani DB)
+            try {
+                $fileBinary = @file_get_contents($path);
+                if ($fileBinary) {
+                    $nowMs = (string) round(microtime(true) * 1000);
+                    $uploader = $import->user?->name ?? 'Superadmin';
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_mtime'], ['value' => $nowMs]);
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_uploader'], ['value' => $uploader]);
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_filename'], ['value' => $import->original_name]);
+                    Setting::updateOrCreate(['key' => 'workspace_turnover_filesize'], ['value' => (string) strlen($fileBinary)]);
 
+                    if (strlen($fileBinary) < 6 * 1024 * 1024) {
                         try {
                             Setting::updateOrCreate(['key' => 'workspace_turnover_file_base64'], ['value' => base64_encode($fileBinary)]);
                         } catch (\Throwable $b64Err) {
                             \Illuminate\Support\Facades\Log::warning('Setting base64 turnover warning: '.$b64Err->getMessage());
                         }
-
-                        $workspaceTarget = public_path('workspace-sosmed/turnover.xlsx');
-                        \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($workspaceTarget));
-                        @\Illuminate\Support\Facades\File::put($workspaceTarget, $fileBinary);
                     }
-                } catch (\Throwable $syncErr) {
-                    \Illuminate\Support\Facades\Log::warning('Turnover workspace sync error: '.$syncErr->getMessage());
+
+                    $workspaceTarget = public_path('workspace-sosmed/turnover.xlsx');
+                    \Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($workspaceTarget));
+                    @\Illuminate\Support\Facades\File::put($workspaceTarget, $fileBinary);
                 }
-            });
+            } catch (\Throwable $syncErr) {
+                \Illuminate\Support\Facades\Log::warning('Turnover workspace sync error: '.$syncErr->getMessage());
+            }
         } catch (Throwable $exception) {
             $import->update([
                 'status' => 'failed',
                 'row_count' => $rowCount,
                 'success_count' => $successCount,
-                'failed_count' => $rowCount - $successCount,
+                'failed_count' => max(0, $rowCount - $successCount),
                 'error_log' => $exception->getMessage(),
             ]);
         }
+    }
+
+    private function importXlsx(
+        string $path,
+        TurnoverImport $import,
+        int &$rowCount,
+        int &$successCount,
+        array &$errors,
+        ?Carbon &$minimumDate,
+        ?Carbon &$maximumDate,
+    ): void {
+        $sharedStrings = [];
+        $sharedStringsReader = new \XMLReader;
+        if ($sharedStringsReader->open('zip://'.$path.'#xl/sharedStrings.xml')) {
+            $index = 0;
+            while ($sharedStringsReader->read()) {
+                if ($sharedStringsReader->nodeType !== \XMLReader::ELEMENT || $sharedStringsReader->localName !== 'si') {
+                    continue;
+                }
+
+                $node = $sharedStringsReader->expand();
+                $text = '';
+                if ($node instanceof \DOMElement) {
+                    foreach ($node->getElementsByTagName('t') as $textNode) {
+                        $text .= $textNode->textContent;
+                    }
+                }
+                $sharedStrings[$index++] = $text;
+            }
+            $sharedStringsReader->close();
+        }
+
+        // Cari worksheet TARIKKAN atau TURNOVER atau default sheet1
+        $targetSheetXml = 'xl/worksheets/sheet1.xml';
+        $workbookReader = new \XMLReader;
+        if ($workbookReader->open('zip://'.$path.'#xl/workbook.xml')) {
+            $sheetIndex = 1;
+            while ($workbookReader->read()) {
+                if ($workbookReader->nodeType === \XMLReader::ELEMENT && $workbookReader->localName === 'sheet') {
+                    $sheetName = strtoupper(trim((string) $workbookReader->getAttribute('name')));
+                    if ($sheetName === 'TARIKKAN' || $sheetName === 'TURNOVER' || str_contains($sheetName, 'TARIKKAN')) {
+                        $targetSheetXml = 'xl/worksheets/sheet'.$sheetIndex.'.xml';
+                        break;
+                    }
+                    $sheetIndex++;
+                }
+            }
+            $workbookReader->close();
+        }
+
+        $worksheetReader = new \XMLReader;
+        if (! $worksheetReader->open('zip://'.$path.'#'.$targetSheetXml)) {
+            if (! $worksheetReader->open('zip://'.$path.'#xl/worksheets/sheet1.xml')) {
+                throw new \RuntimeException('Worksheet XLSX turnover tidak dapat dibuka.');
+            }
+        }
+
+        $headers = null;
+        $headerMap = [];
+        $batchRows = [];
+        $sourceRow = 2;
+
+        while ($worksheetReader->read()) {
+            if ($worksheetReader->nodeType !== \XMLReader::ELEMENT || $worksheetReader->localName !== 'row') {
+                continue;
+            }
+
+            $rowNode = $worksheetReader->expand();
+            if (! $rowNode instanceof \DOMElement) {
+                continue;
+            }
+
+            $rowNumber = (int) ($rowNode->getAttribute('r') ?: $sourceRow);
+            $row = $this->readXlsxRow($rowNode, $sharedStrings);
+
+            if ($headers === null) {
+                $candidateHeaders = array_map(fn ($header) => trim((string) $header), $row);
+                $candidateMap = $this->mapHeaders($candidateHeaders);
+                if (count($candidateMap) >= 2) {
+                    $headers = $candidateHeaders;
+                    $headerMap = $candidateMap;
+                    $sourceRow = $rowNumber + 1;
+                    continue;
+                }
+                continue;
+            }
+
+            if ($this->isEmptyRow($row)) {
+                continue;
+            }
+
+            $batchRows[] = $row;
+            if (count($batchRows) >= 1000) {
+                $this->processRows($batchRows, $headerMap, $sourceRow, $import, $rowCount, $successCount, $errors, $minimumDate, $maximumDate);
+                $sourceRow = $rowNumber + 1;
+                $batchRows = [];
+                gc_collect_cycles();
+
+                $import->update([
+                    'row_count' => $rowCount,
+                    'success_count' => $successCount,
+                    'failed_count' => max(0, $rowCount - $successCount),
+                ]);
+            }
+        }
+
+        $worksheetReader->close();
+
+        if ($batchRows !== []) {
+            $this->processRows($batchRows, $headerMap, $sourceRow, $import, $rowCount, $successCount, $errors, $minimumDate, $maximumDate);
+        }
+    }
+
+    private function readXlsxRow(\DOMElement $rowNode, array $sharedStrings): array
+    {
+        $row = [];
+        foreach ($rowNode->getElementsByTagName('c') as $cell) {
+            if (! $cell instanceof \DOMElement) {
+                continue;
+            }
+
+            $reference = $cell->getAttribute('r');
+            if (! preg_match('/([A-Z]+)/i', $reference, $matches)) {
+                continue;
+            }
+
+            $columnIndex = Coordinate::columnIndexFromString(strtoupper($matches[1])) - 1;
+            $type = $cell->getAttribute('t');
+            $value = null;
+
+            if ($type === 'inlineStr') {
+                foreach ($cell->getElementsByTagName('t') as $textNode) {
+                    $value .= $textNode->textContent;
+                }
+            } elseif ($type === 's') {
+                $valueNode = $cell->getElementsByTagName('v')->item(0);
+                $sharedIndex = $valueNode ? (int) $valueNode->textContent : null;
+                $value = $sharedIndex !== null ? ($sharedStrings[$sharedIndex] ?? null) : null;
+            } else {
+                $valueNode = $cell->getElementsByTagName('v')->item(0);
+                $value = $valueNode?->textContent;
+            }
+
+            $row[$columnIndex] = $value;
+        }
+
+        ksort($row);
+
+        return $row;
     }
 
     private function importSpreadsheet(
@@ -160,6 +313,10 @@ class TurnoverImporter
         $spreadsheet = $reader->load($path);
         $sheet = $spreadsheet->getActiveSheet();
         $highestRow = $sheet->getHighestDataRow();
+        $highestColumn = $sheet->getHighestDataColumn();
+        if (Coordinate::columnIndexFromString($highestColumn) > 50) {
+            $highestColumn = 'Z';
+        }
 
         // Scan rows 1 to 5 to accurately detect the header row (handles title/empty rows at top)
         $headerRow = 1;
@@ -170,7 +327,7 @@ class TurnoverImporter
         for ($r = 1; $r <= $maxScan; $r++) {
             $candidateHeaders = array_map(
                 fn ($header) => trim((string) $header),
-                $sheet->rangeToArray("A{$r}:ZZ{$r}", null, true, false)[0] ?? [],
+                $sheet->rangeToArray("A{$r}:{$highestColumn}{$r}", null, true, false)[0] ?? [],
             );
             $candidateMap = $this->mapHeaders($candidateHeaders);
             if (count($candidateMap) >= 2) {
@@ -184,14 +341,14 @@ class TurnoverImporter
         if (empty($headerMap)) {
             $headers = array_map(
                 fn ($header) => trim((string) $header),
-                $sheet->rangeToArray('A1:ZZ1', null, true, false)[0] ?? [],
+                $sheet->rangeToArray("A1:{$highestColumn}1", null, true, false)[0] ?? [],
             );
             $headerMap = $this->mapHeaders($headers);
         }
 
         for ($startRow = $headerRow + 1; $startRow <= $highestRow; $startRow += 1000) {
             $endRow = min($startRow + 999, $highestRow);
-            $rows = $sheet->rangeToArray("A{$startRow}:ZZ{$endRow}", null, true, false);
+            $rows = $sheet->rangeToArray("A{$startRow}:{$highestColumn}{$endRow}", null, true, false);
             $this->processRows($rows, $headerMap, $startRow, $import, $rowCount, $successCount, $errors, $minimumDate, $maximumDate);
         }
 
