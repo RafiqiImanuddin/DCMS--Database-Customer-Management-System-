@@ -256,7 +256,11 @@ async function startBaileysSocket() {
     printQRInTerminal: true,
     browser: ['DCMS Reaction Bot', 'Chrome', '1.0.0'],
     generateHighQualityLinkPreview: false,
-    syncFullHistory: false
+    syncFullHistory: false,
+    getMessage: async (key) => {
+      // Callback getMessage agar Baileys dapat merespon retry receipt saat terjadi Bad MAC
+      return undefined;
+    }
   });
 
   // Simpan kredensial setiap kali diperbarui & cadangkan ke database DCMS

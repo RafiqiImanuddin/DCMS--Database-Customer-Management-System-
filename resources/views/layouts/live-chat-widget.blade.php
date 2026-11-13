@@ -1011,15 +1011,44 @@
         }
     }
 
+    function formatDcmsPhoneDisplay(p) {
+        if (!p) return '-';
+        let clean = String(p).replace(/@.*$/, '').replace(/\D/g, '');
+        if (clean.startsWith('08')) clean = '62' + clean.slice(1);
+        else if (clean.startsWith('8')) clean = '62' + clean;
+        if (clean.startsWith('628') && clean.length >= 10) {
+            return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 9) + '-' + clean.slice(9);
+        }
+        return '+' + clean;
+    }
+
+    function getDcmsLwInitials(name) {
+        if (!name) return 'WA';
+        const clean = name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+        const parts = clean.split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return clean.slice(0, 2).toUpperCase() || 'WA';
+    }
+
     function getGroupedChats() {
         const groups = {};
         dcmsLwMessages.forEach(m => {
             const ph = normalizePhone(m.phone);
             if (!ph) return;
+
+            // Jangan gunakan 'Admin' sebagai nama kontak!
+            let validSenderName = '';
+            const sName = String(m.senderName || '').trim();
+            if (sName && sName.toLowerCase() !== 'admin' && !sName.toLowerCase().startsWith('admin')) {
+                validSenderName = sName;
+            }
+
             if (!groups[ph]) {
                 groups[ph] = {
                     phone: ph,
-                    name: m.senderName || ('PIC ' + ph),
+                    name: validSenderName,
                     lastMessage: m.message || (m.media_type ? ('[' + m.media_type + ']') : ''),
                     lastTime: m.timestamp,
                     lastDirection: m.direction || 'inbound',
@@ -1030,15 +1059,31 @@
             groups[ph].lastMessage = m.message || (m.media_type ? ('[' + m.media_type + ']') : '');
             groups[ph].lastTime = m.timestamp;
             groups[ph].lastDirection = m.direction || 'inbound';
-            if (m.senderName && !groups[ph].name.includes(m.senderName)) {
-                groups[ph].name = m.senderName;
+            if (validSenderName && (!groups[ph].name || groups[ph].name.includes('PIC ') || groups[ph].name.toLowerCase() === 'admin')) {
+                groups[ph].name = validSenderName;
+            }
+        });
+
+        // Resolve nama kontak dari Master Data PIC / Keep jika nama masih belum terdeteksi
+        Object.values(groups).forEach(g => {
+            if (!g.name) {
+                if (typeof getMasterDataPICs === 'function') {
+                    const pics = getMasterDataPICs();
+                    const found = pics.find(p => p.wa && normalizePhone(p.wa) === g.phone);
+                    if (found && found.picName) {
+                        g.name = found.picName + (found.cabang ? ' (' + found.cabang + ')' : '');
+                    }
+                }
+            }
+            if (!g.name) {
+                g.name = formatDcmsPhoneDisplay(g.phone);
             }
         });
 
         // Urutkan percakapan dari yang paling baru
         return Object.values(groups).sort((a, b) => {
-            const tA = Number(a.lastTime) || 0;
-            const tB = Number(b.lastTime) || 0;
+            const tA = isNaN(a.lastTime) ? (new Date(a.lastTime).getTime() || 0) : (Number(a.lastTime) < 1e11 ? Number(a.lastTime) * 1000 : Number(a.lastTime));
+            const tB = isNaN(b.lastTime) ? (new Date(b.lastTime).getTime() || 0) : (Number(b.lastTime) < 1e11 ? Number(b.lastTime) * 1000 : Number(b.lastTime));
             return tB - tA;
         });
     }
@@ -1080,26 +1125,31 @@
         let html = '';
         chats.forEach(c => {
             const isPending = c.lastDirection === 'inbound';
-            const initials = (c.name || 'WA').slice(0, 2).toUpperCase();
+            const displayName = c.name || formatDcmsPhoneDisplay(c.phone);
+            const initials = getDcmsLwInitials(displayName);
+            const displayPhone = formatDcmsPhoneDisplay(c.phone);
             const previewText = (c.lastMessage || 'Tidak ada pesan')
                 .replace(/[\r\n]+/g, ' ')
                 .replace(/[*_~`]/g, '')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;');
 
-            html += '<div class="dcms-lw-chat-card" onclick="openDcmsLiveWidgetRoom(\'' + c.phone + '\', \'' + (c.name.replace(/'/g, "\\'")) + '\')">' +
+            html += '<div class="dcms-lw-chat-card" onclick="openDcmsLiveWidgetRoom(\'' + c.phone + '\', \'' + (displayName.replace(/'/g, "\\'")) + '\')">' +
                 '<div class="dcms-lw-avatar">' + initials + '</div>' +
                 '<div style="flex:1; min-width:0;">' +
                     '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-                        '<div style="font-weight:700; font-size:12px; color:#0f172a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">' + c.name + '</div>' +
+                        '<div style="font-weight:700; font-size:12px; color:#0f172a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;" title="' + displayName + '">' + displayName + '</div>' +
                         '<div style="font-size:10px; color:#94a3b8;">' + formatTime(c.lastTime) + '</div>' +
+                    '</div>' +
+                    '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:1px;">' +
+                        '<div style="font-size:10.5px; color:#64748b; font-family:monospace;">' + displayPhone + '</div>' +
+                        (isPending ? '<span style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; border-radius:10px; padding:1px 6px;">Baru</span>' : '') +
                     '</div>' +
                     '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">' +
                         '<div style="font-size:11.5px; color:' + (isPending ? '#0f172a; font-weight:600;' : '#64748b;') + ' overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px;">' +
                             (c.lastDirection === 'outbound' ? '<span style="color:#10b981;">✓ </span>' : '') +
                             previewText +
                         '</div>' +
-                        (isPending ? '<span style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; border-radius:10px; padding:1px 6px;">Baru</span>' : '') +
                     '</div>' +
                 '</div>' +
             '</div>';
