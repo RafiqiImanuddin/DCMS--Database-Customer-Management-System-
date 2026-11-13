@@ -4123,15 +4123,28 @@ window.submitAssignManualFU = submitAssignManualFU;
 let currentDeleteKeepContext = null;
 
 function isSuperadminDeleteKeepEnabled() {
+  if (typeof window.SUPERADMIN_KEEP_DELETE_ENABLED === 'undefined') {
+    return Boolean(window.IS_SUPERADMIN);
+  }
   return Boolean(window.IS_SUPERADMIN && window.SUPERADMIN_KEEP_DELETE_ENABLED);
 }
 
 async function toggleSuperadminKeepDelete(checked) {
   window.SUPERADMIN_KEEP_DELETE_ENABLED = Boolean(checked);
+  const checkbox = document.getElementById('toggleSuperadminDeleteKeep');
+  if (checkbox) checkbox.checked = checked;
+
+  const slider = document.getElementById('sliderSuperadminDeleteKeep');
+  if (slider) {
+    slider.style.background = checked ? '#ef4444' : '#cbd5e1';
+    const knob = slider.firstElementChild;
+    if (knob) knob.style.left = checked ? '18px' : '2px';
+  }
+
   const label = document.getElementById('labelSuperadminDeleteKeep');
   if (label) {
     label.innerText = checked ? 'Aktif' : 'Nonaktif';
-    label.className = `text-xs font-extrabold ${checked ? 'text-rose-600' : 'text-slate-400'}`;
+    label.style.color = checked ? '#e11d48' : '#64748b';
   }
 
   // Simpan ke database via backend endpoint
@@ -4281,10 +4294,10 @@ function renderKeepPage() {
     const olaMeta = getKeepOLAMeta(r);
 
     // 1. CUSTOMER CELL: Avatar Circle + Name Bold + Phone Subtext (Dengan tombol hapus Superadmin di sebelah kiri nama)
-    const canDeleteKeep = Boolean(window.IS_SUPERADMIN && window.SUPERADMIN_KEEP_DELETE_ENABLED);
+    const canDeleteKeep = isSuperadminDeleteKeepEnabled();
     const deleteBtnHtml = canDeleteKeep ? `
-      <button type="button" class="size-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 flex items-center justify-center shrink-0 transition cursor-pointer group" onclick="confirmDeleteKeepRow(${keepRowIdx})" title="Hapus format keep ini (Akses Superadmin)">
-        <svg class="size-3.5 text-slate-400 group-hover:text-rose-600 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      <button type="button" class="size-7 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white border border-rose-200/90 flex items-center justify-center shrink-0 transition cursor-pointer shadow-2xs group" onclick="confirmDeleteKeepRow(${keepRowIdx})" title="Hapus format keep ini (Akses Superadmin)">
+        <svg class="size-3.5 text-rose-500 group-hover:text-white transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
       </button>
     ` : '';
 

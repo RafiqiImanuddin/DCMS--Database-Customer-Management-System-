@@ -1,7 +1,7 @@
   <script>
     window.IS_GUEST = {{ auth()->check() && auth()->user()->isGuest() ? 'true' : 'false' }};
     window.IS_SUPERADMIN = {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'true' : 'false' }};
-    window.SUPERADMIN_KEEP_DELETE_ENABLED = {{ \App\Models\Setting::get('superadmin_keep_delete_enabled', '0') === '1' ? 'true' : 'false' }};
+    window.SUPERADMIN_KEEP_DELETE_ENABLED = {{ \App\Models\Setting::get('superadmin_keep_delete_enabled', '1') !== '0' ? 'true' : 'false' }};
     window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
     window.WORKSPACE_ENCRYPTED_URLS = @json($encryptedTabUrls ?? \App\Support\RouteCipher::allWorkspaceUrls());
     window.WORKSPACE_ACTIVE_TAB = {{ (int) ($activeTab ?? 1) }};
