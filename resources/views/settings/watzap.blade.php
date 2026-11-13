@@ -331,74 +331,10 @@
                     <div id="baileys-check-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
                 </div>
 
-                <!-- 1. DUAL-GATEWAY CADANGAN: WAHA VPS (Self-Hosted WhatsApp API) -->
-                <div class="rounded-2xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 p-5 shadow-xs space-y-4">
-                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-100 pb-3">
-                        <div class="flex items-center gap-2.5">
-                            <span class="grid size-8 place-items-center rounded-xl bg-emerald-600 text-white shadow-sm font-bold text-xs">
-                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                            </span>
-                            <div>
-                                <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
-                                    <span>Gateway WhatsApp: WAHA VPS (High Performance & Quoted Reply)</span>
-                                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-800">Aktif</span>
-                                </h3>
-                                <p class="text-[11px] text-slate-500">Mendukung koneksi langsung super cepat, Native Quoted Reply WhatsApp, dan media resolusi tinggi tanpa batas pihak ketiga.</p>
-                            </div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="waha_enabled" value="1" {{ old('waha_enabled', $wahaEnabled) ? 'checked' : '' }} @disabled(! $isSuperAdmin) class="sr-only peer">
-                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                            <span class="ml-2 text-xs font-bold text-slate-800">Aktifkan WAHA</span>
-                        </label>
-                    </div>
-
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="waha_vps_url" class="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                                URL Server WAHA VPS <span class="text-rose-500">*</span>
-                            </label>
-                            <input id="waha_vps_url" name="waha_vps_url" type="text" value="{{ old('waha_vps_url', $wahaUrl) }}" @disabled(! $isSuperAdmin) placeholder="http://178.83.188.100:3088" class="dcms-input font-mono text-xs">
-                            <p class="mt-1 text-[11px] text-slate-400">Endpoint HTTP API WAHA VPS yang terpasang.</p>
-                        </div>
-                        <div>
-                            <label for="waha_session" class="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                                Nama Session WhatsApp <span class="text-rose-500">*</span>
-                            </label>
-                            <input id="waha_session" name="waha_session" type="text" value="{{ old('waha_session', $wahaSession) }}" @disabled(! $isSuperAdmin) placeholder="default" class="dcms-input font-mono text-xs">
-                            <p class="mt-1 text-[11px] text-slate-400">Default: <code>default</code> (Nama sesi yang di-scan QR di WAHA).</p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="waha_api_key" class="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-700">
-                            X-Api-Key WAHA VPS
-                        </label>
-                        <input id="waha_api_key" name="waha_api_key" type="password" autocomplete="new-password" data-lpignore="true" value="{{ old('waha_api_key', $wahaApiKey) }}" @disabled(! $isSuperAdmin) placeholder="gadgetmart123" class="dcms-input font-mono text-xs">
-                        <p class="mt-1 text-[11px] text-slate-400">Kunci keamanan untuk header otentikasi X-Api-Key WAHA VPS.</p>
-                    </div>
-
-                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                        <div class="flex items-center gap-2">
-                            @if($isSuperAdmin)
-                            <button type="button" id="btn-check-waha" onclick="checkWahaConnection()" class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-2xs hover:bg-emerald-50 transition">
-                                <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                <span>Tes Koneksi WAHA VPS</span>
-                            </button>
-                            @endif
-                            <a href="{{ $wahaUrl }}/dashboard" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition">
-                                <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                <span>Buka Web Console WAHA (Scan QR)</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div id="waha-check-feedback" class="mt-2.5 hidden text-xs font-semibold"></div>
-                </div>
-
                 @if($isSuperAdmin)
                 <div class="flex items-center justify-end pt-3 border-t border-slate-100">
                     <button type="submit" class="dcms-primary-button px-6 py-2.5 text-xs font-bold">
-                        Simpan Pengaturan WAHA VPS
+                        Simpan Pengaturan Gateway Baileys
                     </button>
                 </div>
                 @endif
@@ -439,48 +375,12 @@
                 </div>
             </div>
 
-            <div class="mt-4">
+            <div class="mt-4 space-y-2">
                 <a href="{{ $baileysBotUrl }}" target="_blank" rel="noopener noreferrer" class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700">
                     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                     Buka Dashboard Bot / Scan QR
                 </a>
-            </div>
-        </section>
-
-        <!-- Status Gateway Utama: WAHA VPS -->
-        <section class="dcms-card p-6 border-2 border-emerald-500/20">
-            <div class="flex items-center justify-between">
-                <h2 class="font-black text-slate-900">Status WAHA VPS (Primary)</h2>
-                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold {{ ($wahaStatus['online'] ?? false) && ($wahaStatus['status'] ?? '') === 'WORKING' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800' }}">
-                    <span class="size-2 rounded-full {{ ($wahaStatus['online'] ?? false) && ($wahaStatus['status'] ?? '') === 'WORKING' ? 'bg-emerald-500' : 'bg-rose-500' }}"></span>
-                    {{ ($wahaStatus['online'] ?? false) ? ($wahaStatus['status'] ?? 'Online') : 'Offline' }}
-                </span>
-            </div>
-            <p class="mt-1 text-xs text-slate-500">Gateway utama pengiriman & penerimaan chat Inbox FU.</p>
-
-            <div class="mt-4 space-y-3">
-                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Nomor WhatsApp</span>
-                    <span class="font-mono text-xs font-bold text-slate-900">
-                        {{ !empty($wahaStatus['me']['id']) ? str_replace('@c.us', '', $wahaStatus['me']['id']) : '-' }}
-                    </span>
-                </div>
-                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Nama Akun WhatsApp</span>
-                    <span class="text-xs font-semibold text-slate-900">{{ $wahaStatus['me']['pushName'] ?? '-' }}</span>
-                </div>
-                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Nama Sesi</span>
-                    <span class="font-mono text-xs font-bold text-slate-900">{{ $wahaStatus['name'] ?? $wahaSession }}</span>
-                </div>
-                <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                    <span class="text-xs text-slate-500">Quoted Reply</span>
-                    <span class="text-xs font-bold text-emerald-700">Native WhatsApp Aktif</span>
-                </div>
-            </div>
-
-            <div class="mt-5 border-t border-slate-100 pt-4">
-                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 9]) }}" class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800">
+                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 9]) }}" class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-slate-800">
                     <svg class="size-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.75.75 0 0 1-.84-.84c.125-.68.39-1.53.844-2.228C4.015 16.544 3 14.39 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/></svg>
                     Buka Modul Inbox Follow-Up
                 </a>

@@ -410,9 +410,10 @@ class WatzapIntegrationTest extends TestCase
     public function test_superadmin_can_check_baileys_status_via_ajax(): void
     {
         $superadmin = User::factory()->create(['role' => 'superadmin']);
+        Setting::set('baileys_bot_url', 'https://dcms-baileys-bot.onrender.com');
 
         Http::fake([
-            'http://127.0.0.1:3000/api/status' => Http::response([
+            'https://dcms-baileys-bot.onrender.com/api/status' => Http::response([
                 'success' => true,
                 'connected' => true,
                 'state' => 'CONNECTED',

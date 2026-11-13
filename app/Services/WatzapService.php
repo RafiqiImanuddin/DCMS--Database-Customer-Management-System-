@@ -77,7 +77,7 @@ class WatzapService
 
     public function getBaileysUrl(): string
     {
-        return rtrim((string) Setting::get('baileys_bot_url', (string) config('services.baileys.url', env('BAILEYS_BOT_URL', 'http://127.0.0.1:3000'))), '/');
+        return rtrim((string) Setting::get('baileys_bot_url', (string) config('services.baileys.url', env('BAILEYS_BOT_URL', 'https://dcms-baileys-bot.onrender.com'))), '/');
     }
 
     public function getBaileysApiKey(): string

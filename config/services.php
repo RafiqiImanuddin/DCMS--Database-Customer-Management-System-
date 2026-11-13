@@ -47,7 +47,7 @@ return [
     ],
 
     'baileys' => [
-        'url' => env('BAILEYS_BOT_URL', 'http://127.0.0.1:3000'),
+        'url' => env('BAILEYS_BOT_URL', 'https://dcms-baileys-bot.onrender.com'),
         'api_key' => env('BAILEYS_BOT_API_KEY', 'dcms2026'),
         'enabled' => env('BAILEYS_BOT_ENABLED', true),
     ],
