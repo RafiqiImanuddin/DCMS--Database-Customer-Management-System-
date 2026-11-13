@@ -2658,6 +2658,16 @@ function applyKeepFilters() {
   // 3. Terapkan Filter Status pada data tabel
   if (statusVal === 'ALL') {
     filteredKeepRows = baseRows;
+  } else if (statusVal === 'OLA_OVERDUE') {
+    filteredKeepRows = baseRows.filter(r => {
+      const ola = getKeepOLAMeta(r);
+      return !ola.isClaimed && ola.isOverdue;
+    });
+  } else if (statusVal === 'OLA_PENDING') {
+    filteredKeepRows = baseRows.filter(r => {
+      const ola = getKeepOLAMeta(r);
+      return !ola.isClaimed;
+    });
   } else {
     filteredKeepRows = baseRows.filter(r => {
       const st = String(r['Status'] || '').trim().toUpperCase();
@@ -2906,6 +2916,151 @@ function formatKeepDisplayTime(ts) {
 }
 window.formatKeepDisplayTime = formatKeepDisplayTime;
 
+function parseKeepDateObj(ts) {
+  if (!ts) return null;
+  if (ts instanceof Date) return isNaN(ts.getTime()) ? null : ts;
+
+  if (typeof ts === 'number') {
+    if (ts > 30000 && ts < 60000) {
+      const ms = (ts - 25569) * 86400 * 1000;
+      const d = new Date(ms);
+      return isNaN(d.getTime()) ? null : d;
+    }
+  }
+
+  if (typeof ts === 'string') {
+    const trimmed = ts.trim();
+    if (!trimmed || trimmed === '-') return null;
+
+    if (trimmed.endsWith('Z') || trimmed.includes('+00:00')) {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    if (!isNaN(Number(trimmed)) && !trimmed.includes(':') && !trimmed.includes('-') && !trimmed.includes('/')) {
+      const num = Number(trimmed);
+      if (num > 30000 && num < 60000) {
+        const ms = (num - 25569) * 86400 * 1000;
+        const d = new Date(ms);
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
+
+    const isoMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (isoMatch) {
+      const y = parseInt(isoMatch[1], 10);
+      const m = parseInt(isoMatch[2], 10) - 1;
+      const d = parseInt(isoMatch[3], 10);
+      const hh = parseInt(isoMatch[4] || '0', 10);
+      const mm = parseInt(isoMatch[5] || '0', 10);
+      const ss = parseInt(isoMatch[6] || '0', 10);
+      const dateObj = new Date(y, m, d, hh, mm, ss);
+      if (!isNaN(dateObj.getTime())) return dateObj;
+    }
+
+    const slashMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (slashMatch) {
+      let p0 = parseInt(slashMatch[1], 10);
+      let p1 = parseInt(slashMatch[2], 10);
+      let y = parseInt(slashMatch[3], 10);
+      if (y < 100) y += 2000;
+      let d, m;
+      if (p0 > 12) {
+        d = p0; m = p1 - 1;
+      } else if (p1 > 12) {
+        d = p1; m = p0 - 1;
+      } else {
+        m = p0 - 1; d = p1;
+      }
+      const hh = parseInt(slashMatch[4] || '0', 10);
+      const mm = parseInt(slashMatch[5] || '0', 10);
+      const ss = parseInt(slashMatch[6] || '0', 10);
+      const dateObj = new Date(y, m, d, hh, mm, ss);
+      if (!isNaN(dateObj.getTime())) return dateObj;
+    }
+
+    const fallback = new Date(trimmed);
+    if (!isNaN(fallback.getTime())) return fallback;
+  }
+  return null;
+}
+window.parseKeepDateObj = parseKeepDateObj;
+
+function getKeepOLAMeta(r, olaLimitMinutes = 15) {
+  if (!r) return { isClaimed: false, isOverdue: false, diffMinutes: 0, badgeHtml: '' };
+
+  const fuName = String(r['Nama Tim Follow Up'] || '').trim();
+  const fuNumber = String(r['Nomor Follow Up'] || '').trim();
+  const rawSt = String(r['Status'] || '').trim().toUpperCase();
+
+  // Keep dianggap sudah di-claim jika memiliki PIC Tim FU atau status sudah berproses
+  const isClaimed = Boolean(
+    fuName || 
+    fuNumber || 
+    rawSt.includes('PROGRESS') || 
+    rawSt === 'WIN' || 
+    rawSt === 'LOSE' || 
+    rawSt === 'TAKE OUT' || 
+    rawSt.includes('CLOSING')
+  );
+
+  if (isClaimed) {
+    return {
+      isClaimed: true,
+      isOverdue: false,
+      diffMinutes: 0,
+      badgeHtml: `<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded" title="Sudah di-claim oleh tim follow up"><span class="text-emerald-600 font-bold">✓</span><span>Di-claim</span></span>`
+    };
+  }
+
+  // Belum di-claim: hitung waktu respon OLA
+  const ts = r['Timestamp'] || r['keep_timestamp'] || r.created_at;
+  const dateObj = parseKeepDateObj(ts);
+
+  if (!dateObj) {
+    return {
+      isClaimed: false,
+      isOverdue: false,
+      diffMinutes: 0,
+      badgeHtml: `<span class="inline-flex items-center text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">OLA -</span>`
+    };
+  }
+
+  const now = new Date();
+  const diffMs = now.getTime() - dateObj.getTime();
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+
+  // Jika data dari hari sebelumnya (> 12 jam atau tanggal kalender berbeda)
+  const isDifferentDay = (now.toDateString() !== dateObj.toDateString()) && (diffMinutes > 720);
+  if (isDifferentDay) {
+    return {
+      isClaimed: false,
+      isOverdue: true,
+      diffMinutes,
+      badgeHtml: `<span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded" title="Format keep dari hari sebelumnya (Belum di-claim)">OLA: Lewat Hari</span>`
+    };
+  }
+
+  if (diffMinutes <= olaLimitMinutes) {
+    // Sesuai batas OLA (<= 15 menit)
+    return {
+      isClaimed: false,
+      isOverdue: false,
+      diffMinutes,
+      badgeHtml: `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded" title="Waktu tunggu respon: ${diffMinutes} menit (Batas OLA ${olaLimitMinutes} menit)"><span class="size-1.5 rounded-full bg-emerald-500"></span><span>OLA ${diffMinutes}m</span></span>`
+    };
+  } else {
+    // Overdue melebihi 15 menit
+    return {
+      isClaimed: false,
+      isOverdue: true,
+      diffMinutes,
+      badgeHtml: `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shadow-2xs" title="Overdue: ${diffMinutes} menit belum di-claim (Batas OLA ${olaLimitMinutes} menit)"><span class="size-1.5 rounded-full bg-rose-500 animate-ping"></span><span>OLA +${diffMinutes}m</span></span>`
+    };
+  }
+}
+window.getKeepOLAMeta = getKeepOLAMeta;
+
 function formatPickupDate(val) {
   if (!val || val === '-') return '-';
   const lower = String(val).toLowerCase().trim();
@@ -3016,6 +3171,7 @@ function renderKeepPage() {
     const custName = r['Nama'] || '-';
     const initials = getCustomerInitials(custName);
     const keepRowIdx = startIdx + i;
+    const olaMeta = getKeepOLAMeta(r);
 
     // 1. CUSTOMER CELL: Avatar Circle + Name Bold + Phone Subtext
     const custHtml = `
@@ -3149,10 +3305,13 @@ function renderKeepPage() {
       <td class="px-5 py-3.5 align-middle text-left">${custHtml}</td>
       <td class="px-3 py-3.5 align-middle text-center font-bold text-slate-700 whitespace-nowrap">${formatKeepDisplayDate(r['Timestamp'])}</td>
       <td class="px-3 py-3.5 align-middle text-center whitespace-nowrap">
-        <span class="inline-flex items-center gap-1 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-lg shadow-2xs">
-          <svg class="size-3 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          ${formatKeepDisplayTime(r['Timestamp'])}
-        </span>
+        <div class="flex flex-col items-center justify-center gap-1">
+          <span class="inline-flex items-center gap-1 font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-lg shadow-2xs">
+            <svg class="size-3 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            ${formatKeepDisplayTime(r['Timestamp'])}
+          </span>
+          ${olaMeta.badgeHtml}
+        </div>
       </td>
       <td class="px-4 py-3.5 align-middle text-left font-bold text-slate-900">${r['Barang Keep'] || '-'}</td>
       <td class="px-3 py-3.5 align-middle text-center text-slate-600 whitespace-nowrap">${formatPickupDate(r['Tanggal Ambil'])}</td>

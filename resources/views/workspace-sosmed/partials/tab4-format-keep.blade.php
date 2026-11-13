@@ -133,6 +133,8 @@
                 <div class="lg:col-span-2 flex items-center gap-2">
                     <select id="keepFilterStatus" class="dcms-input py-2.5 text-xs font-semibold text-slate-700 flex-1" onchange="applyKeepFilters()">
                         <option value="ALL">Semua Status</option>
+                        <option value="OLA_OVERDUE">🚨 OLA Overdue (&gt;15m Belum Di-claim)</option>
+                        <option value="OLA_PENDING">⏱️ OLA Pending (Belum Di-claim)</option>
                         <option value="WIN">WIN (Closing)</option>
                         <option value="NEED TO CHECK">⚠️ NEED TO CHECK (Kroscek)</option>
                         <option value="ON PROGRESS">On Progress (Semua)</option>
