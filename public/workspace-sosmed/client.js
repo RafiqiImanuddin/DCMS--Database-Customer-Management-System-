@@ -4120,6 +4120,122 @@ window.closeAssignManualFUModal = closeAssignManualFUModal;
 window.onSelectMasterPicChanged = onSelectMasterPicChanged;
 window.submitAssignManualFU = submitAssignManualFU;
 
+let currentDeleteKeepContext = null;
+
+function isSuperadminDeleteKeepEnabled() {
+  return Boolean(window.IS_SUPERADMIN && window.SUPERADMIN_KEEP_DELETE_ENABLED);
+}
+
+async function toggleSuperadminKeepDelete(checked) {
+  window.SUPERADMIN_KEEP_DELETE_ENABLED = Boolean(checked);
+  const label = document.getElementById('labelSuperadminDeleteKeep');
+  if (label) {
+    label.innerText = checked ? 'Aktif' : 'Nonaktif';
+    label.className = `text-xs font-extrabold ${checked ? 'text-rose-600' : 'text-slate-400'}`;
+  }
+
+  // Simpan ke database via backend endpoint
+  try {
+    await fetch('/api/toggle-keep-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ enabled: checked })
+    });
+  } catch (e) {
+    console.warn('Gagal simpan toggle-keep-delete ke server:', e);
+  }
+
+  renderKeepPage();
+  if (typeof showSaveToast === 'function') {
+    showSaveToast(checked ? '✓ Fitur Hapus Format Keep diaktifkan (Superadmin)' : 'Fitur Hapus Format Keep dinonaktifkan');
+  }
+}
+
+function confirmDeleteKeepRow(keepRowIdx) {
+  if (!isSuperadminDeleteKeepEnabled()) {
+    alert('Fitur hapus format keep sedang dinonaktifkan.');
+    return;
+  }
+
+  const row = filteredKeepRows[keepRowIdx];
+  if (!row) return;
+
+  currentDeleteKeepContext = { keepRowIdx, row };
+  const modal = document.getElementById('deleteKeepConfirmModal');
+  if (!modal) return;
+
+  const nameEl = document.getElementById('delModalCustName');
+  const waEl = document.getElementById('delModalCustWA');
+  const barangEl = document.getElementById('delModalBarang');
+  const cabangEl = document.getElementById('delModalCabang');
+
+  if (nameEl) nameEl.innerText = row['Nama'] || row['Customer'] || '-';
+  if (waEl) waEl.innerText = row['Nomor WhatsApp'] || row['nomor_wa'] || row['WA'] || '-';
+  if (barangEl) barangEl.innerText = row['Barang'] || row['Barang Keep'] || row['barang'] || '-';
+  if (cabangEl) cabangEl.innerText = row['Cabang'] || '-';
+
+  modal.style.display = 'flex';
+}
+
+function closeDeleteKeepModal() {
+  const modal = document.getElementById('deleteKeepConfirmModal');
+  if (modal) modal.style.display = 'none';
+  currentDeleteKeepContext = null;
+}
+
+async function executeDeleteKeepRow() {
+  if (!currentDeleteKeepContext) return;
+  const { keepRowIdx, row } = currentDeleteKeepContext;
+  const btn = document.getElementById('btnConfirmDeleteKeep');
+  if (btn) btn.disabled = true;
+
+  const keepId = row.id || null;
+  const rawWA = row['Nomor WhatsApp'] || row['nomor_wa'] || '';
+  const normWA = String(rawWA).replace(/\D/g, '');
+
+  // 1. Optimistic removal di tabel (0ms)
+  filteredKeepRows.splice(keepRowIdx, 1);
+  if (Array.isArray(rawKeepRows)) {
+    const rawIdx = rawKeepRows.findIndex(r => (keepId && r.id === keepId) || (normWA && String(r['Nomor WA'] || r.nomor_wa).replace(/\D/g, '') === normWA));
+    if (rawIdx !== -1) rawKeepRows.splice(rawIdx, 1);
+  }
+
+  closeDeleteKeepModal();
+  renderKeepPage();
+  if (typeof applyKeepFilters === 'function') applyKeepFilters();
+  if (typeof showSaveToast === 'function') {
+    showSaveToast('✓ Data format keep berhasil dihapus!');
+  }
+
+  // 2. Hapus di database SQL DCMS
+  try {
+    const res = await fetch('/api/delete-keep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ id: keepId, nomorWA: normWA })
+    });
+
+    if (!res.ok) {
+      console.warn('Backend delete-keep failed, trying fallback webhook...');
+      await fetch('/api/fonnte-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'DELETE_KEEP', id: keepId, nomorWA: normWA })
+      });
+    }
+  } catch (err) {
+    console.error('Gagal hapus data keep di backend:', err);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+window.isSuperadminDeleteKeepEnabled = isSuperadminDeleteKeepEnabled;
+window.toggleSuperadminKeepDelete = toggleSuperadminKeepDelete;
+window.confirmDeleteKeepRow = confirmDeleteKeepRow;
+window.closeDeleteKeepModal = closeDeleteKeepModal;
+window.executeDeleteKeepRow = executeDeleteKeepRow;
+
 function renderKeepPage() {
   const tbody = document.getElementById('keepTableBody');
   if (!tbody) return;
@@ -4164,14 +4280,22 @@ function renderKeepPage() {
     const keepRowIdx = startIdx + i;
     const olaMeta = getKeepOLAMeta(r);
 
-    // 1. CUSTOMER CELL: Avatar Circle + Name Bold + Phone Subtext
+    // 1. CUSTOMER CELL: Avatar Circle + Name Bold + Phone Subtext (Dengan tombol hapus Superadmin di sebelah kiri nama)
+    const canDeleteKeep = Boolean(window.IS_SUPERADMIN && window.SUPERADMIN_KEEP_DELETE_ENABLED);
+    const deleteBtnHtml = canDeleteKeep ? `
+      <button type="button" class="size-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 flex items-center justify-center shrink-0 transition cursor-pointer group" onclick="confirmDeleteKeepRow(${keepRowIdx})" title="Hapus format keep ini (Akses Superadmin)">
+        <svg class="size-3.5 text-slate-400 group-hover:text-rose-600 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      </button>
+    ` : '';
+
     const custHtml = `
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        ${deleteBtnHtml}
         <div class="size-9 rounded-xl bg-brand-500/10 text-brand-700 border border-brand-500/20 font-black text-xs flex items-center justify-center shrink-0 tracking-wider shadow-xs" title="${custName}">
           ${initials}
         </div>
         <div class="min-w-0">
-          <div class="font-bold text-slate-900 text-xs truncate max-w-[170px]" title="${custName}">${custName}</div>
+          <div class="font-bold text-slate-900 text-xs truncate max-w-[160px]" title="${custName}">${custName}</div>
           ${(normWA && normWA.length >= 8 && !window.IS_GUEST) ? `
             <a href="https://wa.me/${normWA}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition" title="Hubungi customer di WhatsApp">
               <span class="size-1.5 rounded-full bg-emerald-500"></span>

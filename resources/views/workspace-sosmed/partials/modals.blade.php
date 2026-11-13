@@ -670,3 +670,45 @@
         </div>
     </div>
 
+    <!-- Modal: Konfirmasi Hapus Format Keep (Superadmin Only) -->
+    <div id="deleteKeepConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" style="display:none;" onclick="if(event.target===this) closeDeleteKeepModal()">
+        <div class="w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xl transition-all" onclick="event.stopPropagation()">
+            <div class="flex items-center gap-3">
+                <div class="size-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-slate-900">Hapus Format Keep?</h3>
+                    <p class="text-xs text-slate-500">Aksi ini permanen dan menghapus baris dari database.</p>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-xl bg-slate-50 border border-slate-200/80 p-3 text-xs space-y-1.5">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Customer:</span>
+                    <span id="delModalCustName" class="font-bold text-slate-800 truncate max-w-[180px]">-</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">WhatsApp:</span>
+                    <span id="delModalCustWA" class="font-mono font-bold text-slate-700">-</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Barang:</span>
+                    <span id="delModalBarang" class="font-bold text-slate-800 truncate max-w-[180px]">-</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 font-medium">Cabang:</span>
+                    <span id="delModalCabang" class="font-bold text-sky-800">-</span>
+                </div>
+            </div>
+
+            <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" class="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 cursor-pointer" onclick="closeDeleteKeepModal()">Batal</button>
+                <button type="button" id="btnConfirmDeleteKeep" class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold shadow-md shadow-rose-600/20 transition cursor-pointer" onclick="executeDeleteKeepRow()">
+                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <span>Ya, Hapus Data</span>
+                </button>
+            </div>
+        </div>
+    </div>
+

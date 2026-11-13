@@ -183,6 +183,10 @@ $registerSosmedApiRoutes = function () {
     Route::match(['get', 'post'], '/update-report-ar', [WorkspaceSosmedController::class, 'updateReportAr'])->name('api.sosmed.update_report_ar');
     Route::match(['get', 'post'], '/assign-keep-fu', [WorkspaceSosmedController::class, 'assignKeepFU'])->name('api.sosmed.assign_keep_fu');
     Route::match(['get', 'post'], '/api/assign-keep-fu', [WorkspaceSosmedController::class, 'assignKeepFU'])->name('api.sosmed.assign_keep_fu_alias');
+    Route::match(['get', 'post', 'delete'], '/delete-keep', [WorkspaceSosmedController::class, 'deleteKeep'])->name('api.sosmed.delete_keep');
+    Route::match(['get', 'post', 'delete'], '/api/delete-keep', [WorkspaceSosmedController::class, 'deleteKeep'])->name('api.sosmed.delete_keep_alias');
+    Route::match(['get', 'post'], '/toggle-keep-delete', [WorkspaceSosmedController::class, 'toggleKeepDeleteFeature'])->name('api.sosmed.toggle_keep_delete');
+    Route::match(['get', 'post'], '/api/toggle-keep-delete', [WorkspaceSosmedController::class, 'toggleKeepDeleteFeature'])->name('api.sosmed.toggle_keep_delete_alias');
     Route::match(['get', 'post'], '/webhook/fonnte-keep', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.sosmed.webhook_fonnte_keep');
     Route::match(['get', 'post'], '/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook');
     Route::match(['get', 'post'], '/api/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook_alias');

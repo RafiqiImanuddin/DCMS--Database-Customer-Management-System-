@@ -559,6 +559,62 @@ class WorkspaceSosmedController extends Controller
         ]);
     }
 
+    public function deleteKeep(Request $request): JsonResponse
+    {
+        if (! auth()->check() || ! auth()->user()->isSuperAdmin()) {
+            return response()->json(['error' => 'Akses ditolak. Fitur hapus format keep hanya untuk Superadmin.'], 403);
+        }
+
+        $id = $request->input('id');
+        $nomorWA = $request->input('nomorWA') ?? $request->input('nomor_wa');
+
+        if (! $id && ! $nomorWA) {
+            return response()->json(['error' => 'ID transaksi atau Nomor WA wajib diisi.'], 400);
+        }
+
+        $keep = null;
+        if ($id) {
+            $keep = \App\Models\SosmedKeep::find($id);
+        }
+        if (! $keep && $nomorWA) {
+            $cleanPhone = preg_replace('/\D/', '', (string) $nomorWA);
+            $last9 = substr($cleanPhone, -9);
+            $keep = \App\Models\SosmedKeep::where(function ($q) use ($cleanPhone, $last9) {
+                $q->where('nomor_wa', $cleanPhone)
+                    ->orWhere('nomor_wa', 'like', "%{$last9}");
+            })->latest('id')->first();
+        }
+
+        if (! $keep) {
+            return response()->json(['error' => 'Data format keep tidak ditemukan di database.'], 404);
+        }
+
+        $deletedId = $keep->id;
+        $keep->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Data format keep ID {$deletedId} berhasil dihapus oleh Superadmin.",
+            'id' => $deletedId,
+        ]);
+    }
+
+    public function toggleKeepDeleteFeature(Request $request): JsonResponse
+    {
+        if (! auth()->check() || ! auth()->user()->isSuperAdmin()) {
+            return response()->json(['error' => 'Akses ditolak.'], 403);
+        }
+
+        $enabled = filter_var($request->input('enabled', false), FILTER_VALIDATE_BOOLEAN);
+        \App\Models\Setting::set('superadmin_keep_delete_enabled', $enabled ? '1' : '0');
+
+        return response()->json([
+            'success' => true,
+            'enabled' => $enabled,
+            'message' => $enabled ? 'Fitur Hapus Format Keep diaktifkan.' : 'Fitur Hapus Format Keep dinonaktifkan.',
+        ]);
+    }
+
     public function chatAi(Request $request): JsonResponse
     {
         $prompt = $request->input('prompt', '');
