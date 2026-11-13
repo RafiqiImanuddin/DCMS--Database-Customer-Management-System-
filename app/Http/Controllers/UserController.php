@@ -384,8 +384,6 @@ class UserController extends Controller
             return back()->with('error', 'Akun Superadmin memiliki akses penuh permanen ke seluruh fitur dan tidak dapat dibatasi.');
         }
 
-        $featureKeys = array_keys(User::availableFeatures());
-
         $action = $request->input('action', 'save');
 
         if ($action === 'reset_default') {
@@ -394,6 +392,8 @@ class UserController extends Controller
 
             return back()->with('success', 'Checklist fitur untuk ' . $user->name . ' telah di-reset ke izin default sesuai perannya (' . strtoupper($user->role) . ').');
         }
+
+        $featureKeys = array_keys(User::availableFeatures());
 
         $validated = $request->validate([
             'role' => ['sometimes', 'required', 'string', 'in:admin,user'],
@@ -506,5 +506,49 @@ class UserController extends Controller
         $user->save();
 
         return back()->with('success', 'Kata sandi akun Anda berhasil diperbarui.');
+    }
+
+    /**
+     * Toggle status aktif / nonaktif Live Chat Widget WhatsApp untuk akun sendiri.
+     */
+    public function toggleLiveChatWidget(Request $request): \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+        if (! $user) {
+            abort(401);
+        }
+
+        $currentPerms = $user->getEffectivePermissions();
+        $isCurrentlyEnabled = in_array('workspace_live_chat_widget', $currentPerms, true);
+
+        $targetState = $request->has('enabled')
+            ? $request->boolean('enabled')
+            : ! $isCurrentlyEnabled;
+
+        if ($targetState) {
+            if (! in_array('workspace_live_chat_widget', $currentPerms, true)) {
+                $currentPerms[] = 'workspace_live_chat_widget';
+            }
+        } else {
+            $currentPerms = array_values(array_diff($currentPerms, ['workspace_live_chat_widget']));
+        }
+
+        $user->permissions = $currentPerms;
+        $user->save();
+
+        $message = $targetState
+            ? 'Live Chat Widget WhatsApp telah diaktifkan.'
+            : 'Live Chat Widget WhatsApp berhasil dinonaktifkan dari layar.';
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'enabled' => $targetState,
+                'message' => $message,
+            ]);
+        }
+
+        return back()->with('success', $message);
     }
 }

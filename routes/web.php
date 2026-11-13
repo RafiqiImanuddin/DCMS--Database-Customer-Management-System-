@@ -165,6 +165,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings/profile', [\App\Http\Controllers\UserController::class, 'profile'])->name('profile.edit');
     Route::put('/settings/profile', [\App\Http\Controllers\UserController::class, 'updateProfile'])->name('profile.update');
     Route::put('/settings/profile/password', [\App\Http\Controllers\UserController::class, 'updatePassword'])->name('profile.password');
+    Route::post('/settings/profile/toggle-live-chat-widget', [\App\Http\Controllers\UserController::class, 'toggleLiveChatWidget'])->name('settings.profile.toggle_live_chat_widget');
 
     // Modul Terintegrasi: Workspace Sosmed (Sosmed KPI, Report, Cek AR, Keep & Follow-Up)
     Route::get('/workspace-sosmed/{token?}', [WorkspaceSosmedController::class, 'index'])->name('workspace-sosmed.index');

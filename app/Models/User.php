@@ -164,6 +164,12 @@ class User extends Authenticatable
                 'category' => 'Workspace Sosmed',
                 'default_roles' => ['admin'],
             ],
+            'workspace_live_chat_widget' => [
+                'name' => 'Floating Live Chat Widget WhatsApp',
+                'description' => 'Menampilkan ikon melayang Live WhatsApp Inbox di pojok kanan bawah layar.',
+                'category' => 'Workspace Sosmed',
+                'default_roles' => ['admin'],
+            ],
             'workspace_archives' => [
                 'name' => 'Workspace: Arsip Pencapaian',
                 'description' => 'Akses Tab 7: Riwayat arsip pencapaian bulanan tim admin sales.',
@@ -298,6 +304,15 @@ class User extends Authenticatable
      */
     public function canAccessFeature(string $feature): bool
     {
+        // Fitur khusus UI: Live Chat Widget dapat dinonaktifkan per akun (termasuk akun Superadmin)
+        if ($feature === 'workspace_live_chat_widget') {
+            if ($this->permissions !== null && is_array($this->permissions)) {
+                return in_array('workspace_live_chat_widget', $this->permissions, true);
+            }
+
+            return $this->isSuperAdmin() || $this->isAdmin();
+        }
+
         if ($this->isSuperAdmin()) {
             return true;
         }

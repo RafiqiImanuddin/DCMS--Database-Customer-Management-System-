@@ -157,6 +157,36 @@
                     </div>
                 </form>
             </div>
+
+            <!-- Form 3: Preferensi Tampilan Widget Live Chat -->
+            <div class="dcms-card p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 tracking-tight mb-1 flex items-center gap-2">
+                            <span>Preferensi Tampilan (Floating Widget)</span>
+                        </h3>
+                        <p class="text-xs text-slate-500">Atur apakah tombol Live Chat WhatsApp di pojok kanan bawah ditampilkan atau disembunyikan.</p>
+                    </div>
+                </div>
+
+                <form method="POST" action="{{ route('settings.profile.toggle_live_chat_widget') }}" class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                    @csrf
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-base shrink-0">
+                            💬
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-800">Floating Live WhatsApp Chat Widget</div>
+                            <div class="text-[11px] text-slate-500">Ikon melayang hijau di pojok kanan bawah untuk interaksi chat WhatsApp cepat.</div>
+                        </div>
+                    </div>
+
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" name="enabled" value="1" {{ $user->canAccessFeature('workspace_live_chat_widget') ? 'checked' : '' }} onchange="this.form.submit()" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </form>
+            </div>
         </div>
     </div>
 </div>

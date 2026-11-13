@@ -289,8 +289,8 @@
         @include('guidance._login_modal')
     @endif
 
-    {{-- Live WhatsApp Floating Chat Widget (Hanya Admin & Superadmin) --}}
-    @if (auth()->check() && auth()->user()->isAdmin())
+    {{-- Live WhatsApp Floating Chat Widget (Dapat dinonaktifkan via Checklist Hak Akses / Pengaturan Akun) --}}
+    @if (auth()->check() && auth()->user()->canAccessFeature('workspace_live_chat_widget'))
         @include('layouts.live-chat-widget')
     @endif
 

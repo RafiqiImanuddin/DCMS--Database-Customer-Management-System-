@@ -603,6 +603,13 @@
                         <line x1="10" y1="14" x2="21" y2="3"></line>
                     </svg>
                 </a>
+                {{-- Sembunyikan / Nonaktifkan Widget --}}
+                <button type="button" class="dcms-lw-btn-icon" onclick="disableDcmsLiveWidgetDirectly()" title="Nonaktifkan Widget Ini dari Layar (Bisa diaktifkan lagi di Hak Akses / Pengaturan Profil)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                </button>
                 {{-- Minimize Button --}}
                 <button type="button" class="dcms-lw-btn-icon" onclick="toggleDcmsLiveWidget(false)" title="Tutup Jendela">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -735,6 +742,36 @@
             return false;
         }
         return true;
+    };
+
+    window.disableDcmsLiveWidgetDirectly = async function() {
+        if (!confirm('Apakah Anda ingin menonaktifkan Live Chat Widget WhatsApp ini dari layar Anda?\n\nAnda dapat mengaktifkannya kembali kapan saja melalui menu Pengaturan Admin > Hak Akses Akun atau Pengaturan Akun.')) {
+            return;
+        }
+
+        try {
+            const res = await fetch('{{ route("settings.profile.toggle_live_chat_widget") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ enabled: false })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const container = document.getElementById('dcmsLiveWidgetContainer');
+                if (container) container.remove();
+                if (typeof showSaveToast === 'function') {
+                    showSaveToast('Live Chat Widget dinonaktifkan.');
+                } else {
+                    alert('Live Chat Widget berhasil dinonaktifkan dari layar.');
+                }
+            }
+        } catch (e) {
+            location.reload();
+        }
     };
 
     function playLiveWidgetChime() {

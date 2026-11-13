@@ -312,7 +312,16 @@
                             <td class="px-5 py-4 text-right">
                                 <div class="flex items-center justify-end gap-2">
                                     @if ($u->isSuperAdmin())
-                                        <span class="text-xs font-medium text-slate-400 italic">Superadmin Tetap</span>
+                                        @if ($u->id === auth()->id())
+                                            <a href="{{ route('profile.edit') }}" 
+                                               class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+                                               title="Buka Pengaturan Akun Anda untuk mengatur profil & widget live chat">
+                                                <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                                                <span>Pengaturan Akun</span>
+                                            </a>
+                                        @else
+                                            <span class="text-xs font-medium text-slate-400 italic">Superadmin Tetap</span>
+                                        @endif
                                     @else
                                         <button type="button" 
                                                 onclick="openEditPermissionsModal({{ json_encode([
@@ -549,6 +558,7 @@
 
 <script>
 const roleDefaultPermissions = {
+    'superadmin': @json(array_keys(\App\Models\User::availableFeatures())),
     'admin': @json(\App\Models\User::defaultPermissionsForRole('admin')),
     'user': @json(\App\Models\User::defaultPermissionsForRole('user')),
 };
@@ -578,7 +588,11 @@ function openEditPermissionsModal(userData) {
     
     form.action = '/settings/users/' + userData.id + '/permissions';
 
-    const currentPerms = new Set(userData.permissions || []);
+    let permsArray = userData.permissions;
+    if ((!permsArray || permsArray.length === 0) && userData.role === 'superadmin') {
+        permsArray = roleDefaultPermissions['superadmin'] || [];
+    }
+    const currentPerms = new Set(permsArray || []);
     document.querySelectorAll('.perm-checkbox').forEach(cb => {
         cb.checked = currentPerms.has(cb.value);
     });

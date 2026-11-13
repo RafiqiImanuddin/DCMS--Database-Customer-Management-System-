@@ -129,4 +129,51 @@ class UserPermissionChecklistTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Kelola Akun & Hak Akses Fitur');
     }
+
+    public function test_user_can_toggle_live_chat_widget_from_profile(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+
+        // Initially superadmin has live chat widget enabled
+        $this->assertTrue($superadmin->canAccessFeature('workspace_live_chat_widget'));
+
+        // Toggle off via endpoint
+        $resOff = $this->actingAs($superadmin)->postJson(route('settings.profile.toggle_live_chat_widget'), [
+            'enabled' => false,
+        ]);
+        $resOff->assertOk();
+        $resOff->assertJson(['success' => true, 'enabled' => false]);
+        $this->assertFalse($superadmin->fresh()->canAccessFeature('workspace_live_chat_widget'));
+
+        // Toggle on back
+        $resOn = $this->actingAs($superadmin)->postJson(route('settings.profile.toggle_live_chat_widget'), [
+            'enabled' => true,
+        ]);
+        $resOn->assertOk();
+        $resOn->assertJson(['success' => true, 'enabled' => true]);
+        $this->assertTrue($superadmin->fresh()->canAccessFeature('workspace_live_chat_widget'));
+    }
+
+    public function test_admin_permissions_can_include_or_exclude_live_chat_widget(): void
+    {
+        $superadmin = User::factory()->superadmin()->create();
+        $admin = User::factory()->admin()->create();
+
+        // Default admin has workspace_live_chat_widget
+        $this->assertTrue($admin->canAccessFeature('workspace_live_chat_widget'));
+
+        // Restrict permissions without workspace_live_chat_widget
+        $res = $this->actingAs($superadmin)->put(route('settings.users.permissions.update', $admin), [
+            'permissions' => ['dashboard', 'workspace_dashboard'],
+        ]);
+        $res->assertSessionHas('success');
+        $this->assertFalse($admin->fresh()->canAccessFeature('workspace_live_chat_widget'));
+
+        // Re-grant permissions with workspace_live_chat_widget
+        $res2 = $this->actingAs($superadmin)->put(route('settings.users.permissions.update', $admin), [
+            'permissions' => ['dashboard', 'workspace_dashboard', 'workspace_live_chat_widget'],
+        ]);
+        $res2->assertSessionHas('success');
+        $this->assertTrue($admin->fresh()->canAccessFeature('workspace_live_chat_widget'));
+    }
 }
