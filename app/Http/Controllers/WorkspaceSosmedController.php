@@ -1953,16 +1953,38 @@ class WorkspaceSosmedController extends Controller
         $filePath = storage_path('app/ar_claims.json');
 
         if ($request->isMethod('POST')) {
+            if (! auth()->check()) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            if ($request->user()?->isGuest()) {
+                return response()->json(['success' => false, 'message' => 'Akun Guest tidak diizinkan mengubah data klaim AR.'], 403);
+            }
+
             $data = $request->json()->all();
             if (! is_array($data)) {
                 $data = json_decode((string) $request->getContent(), true) ?? [];
+            }
+
+            // Cegah penghapusan tidak sengaja jika kiriman kosong namun file server sudah memiliki data klaim
+            if (empty($data) && file_exists($filePath) && ! $request->boolean('force_empty')) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Data klaim lama dipertahankan karena payload kiriman kosong.',
+                    'count' => 0,
+                ]);
             }
 
             if (! is_dir(dirname($filePath))) {
                 @mkdir(dirname($filePath), 0775, true);
             }
 
-            @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            // Cadangkan file sebelum overwrite
+            if (file_exists($filePath) && filesize($filePath) > 0) {
+                @copy($filePath, storage_path('app/ar_claims.backup.json'));
+            }
+
+            @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
 
             return response()->json([
                 'success' => true,
@@ -1971,7 +1993,11 @@ class WorkspaceSosmedController extends Controller
             ]);
         }
 
-        // GET request
+        // GET request: Hanya boleh diakses pengguna yang sudah login
+        if (! auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
         if (! file_exists($filePath)) {
             return response()->json([]);
         }

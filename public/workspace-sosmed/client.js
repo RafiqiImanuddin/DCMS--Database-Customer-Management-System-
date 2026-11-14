@@ -9660,12 +9660,14 @@ const CLAIMS_PAGE_SIZE = 50;
 let currentEvidenceTargetClaimId = null;
 
 async function loadARClaimsData() {
+  let serverHasData = false;
   try {
     const res = await fetch('/api/ar-claims');
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         rawARClaimsList = data;
+        serverHasData = true;
       }
     }
   } catch (e) {
@@ -9674,7 +9676,13 @@ async function loadARClaimsData() {
   if (!rawARClaimsList || rawARClaimsList.length === 0) {
     const local = localStorage.getItem('gadgetmart_ar_claims_data');
     if (local) {
-      try { rawARClaimsList = JSON.parse(local); } catch(err){}
+      try { 
+        rawARClaimsList = JSON.parse(local); 
+        if (!serverHasData && Array.isArray(rawARClaimsList) && rawARClaimsList.length > 0) {
+          // Auto-migrasi data lokal browser ke server cloud DCMS
+          saveARClaimsData();
+        }
+      } catch(err){}
     }
   }
 
@@ -9697,11 +9705,25 @@ async function loadARClaimsData() {
 async function saveARClaimsData() {
   localStorage.setItem('gadgetmart_ar_claims_data', JSON.stringify(rawARClaimsList));
   try {
-    await fetch('/api/ar-claims', {
+    const metaCsrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+    if (metaCsrf) {
+      headers['X-CSRF-TOKEN'] = metaCsrf;
+    }
+
+    const res = await fetch('/api/ar-claims', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      headers: headers,
       body: JSON.stringify(rawARClaimsList)
     });
+
+    if (!res.ok) {
+      console.warn(`Simpan /api/ar-claims mengembalikan HTTP ${res.status}`);
+    }
   } catch (e) {
     console.warn('Gagal simpan ke backend /api/ar-claims:', e);
   }
