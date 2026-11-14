@@ -12577,6 +12577,7 @@ function setOmniKeepSubTab(subTab) {
 }
 
 function filterOmniChats() {
+  window._userExplicitTypedSearch = true;
   renderOmniInboxModule();
 }
 
@@ -12977,7 +12978,21 @@ function renderOmniInboxModule() {
   }
 
   const searchInp = document.getElementById('omniSearchInput');
-  const query = (searchInp && searchInp.value) ? String(searchInp.value).toLowerCase().trim() : '';
+  let query = '';
+  if (searchInp) {
+    // Cegah autofill username/email browser (seperti superadmin@gmail.com) mengotori pencarian chat
+    const rawVal = String(searchInp.value || '').trim();
+    if (rawVal.toLowerCase().includes('superadmin') || (rawVal.includes('@') && rawVal.includes('.com') && !window._userExplicitTypedSearch)) {
+      searchInp.value = '';
+    }
+    if (!searchInp._hasUserTypeListener) {
+      searchInp._hasUserTypeListener = true;
+      searchInp.addEventListener('input', function() {
+        window._userExplicitTypedSearch = true;
+      });
+    }
+    query = searchInp.value ? String(searchInp.value).toLowerCase().trim() : '';
+  }
   if (query) {
     filtered = filtered.filter(function(pic) {
       const matchName = String(pic.picName || '').toLowerCase().includes(query);

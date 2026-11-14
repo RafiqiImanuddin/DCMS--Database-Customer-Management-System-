@@ -1,41 +1,5 @@
                 <section id="tabContent9" class="tab-content {{ (int) ($activeTab ?? 1) === 9 ? 'active' : '' }} w-full h-[calc(100vh-56px)] max-h-[calc(100vh-56px)] flex flex-col overflow-hidden m-0 p-0">
-                    <!-- 1. Sleek Compact Top Bar (Fit Selayaran & Responsif) -->
-                    <header class="h-12 shrink-0 border-b border-slate-200 bg-white px-3 sm:px-4 flex items-center justify-between gap-2 z-10 shadow-xs">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            <div class="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                            </div>
-                            <div class="truncate">
-                                <div class="flex items-center gap-2">
-                                    <h1 class="text-xs sm:text-sm font-black text-slate-900 truncate tracking-tight">Inbox Follow-Up Sosmed</h1>
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        Live Official
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                            <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">
-                                <span class="size-2 rounded-full bg-emerald-500"></span>
-                                <span class="text-slate-500 hidden md:inline">Bot:</span>
-                                <span class="font-bold text-slate-900">085111426699</span>
-                            </span>
-
-                            <button type="button" onclick="syncOmniSenderNames(true)" class="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition shadow-2xs cursor-pointer" title="Sinkronkan nama pengirim WhatsApp (LID) ke Master Data PIC">
-                                <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                <span class="hidden sm:inline">Sinkronkan Nama</span>
-                            </button>
-
-                            <button type="button" id="btnSyncOmniWaTop" onclick="syncOmniChatsFromWhatsApp(true)" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/80 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-2xs cursor-pointer" title="Tarik pesan & chat terbaru dari WhatsApp Gateway">
-                                <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                                <span>Sync WA</span>
-                            </button>
-                        </div>
-                    </header>
-
-                    <!-- 2. Omnichannel Workspace App Shell (Full Flex Fill 100% Height) -->
+                    <!-- 2. Omnichannel Workspace App Shell (Full Flex Fill 100% Height Tanpa Header Atas) -->
                     <div class="omni-app-container flex-1 min-h-0 w-full bg-white overflow-hidden flex flex-col border-0 rounded-none shadow-none">
                         <!-- MAIN WORKSPACE BODY -->
                         <div class="omni-main-body flex flex-1 min-h-0 overflow-hidden">
@@ -128,7 +92,7 @@
                                                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                                                 </svg>
                                             </span>
-                                            <input type="text" id="omniSearchInput" class="omni-search-input w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-slate-400 focus:bg-white transition"
+                                            <input type="text" id="omniSearchInput" name="search_chat_filter_unique" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="omni-search-input w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-slate-400 focus:bg-white transition"
                                                 placeholder="Search name, phone, message..." oninput="filterOmniChats()">
                                         </div>
                                     </div>
@@ -139,9 +103,15 @@
                                 </div>
 
                                 <!-- ROOMCHAT (MODERN CONSOLE) -->
-                                <main class="omni-col-chatview flex-1 min-h-0 flex flex-col bg-slate-100/70 overflow-hidden relative" id="omniChatViewContainer">
+                                <main class="omni-col-chatview flex-1 min-h-0 flex flex-col bg-slate-100/70 overflow-hidden relative h-full" id="omniChatViewContainer" style="display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; overflow: hidden !important; position: relative !important;">
                                     <!-- Rendered via client.js: Modern Empty State OR WhatsApp Roomchat -->
                                 </main>
+
+                                <!-- PANEL UPDATE FEEDBACK FORMAT KEEP -->
+                                <aside class="omni-col-details w-72 2xl:w-80 shrink-0 flex flex-col border-l border-slate-200 bg-white min-h-0" id="omniDetailsPanelContainer">
+                                    <!-- Rendered via client.js -->
+                                </aside>
+                            </div>
 
                                 <!-- PANEL UPDATE FEEDBACK FORMAT KEEP -->
                                 <aside class="omni-col-details w-72 2xl:w-80 shrink-0 flex flex-col border-l border-slate-200 bg-white min-h-0" id="omniDetailsPanelContainer">

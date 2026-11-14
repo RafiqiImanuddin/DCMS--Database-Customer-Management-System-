@@ -7035,6 +7035,15 @@ body.tab9-mode-active #tabContent9.active {
   display: none !important;
 }
 
+/* Sembunyikan Header Judul Tab 9 dan Label Gateway sesuai permintaan user */
+#tabContent9 > header,
+#tabContent9 > div > div:first-child,
+.omni-tab-header-legacy,
+#tab9SubHeader,
+.tab9-header-wrap {
+  display: none !important;
+}
+
 /* ==========================================================================
    WHATSAPP WEB EXACT COMPACT INPUT BAR
    ========================================================================== */
@@ -7044,7 +7053,7 @@ body.tab9-mode-active #tabContent9.active {
   background: #f8fafc;
   display: flex !important;
   flex-direction: column !important;
-  position: relative;
+  position: relative !important;
   overflow: hidden !important;
   height: 100% !important;
 }
@@ -7052,6 +7061,7 @@ body.tab9-mode-active #tabContent9.active {
 .omni-messages-stream {
   flex: 1 1 0% !important;
   min-height: 0 !important;
+  height: 100% !important;
   overflow-y: auto !important;
   padding: 16px 20px;
   display: flex !important;
