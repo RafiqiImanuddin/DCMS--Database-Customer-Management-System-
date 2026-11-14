@@ -4,7 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') - DCMS Gadgetmart</title>
+    <title>{{ trim($__env->yieldContent('tab_title')) ?: (trim($__env->yieldContent('title')) ? trim($__env->yieldContent('title')) . ' - DCMS - SOSMED' : 'DCMS - SOSMED') }}</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-square.png') }}?v={{ @filemtime(public_path('favicon-square.png')) ?: '1.0' }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-square.png') }}?v={{ @filemtime(public_path('favicon-square.png')) ?: '1.0' }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v={{ @filemtime(public_path('favicon.ico')) ?: '1.0' }}">
+    <link rel="apple-touch-icon" href="{{ asset('favicon-square.png') }}?v={{ @filemtime(public_path('favicon-square.png')) ?: '1.0' }}">
     @yield('head')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script>
@@ -28,7 +32,7 @@
                         <button id="sidebar-toggle" onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar()}" type="button" class="grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs cursor-pointer" aria-label="Toggle Sidebar" title="Sembunyikan / Tampilkan Sidebar (Ctrl+B)">
                             <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
-                        <div><div class="text-sm font-bold text-slate-900">@yield('title')</div><div class="hidden text-xs text-slate-400 sm:block">DCMS Gadgetmart</div></div>
+                        <div><div class="text-sm font-bold text-slate-900">@yield('title')</div><div class="hidden text-xs text-slate-400 sm:block">DCMS - SOSMED</div></div>
                     </div>
                     <div class="flex items-center gap-2 sm:gap-3">
                         <!-- Notification Bell & Auto-Sync Center -->

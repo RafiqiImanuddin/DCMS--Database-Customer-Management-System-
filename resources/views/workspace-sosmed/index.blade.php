@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Workspace Sosmed')
+@section('tab_title', 'DCMS - SOSMED')
 
 @section('container-class', 'w-full px-4 py-4 md:px-8 md:py-6')
 

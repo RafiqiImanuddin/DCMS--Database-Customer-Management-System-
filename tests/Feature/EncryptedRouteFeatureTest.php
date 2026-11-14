@@ -74,6 +74,7 @@ class EncryptedRouteFeatureTest extends TestCase
         $response4 = $this->actingAs($user)->get($url4);
         $response4->assertStatus(200);
         $response4->assertSee('Format Keep Customer');
+        $response4->assertSee('<title>DCMS - SOSMED</title>', false);
         
         $content4 = $response4->getContent();
         preg_match('/<section id="tabContent1"[^>]*class="([^"]*)"/', $content4, $m1);

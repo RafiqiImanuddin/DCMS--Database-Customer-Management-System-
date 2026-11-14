@@ -56,7 +56,7 @@
             <div class="text-lg font-black tracking-tight leading-tight">DCMS</div>
             <div class="text-[11px] font-medium text-slate-400 leading-snug truncate">Database Customer Management</div>
         </div>
-        <img src="{{ asset('images/gadgetmart-logo.png') }}" alt="Gadgetmart" class="h-10 w-10 shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm">
+        <img src="{{ asset('images/dcms-sosmed-logo.png') }}" alt="DCMS - SOSMED" class="h-10 w-auto max-w-[4rem] shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm">
         <button type="button" 
                 onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar(false)}" 
                 class="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer" 
