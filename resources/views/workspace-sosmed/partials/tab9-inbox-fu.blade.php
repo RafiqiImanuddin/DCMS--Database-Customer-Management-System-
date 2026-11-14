@@ -103,15 +103,9 @@
                                 </div>
 
                                 <!-- ROOMCHAT (MODERN CONSOLE) -->
-                                <main class="omni-col-chatview flex-1 min-h-0 flex flex-col bg-slate-100/70 overflow-hidden relative h-full" id="omniChatViewContainer" style="display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; overflow: hidden !important; position: relative !important;">
+                                <div class="omni-col-chatview flex-1 min-h-0 flex flex-col bg-slate-100/70 overflow-hidden relative h-full" id="omniChatViewContainer" style="display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; overflow: hidden !important; position: relative !important;">
                                     <!-- Rendered via client.js: Modern Empty State OR WhatsApp Roomchat -->
-                                </main>
-
-                                <!-- PANEL UPDATE FEEDBACK FORMAT KEEP -->
-                                <aside class="omni-col-details w-72 2xl:w-80 shrink-0 flex flex-col border-l border-slate-200 bg-white min-h-0" id="omniDetailsPanelContainer">
-                                    <!-- Rendered via client.js -->
-                                </aside>
-                            </div>
+                                </div>
 
                                 <!-- PANEL UPDATE FEEDBACK FORMAT KEEP -->
                                 <aside class="omni-col-details w-72 2xl:w-80 shrink-0 flex flex-col border-l border-slate-200 bg-white min-h-0" id="omniDetailsPanelContainer">
