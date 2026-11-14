@@ -13351,7 +13351,7 @@ function renderOmniActiveChat(pic) {
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
     '<span>Pesan Baru</span>' +
   '</button>' +
-  '<div class="omni-chatview-footer-modern">' +
+  '<div class="omni-chatview-footer-wa">' +
     '<div id="omniQuotedReplyBar" class="omni-quoted-reply-bar" style="display:none;">' +
       '<div class="omni-quoted-bar-left">' +
         '<div class="omni-quoted-reply-title">Membalas ke <span id="omniQuotedSenderName"></span></div>' +
@@ -13359,26 +13359,24 @@ function renderOmniActiveChat(pic) {
       '</div>' +
       '<button type="button" class="omni-quoted-close-btn" onclick="cancelOmniQuotedReply()">&times;</button>' +
     '</div>' +
-    '<div class="omni-input-box-wrapper">' +
-      '<textarea id="omniReplyInput" class="omni-textarea-modern" rows="2" placeholder="Ketik pesan balasan... (Tekan Enter untuk kirim, Shift + Enter untuk baris baru)" onkeydown="handleOmniInputKey(event)" oninput="handleOmniInputTyping(this)"></textarea>' +
-    '</div>' +
-    '<div id="omniAttachmentPreview" class="omni-attachment-preview-bar" style="display:none; align-items:center; gap:8px; padding:6px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:8px; font-size:0.75rem;">' +
+    '<div id="omniAttachmentPreview" class="omni-attachment-preview-bar" style="display:none; align-items:center; gap:8px; padding:6px 12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:6px; font-size:0.75rem;">' +
       '<span id="omniAttachmentIcon" style="font-size:1.1rem;">📎</span>' +
       '<span id="omniAttachmentName" class="omni-attachment-filename" style="font-weight:600; color:#1e293b; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>' +
       '<button type="button" class="omni-attachment-remove-btn" onclick="removeOmniAttachment()" style="border:none; background:transparent; cursor:pointer; color:#ef4444; font-weight:700; font-size:1.1rem; line-height:1;" title="Hapus lampiran">&times;</button>' +
     '</div>' +
-    '<div class="omni-input-bottom-bar">' +
-      '<div class="omni-bottom-left-actions">' +
-        '<button type="button" class="omni-btn-attachment-modern" title="Kirim Foto / Dokumen / File" onclick="handleOmniAttachmentClick()">' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>' +
-        '</button>' +
-        '<input type="file" id="omniFileInput" style="display:none;" onchange="handleOmniFileSelected(this)" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">' +
+    '<div class="omni-wa-input-row">' +
+      '<button type="button" class="omni-btn-wa-attach" title="Lampirkan File / Gambar" onclick="handleOmniAttachmentClick()">' +
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>' +
+      '</button>' +
+      '<input type="file" id="omniFileInput" style="display:none;" onchange="handleOmniFileSelected(this)" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">' +
+      '<div class="omni-wa-input-pill">' +
+        '<textarea id="omniReplyInput" class="omni-textarea-wa" rows="1" placeholder="Ketik pesan" onkeydown="handleOmniInputKey(event)" oninput="handleOmniInputTyping(this)"></textarea>' +
       '</div>' +
-      '<div class="omni-bottom-right-actions">' +
-        '<button type="button" id="omniBtnSend" class="omni-btn-send-modern" onclick="sendOmniReply()" title="Kirim Balasan (Enter)">' +
-          '<span>Send</span>' +
-        '</button>' +
-      '</div>' +
+      '<button type="button" id="omniBtnSend" class="omni-btn-wa-send" onclick="sendOmniReply()" title="Kirim pesan (Enter)">' +
+        '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">' +
+          '<path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path>' +
+        '</svg>' +
+      '</button>' +
     '</div>' +
   '</div>';
 
@@ -13434,10 +13432,10 @@ function insertQuickReply(type) {
 function handleOmniInputTyping(el) {
   if (!el) return;
   el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+  el.style.height = Math.min(Math.max(el.scrollHeight, 24), 110) + 'px';
   const sendBtn = document.getElementById('omniBtnSend');
   if (sendBtn) {
-    if (el.value.trim().length > 0) {
+    if (el.value.trim().length > 0 || (typeof omniPendingFile !== 'undefined' && omniPendingFile)) {
       sendBtn.classList.add('active');
     } else {
       sendBtn.classList.remove('active');
