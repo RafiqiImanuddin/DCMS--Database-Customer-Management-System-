@@ -214,14 +214,15 @@
     }
     @page {
         size: A4 portrait;
-        margin: 15mm;
+        margin: 0; /* Margin 0 otomatis melenyapkan header/footer default browser (URL, tanggal, judul, 1/1) */
     }
     #quotationSheet {
         box-shadow: none !important;
         border: none !important;
-        padding: 0 !important;
+        padding: 15mm 20mm !important;
         max-width: 100% !important;
         width: 100% !important;
+        margin: 0 auto !important;
     }
     * {
         -webkit-print-color-adjust: exact !important;

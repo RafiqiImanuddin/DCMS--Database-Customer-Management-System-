@@ -8,12 +8,14 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 15mm;
+            margin: 0;
         }
         body {
             font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: #fff;
             color: #000;
+            margin: 0;
+            padding: 15mm 20mm;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }

@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6">
     <!-- Breadcrumb & Title -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <div class="flex items-center gap-2">
                 <a href="{{ route('quotations.index') }}" class="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition">Surat Penawaran</a>
@@ -36,7 +36,7 @@
 
     <!-- Error Alerts -->
     @if ($errors->any())
-    <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
+    <div class="no-print rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
         <div class="font-bold">Mohon perbaiki isian form berikut:</div>
         <ul class="mt-1 list-disc pl-5 space-y-0.5">
             @foreach ($errors->all() as $err)
@@ -553,11 +553,13 @@
 
 <style>
 @media print {
-    /* Sembunyikan elemen dashboard luar saat dialog cetak / simpan PDF dibuka */
+    /* Sembunyikan semua elemen layout, sidebar, header, form & tombol navigasi */
     aside,
     header,
+    nav,
     #sidebar,
     #sidebar-overlay,
+    .no-print,
     .lg\:col-span-5,
     .flex.items-center.gap-2,
     button,
@@ -601,15 +603,20 @@
         border: none !important;
         width: 100% !important;
         max-width: 100% !important;
-        margin: 0 !important;
-        padding: 10mm 15mm !important;
+        margin: 0 auto !important;
+        padding: 15mm 20mm !important;
         min-height: auto !important;
         display: block !important;
     }
 
     @page {
         size: A4 portrait;
-        margin: 10mm 12mm;
+        margin: 0; /* Margin 0 otomatis melenyapkan header/footer default browser (URL, tanggal, judul, 1/1) */
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }
 </style>
