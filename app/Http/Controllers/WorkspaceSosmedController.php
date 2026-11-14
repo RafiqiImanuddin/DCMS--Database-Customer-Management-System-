@@ -1943,4 +1943,42 @@ class WorkspaceSosmedController extends Controller
             'rows' => $rows,
         ]);
     }
+
+    /**
+     * Endpoint API JSON untuk membaca dan menyimpan data Klaim AR & Pengawasan Denda secara persisten di server.
+     * Memastikan seluruh admin berbagi data keranjang klaim yang sama dan tidak hilang saat ganti perangkat.
+     */
+    public function arClaims(Request $request): JsonResponse
+    {
+        $filePath = storage_path('app/ar_claims.json');
+
+        if ($request->isMethod('POST')) {
+            $data = $request->json()->all();
+            if (! is_array($data)) {
+                $data = json_decode((string) $request->getContent(), true) ?? [];
+            }
+
+            if (! is_dir(dirname($filePath))) {
+                @mkdir(dirname($filePath), 0775, true);
+            }
+
+            @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data klaim AR berhasil disimpan di server',
+                'count' => count($data),
+            ]);
+        }
+
+        // GET request
+        if (! file_exists($filePath)) {
+            return response()->json([]);
+        }
+
+        $raw = @file_get_contents($filePath);
+        $list = json_decode((string) $raw, true);
+
+        return response()->json(is_array($list) ? $list : []);
+    }
 }
