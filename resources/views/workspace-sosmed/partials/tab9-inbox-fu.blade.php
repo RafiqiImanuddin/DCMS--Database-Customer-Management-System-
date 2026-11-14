@@ -1,4 +1,4 @@
-                <section id="tabContent9" class="tab-content">
+                <section id="tabContent9" class="tab-content {{ (int) ($activeTab ?? 1) === 9 ? 'active' : '' }}">
                     <div class="omni-app-container">
                         <!-- MAIN WORKSPACE BODY (TOP NAVBAR REMOVED & MERGED INTO SIDEBAR) -->
                         <div class="omni-main-body">

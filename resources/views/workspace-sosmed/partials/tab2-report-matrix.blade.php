@@ -1,4 +1,4 @@
-                <section id="tabContent2" class="tab-content">
+                <section id="tabContent2" class="tab-content {{ (int) ($activeTab ?? 1) === 2 ? 'active' : '' }}">
                     <!-- Turnover Timestamp Indicator Banner in Tab 2 -->
                     <div class="turnover-report-banner" id="turnoverReportBanner">
                         <div class="banner-left">

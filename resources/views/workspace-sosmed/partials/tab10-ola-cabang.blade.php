@@ -1,4 +1,4 @@
-<section id="tabContent10" class="tab-content mb-16">
+<section id="tabContent10" class="tab-content mb-16 {{ (int) ($activeTab ?? 1) === 10 ? 'active' : '' }}">
     <div class="w-full space-y-5">
         <!-- 1. Header: Selaras dengan Desain Modern Workspace Sosmed -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

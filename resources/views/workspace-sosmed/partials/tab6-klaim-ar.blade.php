@@ -1,4 +1,4 @@
-                <section id="tabContent6" class="tab-content">
+                <section id="tabContent6" class="tab-content {{ (int) ($activeTab ?? 1) === 6 ? 'active' : '' }}">
                     <div class="modern-module-container mb-24">
                         <!-- 1. Hero Yellow Banner (Persis Format Keep) -->
                         <div class="customer-hero-banner">

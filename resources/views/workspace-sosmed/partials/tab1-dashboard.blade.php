@@ -1,4 +1,4 @@
-                <section id="tabContent1" class="tab-content active">
+                <section id="tabContent1" class="tab-content {{ (int) ($activeTab ?? 1) === 1 ? 'active' : '' }}">
                     <!-- Interactive Dashboard Filter Bar (Dihapus dari Tampilan Sesuai Permintaan User) -->
                     <div class="card-tegas dashboard-filter-bar mb-20" id="dashFilterBar"
                         style="display: none !important;">

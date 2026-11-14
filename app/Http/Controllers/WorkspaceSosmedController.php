@@ -33,20 +33,24 @@ class WorkspaceSosmedController extends Controller
         $this->storagePath = public_path('workspace-sosmed');
     }
 
-    public function index(Request $request)
+    public function index(Request $request, ?int $tab = null)
     {
         // Enkripsi routing: Jika diakses secara langsung bukan via gateway encrypted route dengan angka raw ?tab=9, otomatis redirect ke URL terenkripsi
         if (! $request->routeIs('encrypted.route')) {
             $rawTab = $request->query('tab');
-            if ($rawTab !== null && is_numeric($rawTab) && (int) $rawTab >= 1 && (int) $rawTab <= 9) {
+            if ($rawTab !== null && is_numeric($rawTab) && (int) $rawTab >= 1 && (int) $rawTab <= 10) {
                 return redirect()->to(RouteCipher::url('workspace-sosmed.index', [
                     'tab' => (int) $rawTab,
                 ]));
             }
         }
 
-        $activeTab = RouteCipher::resolveWorkspaceTab($request)
-            ?? WorkspaceUrlCipher::resolveTab($request);
+        $activeTab = $tab
+            ?? ($request->route('tab') ? (int) $request->route('tab') : null)
+            ?? ($request->query('tab') && is_numeric($request->query('tab')) ? (int) $request->query('tab') : null)
+            ?? RouteCipher::resolveWorkspaceTab($request)
+            ?? WorkspaceUrlCipher::resolveTab($request)
+            ?? 1;
 
         $tabFeatureMap = [
             1 => 'workspace_dashboard',
@@ -58,6 +62,7 @@ class WorkspaceSosmedController extends Controller
             7 => 'workspace_archives',
             8 => 'workspace_admin_settings',
             9 => 'workspace_inbox_fu',
+            10 => 'workspace_ola_cabang',
         ];
 
         $user = $request->user();

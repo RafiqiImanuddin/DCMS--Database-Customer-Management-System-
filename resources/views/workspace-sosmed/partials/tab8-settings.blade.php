@@ -1,4 +1,4 @@
-                <section id="tabContent8" class="tab-content">
+                <section id="tabContent8" class="tab-content {{ (int) ($activeTab ?? 1) === 8 ? 'active' : '' }}">
                     <div class="admin-grid">
                         <!-- Card Master Foto & Avatar Profil Sales (Sesuai Permintaan User) -->
                         <div class="card-tegas admin-card" style="grid-column: 1 / -1; margin-bottom: 24px;">

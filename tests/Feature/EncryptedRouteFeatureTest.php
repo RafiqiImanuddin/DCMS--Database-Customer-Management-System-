@@ -69,6 +69,18 @@ class EncryptedRouteFeatureTest extends TestCase
         $response1->assertStatus(200);
         $response1->assertSee('Workspace Sosmed');
 
+        // Tab 4 (Format Keep)
+        $url4 = RouteCipher::url('workspace-sosmed.index', ['tab' => 4]);
+        $response4 = $this->actingAs($user)->get($url4);
+        $response4->assertStatus(200);
+        $response4->assertSee('Format Keep Customer');
+        
+        $content4 = $response4->getContent();
+        preg_match('/<section id="tabContent1"[^>]*class="([^"]*)"/', $content4, $m1);
+        preg_match('/<section id="tabContent4"[^>]*class="([^"]*)"/', $content4, $m4);
+        $this->assertStringNotContainsString('active', $m1[1] ?? '');
+        $this->assertStringContainsString('active', $m4[1] ?? '');
+
         // Tab 9 (Inbox FU)
         $url9 = RouteCipher::url('workspace-sosmed.index', ['tab' => 9]);
         $response9 = $this->actingAs($user)->get($url9);

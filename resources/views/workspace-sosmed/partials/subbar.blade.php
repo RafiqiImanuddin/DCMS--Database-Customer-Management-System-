@@ -1,4 +1,4 @@
-<div class="workspace-header-wrapper mb-5" id="workspaceHeaderWrapper" style="{{ ($activeTab ?? 1) == 4 ? 'display: none;' : '' }}">
+<div class="workspace-header-wrapper mb-5" id="workspaceHeaderWrapper" style="{{ in_array((int) ($activeTab ?? 1), [4, 10]) ? 'display: none;' : '' }}">
     <div class="workspace-header-pill flex items-center justify-end gap-3 flex-wrap">
         <!-- Hidden container untuk mencegah JS error jika modul aktif di-set -->
         <span id="activeModuleName" class="hidden" style="display: none;"></span>

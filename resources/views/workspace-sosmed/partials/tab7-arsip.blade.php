@@ -1,4 +1,4 @@
-                <section id="tabContent7" class="tab-content">
+                <section id="tabContent7" class="tab-content {{ (int) ($activeTab ?? 1) === 7 ? 'active' : '' }}">
                     <!-- Card Upload File Excel Per Bulan ke Arsip (Permintaan User) -->
                     <div class="card-tegas mb-24" style="padding: 22px 26px; border-left: 7px solid #c8102e;">
                         <div

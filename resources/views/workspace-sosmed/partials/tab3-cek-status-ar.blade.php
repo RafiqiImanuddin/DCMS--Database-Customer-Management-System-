@@ -1,4 +1,4 @@
-                <section id="tabContent3" class="tab-content">
+                <section id="tabContent3" class="tab-content {{ (int) ($activeTab ?? 1) === 3 ? 'active' : '' }}">
                     @php
                         $isSuperAdmin = auth()->check() && auth()->user()->isSuperAdmin();
                     @endphp

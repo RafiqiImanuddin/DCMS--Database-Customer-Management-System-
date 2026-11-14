@@ -1,4 +1,4 @@
-                <section id="tabContent5" class="tab-content">
+                <section id="tabContent5" class="tab-content {{ (int) ($activeTab ?? 1) === 5 ? 'active' : '' }}">
                     <div class="modern-module-container mb-24">
                         <!-- Top Action Bar -->
                         <div
