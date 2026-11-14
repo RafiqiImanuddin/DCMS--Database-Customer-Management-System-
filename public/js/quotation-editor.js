@@ -501,31 +501,93 @@
         window.print();
     };
 
-    // Download Image Handler (html2canvas)
-    window.downloadQuotationImage = function() {
+    // Download Image Handler (htmlToImage with html2canvas fallback)
+    window.downloadQuotationImage = async function() {
         const paper = document.getElementById('printableLetterPaper');
-        if (!paper || typeof html2canvas === 'undefined') {
-            alert('Fitur download gambar sedang dimuat, silakan coba lagi.');
+        if (!paper) {
+            alert('Komponen kertas surat tidak ditemukan.');
             return;
+        }
+
+        const btn = document.getElementById('btnDownloadQuotationForm');
+        const originalHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            btn.innerHTML = `
+                <svg class="size-4 animate-spin text-emerald-700" viewBox="0 0 24 24" fill="none">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Membuat Gambar...</span>
+            `;
         }
 
         const numInput = document.getElementById('inputQuotationNumber');
         const rawNum = numInput ? numInput.value : 'Surat_Penawaran';
-        const filename = rawNum.replace(/[\/\\:]/g, '_') + '.png';
+        const filename = (rawNum || 'Surat_Penawaran').replace(/[\/\\:*\?"<>|]/g, '_') + '.png';
 
-        html2canvas(paper, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: '#ffffff'
-        }).then(function(canvas) {
+        try {
+            let dataUrl = null;
+
+            // 1. Prioritaskan htmlToImage (100% mendukung Tailwind v4 OKLCH & subpixel rendering)
+            if (typeof htmlToImage !== 'undefined' && typeof htmlToImage.toPng === 'function') {
+                try {
+                    dataUrl = await htmlToImage.toPng(paper, {
+                        quality: 0.98,
+                        pixelRatio: 2,
+                        backgroundColor: '#ffffff',
+                        cacheBust: false,
+                        style: {
+                            transform: 'none',
+                            boxShadow: 'none'
+                        }
+                    });
+                } catch (errHtmlToImage) {
+                    console.warn('htmlToImage gagal, mencoba html2canvas fallback:', errHtmlToImage);
+                }
+            }
+
+            // 2. Fallback ke html2canvas
+            if (!dataUrl && typeof html2canvas !== 'undefined') {
+                const canvas = await html2canvas(paper, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    onclone: function(clonedDoc) {
+                        const clonedPaper = clonedDoc.getElementById('printableLetterPaper');
+                        if (clonedPaper) {
+                            clonedPaper.style.transform = 'none';
+                            clonedPaper.style.boxShadow = 'none';
+                        }
+                    }
+                });
+                dataUrl = canvas.toDataURL('image/png');
+            }
+
+            if (!dataUrl) {
+                throw new Error('Pustaka pengubah gambar belum siap dimuat. Silakan refresh halaman.');
+            }
+
             const link = document.createElement('a');
             link.download = filename;
-            link.href = canvas.toDataURL('image/png');
+            link.href = dataUrl;
+            document.body.appendChild(link);
             link.click();
-        }).catch(function(err) {
-            console.error('Error generating canvas:', err);
-            alert('Gagal membuat gambar surat penawaran.');
-        });
+            document.body.removeChild(link);
+
+        } catch (err) {
+            console.error('Error generating image:', err);
+            alert('Gagal membuat gambar surat penawaran: ' + (err.message || 'Terjadi kesalahan sistem.'));
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                btn.innerHTML = originalHtml;
+            }
+        }
     };
 
     // Expose syncPreview to global scope if needed

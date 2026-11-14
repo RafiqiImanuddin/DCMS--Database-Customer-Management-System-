@@ -31,7 +31,7 @@
             </a>
             @endif
 
-            <button type="button" onclick="downloadLetterImage()" class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer">
+            <button id="btnDownloadImage" type="button" onclick="downloadLetterImage()" class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
                 <span>Unduh Gambar</span>
             </button>
@@ -59,10 +59,17 @@
             <!-- HEADER: LOGO KIRI & PENAWARAN HARGA MERAH KANAN -->
             <div class="flex items-start justify-between pb-4">
                 <div>
-                    <img src="{{ asset('images/gadgetmart-surat-logo.png') }}" 
+                    @php
+                        $logoPath = public_path('images/gadgetmart-surat-logo.png');
+                        if (!file_exists($logoPath)) {
+                            $logoPath = public_path('workspace-sosmed/logo.png');
+                        }
+                        $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : asset('images/gadgetmart-surat-logo.png');
+                    @endphp
+                    <img src="{{ $logoBase64 }}" 
                          alt="Gadget Mart" 
-                         class="h-16 w-auto object-contain"
-                         onerror="this.src='{{ asset('workspace-sosmed/logo.png') }}'">
+                         crossorigin="anonymous"
+                         class="h-16 w-auto object-contain">
                 </div>
                 <div class="text-right">
                     <h1 class="text-2xl font-black tracking-wide text-red-600 leading-none">PENAWARAN</h1>
@@ -164,9 +171,20 @@
                 <p class="mb-2 text-black">{{ $quotation->letter_city ?? 'Banjarmasin' }}, {{ $quotation->formatted_date }}</p>
                 
                 <div class="min-h-24 flex items-center justify-center my-1 relative">
-                    @if ($quotation->signature_url)
-                        <img src="{{ $quotation->signature_url }}" 
+                    @php
+                        $sigBase64 = null;
+                        if ($quotation->signature_image && file_exists(public_path($quotation->signature_image))) {
+                            $sigPath = public_path($quotation->signature_image);
+                            $mime = function_exists('mime_content_type') ? mime_content_type($sigPath) : 'image/png';
+                            $sigBase64 = 'data:' . ($mime ?: 'image/png') . ';base64,' . base64_encode(file_get_contents($sigPath));
+                        } elseif ($quotation->signature_url) {
+                            $sigBase64 = $quotation->signature_url;
+                        }
+                    @endphp
+                    @if ($sigBase64)
+                        <img src="{{ $sigBase64 }}" 
                              alt="Tanda Tangan" 
+                             crossorigin="anonymous"
                              style="height: {{ round(80 * (($quotation->signature_scale ?? 100) / 100)) }}px;"
                              class="w-auto object-contain mx-auto">
                     @else
@@ -212,31 +230,95 @@
 }
 </style>
 
-<!-- html2canvas for instant Image Download -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Image Export Libraries (Local primary with fallback) -->
+<script src="{{ asset('js/html-to-image.min.js') }}"></script>
+<script src="{{ asset('js/html2canvas.min.js') }}"></script>
 <script>
-function downloadLetterImage() {
+async function downloadLetterImage() {
+    const btn = document.getElementById('btnDownloadImage');
     const sheet = document.getElementById('quotationSheet');
-    if (!sheet || typeof html2canvas === 'undefined') {
-        alert('Fitur download gambar sedang dimuat, silakan coba lagi.');
+    if (!sheet) {
+        alert('Komponen surat tidak ditemukan.');
         return;
     }
 
-    const number = "{{ str_replace(['/', '\\', ':'], '_', $quotation->quotation_number) }}";
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
+        btn.innerHTML = `
+            <svg class="size-4 animate-spin text-emerald-800" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Membuat Gambar...</span>
+        `;
+    }
 
-    html2canvas(sheet, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-    }).then(canvas => {
+    const filename = "{{ str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $quotation->quotation_number) }}.png";
+
+    try {
+        let dataUrl = null;
+
+        // 1. Prioritaskan htmlToImage (100% mendukung Tailwind v4 OKLCH & subpixel rendering)
+        if (typeof htmlToImage !== 'undefined' && typeof htmlToImage.toPng === 'function') {
+            try {
+                dataUrl = await htmlToImage.toPng(sheet, {
+                    quality: 0.98,
+                    pixelRatio: 2,
+                    backgroundColor: '#ffffff',
+                    cacheBust: false,
+                    style: {
+                        transform: 'none',
+                        boxShadow: 'none'
+                    }
+                });
+            } catch (errHtmlToImage) {
+                console.warn('htmlToImage gagal, mencoba html2canvas fallback:', errHtmlToImage);
+            }
+        }
+
+        // 2. Fallback ke html2canvas jika htmlToImage belum terdefinisi / gagal
+        if (!dataUrl && typeof html2canvas !== 'undefined') {
+            const canvas = await html2canvas(sheet, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                onclone: (clonedDoc) => {
+                    const clonedSheet = clonedDoc.getElementById('quotationSheet');
+                    if (clonedSheet) {
+                        clonedSheet.style.transform = 'none';
+                        clonedSheet.style.boxShadow = 'none';
+                    }
+                }
+            });
+            dataUrl = canvas.toDataURL('image/png');
+        }
+
+        if (!dataUrl) {
+            throw new Error('Pustaka pengunduh gambar belum siap dimuat. Silakan refresh halaman dan coba lagi.');
+        }
+
+        // Download PNG file
         const link = document.createElement('a');
-        link.download = `${number}.png`;
-        link.href = canvas.toDataURL('image/png');
+        link.download = filename;
+        link.href = dataUrl;
+        document.body.appendChild(link);
         link.click();
-    }).catch(err => {
-        console.error('Canvas error:', err);
-        alert('Gagal mengunduh gambar surat.');
-    });
+        document.body.removeChild(link);
+
+    } catch (err) {
+        console.error('Canvas export error:', err);
+        alert('Gagal mengunduh gambar surat: ' + (err.message || 'Terjadi kesalahan sistem.'));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            btn.innerHTML = originalHtml;
+        }
+    }
 }
 </script>
 @endsection
