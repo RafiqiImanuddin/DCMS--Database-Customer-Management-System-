@@ -5636,16 +5636,60 @@ body:has(#tabContent9.active) .save-toast {
    17. OMNICHANNEL INBOX FU CONSOLE (CLEAN MONOCHROME ENTERPRISE CRM)
    ========================================================================== */
 
+/* TAB 9 FIT SELAYARAN (100% VIEWPORT NO BODY SCROLL) */
+body.tab9-mode-active {
+  overflow: hidden !important;
+  height: 100vh !important;
+}
+
+body.tab9-mode-active main {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+body.tab9-mode-active main > div:last-child {
+  padding: 0 !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+body.tab9-mode-active #dropZone {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+body.tab9-mode-active #tabContent9.active {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
 .omni-app-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 165px);
-  min-height: 640px;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #0f172a;
 }
@@ -6281,9 +6325,10 @@ body:has(#tabContent9.active) .save-toast {
 /* WhatsApp Messages Stream */
 /* WhatsApp Messages Stream: Modern Clean Slate Palette */
 .omni-messages-stream {
-  flex: 1;
+  flex: 1 1 0%;
+  min-height: 0;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -6987,10 +7032,11 @@ body:has(#tabContent9.active) .save-toast {
 .omni-chatview-footer-modern {
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
-  padding: 12px 18px 14px 18px;
+  padding: 10px 16px 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .omni-input-box-wrapper {

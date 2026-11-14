@@ -1368,10 +1368,17 @@ function switchTab(tabIndex) {
     activeModEl.textContent = moduleNames[tabIndex] || 'Dashboard';
   }
 
-  // Sembunyikan subbar header di menu Format Keep (Tab 4) dan Dashboard OLA (Tab 10)
+  // Sembunyikan subbar header di menu Format Keep (Tab 4), Omnichannel Inbox (Tab 9), dan Dashboard OLA (Tab 10)
   const headerWrapper = document.getElementById('workspaceHeaderWrapper') || document.querySelector('.workspace-header-wrapper');
   if (headerWrapper) {
-    headerWrapper.style.display = (tabIndex === 4 || tabIndex === 10) ? 'none' : '';
+    headerWrapper.style.display = (tabIndex === 4 || tabIndex === 10 || tabIndex === 9) ? 'none' : '';
+  }
+
+  // Toggle class body untuk Tab 9 (Inbox Follow-Up) agar layout fit selayaran (100% viewport)
+  if (tabIndex === 9) {
+    document.body.classList.add('tab9-mode-active');
+  } else {
+    document.body.classList.remove('tab9-mode-active');
   }
 
   closeWorkspaceMenu();
@@ -12059,6 +12066,137 @@ function syncMasterDataFromKeepCSV() {
   renderOmniInboxModule();
 }
 
+// ==========================================================================
+// SINKRONISASI NAMA PENGIRIM WHATSAPP KE MASTER DATA PIC FU
+// ==========================================================================
+const OMNI_LID_MAP_KEY = 'gadgetmart_lid_pic_map';
+
+function getLidPicMap() {
+  try {
+    return JSON.parse(localStorage.getItem(OMNI_LID_MAP_KEY) || '{}');
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveLidPicMap(map) {
+  try {
+    localStorage.setItem(OMNI_LID_MAP_KEY, JSON.stringify(map || {}));
+  } catch (e) {}
+}
+
+function extractPicNameFromChatMessages(msgs) {
+  if (!Array.isArray(msgs) || msgs.length === 0) return null;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    const text = String(m.text || m.message || '').trim();
+    if (!text) continue;
+
+    // 1. Deteksi sapaan bot ke PIC toko:
+    // Contoh: "halo kak AMT.TEC.003 - MUHAMMAD YUSUF mimin mau follow-up update progress..."
+    // "halo kak SC.BPP1.01 - AZIZAH N mimin..."
+    // "halo kak PLH.OPP.001 - NENEL..."
+    // "halo kak NOMOR TOKO XIAOMI..."
+    const matchGreeting = text.match(/halo\s+kak\s+([A-Za-z0-9.\-_/ ]+?)(?:[\n,^]|mimin|kami|mau|\*|$)/i);
+    if (matchGreeting && matchGreeting[1]) {
+      let cand = matchGreeting[1].trim();
+      cand = cand.replace(/^[\s\-:,.]+|[\s\-:,.]+$/g, '');
+      if (cand.length >= 3 && !cand.toLowerCase().startsWith('customer') && !cand.toLowerCase().startsWith('admin') && !cand.toLowerCase().startsWith('mimin')) {
+        return cand;
+      }
+    }
+
+    // 2. Deteksi balasan PIC / WhatsApp sender quote prefix:
+    // Contoh: "AMT.TEC.003 - MUHAMMAD YUSUF:\nUsernya mesan pad lenovo ka"
+    const matchPrefix = text.match(/^([A-Za-z0-9.\-_/ ]{3,50})\s*:\s*\n/m);
+    if (matchPrefix && matchPrefix[1]) {
+      let cand = matchPrefix[1].trim();
+      cand = cand.replace(/^[\s\-:,.]+|[\s\-:,.]+$/g, '');
+      if (cand.length >= 3 && !cand.toLowerCase().startsWith('admin') && !cand.toLowerCase().startsWith('bot')) {
+        return cand;
+      }
+    }
+
+    // 3. Deteksi label tim FU di pesan:
+    // Contoh: "nama tim follow up: AMT.TEC.003 - MUHAMMAD YUSUF"
+    const matchFuLabel = text.match(/(?:nama\s+tim\s+(?:follow\s*up|fu)|tim\s+fu|pic\s*fu)\s*:\s*([A-Za-z0-9.\-_/ ]+)/i);
+    if (matchFuLabel && matchFuLabel[1]) {
+      let cand = matchFuLabel[1].trim();
+      cand = cand.replace(/^[\s\-:,.]+|[\s\-:,.]+$/g, '');
+      if (cand.length >= 3 && !cand.toLowerCase().startsWith('customer')) {
+        return cand;
+      }
+    }
+  }
+  return null;
+}
+
+function syncOmniSenderNames(showToast) {
+  const threads = getOmniThreads();
+  const lidMap = getLidPicMap();
+  const master = getMasterDataPICs();
+  let updatedCount = 0;
+
+  Object.keys(threads).forEach(function(key) {
+    const cleanKey = normalizeWhatsAppPhone(key) || key;
+    const msgs = threads[key] || [];
+    if (!Array.isArray(msgs) || msgs.length === 0) return;
+
+    const isLid = cleanKey.length > 13 || (!cleanKey.startsWith('628') && !cleanKey.startsWith('08') && !cleanKey.startsWith('8'));
+    const existing = lidMap[cleanKey] || lidMap[key];
+
+    const extractedName = extractPicNameFromChatMessages(msgs);
+    if (extractedName) {
+      const fClean = extractedName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const foundInMaster = master.find(function(m) {
+        if (!m.picName) return false;
+        const mClean = m.picName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return mClean === fClean || (mClean.length >= 4 && fClean.includes(mClean)) || (fClean.length >= 4 && mClean.includes(fClean));
+      });
+
+      const finalName = foundInMaster ? foundInMaster.picName : extractedName;
+      const finalCabang = (foundInMaster ? foundInMaster.cabang : '') || resolveCabangFromPicName(finalName) || '-';
+      const finalWA = (foundInMaster && foundInMaster.wa) ? foundInMaster.wa : cleanKey;
+
+      if (!existing || existing.picName !== finalName) {
+        lidMap[cleanKey] = {
+          picName: finalName,
+          cabang: finalCabang,
+          wa: finalWA,
+          isSynced: true
+        };
+        lidMap[key] = lidMap[cleanKey];
+        updatedCount++;
+
+        if (!foundInMaster) {
+          master.push({
+            wa: finalWA,
+            picName: finalName,
+            cabang: finalCabang
+          });
+        }
+      }
+    }
+  });
+
+  if (updatedCount > 0) {
+    saveLidPicMap(lidMap);
+    saveMasterDataPICs(master);
+  }
+
+  if (showToast) {
+    if (typeof showSaveToast === 'function') {
+      showSaveToast(updatedCount > 0 
+        ? `Berhasil menyinkronkan ${updatedCount} nama pengirim WhatsApp ke Master Data PIC!` 
+        : 'Semua nama pengirim WhatsApp sudah sinkron.');
+    }
+  }
+
+  renderOmniInboxModule();
+  return updatedCount;
+}
+window.syncOmniSenderNames = syncOmniSenderNames;
+
 function matchPicFromMasterData(waNumber, fallbackName, fallbackCabang) {
   const master = getMasterDataPICs();
   const clean = cleanPhoneDigits(waNumber);
@@ -12620,6 +12758,14 @@ function getIndexedOmniKeeps() {
       const last9 = picWA.slice(-9);
       if (last9.length >= 9 && !picKeepsMap[last9]) picKeepsMap[last9] = picKeepsMap[picKey];
     }
+
+    // Indeks juga berdasarkan nama PIC yang ternormalisasi agar keep otomatis match
+    if (picName) {
+      const normName = picName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normName && normName.length >= 4 && !picKeepsMap[normName]) {
+        picKeepsMap[normName] = picKeepsMap[picKey];
+      }
+    }
   }
 
   cachedOmniKeepsMap = picKeepsMap;
@@ -12639,6 +12785,7 @@ function getOmniPicChats() {
 
   const picKeepsMap = getIndexedOmniKeeps();
   const resolvedMap = getOmniResolvedChats();
+  const lidMap = getLidPicMap();
 
   const result = [];
   activeKeys.forEach(function(key) {
@@ -12667,13 +12814,35 @@ function getOmniPicChats() {
     }
 
     const isLid = cleanKey.length > 13 || (!cleanKey.startsWith('628') && !cleanKey.startsWith('08') && !cleanKey.startsWith('8'));
-    const targetMatchPhone = detectedRealPhone || cleanKey;
-    const matched = matchPicFromMasterData(targetMatchPhone, detectedSenderName, '-');
-    const picWA = matched.matched ? matched.wa : (detectedRealPhone || cleanKey);
-    const cabang = matched.cabang || '-';
+    let lidCached = lidMap[cleanKey] || lidMap[key];
+
+    // Otomatis ekstrak nama PIC dari riwayat chat jika belum di-cache atau masih generic LID
+    if (!lidCached && (isLid || !detectedSenderName)) {
+      const autoExtracted = extractPicNameFromChatMessages(chatMsgs);
+      if (autoExtracted) {
+        const found = matchPicFromMasterData(cleanKey, autoExtracted, resolveCabangFromPicName(autoExtracted));
+        const finalName = found.picName || autoExtracted;
+        const finalCabang = found.cabang || resolveCabangFromPicName(finalName) || '-';
+        const finalWA = found.wa || cleanKey;
+        lidCached = { picName: finalName, cabang: finalCabang, wa: finalWA, isSynced: true };
+        lidMap[cleanKey] = lidCached;
+        lidMap[key] = lidCached;
+        saveLidPicMap(lidMap);
+      }
+    }
+
+    const targetMatchPhone = (lidCached && lidCached.wa) ? lidCached.wa : (detectedRealPhone || cleanKey);
+    const targetFallbackName = (lidCached && lidCached.picName) ? lidCached.picName : detectedSenderName;
+    const targetFallbackCabang = (lidCached && lidCached.cabang) ? lidCached.cabang : '-';
+
+    const matched = matchPicFromMasterData(targetMatchPhone, targetFallbackName, targetFallbackCabang);
+    const picWA = matched.matched ? matched.wa : targetMatchPhone;
+    const cabang = matched.cabang || (lidCached ? lidCached.cabang : '-') || '-';
 
     let picName = '';
-    if (matched.matched && matched.picName) {
+    if (lidCached && lidCached.picName) {
+      picName = lidCached.picName;
+    } else if (matched.matched && matched.picName) {
       picName = matched.picName;
     } else if (detectedSenderName) {
       picName = detectedSenderName;
@@ -12684,7 +12853,8 @@ function getOmniPicChats() {
     }
 
     const last9 = picWA.slice(-9);
-    const keeps = picKeepsMap[cleanKey] || picKeepsMap[picWA] || (last9.length >= 9 ? picKeepsMap[last9] : []) || [];
+    const normPicName = picName ? picName.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    const keeps = picKeepsMap[cleanKey] || picKeepsMap[picWA] || (normPicName ? picKeepsMap[normPicName] : null) || (last9.length >= 9 ? picKeepsMap[last9] : []) || [];
     const pendingCount = keeps.filter(function(k) { return k.isPending; }).length;
     const resolvedCount = keeps.filter(function(k) { return !k.isPending; }).length;
 
