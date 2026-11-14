@@ -43,7 +43,7 @@
   <script>
     function updateSidebarActiveTab(tabIndex) {
         const numTab = parseInt(tabIndex, 10);
-        const isKeepGroup = [3, 4, 5, 6].includes(numTab);
+        const isKeepGroup = [3, 4, 5, 6, 10].includes(numTab);
 
         document.querySelectorAll('.workspace-sidebar-link').forEach(link => {
             const linkTab = parseInt(link.getAttribute('data-tab'), 10);
@@ -132,7 +132,7 @@
 
         const headerWrapper = document.getElementById('workspaceHeaderWrapper') || document.querySelector('.workspace-header-wrapper');
         if (headerWrapper) {
-            headerWrapper.style.display = (tabIndex === 4) ? 'none' : '';
+            headerWrapper.style.display = (tabIndex === 4 || tabIndex === 10) ? 'none' : '';
         }
 
         try {

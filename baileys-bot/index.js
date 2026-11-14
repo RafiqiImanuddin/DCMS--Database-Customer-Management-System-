@@ -20,7 +20,8 @@ const {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
-  delay
+  delay,
+  proto
 } = require('@whiskeysockets/baileys');
 
 // ==============================================================================
@@ -60,6 +61,19 @@ let isPushingSession = false;
 // Riwayat buffer in-memory untuk pesan keep (maksimal 1.000 pesan terakhir)
 const messageCache = new Map();
 const MAX_CACHE = 1000;
+
+// Riwayat raw message store untuk merespon Signal Protocol retry receipts ("Waiting for this message")
+const rawMessageStore = new Map();
+const MAX_RAW_MESSAGES = 2000;
+
+function saveRawMessage(id, message) {
+  if (!id || !message) return;
+  rawMessageStore.set(id, message);
+  if (rawMessageStore.size > MAX_RAW_MESSAGES) {
+    const first = rawMessageStore.keys().next().value;
+    rawMessageStore.delete(first);
+  }
+}
 
 // Riwayat log aktivitas reaksi (maksimal 40 log terakhir untuk tampilan dashboard)
 const reactionLogs = [];
@@ -258,7 +272,18 @@ async function startBaileysSocket() {
     generateHighQualityLinkPreview: false,
     syncFullHistory: false,
     getMessage: async (key) => {
-      // Callback getMessage agar Baileys dapat merespon retry receipt saat terjadi Bad MAC
+      // Callback getMessage agar Baileys dapat merespon retry receipt saat terjadi Bad MAC / Signal decryption delay
+      if (key && key.id) {
+        if (rawMessageStore.has(key.id)) {
+          return rawMessageStore.get(key.id);
+        }
+        if (messageCache.has(key.id)) {
+          const cached = messageCache.get(key.id);
+          return proto.Message.fromObject({
+            conversation: cached.text || ''
+          });
+        }
+      }
       return undefined;
     }
   });
@@ -329,6 +354,9 @@ async function startBaileysSocket() {
 
     for (const msg of messages) {
       if (!msg.key || !msg.message) continue;
+      if (msg.key.id) {
+        saveRawMessage(msg.key.id, msg.message);
+      }
       const remoteJid = msg.key.remoteJid || '';
 
       // Abaikan status broadcast WhatsApp
@@ -812,6 +840,9 @@ app.post('/api/send-message', async (req, res) => {
     }
 
     const sentId = sentResult?.key?.id || `out_${Date.now()}`;
+    if (sentId && sentResult?.message) {
+      saveRawMessage(sentId, sentResult.message);
+    }
     logger.info(`[Outbound Chat Terkirim] ID: ${sentId} ke ${cleanPhone}`);
 
     addReactionLog({

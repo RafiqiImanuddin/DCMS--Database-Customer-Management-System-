@@ -1,4 +1,4 @@
-                <section id="tabContent4" class="tab-content mb-16">
+                <section id="tabContent4" class="tab-content mb-16 {{ (int) ($activeTab ?? 1) === 4 ? 'active' : '' }}">
     <div class="w-full space-y-5">
         <!-- 1. Header: Selaras dengan Customer & Outreach (Leads & Master Customer) -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

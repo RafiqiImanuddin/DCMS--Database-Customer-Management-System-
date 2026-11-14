@@ -33,20 +33,24 @@ class WorkspaceSosmedController extends Controller
         $this->storagePath = public_path('workspace-sosmed');
     }
 
-    public function index(Request $request)
+    public function index(Request $request, ?int $tab = null)
     {
         // Enkripsi routing: Jika diakses secara langsung bukan via gateway encrypted route dengan angka raw ?tab=9, otomatis redirect ke URL terenkripsi
         if (! $request->routeIs('encrypted.route')) {
             $rawTab = $request->query('tab');
-            if ($rawTab !== null && is_numeric($rawTab) && (int) $rawTab >= 1 && (int) $rawTab <= 9) {
+            if ($rawTab !== null && is_numeric($rawTab) && (int) $rawTab >= 1 && (int) $rawTab <= 10) {
                 return redirect()->to(RouteCipher::url('workspace-sosmed.index', [
                     'tab' => (int) $rawTab,
                 ]));
             }
         }
 
-        $activeTab = RouteCipher::resolveWorkspaceTab($request)
-            ?? WorkspaceUrlCipher::resolveTab($request);
+        $activeTab = $tab
+            ?? ($request->route('tab') ? (int) $request->route('tab') : null)
+            ?? ($request->query('tab') && is_numeric($request->query('tab')) ? (int) $request->query('tab') : null)
+            ?? RouteCipher::resolveWorkspaceTab($request)
+            ?? WorkspaceUrlCipher::resolveTab($request)
+            ?? 1;
 
         $tabFeatureMap = [
             1 => 'workspace_dashboard',
@@ -58,6 +62,7 @@ class WorkspaceSosmedController extends Controller
             7 => 'workspace_archives',
             8 => 'workspace_admin_settings',
             9 => 'workspace_inbox_fu',
+            10 => 'workspace_ola_cabang',
         ];
 
         $user = $request->user();
@@ -747,23 +752,29 @@ class WorkspaceSosmedController extends Controller
             $mediaType = in_array($pathExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : 'document';
         }
 
-        // Kirim via Dual-Gateway Omnichannel (WAHA VPS primary + WatZap fallback)
-        $result = $watzapService->sendOmnichannel($rawPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null, $fileData);
+        // Kirim via Dual-Gateway Omnichannel (Baileys Bot primary + WAHA VPS + WatZap fallback)
         $cleanPhone = $watzapService->resolvePhoneOrLid($rawPhone);
-        $msgId = $result['message_id'] ?? ('out_'.uniqid());
+        $targetPhone = $cleanPhone ?: $rawPhone;
+        $result = $watzapService->sendOmnichannel($targetPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null, $fileData);
+
+        $clientMsgId = $request->input('messageId') ?: $request->input('id');
+        $clientTs = $request->input('timestamp');
+        $msgId = $clientMsgId ?: ($result['message_id'] ?? ('out_'.uniqid()));
         $isSuccess = ! empty($result['success']);
 
-        // Catat ke pesan keluar lokal & Database
+        // Catat ke pesan keluar lokal & Database dengan messageId & timestamp persisten dari frontend
         $entry = [
             'messageId' => $msgId,
-            'phone' => $cleanPhone ?: $rawPhone,
+            'clientMessageId' => $clientMsgId,
+            'phone' => $targetPhone,
+            'lid' => ($rawPhone !== $targetPhone) ? $rawPhone : null,
             'message' => $message,
             'media_url' => $mediaUrl,
             'media_type' => $mediaType,
             'filename' => $originalName,
             'file_size' => $fileSize,
             'reply_to' => is_array($replyTo) ? $replyTo : null,
-            'timestamp' => now()->toIso8601String(),
+            'timestamp' => $clientTs ? (is_numeric($clientTs) ? (int) $clientTs : (strtotime((string) $clientTs) * 1000)) : (time() * 1000),
             'status' => $isSuccess ? 'sent' : 'failed',
             'direction' => 'outbound',
             'sender' => 'ADMIN',
@@ -1931,5 +1942,69 @@ class WorkspaceSosmedController extends Controller
             'total_count' => $totalCount,
             'rows' => $rows,
         ]);
+    }
+
+    /**
+     * Endpoint API JSON untuk membaca dan menyimpan data Klaim AR & Pengawasan Denda secara persisten di server.
+     * Memastikan seluruh admin berbagi data keranjang klaim yang sama dan tidak hilang saat ganti perangkat.
+     */
+    public function arClaims(Request $request): JsonResponse
+    {
+        $filePath = storage_path('app/ar_claims.json');
+
+        if ($request->isMethod('POST')) {
+            if (! auth()->check()) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            if ($request->user()?->isGuest()) {
+                return response()->json(['success' => false, 'message' => 'Akun Guest tidak diizinkan mengubah data klaim AR.'], 403);
+            }
+
+            $data = $request->json()->all();
+            if (! is_array($data)) {
+                $data = json_decode((string) $request->getContent(), true) ?? [];
+            }
+
+            // Cegah penghapusan tidak sengaja jika kiriman kosong namun file server sudah memiliki data klaim
+            if (empty($data) && file_exists($filePath) && ! $request->boolean('force_empty')) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Data klaim lama dipertahankan karena payload kiriman kosong.',
+                    'count' => 0,
+                ]);
+            }
+
+            if (! is_dir(dirname($filePath))) {
+                @mkdir(dirname($filePath), 0775, true);
+            }
+
+            // Cadangkan file sebelum overwrite
+            if (file_exists($filePath) && filesize($filePath) > 0) {
+                @copy($filePath, storage_path('app/ar_claims.backup.json'));
+            }
+
+            @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data klaim AR berhasil disimpan di server',
+                'count' => count($data),
+            ]);
+        }
+
+        // GET request: Hanya boleh diakses pengguna yang sudah login
+        if (! auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        if (! file_exists($filePath)) {
+            return response()->json([]);
+        }
+
+        $raw = @file_get_contents($filePath);
+        $list = json_decode((string) $raw, true);
+
+        return response()->json(is_array($list) ? $list : []);
     }
 }

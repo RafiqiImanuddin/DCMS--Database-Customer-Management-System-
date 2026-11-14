@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Registrasi Akun - DCMS Gadgetmart</title>
+    <title>Registrasi Akun - DCMS - SOSMED</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-square.png') }}?v={{ @filemtime(public_path('favicon-square.png')) ?: '1.0' }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v={{ @filemtime(public_path('favicon.ico')) ?: '1.0' }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="relative flex min-h-screen items-center justify-center overflow-x-hidden bg-slate-950 p-4 py-8">

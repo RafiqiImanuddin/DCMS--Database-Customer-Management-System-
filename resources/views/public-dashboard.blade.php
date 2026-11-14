@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>Live Dashboard Sosmed • DCMS Gadgetmart</title>
+    <title>Live Dashboard Sosmed • DCMS - SOSMED</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-square.png') }}?v={{ @filemtime(public_path('favicon-square.png')) ?: '1.0' }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v={{ @filemtime(public_path('favicon.ico')) ?: '1.0' }}">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
