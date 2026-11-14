@@ -262,7 +262,32 @@ class WatzapService
                                 $isFromMe = ! empty($m['fromMe']) || ! empty($m['_data']['id']['fromMe']);
                                 $direction = $isFromMe ? 'outbound' : 'inbound';
                                 $senderRole = $isFromMe ? 'ADMIN' : 'PIC';
-                                $senderName = $isFromMe ? 'Admin' : ($chatName ?: 'PIC '.$cleanPhone);
+
+                                // Ekstrak profil asli pengirim dari notifyName / pushname WhatsApp
+                                $profileName = trim((string) (
+                                    $m['pushname']
+                                    ?? ($m['_data']['notifyName'] ?? null)
+                                    ?? ($m['_data']['pushname'] ?? null)
+                                    ?? ($chat['name'] ?? null)
+                                    ?? ''
+                                ));
+                                if (in_array(strtolower($profileName), ['admin', 'anda', 'pic', 'null', 'undefined', ''])) {
+                                    $profileName = '';
+                                }
+
+                                // Deteksi nomor HP asli jika chatId berupa WhatsApp LID (15-18 digit)
+                                $msgCleanPhone = $cleanPhone;
+                                if (strlen($msgCleanPhone) > 13 || (! str_starts_with($msgCleanPhone, '628') && ! str_starts_with($msgCleanPhone, '08') && ! str_starts_with($msgCleanPhone, '8'))) {
+                                    $authorRaw = (string) ($m['author'] ?? ($m['_data']['author'] ?? ($m['_data']['id']['participant'] ?? '')));
+                                    if ($authorRaw !== '') {
+                                        $candPhone = $this->resolvePhoneOrLid($authorRaw);
+                                        if ($candPhone !== '' && (str_starts_with($candPhone, '628') || str_starts_with($candPhone, '08')) && strlen($candPhone) >= 10 && strlen($candPhone) <= 14) {
+                                            $msgCleanPhone = $candPhone;
+                                        }
+                                    }
+                                }
+
+                                $senderName = $isFromMe ? 'Admin' : ($profileName ?: ($chatName ?: $msgCleanPhone));
                                 $rawBody = trim((string) ($m['body'] ?? ($m['_data']['body'] ?? '')));
                                 $ts = isset($m['timestamp']) ? (int) $m['timestamp'] : time();
                                 $epochMs = $ts > 1e11 ? $ts : ($ts * 1000);
@@ -304,7 +329,8 @@ class WatzapService
 
                                 $entry = [
                                     'messageId' => $msgId,
-                                    'phone' => $cleanPhone,
+                                    'phone' => $msgCleanPhone,
+                                    'lid' => $cleanPhone !== $msgCleanPhone ? $cleanPhone : null,
                                     'message' => $rawBody,
                                     'media_url' => $mediaUrl,
                                     'media_type' => $mediaType,
@@ -322,11 +348,11 @@ class WatzapService
                                 $syncedEntries[] = $entry;
 
                                 try {
-                                    if ($cleanPhone) {
+                                    if ($msgCleanPhone) {
                                         $dbChat = \App\Models\WhatsAppChat::firstOrCreate(
-                                            ['phone_number' => $cleanPhone],
+                                            ['phone_number' => $msgCleanPhone],
                                             [
-                                                'customer_name' => $chatName ?: ('PIC '.$cleanPhone),
+                                                'customer_name' => $senderName ?: $msgCleanPhone,
                                                 'folder' => 'all',
                                                 'unread_count' => 0,
                                             ]
@@ -390,7 +416,10 @@ class WatzapService
                     ->get($wahaUrl);
                 if ($res->ok()) {
                     $d = $res->json();
-                    $num = $d['id'] ?? '';
+                    $num = $d['number'] ?? ($d['phone'] ?? ($d['id']['user'] ?? ($d['id'] ?? '')));
+                    if (is_array($num)) {
+                        $num = $num['_serialized'] ?? ($num['user'] ?? '');
+                    }
                     $clean = preg_replace('/@.*$/', '', (string) $num) ?? '';
                     $clean = preg_replace('/\D/', '', $clean) ?? '';
                     if (strlen($clean) >= 9 && strlen($clean) <= 15) {
@@ -400,8 +429,9 @@ class WatzapService
                         if (str_starts_with($clean, '8')) {
                             return '62'.$clean;
                         }
-
-                        return $clean;
+                        if (str_starts_with($clean, '62') && strlen($clean) <= 14) {
+                            return $clean;
+                        }
                     }
                 }
             } catch (Throwable) {

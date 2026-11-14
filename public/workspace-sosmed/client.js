@@ -11789,6 +11789,24 @@ function normalizeWhatsAppPhone(raw) {
   return digits;
 }
 
+function formatWhatsAppPhoneDisplay(raw) {
+  if (!raw) return '-';
+  let clean = String(raw).replace(/@.*$/, '').replace(/\D/g, '');
+  if (clean.startsWith('08')) clean = '62' + clean.slice(1);
+  else if (clean.startsWith('8') && clean.length >= 9 && clean.length <= 13) clean = '62' + clean;
+  if (clean.startsWith('628') && clean.length >= 10 && clean.length <= 14) {
+    if (clean.length === 11) return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 8) + '-' + clean.slice(8);
+    if (clean.length === 12) return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 9) + '-' + clean.slice(9);
+    if (clean.length === 13) return '+62 ' + clean.slice(2, 6) + '-' + clean.slice(6, 10) + '-' + clean.slice(10);
+    return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 9) + '-' + clean.slice(9);
+  }
+  if (clean.length > 13) {
+    return 'LID ' + clean.slice(0, 4) + '...' + clean.slice(-4);
+  }
+  return clean ? ('+' + clean) : '-';
+}
+window.formatWhatsAppPhoneDisplay = formatWhatsAppPhoneDisplay;
+
 function isGroupWhatsApp(raw) {
   if (!raw) return false;
   const s = String(raw);
@@ -12016,10 +12034,17 @@ function syncMasterDataFromKeepCSV() {
 function matchPicFromMasterData(waNumber, fallbackName, fallbackCabang) {
   const master = getMasterDataPICs();
   const clean = cleanPhoneDigits(waNumber);
+
+  // Bersihkan fallbackName dari prefix 'PIC ' jika hanya berisi nomor/LID mentah
+  let cleanFallback = String(fallbackName || '').trim();
+  if (cleanFallback.startsWith('PIC ') && /^\d+$/.test(cleanFallback.slice(4).trim())) {
+    cleanFallback = '';
+  }
+
   if (!clean) {
     return {
       wa: waNumber || '',
-      picName: fallbackName || 'PIC Tidak Diketahui',
+      picName: cleanFallback || (waNumber ? formatWhatsAppPhoneDisplay(waNumber) : 'Kontak WhatsApp'),
       cabang: fallbackCabang || '-',
       matched: false
     };
@@ -12039,8 +12064,8 @@ function matchPicFromMasterData(waNumber, fallbackName, fallbackCabang) {
   }
 
   // Jika merupakan WhatsApp LID atau nomor belum cocok, cocokkan berdasarkan kesamaan nama
-  if (fallbackName && (clean.length > 13 || !clean.startsWith('628'))) {
-    const fClean = String(fallbackName).toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (cleanFallback && (clean.length > 13 || !clean.startsWith('628'))) {
+    const fClean = cleanFallback.toLowerCase().replace(/[^a-z0-9]/g, '');
     const foundByName = master.find(m => {
       if (!m.picName) return false;
       const mClean = m.picName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -12058,7 +12083,7 @@ function matchPicFromMasterData(waNumber, fallbackName, fallbackCabang) {
 
   return {
     wa: waNumber,
-    picName: fallbackName || ('PIC (' + clean + ')'),
+    picName: cleanFallback || formatWhatsAppPhoneDisplay(clean),
     cabang: fallbackCabang || '-',
     matched: false
   };
@@ -12567,10 +12592,42 @@ function getOmniPicChats() {
     const chatMsgs = threads[key] || [];
     const lastMsg = chatMsgs[chatMsgs.length - 1];
 
-    const matched = matchPicFromMasterData(cleanKey, 'PIC ' + cleanKey, '-');
-    const picWA = matched.wa || cleanKey;
-    const picName = matched.picName;
+    // Deteksi nama profil WhatsApp dan nomor telepon asli dari riwayat pesan
+    let detectedSenderName = '';
+    let detectedRealPhone = '';
+    for (let i = chatMsgs.length - 1; i >= 0; i--) {
+      const m = chatMsgs[i];
+      if (!detectedSenderName) {
+        const cand = (m.senderName || m.pushname || m.notifyName || '').trim();
+        if (cand && !cand.toLowerCase().startsWith('admin') && cand.toLowerCase() !== 'pic' && !cand.startsWith('PIC ')) {
+          detectedSenderName = cand;
+        }
+      }
+      if (!detectedRealPhone) {
+        const phCand = normalizeWhatsAppPhone(m.phone || m.realPhone || m.author || '');
+        if (phCand && (phCand.startsWith('628') || phCand.startsWith('08')) && phCand.length >= 10 && phCand.length <= 14) {
+          detectedRealPhone = phCand.startsWith('08') ? ('62' + phCand.slice(1)) : phCand;
+        }
+      }
+      if (detectedSenderName && detectedRealPhone) break;
+    }
+
+    const isLid = cleanKey.length > 13 || (!cleanKey.startsWith('628') && !cleanKey.startsWith('08') && !cleanKey.startsWith('8'));
+    const targetMatchPhone = detectedRealPhone || cleanKey;
+    const matched = matchPicFromMasterData(targetMatchPhone, detectedSenderName, '-');
+    const picWA = matched.matched ? matched.wa : (detectedRealPhone || cleanKey);
     const cabang = matched.cabang || '-';
+
+    let picName = '';
+    if (matched.matched && matched.picName) {
+      picName = matched.picName;
+    } else if (detectedSenderName) {
+      picName = detectedSenderName;
+    } else if (isLid) {
+      picName = 'Pengguna WhatsApp (' + cleanKey.slice(-4) + ')';
+    } else {
+      picName = formatWhatsAppPhoneDisplay(picWA);
+    }
 
     const last9 = picWA.slice(-9);
     const keeps = picKeepsMap[cleanKey] || picKeepsMap[picWA] || (last9.length >= 9 ? picKeepsMap[last9] : []) || [];
@@ -12590,6 +12647,22 @@ function getOmniPicChats() {
     const isUnreplied = lastSender !== 'ADMIN';
     const isUnresponded = !isResolved && (isUnreplied || pendingCount > 0);
 
+    let snippet = 'Percakapan baru';
+    if (lastMsg) {
+      const rawTxt = (lastMsg.text || lastMsg.message || '').trim();
+      const isOut = (lastMsg.sender === 'ADMIN' || lastMsg.sender === 'admin' || lastMsg.fromMe);
+      const prefix = isOut ? 'Anda: ' : '';
+      if (rawTxt) {
+        snippet = prefix + rawTxt;
+      } else if (lastMsg.mediaUrl || lastMsg.media_url || lastMsg.messageType === 'image') {
+        snippet = prefix + '[Foto/Gambar]';
+      } else if (lastMsg.messageType === 'document') {
+        snippet = prefix + '[Dokumen]';
+      } else {
+        snippet = prefix + '[Pesan]';
+      }
+    }
+
     result.push({
       key: cleanKey,
       picName: picName,
@@ -12603,12 +12676,20 @@ function getOmniPicChats() {
       lastSender: lastSender,
       latestEpochMs: latestEpochMs,
       latestTimestamp: latestTimestamp,
-      latestSnippet: lastMsg ? (lastMsg.sender === 'ADMIN' ? 'Anda: ' + lastMsg.text : lastMsg.text) : 'Percakapan baru'
+      latestSnippet: snippet,
+      lastMessageText: snippet,
+      messages: chatMsgs
     });
+  });
+
+  // Urutan standar WhatsApp: Pesan terbaru SELALU berada di urutan paling atas (#1)
+  result.sort(function(a, b) {
+    return (b.latestEpochMs || 0) - (a.latestEpochMs || 0);
   });
 
   return result;
 }
+window.getOmniPicChats = getOmniPicChats;
 
 function renderOmniInboxModule() {
   fetchOmniResolvedStatuses();
@@ -12733,7 +12814,7 @@ function renderOmniInboxModule() {
         '</div>' +
         '<div class="omni-card-snippet" title="' + escapeHtml(pic.latestSnippet) + '">' + escapeHtml(pic.latestSnippet) + '</div>' +
         '<div class="omni-card-bottom-row">' +
-          '<span class="omni-channel-tag">' + escapeHtml(pic.cabang) + ' &middot; WhatsApp Official</span>' +
+          '<span class="omni-channel-tag">' + (pic.cabang && pic.cabang !== '-' ? escapeHtml(pic.cabang) + ' &middot; ' : '') + formatWhatsAppPhoneDisplay(pic.picWA || pic.key) + '</span>' +
           '<div class="omni-card-badges-right">' +
             (pic.pendingCount > 0 ? '<span class="omni-red-badge" title="' + pic.pendingCount + ' format keep belum ada feedback">' + pic.pendingCount + '</span>' : '') +
             '<span class="omni-status-tag-assigned" style="color: ' + (pic.isResolved ? '#059669' : '#b91c1c') + '; font-weight:700;">' +
@@ -13011,7 +13092,7 @@ function renderOmniActiveChat(pic) {
         '</div>' +
         '<div class="omni-header-meta">' +
           '<span class="omni-dot-online"></span>' +
-          '<span>WhatsApp Official (' + cleanWA + ')</span>' +
+          '<span>WhatsApp Official &middot; ' + formatWhatsAppPhoneDisplay(pic.picWA || cleanWA) + '</span>' +
         '</div>' +
       '</div>' +
     '</div>' +

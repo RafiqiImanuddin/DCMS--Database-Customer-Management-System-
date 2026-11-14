@@ -738,6 +738,11 @@
         if (typeof window.switchWorkspaceTab === 'function') {
             e.preventDefault();
             window.switchWorkspaceTab(9);
+            if (dcmsLwActivePhone && typeof selectOmniPic === 'function') {
+                setTimeout(function() {
+                    try { selectOmniPic(dcmsLwActivePhone); } catch(err) {}
+                }, 100);
+            }
             toggleDcmsLiveWidget(false);
             return false;
         }
@@ -1047,10 +1052,16 @@
         let clean = String(p).replace(/@.*$/, '').replace(/\D/g, '');
         if (clean.startsWith('08')) clean = '62' + clean.slice(1);
         else if (clean.startsWith('8')) clean = '62' + clean;
-        if (clean.startsWith('628') && clean.length >= 10) {
+        if (clean.startsWith('628') && clean.length >= 10 && clean.length <= 14) {
+            if (clean.length === 11) return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 8) + '-' + clean.slice(8);
+            if (clean.length === 12) return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 9) + '-' + clean.slice(9);
+            if (clean.length === 13) return '+62 ' + clean.slice(2, 6) + '-' + clean.slice(6, 10) + '-' + clean.slice(10);
             return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 9) + '-' + clean.slice(9);
         }
-        return '+' + clean;
+        if (clean.length > 13) {
+            return 'LID ' + clean.slice(0, 4) + '...' + clean.slice(-4);
+        }
+        return clean ? ('+' + clean) : '-';
     }
 
     function getDcmsLwInitials(name) {
@@ -1064,17 +1075,20 @@
     }
 
     function getGroupedChats() {
-        // PRIORITAS 1: Sinkronisasi 100% langsung dengan engine Tab 9 (Inbox Follow-Up) jika getOmniPicChats tersedia
-        if (typeof getOmniPicChats === 'function') {
+        // PRIORITAS 1: Sinkronisasi 100% langsung dengan engine Tab 9 (Inbox Follow-Up)
+        if (typeof window.getOmniPicChats === 'function' || typeof getOmniPicChats === 'function') {
             try {
-                const omniChats = getOmniPicChats();
+                const fn = window.getOmniPicChats || getOmniPicChats;
+                const omniChats = fn();
                 if (Array.isArray(omniChats) && omniChats.length > 0) {
                     return omniChats.map(c => {
                         const targetPh = normalizePhone(c.picWA || c.cleanKey || c.key);
+                        const lastTxt = c.lastMessageText || c.latestSnippet || c.lastMessage || '';
                         return {
                             phone: targetPh,
+                            key: c.key || targetPh,
                             name: c.picName || formatDcmsPhoneDisplay(targetPh),
-                            lastMessage: c.lastMessageText || '',
+                            lastMessage: lastTxt,
                             lastTime: c.latestEpochMs || 0,
                             lastDirection: (c.lastSender === 'ADMIN' || c.lastSender === 'admin') ? 'outbound' : 'inbound',
                             cabang: c.cabang || '-',
@@ -1116,27 +1130,65 @@
             if (msgs.length === 0) return;
 
             const lastM = msgs[msgs.length - 1];
-            let name = 'PIC ' + ph;
+
+            // Deteksi nama pengirim asli & nomor telepon sebenarnya (mirip WhatsApp HP)
+            let detectedName = '';
+            let detectedRealPhone = '';
+            for (let i = msgs.length - 1; i >= 0; i--) {
+                const m = msgs[i];
+                if (!detectedName) {
+                    const cand = (m.senderName || m.pushname || m.notifyName || '').trim();
+                    if (cand && !cand.toLowerCase().startsWith('admin') && cand.toLowerCase() !== 'pic' && !cand.startsWith('PIC ')) {
+                        detectedName = cand;
+                    }
+                }
+                if (!detectedRealPhone) {
+                    const pCand = normalizePhone(m.phone || m.realPhone || m.author || '');
+                    if (pCand && (pCand.startsWith('628') || pCand.startsWith('08')) && pCand.length >= 10 && pCand.length <= 14) {
+                        detectedRealPhone = pCand.startsWith('08') ? ('62' + pCand.slice(1)) : pCand;
+                    }
+                }
+                if (detectedName && detectedRealPhone) break;
+            }
+
+            const targetPhone = detectedRealPhone || ph;
+            const isLid = targetPhone.length > 13 || (!targetPhone.startsWith('628') && !targetPhone.startsWith('08') && !targetPhone.startsWith('8'));
+
+            let name = '';
             let cabang = '-';
             if (typeof getMasterDataPICs === 'function') {
                 const pics = getMasterDataPICs();
-                const matched = pics.find(p => p.wa && normalizePhone(p.wa) === ph);
+                const matched = pics.find(p => p.wa && normalizePhone(p.wa) === targetPhone);
                 if (matched && matched.picName) {
                     name = matched.picName;
                     cabang = matched.cabang || '-';
                 }
             }
+            if (!name) {
+                name = detectedName || (isLid ? ('Pengguna WhatsApp (' + targetPhone.slice(-4) + ')') : formatDcmsPhoneDisplay(targetPhone));
+            }
 
-            groups[ph] = {
-                phone: ph,
+            let lastMsgTxt = lastM.text || lastM.message || '';
+            const isOut = (lastM.sender === 'ADMIN' || lastM.sender === 'admin' || lastM.fromMe);
+            if (!lastMsgTxt) {
+                if (lastM.mediaUrl || lastM.media_url || lastM.messageType === 'image') lastMsgTxt = '[Foto/Gambar]';
+                else if (lastM.messageType === 'document') lastMsgTxt = '[Dokumen]';
+            }
+            if (isOut && lastMsgTxt && !lastMsgTxt.startsWith('Anda: ')) {
+                lastMsgTxt = 'Anda: ' + lastMsgTxt;
+            }
+
+            groups[targetPhone] = {
+                phone: targetPhone,
+                key: k,
                 name: name,
                 cabang: cabang,
-                lastMessage: lastM.text || lastM.message || '',
+                lastMessage: lastMsgTxt,
                 lastTime: lastM.timestamp || Date.now(),
-                lastDirection: (lastM.sender === 'ADMIN' || lastM.sender === 'admin') ? 'outbound' : 'inbound',
+                lastDirection: isOut ? 'outbound' : 'inbound',
                 messages: msgs.map(m => ({
-                    messageId: m.id,
-                    phone: ph,
+                    messageId: m.id || ('omni_' + (m.timestamp || Date.now())),
+                    phone: targetPhone,
                     message: m.text || m.message || '',
                     timestamp: m.timestamp || Date.now(),
                     direction: (m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe) ? 'outbound' : 'inbound',
@@ -1333,7 +1385,7 @@
         document.getElementById('dcmsLwViewRoom').style.display = 'flex';
 
         document.getElementById('dcmsLwActiveName').innerText = name;
-        document.getElementById('dcmsLwActivePhone').innerText = phone;
+        document.getElementById('dcmsLwActivePhone').innerText = formatDcmsPhoneDisplay(phone);
 
         renderActiveRoomMessages();
 
@@ -1375,7 +1427,7 @@
                       `\nApakah customer-nya sudah dihubungi kak? Mohon infonya ya, terima kasih 🙏`;
         }
 
-        openDcmsLiveWidgetRoom(norm, name || ('PIC ' + norm), prefill);
+        openDcmsLiveWidgetRoom(norm, name || formatDcmsPhoneDisplay(norm), prefill);
     };
 
     window.closeDcmsLiveWidgetRoom = function() {
@@ -1392,7 +1444,7 @@
 
         // Ambil riwayat pesan lengkap dari getGroupedChats() (Inbox Follow-Up + pesan realtime)
         const chats = getGroupedChats();
-        const activeChat = chats.find(c => normalizePhone(c.phone) === normalizePhone(dcmsLwActivePhone));
+        const activeChat = chats.find(c => normalizePhone(c.phone) === normalizePhone(dcmsLwActivePhone) || (c.key && c.key === dcmsLwActivePhone) || (c.phone && c.phone === dcmsLwActivePhone));
         let messages = (activeChat && Array.isArray(activeChat.messages) && activeChat.messages.length > 0)
             ? [...activeChat.messages]
             : dcmsLwMessages.filter(m => normalizePhone(m.phone) === normalizePhone(dcmsLwActivePhone));
