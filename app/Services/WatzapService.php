@@ -408,6 +408,35 @@ class WatzapService
         }
 
         if (str_ends_with($str, '@lid') || (strlen($str) >= 13 && ! str_starts_with($str, '628') && ! str_starts_with($str, '08') && ! str_starts_with($str, '8'))) {
+            $lidDigits = preg_replace('/@.*$/', '', $str) ?? '';
+            $lidDigits = preg_replace('/\D/', '', $lidDigits) ?? '';
+
+            // 1. Prioritas Resolusi: Cari nomor HP asli yang terhubung dengan LID di riwayat pesan JSON
+            $msgFiles = [
+                storage_path('app/watzap_messages.json'),
+                public_path('workspace-sosmed/watzap_messages.json'),
+            ];
+            foreach ($msgFiles as $fPath) {
+                if (file_exists($fPath)) {
+                    $rawJson = @file_get_contents($fPath);
+                    if ($rawJson && str_contains($rawJson, $lidDigits)) {
+                        $list = json_decode($rawJson, true);
+                        if (is_array($list)) {
+                            foreach (array_reverse($list) as $item) {
+                                $iStr = json_encode($item);
+                                if (str_contains($iStr, $lidDigits)) {
+                                    $cand = preg_replace('/\D/', '', (string) ($item['phone'] ?? ''));
+                                    if (str_starts_with($cand, '628') || str_starts_with($cand, '08')) {
+                                        return str_starts_with($cand, '08') ? ('62'.substr($cand, 1)) : $cand;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Resolusi via WAHA Contacts API jika sesi WAHA aktif
             try {
                 $q = str_contains($str, '@') ? $str : "{$str}@lid";
                 $wahaUrl = $this->getWahaUrl().'/api/contacts?session='.urlencode($this->getWahaSession()).'&contactId='.urlencode($q);

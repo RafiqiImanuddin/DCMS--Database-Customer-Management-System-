@@ -12248,6 +12248,24 @@ function getOmniThreads() {
     const raw = JSON.parse(localStorage.getItem('gadgetmart_omni_threads') || '{}');
     const cleaned = {};
     let modified = false;
+
+    // Tahap 1: Petakan mapping WhatsApp LID (14+ digit) ke nomor HP asli
+    const lidToPhoneMap = {};
+    Object.keys(raw).forEach(function(k) {
+      const msgs = raw[k] || [];
+      msgs.forEach(function(m) {
+        const pCand = normalizeWhatsAppPhone(m.phone || m.realPhone || m.author || '');
+        if (pCand && (pCand.startsWith('628') || pCand.startsWith('08')) && pCand.length >= 10 && pCand.length <= 14) {
+          const validPhone = pCand.startsWith('08') ? ('62' + pCand.slice(1)) : pCand;
+          const kNorm = normalizeWhatsAppPhone(k);
+          if (kNorm.length > 13 || (!kNorm.startsWith('628') && !kNorm.startsWith('08') && !kNorm.startsWith('8'))) {
+            lidToPhoneMap[kNorm] = validPhone;
+            lidToPhoneMap[k] = validPhone;
+          }
+        }
+      });
+    });
+
     Object.keys(raw).forEach(function(k) {
       // Hapus data grup WhatsApp agar tidak mengotori chat inbox
       if (isGroupWhatsApp(k)) {
@@ -12263,6 +12281,13 @@ function getOmniThreads() {
           return;
         }
       }
+
+      // Gabungkan thread jika ini adalah LID yang sudah dipetakan ke nomor HP asli
+      if (lidToPhoneMap[targetKey] || lidToPhoneMap[k]) {
+        targetKey = lidToPhoneMap[targetKey] || lidToPhoneMap[k];
+        modified = true;
+      }
+
       if (targetKey !== k) modified = true;
 
       if (!cleaned[targetKey]) cleaned[targetKey] = [];
@@ -12271,7 +12296,8 @@ function getOmniThreads() {
         const msgText = (msg.text || msg.message || '').trim();
         const exists = cleaned[targetKey].some(function(m) {
           return (m.id && msg.id && m.id === msg.id) ||
-            (Number(m.timestamp || 0) === msgTs && (m.text || '').trim() === msgText);
+            (msg.messageId && (m.messageId === msg.messageId || m.id === msg.messageId)) ||
+            (Math.abs(Number(m.timestamp || 0) - msgTs) < 5000 && (m.text || m.message || '').trim() === msgText && (m.sender || '') === (msg.sender || ''));
         });
         if (!exists) cleaned[targetKey].push(msg);
       });
@@ -12948,12 +12974,29 @@ function renderOmniActiveChat(pic) {
   const sortedMessages = (customMessages || []).slice().sort(function(a, b) {
     return (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0);
   });
-  window.currentOmniChatMessages = sortedMessages;
+
+  // Deduplikasi pesan agar tidak muncul ganda (2x) jika ada duplikat di localStorage/polling
+  const seenMsgKeys = new Set();
+  const dedupedMessages = [];
+  sortedMessages.forEach(function(m) {
+    const mText = (m.text || m.message || '').trim();
+    const mSender = m.sender || 'PIC';
+    const mTs = Number(m.timestamp) || 0;
+    const roundTs = Math.round(mTs / 25000); // 25s bucket
+    const dedupeKey = mSender + '_' + mText + '_' + roundTs;
+    const msgId = m.id || m.messageId;
+    if (msgId && seenMsgKeys.has('id_' + msgId)) return;
+    if (dedupeKey && mText && seenMsgKeys.has(dedupeKey)) return;
+    if (msgId) seenMsgKeys.add('id_' + msgId);
+    if (dedupeKey && mText) seenMsgKeys.add(dedupeKey);
+    dedupedMessages.push(m);
+  });
+  window.currentOmniChatMessages = dedupedMessages;
 
   let lastDateGroup = null;
   const messagesRendered = [];
 
-  sortedMessages.forEach(function(msg, idx) {
+  dedupedMessages.forEach(function(msg, idx) {
     const msgTs = msg.timestamp ? Number(msg.timestamp) : Date.now();
     const d = new Date(msgTs);
     const dateKey = isNaN(d.getTime()) ? 'today' : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -13322,6 +13365,45 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
   const msgId = String(msg.id || msg.messageId || ('msg_' + (msg.timestamp || Math.random().toString(36).slice(2))));
   const safeMsgId = escapeHtml(msgId).replace(/'/g, "\\'");
 
+  // 1. Cegah duplikasi bubble jika ID pesan sudah ada di stream
+  if (document.getElementById('omniMsg_' + safeMsgId)) {
+    return;
+  }
+
+  let replyToObj = msg.replyTo || null;
+  let displayText = msg.text || msg.message || '';
+  if (displayText.startsWith('>')) {
+    const parsed = parseQuotedFromText(displayText);
+    if (parsed.cleanText) {
+      displayText = parsed.cleanText;
+      if (!replyToObj && parsed.replyTo) {
+        replyToObj = parsed.replyTo;
+      }
+    }
+  }
+
+  // 2. Cegah duplikasi bubble pesan keluar jika teks yang sama persis sudah ada di layar
+  if (isOutgoing) {
+    const cleanDisplayText = (displayText || '').trim();
+    if (cleanDisplayText) {
+      const existingBubbles = stream.querySelectorAll('.omni-msg-outgoing');
+      for (let i = existingBubbles.length - 1; i >= 0; i--) {
+        const bubble = existingBubbles[i].querySelector('.omni-bubble');
+        if (bubble) {
+          const bText = (bubble.innerText || '').trim();
+          if (bText.includes(cleanDisplayText)) {
+            // Update centang status jika pesan berhasil terkirim
+            const tick = existingBubbles[i].querySelector('.omni-msg-status-tick');
+            if (tick && msg.status === 'sent') {
+              tick.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>';
+            }
+            return;
+          }
+        }
+      }
+    }
+  }
+
   const row = document.createElement('div');
   row.className = 'omni-msg-row ' + (isOutgoing ? 'omni-msg-outgoing' : 'omni-msg-incoming');
   row.id = 'omniMsg_' + safeMsgId;
@@ -13335,18 +13417,6 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
         : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>') +
     '</span>'
   ) : '';
-
-  let replyToObj = msg.replyTo || null;
-  let displayText = msg.text || msg.message || '';
-  if (displayText.startsWith('>')) {
-    const parsed = parseQuotedFromText(displayText);
-    if (parsed.cleanText) {
-      displayText = parsed.cleanText;
-      if (!replyToObj && parsed.replyTo) {
-        replyToObj = parsed.replyTo;
-      }
-    }
-  }
 
   if (!window.currentOmniChatMessages) window.currentOmniChatMessages = [];
   const streamIdx = window.currentOmniChatMessages.length;
@@ -13463,7 +13533,19 @@ async function sendOmniReply() {
 
   const allPics = getOmniPicChats();
   const currentPic = allPics.find(function(p) { return p.key === selectedOmniPicKey; });
-  const picWA = currentPic ? currentPic.picWA : selectedOmniPicKey;
+  let picWA = currentPic ? currentPic.picWA : selectedOmniPicKey;
+  const isLidKey = picWA && (picWA.length > 13 || (!picWA.startsWith('628') && !picWA.startsWith('08') && !picWA.startsWith('8')));
+  if (isLidKey) {
+    const cachedThreads = getOmniThreads();
+    const threadMsgs = cachedThreads[selectedOmniPicKey] || [];
+    for (let i = threadMsgs.length - 1; i >= 0; i--) {
+      const cand = normalizeWhatsAppPhone(threadMsgs[i].phone || threadMsgs[i].realPhone || threadMsgs[i].author || '');
+      if (cand && (cand.startsWith('628') || cand.startsWith('08')) && cand.length >= 10 && cand.length <= 14) {
+        picWA = cand.startsWith('08') ? ('62' + cand.slice(1)) : cand;
+        break;
+      }
+    }
+  }
   const picName = currentPic ? currentPic.picName : 'PIC FU';
 
   const now = Date.now();
@@ -13650,14 +13732,25 @@ async function pollWatzapIncomingMessages() {
       // Cari apakah pesan sudah pernah tercatat
       let existingMsg = null;
       threads[picKey].forEach(function(t) {
-        if (t.id && msg.messageId && t.id === msg.messageId) {
+        if (t.id && msg.messageId && (t.id === msg.messageId || t.messageId === msg.messageId || t.id === msg.clientMessageId)) {
           existingMsg = t;
-        } else if (Math.abs(Number(t.timestamp) - ts) < 5000 && (t.text || '').trim() === text.trim() && (t.sender || 'PIC') === (msg.sender || 'PIC')) {
+        } else if (
+          (t.text || t.message || '').trim() === text.trim() &&
+          ((t.sender || 'PIC') === (msg.sender || 'PIC') || (t.sender === 'ADMIN' && msg.sender === 'ADMIN')) &&
+          Math.abs(Number(t.timestamp || 0) - ts) < 60000
+        ) {
           existingMsg = t;
         }
       });
 
       if (existingMsg) {
+        if (msg.sender === 'ADMIN') {
+          existingMsg.status = 'sent';
+        }
+        if (msg.messageId && (!existingMsg.messageId || (existingMsg.id && String(existingMsg.id).startsWith('out_')))) {
+          existingMsg.messageId = msg.messageId;
+          existingMsg.id = msg.messageId;
+        }
         // Jika sebelumnya belum ada mediaUrl dan sekarang ada, perbarui data media
         if (!existingMsg.mediaUrl && incomingMediaUrl) {
           existingMsg.mediaUrl = incomingMediaUrl;
@@ -13791,14 +13884,25 @@ async function syncOmniChatsFromWhatsApp(isManual) {
 
         let existingMsg = null;
         threads[picKey].forEach(function(t) {
-          if (t.id && msg.messageId && t.id === msg.messageId) {
+          if (t.id && msg.messageId && (t.id === msg.messageId || t.messageId === msg.messageId || t.id === msg.clientMessageId)) {
             existingMsg = t;
-          } else if (Math.abs(Number(t.timestamp) - ts) < 5000 && (t.text || '').trim() === text.trim()) {
+          } else if (
+            (t.text || t.message || '').trim() === text.trim() &&
+            ((t.sender || 'PIC') === (msg.sender || 'PIC') || (t.sender === 'ADMIN' && msg.sender === 'ADMIN')) &&
+            Math.abs(Number(t.timestamp || 0) - ts) < 60000
+          ) {
             existingMsg = t;
           }
         });
 
         if (existingMsg) {
+          if (msg.sender === 'ADMIN') {
+            existingMsg.status = 'sent';
+          }
+          if (msg.messageId && (!existingMsg.messageId || (existingMsg.id && String(existingMsg.id).startsWith('out_')))) {
+            existingMsg.messageId = msg.messageId;
+            existingMsg.id = msg.messageId;
+          }
           if (!existingMsg.mediaUrl && incomingMediaUrl) {
             existingMsg.mediaUrl = incomingMediaUrl;
             existingMsg.messageType = 'image';

@@ -752,23 +752,29 @@ class WorkspaceSosmedController extends Controller
             $mediaType = in_array($pathExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : 'document';
         }
 
-        // Kirim via Dual-Gateway Omnichannel (WAHA VPS primary + WatZap fallback)
-        $result = $watzapService->sendOmnichannel($rawPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null, $fileData);
+        // Kirim via Dual-Gateway Omnichannel (Baileys Bot primary + WAHA VPS + WatZap fallback)
         $cleanPhone = $watzapService->resolvePhoneOrLid($rawPhone);
-        $msgId = $result['message_id'] ?? ('out_'.uniqid());
+        $targetPhone = $cleanPhone ?: $rawPhone;
+        $result = $watzapService->sendOmnichannel($targetPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null, $fileData);
+
+        $clientMsgId = $request->input('messageId') ?: $request->input('id');
+        $clientTs = $request->input('timestamp');
+        $msgId = $clientMsgId ?: ($result['message_id'] ?? ('out_'.uniqid()));
         $isSuccess = ! empty($result['success']);
 
-        // Catat ke pesan keluar lokal & Database
+        // Catat ke pesan keluar lokal & Database dengan messageId & timestamp persisten dari frontend
         $entry = [
             'messageId' => $msgId,
-            'phone' => $cleanPhone ?: $rawPhone,
+            'clientMessageId' => $clientMsgId,
+            'phone' => $targetPhone,
+            'lid' => ($rawPhone !== $targetPhone) ? $rawPhone : null,
             'message' => $message,
             'media_url' => $mediaUrl,
             'media_type' => $mediaType,
             'filename' => $originalName,
             'file_size' => $fileSize,
             'reply_to' => is_array($replyTo) ? $replyTo : null,
-            'timestamp' => now()->toIso8601String(),
+            'timestamp' => $clientTs ? (is_numeric($clientTs) ? (int) $clientTs : (strtotime((string) $clientTs) * 1000)) : (time() * 1000),
             'status' => $isSuccess ? 'sent' : 'failed',
             'direction' => 'outbound',
             'sender' => 'ADMIN',

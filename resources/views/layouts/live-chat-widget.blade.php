@@ -986,7 +986,15 @@
                 let hasNewInbound = false;
                 let latestInboundMsg = null;
                 newMessages.forEach(m => {
-                    if (m.messageId && !existingMap[m.messageId]) {
+                    const mText = (m.message || m.text || '').trim();
+                    const mTs = isNaN(m.timestamp) ? (new Date(m.timestamp).getTime() || 0) : (Number(m.timestamp) < 1e11 ? Number(m.timestamp) * 1000 : Number(m.timestamp));
+                    const isDup = dcmsLwMessages.some(ex => {
+                        if (ex.messageId && m.messageId && (ex.messageId === m.messageId || ex.messageId === m.clientMessageId)) return true;
+                        const exText = (ex.message || ex.text || '').trim();
+                        const exTs = isNaN(ex.timestamp) ? (new Date(ex.timestamp).getTime() || 0) : (Number(ex.timestamp) < 1e11 ? Number(ex.timestamp) * 1000 : Number(ex.timestamp));
+                        return exText === mText && (ex.direction || 'outbound') === (m.direction || 'outbound') && Math.abs(exTs - mTs) < 60000;
+                    });
+                    if (!isDup) {
                         dcmsLwMessages.push(m);
                         if (m.direction === 'inbound') {
                             hasNewInbound = true;
@@ -999,7 +1007,10 @@
                             const ph = normalizePhone(m.phone);
                             if (ph) {
                                 if (!threads[ph]) threads[ph] = [];
-                                const threadExists = threads[ph].some(tMsg => tMsg.id === m.messageId);
+                                const threadExists = threads[ph].some(tMsg => 
+                                    (tMsg.id && m.messageId && (tMsg.id === m.messageId || tMsg.messageId === m.messageId)) ||
+                                    ((tMsg.text || tMsg.message || '').trim() === mText && Math.abs((Number(tMsg.timestamp)||0) - mTs) < 60000)
+                                );
                                 if (!threadExists) {
                                     threads[ph].push({
                                         id: m.messageId,
@@ -1456,6 +1467,23 @@
             return tA - tB;
         });
 
+        // Deduplikasi pesan agar tidak muncul ganda (2x)
+        const seenMsgKeys = new Set();
+        const filteredMessages = [];
+        messages.forEach(m => {
+            const mText = (m.message || m.text || '').trim();
+            const mDir = (m.direction === 'outbound' || m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe) ? 'out' : 'in';
+            const mTs = isNaN(m.timestamp) ? (new Date(m.timestamp).getTime() || 0) : (Number(m.timestamp) < 1e11 ? Number(m.timestamp) * 1000 : Number(m.timestamp));
+            const roundTs = Math.round(mTs / 20000); // 20 detik bucket
+            const dedupeKey = mDir + '_' + mText + '_' + roundTs;
+            if (m.messageId && seenMsgKeys.has('id_' + m.messageId)) return;
+            if (seenMsgKeys.has(dedupeKey)) return;
+            if (m.messageId) seenMsgKeys.add('id_' + m.messageId);
+            seenMsgKeys.add(dedupeKey);
+            filteredMessages.push(m);
+        });
+        messages = filteredMessages;
+
         if (messages.length === 0) {
             stream.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:11.5px;">Belum ada riwayat percakapan dengan nomor ini. Silakan kirim pesan follow up langsung di bawah:</div>';
             return;
@@ -1557,7 +1585,10 @@
                 },
                 body: JSON.stringify({
                     phone: targetPhone,
-                    message: text
+                    message: text,
+                    messageId: tempMsg.messageId,
+                    id: tempMsg.messageId,
+                    timestamp: now
                 })
             });
 
