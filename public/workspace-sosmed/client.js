@@ -1418,6 +1418,12 @@ function switchTab(tabIndex) {
     renderAdminPhotoTable();
   }
   if (tabIndex === 9) renderOmniInboxModule();
+  
+  // Sembunyikan Floating Live Chat Widget di Tab 9 (Inbox Follow-Up) agar tidak menindih layar & toast notifikasi
+  const lwWidget = document.getElementById('dcmsLiveWidgetContainer');
+  if (lwWidget) {
+    lwWidget.style.display = (tabIndex === 9) ? 'none' : '';
+  }
   if (tabIndex === 10) {
     if (rawKeepRows.length === 0) {
       loadKeepData(() => {

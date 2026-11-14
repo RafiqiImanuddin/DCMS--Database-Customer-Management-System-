@@ -8,6 +8,10 @@
 #dcmsLiveWidgetContainer * {
     box-sizing: border-box;
 }
+/* Sembunyikan floating widget saat user berada di Tab 9 (Inbox Follow-Up) agar tidak menindih layar */
+body:has(#tabContent9.active) #dcmsLiveWidgetContainer {
+    display: none !important;
+}
 .dcms-lw-fab {
     position: fixed;
     bottom: 24px;
