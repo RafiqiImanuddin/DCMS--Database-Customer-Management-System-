@@ -7026,118 +7026,157 @@ body.tab9-mode-active #tabContent9.active {
   font-weight: 800;
 }
 
+/* Sembunyikan Tombol Refresh Data dan Subbar di Workspace Sosmed */
+.workspace-header-wrapper,
+#workspaceHeaderWrapper,
+.btn-header-sync,
+#headerBtnSyncSheets,
+.header-pill-quick-actions {
+  display: none !important;
+}
+
 /* ==========================================================================
    WHATSAPP WEB EXACT COMPACT INPUT BAR
    ========================================================================== */
+.omni-col-chatview {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  background: #f8fafc;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative;
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
+.omni-messages-stream {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding: 16px 20px;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px;
+  background-color: #efeae2;
+  background-image: radial-gradient(#d1d7db 1.2px, transparent 1.2px);
+  background-size: 20px 20px;
+}
+
 .omni-chatview-footer-wa {
-  background: #f0f2f5;
-  border-top: 1px solid #e2e8f0;
-  padding: 8px 12px 10px 12px;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  box-sizing: border-box;
+  margin-top: auto !important;
+  flex-shrink: 0 !important;
+  background: #f0f2f5 !important;
+  border-top: 1px solid #d1d7db !important;
+  padding: 8px 14px 10px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 10 !important;
 }
 
 .omni-wa-input-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  width: 100%;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 10px !important;
+  width: 100% !important;
 }
 
 .omni-btn-wa-attach {
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: #54656f;
-  cursor: pointer;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: none !important;
+  color: #54656f !important;
+  cursor: pointer !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  transition: background 0.15s, color 0.15s !important;
 }
 
 .omni-btn-wa-attach:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
 }
 
 .omni-wa-input-pill {
-  flex: 1;
-  min-width: 0;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  background: #ffffff !important;
+  border: 1px solid #ffffff !important;
+  border-radius: 8px !important;
+  padding: 8px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08) !important;
+  transition: border-color 0.15s !important;
 }
 
 .omni-wa-input-pill:focus-within {
-  border-color: #00a884;
-  box-shadow: 0 0 0 1px #00a884;
+  border-color: #00a884 !important;
 }
 
 .omni-textarea-wa {
-  width: 100%;
-  border: none;
-  background: transparent;
-  outline: none;
-  resize: none;
-  font-family: inherit;
-  font-size: 0.88rem;
-  line-height: 1.4;
-  color: #0f172a;
-  padding: 0;
-  margin: 0;
-  height: 24px;
-  min-height: 24px;
-  max-height: 110px;
-  box-sizing: border-box;
+  width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  resize: none !important;
+  font-family: inherit !important;
+  font-size: 0.90rem !important;
+  line-height: 1.4 !important;
+  color: #111b21 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 100px !important;
+  box-sizing: border-box !important;
 }
 
 .omni-textarea-wa::placeholder {
-  color: #8696a0;
-  font-size: 0.86rem;
+  color: #8696a0 !important;
+  font-size: 0.88rem !important;
 }
 
 .omni-btn-wa-send {
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: #8696a0;
-  cursor: pointer;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: none !important;
+  color: #8696a0 !important;
+  cursor: pointer !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  transition: all 0.15s ease !important;
 }
 
 .omni-btn-wa-send:hover {
-  background: #e2e8f0;
-  color: #00a884;
+  background: #e2e8f0 !important;
+  color: #00a884 !important;
 }
 
 .omni-btn-wa-send.active {
-  background: #00a884;
-  color: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 168, 132, 0.35);
+  background: #00a884 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 168, 132, 0.35) !important;
 }
 
 .omni-btn-wa-send.active:hover {
-  background: #008f6f;
-  transform: scale(1.05);
+  background: #008f6f !important;
+  transform: scale(1.05) !important;
 }
 
 .omni-quick-pill {

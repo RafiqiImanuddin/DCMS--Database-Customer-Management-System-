@@ -24,7 +24,8 @@
 <div id="liveKeepToastContainer" class="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none w-full max-w-sm sm:max-w-md"></div>
 
 <div id="dropZone" class="w-full">
-    @include('workspace-sosmed.partials.subbar')
+    <!-- Subbar Refresh Data dihilangkan sesuai permintaan user -->
+    <span id="activeModuleName" class="hidden" style="display: none;"></span>
     @include('workspace-sosmed.partials.kpi-summary')
 
     @php

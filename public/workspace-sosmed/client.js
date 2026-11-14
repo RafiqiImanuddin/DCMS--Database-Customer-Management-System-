@@ -13344,14 +13344,14 @@ function renderOmniActiveChat(pic) {
       '</button>' +
     '</div>' +
   '</div>' +
-  '<div class="omni-messages-stream" id="omniMessagesStream">' +
+  '<div class="omni-messages-stream" id="omniMessagesStream" style="flex: 1 1 0% !important; min-height: 0 !important; overflow-y: auto !important;">' +
     messagesRendered.join('') +
   '</div>' +
   '<button type="button" id="omniNewMessagePill" class="omni-new-msg-pill" style="display:none;" onclick="scrollOmniStreamToBottom()">' +
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
     '<span>Pesan Baru</span>' +
   '</button>' +
-  '<div class="omni-chatview-footer-wa">' +
+  '<div class="omni-chatview-footer-wa" style="margin-top: auto !important; flex-shrink: 0 !important; width: 100% !important;">' +
     '<div id="omniQuotedReplyBar" class="omni-quoted-reply-bar" style="display:none;">' +
       '<div class="omni-quoted-bar-left">' +
         '<div class="omni-quoted-reply-title">Membalas ke <span id="omniQuotedSenderName"></span></div>' +
