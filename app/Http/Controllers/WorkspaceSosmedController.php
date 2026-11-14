@@ -1999,6 +1999,13 @@ class WorkspaceSosmedController extends Controller
         }
 
         if (! file_exists($filePath)) {
+            $fallback = public_path('workspace-sosmed/ar_claims.json');
+            if (file_exists($fallback)) {
+                $raw = @file_get_contents($fallback);
+                $list = json_decode((string) $raw, true);
+                return response()->json(is_array($list) ? $list : []);
+            }
+
             return response()->json([]);
         }
 
