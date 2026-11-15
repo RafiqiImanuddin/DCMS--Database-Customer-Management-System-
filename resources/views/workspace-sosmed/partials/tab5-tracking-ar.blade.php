@@ -15,10 +15,10 @@
                             </div>
                             <!-- Action Buttons -->
                             <div class="flex flex-wrap items-center gap-2">
-                                <button type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 shadow-xs transition" onclick="claimAllFilteredMissingAR()"
+                                <button type="button" id="btnClaimAllMissingAR" class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 shadow-xs transition" onclick="claimAllFilteredMissingAR()"
                                     title="Klaim semua AR yang belum terinput ke Modul Klaim AR">
                                     <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
-                                    <span>Klaim Semua AR Belum Sosmed</span>
+                                    <span id="btnClaimAllMissingText">Klaim Semua AR Belum Sosmed</span>
                                 </button>
                                 <button type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition" onclick="runARMissingSosmedAudit()">
                                     <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
@@ -28,6 +28,23 @@
                                     <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                     <span>Audit Siap</span>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- 1.5. Basis Data Cross-Selling Sync Banner (Kepastian 1x Upload Sinkron) -->
+                        <div id="auditCrosellingSyncBanner" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-xl border border-teal-200/90 bg-teal-50/70 px-4 py-2.5 text-xs shadow-2xs">
+                            <div class="flex items-center gap-2">
+                                <span class="relative flex size-2.5 shrink-0">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full size-2.5 bg-emerald-500"></span>
+                                </span>
+                                <span class="font-bold text-slate-800">Basis Data Cross-Selling:</span>
+                                <span id="auditCrosellingSyncText" class="font-medium text-teal-900">Memeriksa sinkronisasi database cross-selling...</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-[11px] font-semibold text-teal-800" id="auditCrosellingMeta">
+                                <span id="auditCrosellingCountPill" class="rounded-md bg-teal-100/90 px-2.5 py-0.5 font-bold text-teal-900">Menghubungkan...</span>
+                                <span class="text-teal-400">&bull;</span>
+                                <span id="auditCrosellingBatchPill" class="rounded-md bg-emerald-100/90 px-2.5 py-0.5 font-bold text-emerald-900">1x Upload Sinkron</span>
                             </div>
                         </div>
 
@@ -101,7 +118,11 @@
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                                         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                                     </span>
-                                    <input type="text" id="auditSearchInput" class="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 pl-10 pr-12 text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:outline-none transition"
+                                    <input type="text" id="auditSearchInput" 
+                                        autocomplete="off" 
+                                        spellcheck="false" 
+                                        autocapitalize="off"
+                                        class="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 pl-10 pr-12 text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:outline-none transition"
                                         placeholder="Cari nama customer, nomor WA, barang keep, atau no AR..." oninput="applyAuditFilters()">
                                     <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[10px] font-bold text-slate-400">⌘K</span>
                                 </div>
@@ -110,7 +131,7 @@
                                         onclick="toggleAuditFiltersSection()">
                                         <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                         <span>Filter Detail</span>
-                                        <span class="size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center font-bold" id="auditFilterActiveCount">4</span>
+                                        <span class="size-4 rounded-full bg-slate-200 text-slate-600 text-[10px] flex items-center justify-center font-bold" id="auditFilterActiveCount">0</span>
                                     </button>
                                 </div>
                             </div>
@@ -121,8 +142,8 @@
                                     <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="auditFilterPeriode">Periode Keep</label>
                                     <select id="auditFilterPeriode" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 focus:bg-white focus:border-brand-500 focus:outline-none"
                                         onchange="applyAuditFilters()">
-                                        <option value="ALL">Semua Periode</option>
-                                        <option value="November-26" selected>November 2026 (Bulan ini)</option>
+                                        <option value="ALL" selected>Semua Periode</option>
+                                        <option value="November-26">November 2026 (Bulan ini)</option>
                                         <option value="Oktober-26">Oktober 2026</option>
                                         <option value="September-26">September 2026</option>
                                         <option value="Agustus-26">Agustus 2026</option>

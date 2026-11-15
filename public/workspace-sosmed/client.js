@@ -1416,7 +1416,10 @@ function switchTab(tabIndex) {
       renderKeepPage();
     }
   }
-  if (tabIndex === 5 && rawAuditARList.length === 0) runARMissingSosmedAudit();
+  if (tabIndex === 5) {
+    if (typeof updateAuditCrosellingStatusLabel === 'function') updateAuditCrosellingStatusLabel();
+    if (rawAuditARList.length === 0) runARMissingSosmedAudit();
+  }
   if (tabIndex === 6) renderARClaimsModule();
   if (tabIndex === 7) renderArchiveGrid();
   if (tabIndex === 8) {
@@ -2543,8 +2546,6 @@ function populateAuditPeriodeDropdown() {
   let chosenVal = 'ALL';
   if (currentVal && currentVal !== 'ALL' && sortedPeriods.some(p => p.raw.toLowerCase() === currentVal.toLowerCase())) {
     chosenVal = currentVal;
-  } else if (newestPeriod) {
-    chosenVal = newestPeriod.raw;
   }
 
   select.innerHTML = '<option value="ALL">Semua Periode</option>' + 
@@ -5843,8 +5844,10 @@ function runARMissingSosmedAudit() {
   });
 
   if (pill) {
-    pill.innerHTML = `<span>📁 ${rawAuditARList.length} AR Ditemukan</span>`;
+    pill.innerHTML = '<span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span><span>Audit Siap</span>';
   }
+
+  updateAuditCrosellingStatusLabel();
 
   populateAuditSosmedDropdown();
   applyAuditColStyles();
@@ -5964,7 +5967,23 @@ function applyAuditFilters() {
   if (statusEl && statusEl.value !== 'ALL') activeAuditCount++;
   if (searchEl && searchEl.value.trim()) activeAuditCount++;
   const badgeAudit = document.getElementById('auditFilterActiveCount');
-  if (badgeAudit) badgeAudit.innerText = activeAuditCount;
+  if (badgeAudit) {
+    badgeAudit.innerText = activeAuditCount;
+    if (activeAuditCount > 0) {
+      badgeAudit.className = 'size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center font-bold';
+    } else {
+      badgeAudit.className = 'size-4 rounded-full bg-slate-200 text-slate-600 text-[10px] flex items-center justify-center font-bold';
+    }
+  }
+
+  // Update dinamis teks tombol Klaim Semua AR Belum Sosmed
+  const missingCountTotal = (allMissingCount + partialMissingCount);
+  const btnClaimText = document.getElementById('btnClaimAllMissingText');
+  if (btnClaimText) {
+    btnClaimText.innerText = missingCountTotal > 0
+      ? `Klaim Semua Belum Sosmed (${missingCountTotal.toLocaleString('id-ID')})`
+      : 'Klaim Semua AR Belum Sosmed';
+  }
 
   auditCurrentPage = 1;
   renderAuditPage();
@@ -5979,7 +5998,7 @@ function resetAuditFilters() {
   const searchEl = document.getElementById('auditSearchInput');
 
   if (periodeEl) {
-    periodeEl.value = periodeEl.options.length > 1 ? periodeEl.options[1].value : 'ALL';
+    periodeEl.value = 'ALL';
   }
   if (sosmedEl) sosmedEl.value = 'ALL';
   if (tglVlookupEl) tglVlookupEl.value = '';
@@ -9010,6 +9029,45 @@ function updateCrosellingIndicator(text) {
   if (el) el.innerText = text;
 }
 
+function updateAuditCrosellingStatusLabel() {
+  const banner = document.getElementById('auditCrosellingSyncBanner');
+  const textEl = document.getElementById('auditCrosellingSyncText');
+  const countPill = document.getElementById('auditCrosellingCountPill');
+  const batchPill = document.getElementById('auditCrosellingBatchPill');
+  if (!textEl) return;
+
+  const meta = window.crosellingMetadata || {};
+  const count = meta.count || (typeof rawCrosellingRows !== 'undefined' ? rawCrosellingRows.length : 0);
+  const uploader = meta.uploader || 'Superadmin';
+  const rawTs = meta.lastUploadedAt || localStorage.getItem('gadgetmart_croselling_timestamp');
+
+  let formattedDate = 'Sinkron';
+  if (rawTs) {
+    const d = new Date(rawTs);
+    if (!isNaN(d.getTime())) {
+      const day = d.getDate();
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const month = months[d.getMonth()];
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      formattedDate = `${day} ${month} ${year}, ${hours}:${mins} WITA`;
+    } else {
+      formattedDate = rawTs;
+    }
+  }
+
+  if (count > 0) {
+    textEl.innerHTML = `Terupdate per <strong>${formattedDate}</strong> (oleh <strong>${uploader}</strong>)`;
+    if (countPill) countPill.innerText = `${count.toLocaleString('id-ID')} Data Transaksi`;
+    if (batchPill) batchPill.innerText = `1x Upload Sinkron`;
+  } else {
+    textEl.innerHTML = `Data cross-selling belum terunggah di database server`;
+    if (countPill) countPill.innerText = `0 Transaksi`;
+    if (batchPill) batchPill.innerText = `Perlu Upload`;
+  }
+}
+
 // Function alias for backwards compatibility
 function handleFileSelect(e) {
   handleTurnoverFileSelect(e);
@@ -9165,8 +9223,18 @@ async function loadCrosellingDataAsync() {
       if (dataCross && dataCross.success && Array.isArray(dataCross.rows) && dataCross.rows.length > 0) {
         rawCrosellingRows = dataCross.rows;
         crosellingLoaded = true;
+        window.crosellingMetadata = {
+          count: dataCross.total_count || dataCross.rows.length,
+          lastUploadedAt: dataCross.last_uploaded_at,
+          uploader: dataCross.last_uploader || 'Superadmin',
+          filename: dataCross.filename || 'CROSSELLING.xlsx',
+          batchLabel: dataCross.batch_label || 'Batch 1x Upload'
+        };
+        const tsFormatted = dataCross.last_uploaded_at ? new Date(dataCross.last_uploaded_at).toLocaleString('id-ID') : 'Sinkron';
+        localStorage.setItem('gadgetmart_croselling_timestamp', tsFormatted);
         console.log(`✅ ${dataCross.rows.length} data cross-selling dimuat langsung dari Database SQL!`);
         updateDatabaseStatus();
+        updateAuditCrosellingStatusLabel();
         if (typeof rawTurnoverRows !== 'undefined' && rawTurnoverRows.length > 0 && typeof processAllReports === 'function') {
           processAllReports();
         }
@@ -9188,7 +9256,15 @@ async function loadCrosellingDataAsync() {
         await saveFileToIndexedDB('croselling_file', buf2);
         const ts = serverTs ? new Date(serverTs).toLocaleString('id-ID') : (localStorage.getItem('gadgetmart_croselling_timestamp') || 'Default Sistem');
         localStorage.setItem('gadgetmart_croselling_timestamp', ts);
+        window.crosellingMetadata = {
+          count: rawCrosellingRows ? rawCrosellingRows.length : 0,
+          lastUploadedAt: serverTs,
+          uploader: uploader,
+          filename: 'CROSSELLING.xlsx',
+          batchLabel: 'Batch 1x Upload'
+        };
         updateCrosellingIndicator(`File Cross Selling terupdate per ${ts} (Sinkron dari ${uploader})`);
+        updateAuditCrosellingStatusLabel();
       }
     } catch(e) {}
   }

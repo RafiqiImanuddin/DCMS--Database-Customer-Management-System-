@@ -1821,9 +1821,16 @@ class WorkspaceSosmedController extends Controller
                 ];
             });
 
+            $mtimeMs = (int) (Setting::where('key', 'workspace_turnover_mtime')->value('value') ?? 0);
+            $uploader = Setting::where('key', 'workspace_turnover_uploader')->value('value') ?? 'Superadmin';
+            $filename = Setting::where('key', 'workspace_turnover_filename')->value('value') ?? 'turnover.xlsx';
+
             return response()->json([
                 'success' => true,
                 'total_count' => $rows->count(),
+                'last_uploaded_at' => $mtimeMs > 0 ? date('c', (int) ($mtimeMs / 1000)) : null,
+                'last_uploader' => $uploader,
+                'filename' => $filename,
                 'rows' => $rows,
             ]);
         }
@@ -1926,9 +1933,26 @@ class WorkspaceSosmedController extends Controller
                 ];
             });
 
+            $mtimeMs = (int) (Setting::where('key', 'workspace_croselling_mtime')->value('value') ?? 0);
+            $uploader = Setting::where('key', 'workspace_croselling_uploader')->value('value') ?? 'Superadmin';
+            $filename = Setting::where('key', 'workspace_croselling_filename')->value('value') ?? 'CROSSELLING-12102026.xlsx';
+
+            $latestImport = DB::table('cross_selling_imports')
+                ->where('status', 'completed')
+                ->orderByDesc('id')
+                ->first();
+
+            $uploadTimestamp = $mtimeMs > 0 ? date('c', (int) ($mtimeMs / 1000)) : ($latestImport?->created_at ?? null);
+            $uploadUploader = $mtimeMs > 0 ? $uploader : ($latestImport?->uploaded_by ?? 'Superadmin');
+            $uploadFilename = $filename ?: ($latestImport?->file_name ?? 'CROSSELLING.xlsx');
+
             return response()->json([
                 'success' => true,
                 'total_count' => $rows->count(),
+                'last_uploaded_at' => $uploadTimestamp,
+                'last_uploader' => $uploadUploader,
+                'filename' => $uploadFilename,
+                'batch_label' => $latestImport?->batch_label ?? 'Batch 1x Upload',
                 'rows' => $rows,
             ]);
         }
