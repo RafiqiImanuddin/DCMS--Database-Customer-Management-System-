@@ -118,12 +118,18 @@
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                                         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                                     </span>
-                                    <input type="text" id="auditSearchInput" 
+                                    <input type="search" 
+                                        name="search_audit_filter_query_prevent_autofill" 
+                                        id="auditSearchInput" 
                                         autocomplete="off" 
-                                        spellcheck="false" 
+                                        autocorrect="off"
                                         autocapitalize="off"
+                                        spellcheck="false" 
+                                        readonly
+                                        onfocus="this.removeAttribute('readonly')"
                                         class="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 pl-10 pr-12 text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:outline-none transition"
-                                        placeholder="Cari nama customer, nomor WA, barang keep, atau no AR..." oninput="applyAuditFilters()">
+                                        placeholder="Cari nama customer, nomor WA, barang keep, atau no AR..." 
+                                        oninput="applyAuditFilters()">
                                     <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[10px] font-bold text-slate-400">⌘K</span>
                                 </div>
                                 <div class="flex items-center gap-2">

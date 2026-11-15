@@ -1417,8 +1417,13 @@ function switchTab(tabIndex) {
     }
   }
   if (tabIndex === 5) {
+    if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
     if (typeof updateAuditCrosellingStatusLabel === 'function') updateAuditCrosellingStatusLabel();
-    if (rawAuditARList.length === 0) runARMissingSosmedAudit();
+    if (rawAuditARList.length === 0) {
+      runARMissingSosmedAudit();
+    } else {
+      applyAuditFilters();
+    }
   }
   if (tabIndex === 6) renderARClaimsModule();
   if (tabIndex === 7) renderArchiveGrid();
@@ -2783,16 +2788,26 @@ function toggleAuditFiltersSection() {
 }
 
 function sanitizeKeepAutofill() {
-  const inp = document.getElementById('keepSearchInput');
-  if (!inp) return;
-  const val = (inp.value || '').trim();
-  if (val.includes('@') || val.toLowerCase().includes('admin') || val.toLowerCase().includes('.com')) {
-    inp.value = '';
-    if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
-    if (typeof applyKeepFilters === 'function') applyKeepFilters();
-  }
+  const ids = ['keepSearchInput', 'auditSearchInput', 'claimsSearchInput'];
+  ids.forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    const val = (inp.value || '').trim();
+    if (val.includes('@') || val.toLowerCase().includes('admin') || val.toLowerCase().includes('.com') || val.toLowerCase().includes('superadmin')) {
+      inp.value = '';
+      if (id === 'keepSearchInput') {
+        if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
+        if (typeof applyKeepFilters === 'function') applyKeepFilters();
+      } else if (id === 'auditSearchInput') {
+        if (typeof applyAuditFilters === 'function') applyAuditFilters();
+      } else if (id === 'claimsSearchInput') {
+        if (typeof applyClaimsFilters === 'function') applyClaimsFilters();
+      }
+    }
+  });
 }
 window.sanitizeKeepAutofill = sanitizeKeepAutofill;
+window.sanitizeAutofill = sanitizeKeepAutofill;
 
 function toggleKeepClearBtn() {
   const inp = document.getElementById('keepSearchInput');
@@ -11338,11 +11353,16 @@ async function initSosmedApp() {
   const initialActiveTab = (typeof window.WORKSPACE_ACTIVE_TAB === 'number') ? window.WORKSPACE_ACTIVE_TAB : 1;
   const keepInput = document.getElementById('keepSearchInput');
   if (keepInput) keepInput.value = '';
+  const auditInput = document.getElementById('auditSearchInput');
+  if (auditInput) auditInput.value = '';
+  const claimsInput = document.getElementById('claimsSearchInput');
+  if (claimsInput) claimsInput.value = '';
+
   if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
   if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
 
   // Tangkal delay autofill agresif dari password manager Chrome/Edge
-  [100, 300, 600, 1200].forEach(delay => {
+  [100, 300, 600, 1200, 2000].forEach(delay => {
     setTimeout(() => {
       if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
     }, delay);
