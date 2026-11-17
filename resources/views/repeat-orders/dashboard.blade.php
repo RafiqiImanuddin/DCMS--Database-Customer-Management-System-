@@ -336,7 +336,7 @@
             <div>
                 <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-600">Pencarian Konsumen</label>
                 <div class="relative">
-                    <input type="text" name="search" value="{{ $search }}" placeholder="Nama / No HP / Item..." class="dcms-input pr-8 text-xs">
+                    <input type="text" name="search" value="{{ $search }}" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="Nama / No HP / Item..." class="dcms-input pr-8 text-xs">
                     <button type="submit" class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600">
                         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     </button>

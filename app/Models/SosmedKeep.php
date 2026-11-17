@@ -16,5 +16,6 @@ class SosmedKeep extends Model
     protected $casts = [
         'keep_timestamp' => 'datetime',
         'tanggal_input_ar' => 'datetime',
+        'fu_h1_sent_at' => 'datetime',
     ];
 }

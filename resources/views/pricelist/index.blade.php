@@ -115,7 +115,7 @@
                 <div class="flex items-center gap-3">
                     <div class="relative flex-1 sm:w-72">
                         <svg class="size-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                        <input type="text" id="pricelistSearchInput" oninput="filterPricelistTable()" placeholder="Cari tipe, nama HP, IMEI..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs">
+                        <input type="text" id="pricelistSearchInput" name="pricelist_search_query_unique" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" oninput="filterPricelistTable()" placeholder="Cari tipe, nama HP, IMEI..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs">
                     </div>
                     <select id="pricelistBrandFilter" onchange="filterPricelistTable()" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs cursor-pointer">
                         <option value="ALL">Semua Brand</option>

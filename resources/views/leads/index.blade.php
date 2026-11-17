@@ -58,7 +58,7 @@
 </div>
 
 <form method="GET" class="dcms-card mb-5 grid gap-3 p-4 md:grid-cols-[minmax(220px,1fr)_160px_160px_auto]">
-    <input name="search" value="{{ request('search') }}" placeholder="Cari pelanggan, item, atau nomor HP" class="dcms-input py-2.5 text-xs">
+    <input name="search" value="{{ request('search') }}" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="Cari pelanggan, item, atau nomor HP" class="dcms-input py-2.5 text-xs">
     <select name="classification" class="dcms-input py-2.5 text-xs">
         <option value="">Semua klasifikasi</option>
         @foreach(['tinggi', 'sedang', 'rendah', 'baru'] as $value)

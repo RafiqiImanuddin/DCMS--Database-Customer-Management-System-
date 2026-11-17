@@ -51,12 +51,11 @@
 </style>
 
 <aside id="sidebar" style="font-family: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; width: 18rem !important; min-width: 18rem !important; max-width: 18rem !important; flex-shrink: 0 !important;" class="fixed inset-y-0 left-0 z-40 flex flex-col w-72 shrink-0 -translate-x-full border-r border-slate-800 bg-slate-950 text-white shadow-2xl transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0">
-    <div class="flex h-20 items-center gap-2.5 border-b border-white/10 px-5 shrink-0">
+    <div class="flex h-20 items-center justify-between border-b border-white/10 px-5 shrink-0">
         <div class="min-w-0 flex-1">
             <div class="text-lg font-black tracking-tight leading-tight">DCMS</div>
-            <div class="text-[11px] font-medium text-slate-400 leading-snug truncate">Database Customer Management</div>
+            <div class="text-[11px] font-medium text-slate-400 leading-snug">Database Customer Management</div>
         </div>
-        <img src="{{ asset('images/dcms-sosmed-logo.png') }}" alt="DCMS - SOSMED" class="h-10 w-auto max-w-[4rem] shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm">
         <button type="button" 
                 onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar(false)}" 
                 class="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer" 
@@ -78,13 +77,13 @@
                 'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index', 'pricelist.index'
             ]);
             $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index' && !in_array($activeWorkspaceTab, [7, 8]));
-            $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index', 'quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show', 'quotations.print', 'shifts.index']);
+            $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index', 'quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show', 'quotations.print', 'shifts.index', 'file-manager.index']);
             $isGuidanceActive = ($activeTarget === 'guidance.index');
             $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index', 'profile.edit', 'settings.users.index']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
 
             $canSeeCustomerGroup = $currentUser && ($currentUser->canAccessFeature('dashboard') || $currentUser->canAccessFeature('predictions') || $currentUser->canAccessFeature('leads') || $currentUser->canAccessFeature('broadcasts') || $currentUser->canAccessFeature('pricelist'));
-            $canSeeWorkspaceGroup = $currentUser && ($currentUser->canAccessFeature('workspace_dashboard') || $currentUser->canAccessFeature('workspace_matrix') || $currentUser->canAccessFeature('workspace_cek_ar') || $currentUser->canAccessFeature('workspace_format_keep') || $currentUser->canAccessFeature('workspace_tracking_ar') || $currentUser->canAccessFeature('workspace_klaim_ar') || $currentUser->canAccessFeature('workspace_inbox_fu'));
-            $canSeeMonitoringGroup = $currentUser && ($currentUser->canAccessFeature('monitoring_sales') || $currentUser->canAccessFeature('quotations') || $currentUser->canAccessFeature('sosmed_shifts'));
+            $canSeeWorkspaceGroup = $currentUser && ($currentUser->canAccessFeature('workspace_dashboard') || $currentUser->canAccessFeature('workspace_matrix') || $currentUser->canAccessFeature('workspace_cek_ar') || $currentUser->canAccessFeature('workspace_format_keep') || $currentUser->canAccessFeature('workspace_tracking_ar') || $currentUser->canAccessFeature('workspace_klaim_ar') || $currentUser->canAccessFeature('workspace_inbox_fu') || $currentUser->canAccessFeature('workspace_customer_segmentation') || $currentUser->canAccessFeature('workspace_auto_fu_h1'));
+            $canSeeMonitoringGroup = $currentUser && ($currentUser->canAccessFeature('monitoring_sales') || $currentUser->canAccessFeature('quotations') || $currentUser->canAccessFeature('sosmed_shifts') || $currentUser->canAccessFeature('file_manager'));
         @endphp
 
         @if ($canSeeCustomerGroup)
@@ -211,12 +210,14 @@
                         || $currentUser->canAccessFeature('workspace_ola_cabang')
                         || $currentUser->canAccessFeature('workspace_cek_ar')
                         || $currentUser->canAccessFeature('workspace_tracking_ar')
-                        || $currentUser->canAccessFeature('workspace_klaim_ar');
-                    $isKeepGroupActive = ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [3, 4, 5, 6, 10]));
+                        || $currentUser->canAccessFeature('workspace_klaim_ar')
+                        || $currentUser->canAccessFeature('workspace_customer_segmentation')
+                        || $currentUser->canAccessFeature('workspace_auto_fu_h1');
+                    $isKeepGroupActive = ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [3, 4, 5, 6, 10, 11, 12]));
                 @endphp
 
                 @if ($canSeeKeepGroup)
-                <!-- 3. Format Keep (Parent Dropdown dengan Sub Menu: Data Format Keep, Dashboard OLA Cabang, Cek Status AR, Tracking AR, Klaim AR) -->
+                <!-- 3. Format Keep (Parent Dropdown dengan Sub Menu: Data Format Keep, Dashboard OLA Cabang, Cek Status AR, Tracking AR, Klaim AR, Customer Segmentation) -->
                 <div class="space-y-1" id="format-keep-nav-container">
                     <div id="wrap-format-keep-btn" class="flex items-center justify-between rounded-xl transition {{ $isKeepGroupActive ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                         <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]) }}" data-tab="4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4);if(window.toggleFormatKeepSubmenu){window.toggleFormatKeepSubmenu(null, true);}return false;}" class="workspace-sidebar-link flex-1 flex items-center gap-3 px-3.5 py-2.5 font-semibold transition min-w-0 {{ $isKeepGroupActive ? 'text-white' : 'text-slate-300 hover:text-white' }}">
@@ -228,7 +229,7 @@
                         </button>
                     </div>
 
-                    <!-- Sub Menu Format Keep: Data Format Keep, Dashboard OLA Cabang, Cek Status AR, Tracking AR, Klaim AR -->
+                    <!-- Sub Menu Format Keep: Data Format Keep, Dashboard OLA Cabang, Cek Status AR, Tracking AR, Klaim AR, Customer Segmentation -->
                     <div id="submenu-format-keep" class="pl-4 pr-1 space-y-1 {{ $isKeepGroupActive ? '' : 'hidden' }}">
                         @if ($currentUser->canAccessFeature('workspace_format_keep'))
                         <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]) }}" data-tab="4" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(4);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(4);}return false;}" id="subitem-keep-tab4" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 4) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
@@ -262,6 +263,20 @@
                         <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 6]) }}" data-tab="6" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(6);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(6);}return false;}" id="subitem-keep-tab6" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 6) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
                             <span class="shrink-0 text-violet-400">✅</span>
                             <span class="truncate">Klaim AR</span>
+                        </a>
+                        @endif
+
+                        @if ($currentUser->canAccessFeature('workspace_customer_segmentation') || $currentUser->canAccessFeature('workspace_format_keep'))
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 11]) }}" data-tab="11" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(11);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(11);}return false;}" id="subitem-keep-tab11" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 11) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
+                            <span class="shrink-0 text-pink-400">📊</span>
+                            <span class="truncate">Customer Segmentation</span>
+                        </a>
+                        @endif
+
+                        @if ($currentUser->canAccessFeature('workspace_auto_fu_h1') || $currentUser->canAccessFeature('workspace_format_keep'))
+                        <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 12]) }}" data-tab="12" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(12);if(window.updateKeepSubmenuActive){window.updateKeepSubmenuActive(12);}return false;}" id="subitem-keep-tab12" class="format-keep-subitem flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 12) ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10' }}">
+                            <span class="shrink-0 text-teal-400">📲</span>
+                            <span class="truncate">Auto Follow Up H+1</span>
                         </a>
                         @endif
                     </div>
@@ -324,6 +339,15 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 13.5h6m-6 3h4"/>
                     </svg>
                     <span>Surat Penawaran</span>
+                </a>
+                @endif
+
+                @if ($currentUser->canAccessFeature('file_manager'))
+                <a href="{{ \App\Support\RouteCipher::url('file-manager.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ in_array($activeTarget, ['file-manager.index']) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/>
+                    </svg>
+                    <span>File Manager</span>
                 </a>
                 @endif
             </div>
@@ -406,7 +430,7 @@
 
                 @if ($currentUser && $currentUser->canAccessFeature('monthly_targets'))
                 <!-- Target Omzet Bulanan -->
-                <a href="{{ route('settings.karyawan.index', ['tab' => 'monthly_targets']) }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'settings.karyawan.index' && request('tab') === 'monthly_targets') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                <a href="{{ \App\Support\RouteCipher::url('settings.karyawan.index', ['tab' => 'monthly_targets']) }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'settings.karyawan.index' && request('tab') === 'monthly_targets') ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     <span>Target Omzet Bulanan</span>
                 </a>
@@ -458,6 +482,15 @@
         <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'bg-white/10 text-amber-300' : (auth()->user()?->role === 'admin' ? 'bg-white/10 text-emerald-300' : (auth()->user()?->isGuest() ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/10 text-sky-300')) }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()?->role === 'admin' ? 'Admin' : (auth()->user()?->isGuest() ? 'Tamu (Guest)' : 'Staff')) }}</span></div>
         <div class="mt-1 truncate text-sm font-bold">{{ auth()->user()?->name ?? 'User' }}</div>
         <div class="truncate text-xs text-slate-400">{{ auth()->user()?->email ?? '' }}</div>
+        
+        <!-- Keterangan Versi Web -->
+        <div class="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+            <span class="inline-flex items-center gap-1.5 font-medium">
+                <span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Versi Web</span>
+            </span>
+            <span class="font-mono font-bold text-slate-300 bg-white/10 px-2 py-0.5 rounded text-[10px]">v2.9.2</span>
+        </div>
     </div>
 </aside>
 
@@ -609,9 +642,11 @@ window.updateKeepSubmenuActive = function(tabIndex) {
         10: 'subitem-keep-tab10',
         3: 'subitem-keep-tab3',
         5: 'subitem-keep-tab5',
-        6: 'subitem-keep-tab6'
+        6: 'subitem-keep-tab6',
+        11: 'subitem-keep-tab11',
+        12: 'subitem-keep-tab12'
     };
-    [3, 4, 5, 6, 10].forEach(function(t) {
+    [3, 4, 5, 6, 10, 11, 12].forEach(function(t) {
         const el = document.getElementById(subMap[t]);
         if (el) {
             if (t === parseInt(tabIndex, 10)) {

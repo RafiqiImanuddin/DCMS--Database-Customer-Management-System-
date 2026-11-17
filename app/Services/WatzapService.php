@@ -136,6 +136,86 @@ class WatzapService
     }
 
     /**
+     * Kirim pesan WhatsApp EKSKLUSIF via Baileys Bot Gateway (+62 851-1142-6699)
+     * Tanpa fallback ke WatZap Cloud atau WAHA.
+     * Digunakan khusus untuk modul Otomasi WhatsApp / Auto Follow-Up H+1.
+     *
+     * @return array{success: bool, source: string, message_id: string, status: string, message: string, data?: array, raw?: string}
+     */
+    public function sendViaBaileys(string $rawPhone, string $message, ?string $sender = '6285111426699'): array
+    {
+        $cleanPhone = preg_replace('/\D+/', '', $rawPhone);
+        if (str_starts_with($cleanPhone, '08')) {
+            $cleanPhone = '628' . substr($cleanPhone, 2);
+        } elseif (str_starts_with($cleanPhone, '8')) {
+            $cleanPhone = '628' . substr($cleanPhone, 1);
+        }
+
+        if (strlen($cleanPhone) < 9) {
+            return [
+                'success' => false,
+                'source' => 'Baileys Bot (+62 851-1142-6699)',
+                'message_id' => '',
+                'status' => '422',
+                'message' => 'Nomor WhatsApp tujuan (' . $rawPhone . ') tidak valid.',
+            ];
+        }
+
+        $baileysUrl = $this->getBaileysUrl();
+        $apiKey = $this->getBaileysApiKey();
+        $senderNumber = $sender ?: '6285111426699';
+
+        try {
+            $response = Http::timeout(12)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'X-Api-Key' => $apiKey,
+                ])
+                ->post("{$baileysUrl}/api/send-message", [
+                    'phone' => $cleanPhone,
+                    'message' => $message,
+                    'sender' => $senderNumber,
+                ]);
+
+            if ($response->successful()) {
+                $json = $response->json();
+                $msgId = (string) ($json['message_id'] ?? $json['messageId'] ?? ('baileys_' . time()));
+
+                return [
+                    'success' => true,
+                    'source' => 'Baileys Bot (+62 851-1142-6699)',
+                    'message_id' => $msgId,
+                    'status' => '200',
+                    'message' => 'Pesan berhasil dikirim via Baileys Bot (+62 851-1142-6699).',
+                    'data' => is_array($json) ? $json : [],
+                    'raw' => $response->body(),
+                ];
+            }
+
+            $body = $response->body();
+            $json = $response->json();
+            $errMsg = $json['message'] ?? $json['error'] ?? $body;
+
+            return [
+                'success' => false,
+                'source' => 'Baileys Bot (+62 851-1142-6699)',
+                'message_id' => '',
+                'status' => (string) $response->status(),
+                'message' => 'Gagal via Baileys Bot: ' . $errMsg,
+                'raw' => $body,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'source' => 'Baileys Bot (+62 851-1142-6699)',
+                'message_id' => '',
+                'status' => '500',
+                'message' => 'Koneksi ke Baileys Bot gagal: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Check status session WAHA VPS.
      *
      * @return array{online: bool, status: string, name: string, me: array|null, message: string}

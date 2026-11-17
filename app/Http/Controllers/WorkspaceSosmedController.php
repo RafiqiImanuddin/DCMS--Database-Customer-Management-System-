@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Models\SosmedKeep;
 use App\Models\WhatsAppChat;
 use App\Models\WhatsAppMessage;
+use App\Services\KeepAutoFollowUpService;
 use App\Services\WatzapService;
 use App\Support\RouteCipher;
 use App\Support\WorkspaceUrlCipher;
@@ -63,6 +64,8 @@ class WorkspaceSosmedController extends Controller
             8 => 'workspace_admin_settings',
             9 => 'workspace_inbox_fu',
             10 => 'workspace_ola_cabang',
+            11 => 'workspace_customer_segmentation',
+            12 => 'workspace_auto_fu_h1',
         ];
 
         $user = $request->user();
@@ -1063,7 +1066,7 @@ class WorkspaceSosmedController extends Controller
                 return response()->json(['status' => 200, 'message' => 'Invalid phone ignored']);
             }
 
-            $messageId = (string) ($p['id'] ?? ('waha_'.time()));
+            $messageId = (string) ($p['id'] ?? ('baileys_'.time()));
             $senderName = $isFromMe
                 ? 'Admin'
                 : (string) ($p['_data']['notifyName'] ?? $p['pushname'] ?? $p['author'] ?? 'PIC');
@@ -1107,6 +1110,33 @@ class WorkspaceSosmedController extends Controller
                 $replyTo = $parsedQuote['replyTo'];
             }
 
+            // Deduplikasi Cerdas: Cegah pesan tercatat ganda (misal pesan outbound yang dikirim dari DCMS)
+            $isDuplicate = false;
+            foreach ($messages as $existing) {
+                if (! empty($existing['messageId']) && $existing['messageId'] === $messageId) {
+                    $isDuplicate = true;
+                    break;
+                }
+                if ($isFromMe && ($existing['direction'] ?? '') === 'outbound') {
+                    $exPhone = preg_replace('/\D/', '', (string) ($existing['phone'] ?? ''));
+                    $exText = trim((string) ($existing['message'] ?? $existing['text'] ?? ''));
+                    $exTs = is_numeric($existing['timestamp'] ?? 0) ? (int) $existing['timestamp'] : (strtotime((string) ($existing['timestamp'] ?? '')) * 1000);
+                    $curTs = time() * 1000;
+                    if ($exPhone === $cleanPhone && $exText === $rawText && abs($curTs - $exTs) < 45000) {
+                        $isDuplicate = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($isDuplicate) {
+                return response()->json([
+                    'status' => '200',
+                    'message' => 'Duplicate message ignored (already recorded)',
+                    'messageId' => $messageId,
+                ]);
+            }
+
             $entry = [
                 'messageId' => $messageId,
                 'phone' => $cleanPhone,
@@ -1115,11 +1145,11 @@ class WorkspaceSosmedController extends Controller
                 'media_type' => $mediaType,
                 'reply_to' => $replyTo,
                 'timestamp' => now()->toIso8601String(),
-                'status' => 'received',
+                'status' => $isFromMe ? 'sent' : 'received',
                 'direction' => $direction,
                 'sender' => $senderRole,
                 'senderName' => $senderName,
-                'gateway' => ($p['source'] ?? '') === 'BAILEYS_GATEWAY' ? 'BAILEYS_GATEWAY' : 'WAHA_VPS',
+                'gateway' => 'BAILEYS_GATEWAY',
                 'raw' => $data,
             ];
 
@@ -1134,7 +1164,7 @@ class WorkspaceSosmedController extends Controller
                 );
 
                 $chat->update([
-                    'last_message' => $rawText,
+                    'last_message' => $rawText ?: ($mediaType ? "[$mediaType]" : ($isFromMe ? 'Pesan keluar' : 'Pesan masuk')),
                     'last_message_at' => now(),
                     'unread_count' => $direction === 'inbound' ? ($chat->unread_count + 1) : $chat->unread_count,
                 ]);
@@ -1144,12 +1174,12 @@ class WorkspaceSosmedController extends Controller
                     'message_id' => $messageId,
                     'sender_type' => $senderType,
                     'agent_name' => $senderName,
-                    'message' => $rawText,
+                    'message' => $rawText ?: ($mediaType ? "[$mediaType]" : ''),
                     'media_url' => $mediaUrl,
                     'media_type' => $mediaType,
                     'reply_to' => $replyTo,
                     'raw_payload' => $data,
-                    'status' => 'received',
+                    'status' => $isFromMe ? 'sent' : 'received',
                 ]);
             } catch (\Throwable) {
             }
@@ -1163,7 +1193,7 @@ class WorkspaceSosmedController extends Controller
 
             return response()->json([
                 'status' => '200',
-                'message' => 'WAHA webhook received and processed',
+                'message' => 'Baileys/WAHA webhook received and processed',
                 'entry' => $entry,
             ]);
         }
@@ -1975,16 +2005,25 @@ class WorkspaceSosmedController extends Controller
                 ]);
             }
 
-            if (! is_dir(dirname($filePath))) {
-                @mkdir(dirname($filePath), 0775, true);
+            $dir = dirname($filePath);
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0775, true);
             }
 
-            // Cadangkan file sebelum overwrite
-            if (file_exists($filePath) && filesize($filePath) > 0) {
+            // Cadangkan file sebelum overwrite jika file valid & ada isi (> 10 bytes)
+            if (file_exists($filePath) && filesize($filePath) > 10) {
                 @copy($filePath, storage_path('app/ar_claims.backup.json'));
             }
 
-            @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+            // Atomic file write: tulis ke temporary file terlebih dahulu lalu rename
+            // Menggunakan compact JSON tanpa PRETTY_PRINT untuk menghemat ukuran file & I/O disk
+            $tempFile = $filePath . '.' . uniqid('tmp_', true);
+            $jsonEncoded = json_encode($data, JSON_UNESCAPED_UNICODE);
+            if (@file_put_contents($tempFile, $jsonEncoded, LOCK_EX) !== false) {
+                @rename($tempFile, $filePath);
+            } else {
+                @file_put_contents($filePath, $jsonEncoded, LOCK_EX);
+            }
 
             return response()->json([
                 'success' => true,
@@ -2002,9 +2041,120 @@ class WorkspaceSosmedController extends Controller
             return response()->json([]);
         }
 
+        // Support ETag / If-None-Match untuk efisiensi transfer data klaim AR
+        $fileMtime = filemtime($filePath);
+        $etag = '"' . md5($fileMtime . filesize($filePath)) . '"';
+        if ($request->header('If-None-Match') === $etag) {
+            return response()->noContent(304);
+        }
+
         $raw = @file_get_contents($filePath);
         $list = json_decode((string) $raw, true);
 
-        return response()->json(is_array($list) ? $list : []);
+        return response()->json(is_array($list) ? $list : [])
+            ->header('ETag', $etag)
+            ->header('Cache-Control', 'private, must-revalidate');
+    }
+
+    /**
+     * Get Auto Follow-Up H+1 Dashboard Data.
+     */
+    public function autoFuH1Data(Request $request, KeepAutoFollowUpService $service): JsonResponse
+    {
+        $date = $request->input('date');
+        $data = $service->getDashboardData($date);
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Send Auto Follow-Up H+1 WhatsApp Digest to PIC(s).
+     */
+    public function autoFuH1SendDigest(Request $request, KeepAutoFollowUpService $service): JsonResponse
+    {
+        if (! auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Sesi telah berakhir. Silakan login kembali.'], 401);
+        }
+
+        if ($request->user()?->isGuest()) {
+            return response()->json(['success' => false, 'message' => 'Akun Guest tidak diizinkan mengirim pesan WhatsApp.'], 403);
+        }
+
+        $target = strtoupper((string) $request->input('target', 'ALL'));
+        $date = $request->input('date');
+        $force = (bool) $request->boolean('force', false);
+
+        try {
+            if ($target === 'SINGLE') {
+                $picPhone = (string) $request->input('pic_phone');
+                $picName = (string) $request->input('pic_name', 'Tim Sales');
+                $keeps = (array) $request->input('items', []);
+
+                if (empty($keeps) && ! empty($picPhone)) {
+                    $dashboardData = $service->getDashboardData($date);
+                    foreach ($dashboardData['pic_groups'] as $g) {
+                        if ($g['pic_phone'] === $picPhone || $g['pic_name'] === $picName) {
+                            $keeps = $g['items'];
+                            break;
+                        }
+                    }
+                }
+
+                $res = $service->sendDigestToPic($picPhone, $picName, $keeps, $service->resolveTargetDate($date));
+                return response()->json($res);
+            }
+
+            @set_time_limit(300);
+            $res = $service->sendAllPendingDigests($date, $force);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Proses pengiriman selesai: {$res['sent_count']} PIC terkirim, {$res['failed_count']} gagal, {$res['skipped_count']} dilewati.",
+                'data' => $res,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Auto FU H+1 Send Digest API Error: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan di server saat memproses pengiriman: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Save Auto Follow-Up H+1 Settings.
+     */
+    public function autoFuH1SaveSettings(Request $request, KeepAutoFollowUpService $service): JsonResponse
+    {
+        if (! auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Sesi telah berakhir. Silakan login kembali.'], 401);
+        }
+
+        if ($request->user()?->isGuest()) {
+            return response()->json(['success' => false, 'message' => 'Akun Guest tidak diizinkan mengubah konfigurasi.'], 403);
+        }
+
+        try {
+            $service->saveSettings($request->all());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pengaturan jadwal dan template pesan berhasil disimpan!',
+                'settings' => $service->getSettings(),
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Auto FU H+1 Save Settings Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan pengaturan: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

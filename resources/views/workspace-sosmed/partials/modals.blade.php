@@ -162,76 +162,84 @@
     </div>
 
     <!-- Modal: Detail AR & Pelaporan ke WhatsApp Akmal (+62 823-5771-2674) -->
-    <div id="arDetailModal" class="modal-overlay" style="display:none">
-        <div class="modal-dialog modal-xlarge card-tegas">
-            <div class="modal-header"
-                style="display: flex; align-items: center; justify-content: space-between; position: relative;">
-                <div style="flex: 1; text-align: center;">
-                    <h3 id="modalDocMainTitle"
-                        style="font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; margin: 0; color: #0f172a; text-transform: uppercase;">
-                        TRACK AR BERDASARKAN VLOOKUP</h3>
-                    <span style="font-size:0.78rem; color:var(--text-muted);">Dokumen AR: <strong id="modalDocTitle"
-                            class="text-crimson">-</strong> | Tanggal: <span id="modalMetaDate">-</span> | Cabang: <span
-                            id="modalMetaCabang" class="font-bold text-crimson">-</span></span>
+    <div id="arDetailModal" class="fixed inset-0 z-50 items-center justify-center p-3 sm:p-5 overflow-y-auto" style="display:none">
+        <!-- Backdrop with dark blur -->
+        <div class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity" onclick="closeARDetailModal()"></div>
+
+        <!-- Modal Dialog Panel -->
+        <div class="relative w-full max-w-5xl rounded-3xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden my-auto flex flex-col max-h-[92vh] z-10">
+            <!-- Modal Header -->
+            <div class="flex items-start justify-between p-5 sm:px-6 border-b border-slate-100 bg-white shrink-0">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 border border-brand-200/70 px-2.5 py-0.5 text-[11px] font-bold text-brand-700">
+                            <span class="size-1.5 rounded-full bg-brand-500"></span>
+                            <span>Audit AR Tracking</span>
+                        </span>
+                        <span class="text-xs text-slate-300">•</span>
+                        <span class="text-xs font-semibold text-slate-500">Verifikasi Format Keep x Croselling</span>
+                    </div>
+                    <h3 id="modalDocMainTitle" class="text-lg sm:text-xl font-black text-slate-900 tracking-tight mt-1 uppercase">
+                        TRACK AR BERDASARKAN REPORT AR
+                    </h3>
+                    <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span>No. Dokumen: <strong id="modalDocTitle" class="font-black text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200/60">-</strong></span>
+                        <span class="text-slate-300">|</span>
+                        <span>Tanggal: <span id="modalMetaDate" class="font-semibold text-slate-700">-</span></span>
+                        <span class="text-slate-300">|</span>
+                        <span>Cabang: <span id="modalMetaCabang" class="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">-</span></span>
+                    </div>
                 </div>
-                <button class="btn-close" onclick="closeARDetailModal()"
-                    style="position: absolute; right: 18px; top: 16px;">✕</button>
+                <button type="button" 
+                        onclick="closeARDetailModal()" 
+                        class="grid size-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer ml-3"
+                        title="Tutup (Esc)">
+                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
 
-            <div class="modal-body">
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
                 <!-- Sub-Tabs Navigation inside Modal -->
-                <div class="modal-tabs">
-                    <button id="btnModalSubTab1" class="modal-tab-btn active" onclick="switchModalSubTab(1)">
-                        🔍 1. Rincian Produk & Status Sosmed
+                <div class="flex items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl w-fit border border-slate-200/80">
+                    <button id="btnModalSubTab1" type="button" class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer shadow-xs bg-white text-slate-900 border border-slate-200/80" onclick="switchModalSubTab(1)">
+                        <span>🔍</span>
+                        <span>1. Rincian Produk &amp; Status Sosmed</span>
                     </button>
-                    <button id="btnModalSubTab2" class="modal-tab-btn btn-tab-report" onclick="switchModalSubTab(2)">
-                        🚨 2. Form Lapor ke Akmal (WhatsApp)
+                    <button id="btnModalSubTab2" type="button" class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer text-slate-600 hover:text-slate-900 hover:bg-white/60" onclick="switchModalSubTab(2)">
+                        <span>🚨</span>
+                        <span>2. Form Lapor ke Akmal (WhatsApp)</span>
                     </button>
                 </div>
 
                 <!-- Sub-View 1: Rincian Produk & Checkbox Item -->
-                <div id="modalSubTabView1">
-                    <!-- Top 5-Column Summary Table Matching Image 2 -->
-                    <div class="ar-track-summary-card mb-20"
-                        style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;">
-                        <table class="ar-track-summary-table"
-                            style="width: 100%; border-collapse: collapse; text-align: left;">
-                            <thead>
-                                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                    <th
-                                        style="padding: 10px 14px; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase;">
-                                        CUSTOMER</th>
-                                    <th
-                                        style="padding: 10px 14px; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase;">
-                                        NOMOR WA</th>
-                                    <th
-                                        style="padding: 10px 14px; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; text-align: center;">
-                                        KODE SOSMED</th>
-                                    <th
-                                        style="padding: 10px 14px; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase;">
-                                        BARANG KEEP</th>
-                                    <th
-                                        style="padding: 10px 14px; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase;">
-                                        CATATAN</th>
-                                    <th
-                                        style="padding: 10px 14px; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; text-align: center;">
-                                        STATUS KEEP</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="padding: 12px 14px; font-size: 0.85rem; font-weight: 700; color: #0f172a;"
-                                        id="modalTrackCust">-</td>
-                                    <td style="padding: 12px 14px; font-size: 0.85rem;" id="modalTrackWA">-</td>
-                                    <td style="padding: 12px 14px; text-align: center;" id="modalTrackSosmed">-</td>
-                                    <td style="padding: 12px 14px; font-size: 0.85rem; font-weight: 600; color: #1e293b;"
-                                        id="modalTrackKeepBarang">-</td>
-                                    <td style="padding: 12px 14px; font-size: 0.76rem; line-height: 1.35; color: #334155;"
-                                        id="modalTrackCatatan">-</td>
-                                    <td style="padding: 12px 14px; text-align: center;" id="modalTrackStatusKeep">-</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div id="modalSubTabView1" class="space-y-4">
+                    <!-- Top Summary Card: Customer & Keep Detail -->
+                    <div class="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-2xs">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead>
+                                   <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-600">
+                                       <th class="py-2.5 px-4 text-[10px] font-bold uppercase tracking-wider">CUSTOMER</th>
+                                       <th class="py-2.5 px-4 text-[10px] font-bold uppercase tracking-wider">NOMOR WA</th>
+                                       <th class="py-2.5 px-4 text-[10px] font-bold uppercase tracking-wider text-center">KODE SOSMED</th>
+                                       <th class="py-2.5 px-4 text-[10px] font-bold uppercase tracking-wider">BARANG KEEP</th>
+                                       <th class="py-2.5 px-4 text-[10px] font-bold uppercase tracking-wider">CATATAN</th>
+                                       <th class="py-2.5 px-4 text-[10px] font-bold uppercase tracking-wider text-center">STATUS KEEP</th>
+                                   </tr>
+                                </thead>
+                                <tbody>
+                                   <tr class="divide-x divide-slate-100">
+                                       <td class="py-3 px-4 font-bold text-slate-900" id="modalTrackCust">-</td>
+                                       <td class="py-3 px-4" id="modalTrackWA">-</td>
+                                       <td class="py-3 px-4 text-center" id="modalTrackSosmed">-</td>
+                                       <td class="py-3 px-4 font-bold text-slate-800" id="modalTrackKeepBarang">-</td>
+                                       <td class="py-3 px-4 text-slate-600 text-[11px] leading-relaxed max-w-xs" id="modalTrackCatatan">-</td>
+                                       <td class="py-3 px-4 text-center" id="modalTrackStatusKeep">-</td>
+                                   </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <!-- Hidden elements for backward compatibility -->
@@ -243,129 +251,125 @@
                         <span id="modalMetaRemarks">-</span>
                     </div>
 
-                    <!-- Status Banner -->
-                    <div id="modalStatusBanner" class="ar-status-banner mb-20" style="margin-bottom: 16px;">
-                        <div id="modalStatusIcon" class="status-icon-banner"></div>
-                        <div class="status-text-banner">
-                            <h3 id="modalStatusTitle">Status AR</h3>
-                            <p id="modalStatusSubtitle">Detail status verifikasi</p>
+                    <!-- Status Banner (Dynamic Tailwind) -->
+                    <div id="modalStatusBanner" class="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 flex items-center gap-3.5 transition shadow-2xs">
+                        <div id="modalStatusIcon" class="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-100 text-rose-600 font-bold text-lg">❌</div>
+                        <div class="min-w-0 flex-1">
+                            <h4 id="modalStatusTitle" class="text-xs font-black uppercase tracking-wider text-rose-900">BELUM DIINPUT KODE SOSMED (100% OFFLINE)</h4>
+                            <p id="modalStatusSubtitle" class="text-[11px] font-medium text-rose-700 mt-0.5">Seluruh item dalam AR ini tercatat dengan kode sales toko fisik/kasir, belum ada kode sosmed.</p>
                         </div>
                     </div>
 
-                    <!-- Items Table Header -->
-                    <div class="items-section-header">
-                        <span>Daftar Produk dalam AR Ini (Centang item yang belum terinput sosmed):</span>
-                        <span class="kpi-badge badge-ink" id="modalItemsCountBadge">0 Item</span>
+                    <!-- Items Table Header & Clean Responsive Table -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="size-2 rounded-full bg-brand-600"></span>
+                                <span class="text-xs font-bold text-slate-800">Daftar Produk dalam AR Ini <span class="text-slate-400 font-normal">(Centang item yang belum terinput sosmed)</span>:</span>
+                            </div>
+                            <span class="rounded-full bg-slate-900 px-2.5 py-0.5 text-[10px] font-black text-white" id="modalItemsCountBadge">0 Item</span>
+                        </div>
+
+                        <div class="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-2xs">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs border-collapse" id="modalItemsTable">
+                                    <thead>
+                                        <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-600">
+                                            <th class="py-2.5 px-3 w-10 text-center">
+                                                <input type="checkbox" id="modalSelectAllItems" class="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" onchange="toggleSelectAllModalItems(this.checked)" title="Pilih Semua">
+                                            </th>
+                                            <th class="py-2.5 px-3 w-10 text-center font-bold text-[10px] uppercase">NO</th>
+                                            <th class="py-2.5 px-3 font-bold text-[10px] uppercase min-w-[220px]">NAMA PRODUK / ITEM DESCRIPTION</th>
+                                            <th class="py-2.5 px-3 text-center font-bold text-[10px] uppercase">QTY</th>
+                                            <th class="py-2.5 px-3 text-right font-bold text-[10px] uppercase">HARGA SATUAN</th>
+                                            <th class="py-2.5 px-3 text-right font-bold text-[10px] uppercase">TOTAL</th>
+                                            <th class="py-2.5 px-3 font-bold text-[10px] uppercase min-w-[170px]">SALES EMPLOYEE TERINPUT</th>
+                                            <th class="py-2.5 px-3 text-center font-bold text-[10px] uppercase">STATUS SOSMED</th>
+                                            <th class="py-2.5 px-3 text-center font-bold text-[10px] uppercase w-24">POTENSI DENDA</th>
+                                            <th class="py-2.5 px-3 text-center font-bold text-[10px] uppercase w-24">SALIN EXCEL</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="modalItemsTableBody" class="divide-y divide-slate-100"></tbody>
+                                    <tfoot id="modalItemsTableFoot"></tfoot>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="table-responsive">
-                        <table class="kpi-matrix-table" id="modalItemsTable">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px; text-align: center;">
-                                        <input type="checkbox" id="modalSelectAllItems" class="checkbox-custom"
-                                            onchange="toggleSelectAllModalItems(this.checked)" title="Pilih Semua">
-                                    </th>
-                                    <th class="col-sticky" style="width: 40px;">NO</th>
-                                    <th class="text-left" style="min-width: 220px;">NAMA PRODUK / ITEM DESCRIPTION</th>
-                                    <th>QTY</th>
-                                    <th>HARGA SATUAN</th>
-                                    <th>TOTAL</th>
-                                    <th class="text-left" style="min-width: 180px;">SALES EMPLOYEE TERINPUT</th>
-                                    <th class="text-center">STATUS SOSMED</th>
-                                    <th class="text-center" style="width: 100px;">POTENSI DENDA</th>
-                                    <th class="text-center" style="width: 110px;">SALIN EXCEL</th>
-                                </tr>
-                            </thead>
-                            <tbody id="modalItemsTableBody"></tbody>
-                            <tfoot id="modalItemsTableFoot"></tfoot>
-                        </table>
-                    </div>
-
-                    <div
-                        style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <button class="btn btn-outline" onclick="copyModalSelectedItems(this)"
-                                style="font-weight: 700; border: 1.5px solid #0f172a;"
-                                title="Salin semua item yang dicentang ke format 12 kolom Excel (tanpa header)">
-                                📋 Salin Item Tercentang (Format Excel)
+                    <!-- Actions Below Table -->
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                            <button type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-800 shadow-2xs transition cursor-pointer" onclick="copyModalSelectedItems(this)" title="Salin semua item yang dicentang ke format 12 kolom Excel (tanpa header)">
+                                <span>📋</span>
+                                <span>Salin Item Tercentang (Format Excel)</span>
                             </button>
-                            <button class="btn btn-outline" onclick="claimModalSelectedItems(this)"
-                                style="font-weight: 700; border: 1.5px solid #c8102e; color: #c8102e;"
-                                title="Masukkan item tercentang ke Modul Klaim AR (Pengumpulan 3 Hari)">
-                                Masukkan ke Klaim Cabang
+                            <button type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 px-3.5 py-2 text-xs font-bold text-rose-700 shadow-2xs transition cursor-pointer" onclick="claimModalSelectedItems(this)" title="Masukkan item tercentang ke Modul Klaim AR (Pengumpulan 3 Hari)">
+                                <span>📥</span>
+                                <span>Masukkan ke Klaim Cabang</span>
                             </button>
                         </div>
-                        <button class="btn btn-crimson" onclick="switchModalSubTab(2)">
-                            🚨 Laporkan Ada yang Belum Terinput / Salah ke Akmal &raquo;
+                        <button type="button" class="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 px-4 py-2 text-xs font-bold text-white shadow-xs transition cursor-pointer w-full sm:w-auto justify-center" onclick="switchModalSubTab(2)">
+                            <span>🚨 Laporkan Belum Terinput / Salah ke Akmal</span>
+                            <span>&raquo;</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Sub-View 2: Form Pelaporan ke WhatsApp Akmal -->
-                <div id="modalSubTabView2" style="display:none;">
-                    <div class="report-form-box">
-                        <div class="report-form-header">
-                            <span style="font-size: 1.8rem;">🚨</span>
+                <div id="modalSubTabView2" style="display:none;" class="space-y-4">
+                    <div class="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-2xs">
+                        <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+                            <span class="text-2xl">🚨</span>
                             <div>
-                                <h4>Form Pelaporan Revisi AR ke Mas Akmal</h4>
-                                <span class="kpi-badge badge-accent">Tujuan WhatsApp: Mas Akmal (+62
-                                    823-5771-2674)</span>
+                                <h4 class="text-sm font-black text-slate-900 tracking-tight">Form Pelaporan Revisi AR ke Mas Akmal</h4>
+                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/70 mt-0.5">Tujuan WhatsApp: Mas Akmal (+62 823-5771-2674)</span>
                             </div>
                         </div>
 
                         <!-- Selected Items to report -->
-                        <div class="report-form-row">
-                            <label>1. Item yang Belum Terinput / Salah Kode Sosmed:</label>
-                            <div id="modalReportSelectedItemsList" class="selected-items-list">
-                                <em>Belum ada item yang dicentang. Silakan kembali ke tab 1 atau pilih item di bawah
-                                    ini.</em>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">1. Item yang Belum Terinput / Salah Kode Sosmed:</label>
+                            <div id="modalReportSelectedItemsList" class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 max-h-36 overflow-y-auto">
+                                <em>Belum ada item yang dicentang. Silakan kembali ke tab 1 atau pilih item di bawah ini.</em>
                             </div>
                         </div>
 
                         <!-- Target Sosmed Code -->
-                        <div class="report-form-row">
-                            <label for="modalReportSosmedSelect">2. Harusnya Diinput Kode Sosmed Berapa?</label>
-                            <select id="modalReportSosmedSelect" class="form-input"
-                                onchange="updateWhatsAppMessagePreview()" style="font-weight: 700;">
+                        <div>
+                            <label for="modalReportSosmedSelect" class="block text-xs font-bold text-slate-700 mb-1">2. Harusnya Diinput Kode Sosmed Berapa?</label>
+                            <select id="modalReportSosmedSelect" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:bg-white focus:border-brand-500 focus:outline-none transition" onchange="updateWhatsAppMessagePreview()">
                                 <option value="">-- Pilih Kode Sales Sosmed --</option>
                             </select>
                         </div>
 
                         <!-- Notes -->
-                        <div class="report-form-row">
-                            <label for="modalReportNotes">3. Catatan / Alasan untuk Mas Akmal:</label>
-                            <textarea id="modalReportNotes" class="form-input" rows="3"
-                                style="width: 100%; resize: vertical;"
-                                oninput="updateWhatsAppMessagePreview()"></textarea>
+                        <div>
+                            <label for="modalReportNotes" class="block text-xs font-bold text-slate-700 mb-1">3. Catatan / Alasan untuk Mas Akmal:</label>
+                            <textarea id="modalReportNotes" rows="3" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 focus:bg-white focus:border-brand-500 focus:outline-none transition resize-y" oninput="updateWhatsAppMessagePreview()"></textarea>
                         </div>
 
                         <!-- Live Preview of WA Message -->
-                        <div class="report-form-row">
-                            <label>4. Pratinjau Teks Pesan WhatsApp yang Akan Dikirim:</label>
-                            <pre id="modalWAPreview"
-                                style="background:#0f172a; color:#f8fafc; padding:14px; border-radius:10px; font-family:'JetBrains Mono', monospace; font-size:0.8rem; white-space:pre-wrap; max-height:180px; overflow-y:auto; line-height:1.5;"></pre>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">4. Pratinjau Teks Pesan WhatsApp yang Akan Dikirim:</label>
+                            <pre id="modalWAPreview" class="rounded-xl bg-slate-950 text-emerald-400 p-4 font-mono text-xs border border-slate-800 max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed shadow-inner"></pre>
                         </div>
 
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px; flex-wrap: wrap; gap: 10px;">
-                            <button class="btn btn-outline" onclick="switchModalSubTab(1)">&laquo; Kembali ke Rincian
-                                AR</button>
-                            <button class="btn-whatsapp" onclick="sendReportToAkmalWhatsApp()"
-                                style="padding: 10px 22px; font-size: 0.95rem;">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                            <button type="button" class="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 transition cursor-pointer w-full sm:w-auto" onclick="switchModalSubTab(1)">&laquo; Kembali ke Rincian AR</button>
+                            <button type="button" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-xs font-bold shadow-xs transition cursor-pointer w-full sm:w-auto justify-center" onclick="sendReportToAkmalWhatsApp()">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
                                 </svg>
-                                Kirim Laporan ke WhatsApp Akmal
+                                <span>Kirim Laporan ke WhatsApp Akmal</span>
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeARDetailModal()">Tutup</button>
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-end p-4 sm:px-6 border-t border-slate-100 bg-slate-50/70 shrink-0">
+                <button type="button" class="rounded-xl border border-slate-200 bg-white px-5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-2xs cursor-pointer" onclick="closeARDetailModal()">Tutup</button>
             </div>
         </div>
     </div>
@@ -471,6 +475,38 @@
                         Tutup
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Detail Format Keep AR (Tailwind Clean) -->
+    <div id="claimKeepDetailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" style="display:none;" onclick="if(event.target===this) closeClaimKeepModal()">
+        <div class="w-full max-w-lg rounded-2xl border border-slate-200/80 bg-white shadow-2xl transition-all overflow-hidden" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4 bg-slate-50/80">
+                <div class="flex items-center gap-2.5">
+                    <div class="grid size-8 place-items-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+                        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800" id="claimKeepModalTitle">Detail Format Keep</h3>
+                        <p class="text-[11px] font-medium text-slate-500" id="claimKeepModalSubtitle">Faktur AR: -</p>
+                    </div>
+                </div>
+                <button type="button" class="rounded-xl p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer" onclick="closeClaimKeepModal()">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-3">
+                <div class="relative">
+                    <pre id="claimKeepModalContent" class="text-xs font-mono text-slate-800 bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 max-h-80 overflow-y-auto whitespace-pre-wrap leading-relaxed select-all"></pre>
+                </div>
+            </div>
+            <div class="flex items-center justify-between border-t border-slate-100 px-5 py-3.5 bg-slate-50/50">
+                <button type="button" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer" onclick="copyClaimKeepModalText()">
+                    <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <span id="btnCopyClaimKeepModal">Salin Teks</span>
+                </button>
+                <button type="button" class="inline-flex items-center rounded-xl bg-slate-900 px-4 py-1.5 text-xs font-bold text-white hover:bg-slate-800 shadow-2xs transition cursor-pointer" onclick="closeClaimKeepModal()">Tutup</button>
             </div>
         </div>
     </div>

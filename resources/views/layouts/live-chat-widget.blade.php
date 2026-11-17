@@ -632,7 +632,7 @@ body:has(#tabContent9.active) #dcmsLiveWidgetContainer {
             {{-- VIEW 1: CONVERSATIONS LIST --}}
             <div id="dcmsLwViewList" style="display:flex; flex-direction:column; height:100%;">
                 <div class="dcms-lw-list-search">
-                    <input type="text" id="dcmsLwSearch" class="dcms-lw-search-input" placeholder="Cari kontak WhatsApp atau isi pesan..." oninput="filterDcmsLiveWidgetChats(this.value)">
+                    <input type="text" id="dcmsLwSearch" name="dcms_lw_search_unique" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" class="dcms-lw-search-input" placeholder="Cari kontak WhatsApp atau isi pesan..." oninput="filterDcmsLiveWidgetChats(this.value)">
                 </div>
                 <div id="dcmsLwChatsList" class="dcms-lw-chats-scroll">
                     {{-- Dynamically populated --}}
@@ -1627,7 +1627,7 @@ body:has(#tabContent9.active) #dcmsLiveWidgetContainer {
     window.updateUnreadBadge = updateUnreadBadge;
     window.renderActiveRoomMessages = renderActiveRoomMessages;
 
-    // Auto-polling setiap 5 detik
+    // Auto-polling berkala & Auto-Sync saat user kembali ke tab browser
     document.addEventListener('DOMContentLoaded', function() {
         checkTabVisibility();
         loadDcmsLiveWidgetData(false);
@@ -1635,7 +1635,18 @@ body:has(#tabContent9.active) #dcmsLiveWidgetContainer {
         dcmsLwPollingTimer = setInterval(function() {
             checkTabVisibility();
             loadDcmsLiveWidgetData(true);
-        }, 5000);
+        }, 4000);
+
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                checkTabVisibility();
+                loadDcmsLiveWidgetData(true);
+            }
+        });
+
+        window.addEventListener('focus', function() {
+            loadDcmsLiveWidgetData(true);
+        });
     });
 })();
 </script>

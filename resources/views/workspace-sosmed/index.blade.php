@@ -72,6 +72,14 @@
         @include('workspace-sosmed.partials.tab10-ola-cabang')
     @endif
 
+    @if ($user?->canAccessFeature('workspace_customer_segmentation') || $user?->canAccessFeature('workspace_format_keep'))
+        @include('workspace-sosmed.partials.tab11-customer-segmentation')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_auto_fu_h1') || $user?->canAccessFeature('workspace_format_keep'))
+        @include('workspace-sosmed.partials.tab12-auto-fu-h1')
+    @endif
+
     @include('workspace-sosmed.partials.modals')
     @include('workspace-sosmed.partials.scripts')
 </div>

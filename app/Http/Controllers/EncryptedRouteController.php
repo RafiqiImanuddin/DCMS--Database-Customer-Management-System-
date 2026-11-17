@@ -12,8 +12,26 @@ class EncryptedRouteController extends Controller
      */
     public function __invoke(Request $request, string $token)
     {
+        // Bersihkan token dari query string ganda atau karakter pemisah URL yang tidak disengaja
+        if (str_contains($token, '?')) {
+            $parts = explode('?', $token, 2);
+            $token = $parts[0];
+            parse_str($parts[1] ?? '', $extra);
+            if (! empty($extra)) {
+                $request->query->add($extra);
+            }
+        }
+
         $decoded = RouteCipher::decode($token);
         if (! $decoded || ! isset(RouteCipher::ROUTE_MAP[$decoded['route']])) {
+            // Fallback toleran jika ada parameter tab yang dikirimkan
+            if ($request->has('tab')) {
+                $tab = (int) $request->query('tab');
+                if ($tab >= 1 && $tab <= 12) {
+                    return redirect()->to(RouteCipher::url('workspace-sosmed.index', ['tab' => $tab]));
+                }
+            }
+
             abort(404, 'Tautan routing terenkripsi tidak valid.');
         }
 

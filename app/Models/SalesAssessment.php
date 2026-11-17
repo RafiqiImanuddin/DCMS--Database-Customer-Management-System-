@@ -16,10 +16,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'evaluator_name',
     'notes',
     'recommendations',
+    'evidence_link',
 ])]
 class SalesAssessment extends Model
 {
     use HasFactory;
+
+    protected $appends = ['evidence_links'];
 
     /**
      * @return array<string, string>
@@ -30,6 +33,46 @@ class SalesAssessment extends Model
             'scores' => 'array',
             'final_score' => 'decimal:2',
         ];
+    }
+
+    /**
+     * Fallback accessor for evidence_link
+     */
+    public function getEvidenceLinkAttribute($value): ?string
+    {
+        if (!empty($value)) {
+            return $value;
+        }
+        $scores = $this->scores ?? [];
+        return $scores['_evidence_link'] ?? null;
+    }
+
+    /**
+     * Helper accessor to get list of evidence links as array
+     *
+     * @return array<string>
+     */
+    public function getEvidenceLinksAttribute(): array
+    {
+        $raw = $this->getEvidenceLinkAttribute($this->attributes['evidence_link'] ?? null);
+        if (!empty($raw)) {
+            $trimmed = trim($raw);
+            if (str_starts_with($trimmed, '[') && str_ends_with($trimmed, ']')) {
+                $decoded = json_decode($trimmed, true);
+                if (is_array($decoded)) {
+                    return array_values(array_filter(array_map('trim', $decoded)));
+                }
+            }
+            $parts = preg_split('/[\r\n]+/', $raw);
+            return array_values(array_filter(array_map('trim', $parts)));
+        }
+
+        $scores = $this->scores ?? [];
+        if (!empty($scores['_evidence_links']) && is_array($scores['_evidence_links'])) {
+            return array_values(array_filter(array_map('trim', $scores['_evidence_links'])));
+        }
+
+        return [];
     }
 
     /**
@@ -106,7 +149,8 @@ class SalesAssessment extends Model
         string $grade,
         array $scores,
         ?string $notes = null,
-        ?string $recommendations = null
+        ?string $recommendations = null,
+        ?string $evidenceLink = null
     ): array {
         $strengths = [];
         $improvements = [];
@@ -197,6 +241,20 @@ class SalesAssessment extends Model
 
         if ($notes) {
             $wa .= "\n💬 *Catatan Manager*:\n\"{$notes}\"\n";
+        }
+
+        if ($evidenceLink) {
+            $linksList = is_array($evidenceLink) ? $evidenceLink : preg_split('/[\r\n]+/', (string) $evidenceLink);
+            $linksList = array_values(array_filter(array_map('trim', $linksList)));
+            if (count($linksList) === 1) {
+                $wa .= "\n🔗 *Evidence Roomchat*:\n{$linksList[0]}\n";
+            } elseif (count($linksList) > 1) {
+                $wa .= "\n🔗 *Evidence Roomchat (" . count($linksList) . " Tautan)*:\n";
+                foreach ($linksList as $idx => $el) {
+                    $num = $idx + 1;
+                    $wa .= "{$num}. {$el}\n";
+                }
+            }
         }
 
         $wa .= "\n🎯 *Rekomendasi Tindak Lanjut*:\n{$recText}\n";

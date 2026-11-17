@@ -169,7 +169,7 @@
                 <!-- Group Search Box -->
                 <div class="px-2 py-1">
                     <div class="relative">
-                        <input type="text" id="group-search" placeholder="Search group name..." class="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <input type="text" id="group-search" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="Search group name..." class="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
                         <svg class="size-3.5 text-slate-400 absolute left-2 top-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     </div>
                 </div>
@@ -219,7 +219,7 @@
                     @if($folder) <input type="hidden" name="folder" value="{{ $folder }}"> @endif
                     @if($groupFilter) <input type="hidden" name="group" value="{{ $groupFilter }}"> @endif
                     <div class="relative">
-                        <input type="text" name="search" value="{{ $search }}" placeholder="Search name, phone, message..." class="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <input type="text" name="search" value="{{ $search }}" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="Search name, phone, message..." class="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
                         <svg class="size-3.5 text-slate-400 absolute left-2.5 top-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     </div>
                 </form>

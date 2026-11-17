@@ -49,6 +49,15 @@
 
                         <div class="ar-search-pill-row">
                             <input type="text" id="arInputSearch"
+                                name="ar_search_query_unique"
+                                autocomplete="new-password"
+                                autocorrect="off"
+                                autocapitalize="off"
+                                spellcheck="false"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                readonly
+                                onfocus="this.removeAttribute('readonly')"
                                 placeholder="Masukkan No. AR (misal: 260274906) ATAU No. WhatsApp" class="ar-input-pill"
                                 onkeydown="if(event.key==='Enter') executeARSearch()">
                             <button class="btn-search-pill" onclick="executeARSearch()">

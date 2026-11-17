@@ -363,11 +363,11 @@ async function startBaileysSocket() {
       if (remoteJid === 'status@broadcast') continue;
 
       // ========================================================================
-      // CABANG A: JALUR INBOX PERSONAL (DM TIM FOLLOW UP / STAF CABANG)
+      // CABANG A: JALUR INBOX PERSONAL (DM TIM FOLLOW UP / STAF CABANG / CUSTOMER)
+      // SINKRONISASI LENGKAP: INBOUND (MASUK) & OUTBOUND (BALASAN HP / WA WEB / DCMS)
       // ========================================================================
       if (!remoteJid.endsWith('@g.us')) {
-        // Abaikan pesan yang dikirim oleh bot sendiri
-        if (msg.key.fromMe) continue;
+        const isFromMe = Boolean(msg.key.fromMe);
 
         const text = msg.message?.conversation ||
           msg.message?.extendedTextMessage?.text ||
@@ -381,22 +381,22 @@ async function startBaileysSocket() {
           mediaType = 'document';
         }
 
-        let senderPhone = remoteJid.replace(/@.+/, '').replace(/\D/g, '');
+        let contactPhone = remoteJid.replace(/@.+/, '').replace(/\D/g, '');
         let resolvedPhone = null;
 
         // Jika remoteJid adalah WhatsApp LID (Linked Identifier, format @lid), coba resolve ke nomor HP asli
-        if (remoteJid.endsWith('@lid') || (senderPhone.length > 13 && !senderPhone.startsWith('628'))) {
-          resolvedPhone = await resolveParticipantPhone(remoteJid, '', msg.pushName);
+        if (remoteJid.endsWith('@lid') || (contactPhone.length > 13 && !contactPhone.startsWith('628'))) {
+          resolvedPhone = await resolveParticipantPhone(remoteJid, '', isFromMe ? '' : msg.pushName);
           if (resolvedPhone) {
-            senderPhone = resolvedPhone;
+            contactPhone = resolvedPhone;
             logger.info(`[LID Resolved] Berhasil memetakan LID ${remoteJid} ke nomor asli: ${resolvedPhone}`);
           }
         }
 
-        const senderName = msg.pushName || ('Staf ' + senderPhone);
+        const senderName = isFromMe ? 'Admin' : (msg.pushName || ('Staf ' + contactPhone));
         const messageId = msg.key.id;
 
-        // Ekstraksi Quoted Reply (jika staf membalas pesan tertentu)
+        // Ekstraksi Quoted Reply
         let replyTo = null;
         const contextInfo = msg.message?.extendedTextMessage?.contextInfo ||
           msg.message?.imageMessage?.contextInfo ||
@@ -411,20 +411,24 @@ async function startBaileysSocket() {
               id: contextInfo.stanzaId || '',
               text: quotedBody,
               body: quotedBody,
-              senderName: 'Admin'
+              senderName: isFromMe ? 'PIC' : 'Admin'
             };
           }
         }
 
-        logger.info(`[Inbox DM Masuk] Dari ${senderName} (${senderPhone}): ${(text || '[' + (mediaType || 'Pesan') + ']').substring(0, 50)}`);
+        const myJid = sock.user?.id ? sock.user.id.replace(/:.*@/, '@') : '6285111426699@s.whatsapp.net';
+        const contactJid = resolvedPhone ? (resolvedPhone + '@s.whatsapp.net') : remoteJid;
 
-        // Forward pesan masuk ke Webhook Inbox DCMS
+        logger.info(`[Inbox DM ${isFromMe ? 'Keluar (HP/Web/DCMS)' : 'Masuk'}] ${isFromMe ? 'Ke' : 'Dari'} ${senderName} (${contactPhone}): ${(text || '[' + (mediaType || 'Pesan') + ']').substring(0, 50)}`);
+
+        // Forward aktivitas chat (inbound maupun outbound dari HP/Web) ke Webhook Inbox DCMS
         const inboxPayload = {
           event: 'message',
           payload: {
             id: messageId,
-            from: resolvedPhone ? (resolvedPhone + '@s.whatsapp.net') : remoteJid,
-            fromMe: false,
+            from: isFromMe ? myJid : contactJid,
+            to: isFromMe ? contactJid : myJid,
+            fromMe: isFromMe,
             body: text || (mediaType ? `[${mediaType}]` : ''),
             pushname: senderName,
             timestamp: msg.messageTimestamp,
@@ -440,12 +444,12 @@ async function startBaileysSocket() {
         });
 
         addReactionLog({
-          type: 'INBOX_IN',
+          type: isFromMe ? 'INBOX_OUT' : 'INBOX_IN',
           group: 'DM_PERSONAL',
-          sales: senderPhone + (senderName ? ` (${senderName})` : ''),
-          emoji: '💬',
+          sales: isFromMe ? `Admin -> ${contactPhone}` : (contactPhone + (senderName ? ` (${senderName})` : '')),
+          emoji: isFromMe ? '📤' : '💬',
           message_id: messageId,
-          customer: senderPhone,
+          customer: contactPhone,
           status: 'DITERUSKAN',
           response: (text || `[${mediaType}]`).substring(0, 50)
         });

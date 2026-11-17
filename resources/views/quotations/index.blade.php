@@ -96,6 +96,14 @@
                         <input type="text" 
                                name="search" 
                                value="{{ $search }}" 
+                               autocomplete="new-password" 
+                               autocorrect="off" 
+                               autocapitalize="off" 
+                               spellcheck="false" 
+                               data-lpignore="true" 
+                               data-form-type="other" 
+                               readonly 
+                               onfocus="this.removeAttribute('readonly')" 
                                placeholder="Cari nomor surat, pelanggan, penandatangan, atau nama pembuat..." 
                                class="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-xs placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
                     </div>

@@ -224,13 +224,22 @@ function formatCrosellingDate(pd) {
     }
   }
   if (typeof pd === 'string') {
-    const parts = pd.trim().split(/[\/\-]/);
+    const str = pd.trim();
+    const parts = str.split(/[\/\-]/);
     if (parts.length >= 3) {
+      // Format YYYY-MM-DD atau YYYY/MM/DD
+      if (parts[0].length === 4) {
+        const y = parts[0];
+        const m = String(parts[1]).padStart(2, '0');
+        const d = String(parts[2].trim().split(' ')[0]).padStart(2, '0');
+        return `${d}/${m}/${y}`;
+      }
+      // Format DD-MM-YYYY atau DD/MM/YYYY
       let y = parts[2].trim().split(' ')[0];
       if (y.length === 2) y = '20' + y;
       return `${String(parts[0]).padStart(2, '0')}/${String(parts[1]).padStart(2, '0')}/${y}`;
     }
-    return pd;
+    return str;
   }
   return '-';
 }
@@ -1343,7 +1352,7 @@ function toggleSidebarMobile() {
 
 function switchTab(tabIndex) {
   currentActiveTab = tabIndex;
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= 12; i++) {
     const btn = document.getElementById(`tabBtn${i}`);
     const content = document.getElementById(`tabContent${i}`);
     if (btn) btn.classList.toggle('active', i === tabIndex);
@@ -1361,17 +1370,19 @@ function switchTab(tabIndex) {
     7: 'Arsip Pencapaian Bulanan',
     8: 'Pengaturan Admin',
     9: 'Omnichannel Inbox FU (Preview)',
-    10: 'Dashboard OLA Cabang'
+    10: 'Dashboard OLA Cabang',
+    11: 'Customer Segmentation',
+    12: 'Auto Follow Up H+1'
   };
   const activeModEl = document.getElementById('activeModuleName');
   if (activeModEl) {
     activeModEl.textContent = moduleNames[tabIndex] || 'Dashboard';
   }
 
-  // Sembunyikan subbar header di menu Format Keep (Tab 4), Omnichannel Inbox (Tab 9), dan Dashboard OLA (Tab 10)
+  // Sembunyikan subbar header di menu Format Keep (Tab 4), Omnichannel Inbox (Tab 9), Dashboard OLA (Tab 10), Customer Segmentation (Tab 11), dan Auto FU H+1 (Tab 12)
   const headerWrapper = document.getElementById('workspaceHeaderWrapper') || document.querySelector('.workspace-header-wrapper');
   if (headerWrapper) {
-    headerWrapper.style.display = (tabIndex === 4 || tabIndex === 10 || tabIndex === 9) ? 'none' : '';
+    headerWrapper.style.display = (tabIndex === 4 || tabIndex === 10 || tabIndex === 9 || tabIndex === 11 || tabIndex === 12) ? 'none' : '';
   }
 
   // Toggle class body untuk Tab 9 (Inbox Follow-Up) agar layout fit selayaran (100% viewport)
@@ -1417,7 +1428,15 @@ function switchTab(tabIndex) {
     }
   }
   if (tabIndex === 5 && rawAuditARList.length === 0) runARMissingSosmedAudit();
-  if (tabIndex === 6) renderARClaimsModule();
+  if (tabIndex === 6) {
+    if (rawAuditARList.length === 0 && typeof runARMissingSosmedAudit === 'function' && typeof rawCrosellingRows !== 'undefined' && rawCrosellingRows.length > 0 && typeof rawKeepRows !== 'undefined' && rawKeepRows.length > 0) {
+      runARMissingSosmedAudit();
+    }
+    if (rawARClaimsList.length === 0 && typeof rawAuditARList !== 'undefined' && rawAuditARList.length > 0) {
+      if (typeof syncMissingARToClaims === 'function') syncMissingARToClaims(true);
+    }
+    renderARClaimsModule();
+  }
   if (tabIndex === 7) renderArchiveGrid();
   if (tabIndex === 8) {
     populateAdminPanel(getMasterSales());
@@ -1438,6 +1457,21 @@ function switchTab(tabIndex) {
       });
     } else {
       if (typeof renderTab10OLADashboard === 'function') renderTab10OLADashboard();
+    }
+  }
+  if (tabIndex === 11) {
+    if (rawKeepRows.length === 0) {
+      loadKeepData(() => {
+        if (typeof renderTab11CustomerSegmentation === 'function') renderTab11CustomerSegmentation();
+      });
+    } else {
+      if (typeof renderTab11CustomerSegmentation === 'function') renderTab11CustomerSegmentation();
+    }
+  }
+  if (tabIndex === 12) {
+    if (typeof sanitizeKeepAutofill === 'function') sanitizeKeepAutofill();
+    if (typeof renderTab12AutoFollowUpH1 === 'function') {
+      renderTab12AutoFollowUpH1();
     }
   }
 }
@@ -2210,7 +2244,15 @@ function parseKeepCSV(csvText, isSilent = false) {
 }
 window.parseKeepCSV = parseKeepCSV;
 
-async function loadKeepData(isSilent = false) {
+async function loadKeepData(callbackOrSilent = false, maybeCallback = null) {
+  let isSilent = false;
+  let callback = null;
+  if (typeof callbackOrSilent === 'function') {
+    callback = callbackOrSilent;
+  } else {
+    isSilent = !!callbackOrSilent;
+    if (typeof maybeCallback === 'function') callback = maybeCallback;
+  }
   const pill = document.getElementById('keepStatusPill');
   if (pill && !isSilent) pill.innerHTML = '<span>⏳ Membaca Data Keep MySQL...</span>';
 
@@ -2229,7 +2271,8 @@ async function loadKeepData(isSilent = false) {
           const last8 = cleanWA.length >= 8 ? cleanWA.slice(-8) : cleanWA;
           const cleanBarang = String(item.barang_keep || '').toLowerCase().replace(/[^a-z0-9]/g, '');
           const cleanNama = String(item.nama || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-          const dedupeKey = last8 ? `${last8}_${cleanBarang.slice(0, 16)}` : `id_${item.id}`;
+          const cleanGroup = String(item.grup_id || item.cabang || item.grup || '').toLowerCase().trim();
+          const dedupeKey = last8 ? `${cleanGroup}_${last8}_${cleanBarang.slice(0, 16)}` : `id_${item.id}`;
 
           if (seenMap.has(dedupeKey)) {
             const existingIdx = seenMap.get(dedupeKey);
@@ -2304,6 +2347,9 @@ async function loadKeepData(isSilent = false) {
         if (typeof rawCrosellingRows !== 'undefined' && rawCrosellingRows.length > 0 && typeof runARMissingSosmedAudit === 'function') {
           runARMissingSosmedAudit();
         }
+        if (typeof callback === 'function') {
+          try { callback(); } catch (cbErr) { console.error('loadKeepData callback error:', cbErr); }
+        }
         return;
       }
     }
@@ -2337,6 +2383,9 @@ async function loadKeepData(isSilent = false) {
         if (pill) {
           pill.innerHTML = `<span>📂 Sumber: CSV Lokal (${rawKeepRows.length.toLocaleString('id-ID')} Data)</span>`;
         }
+        if (typeof callback === 'function') {
+          try { callback(); } catch (cbErr) { console.error('loadKeepData callback error:', cbErr); }
+        }
         return;
       }
     }
@@ -2355,6 +2404,9 @@ async function loadKeepData(isSilent = false) {
 
   if (pill && !isSilent) {
     pill.innerHTML = '<span>⚡ Sumber: Realtime MySQL (0 Data)</span>';
+  }
+  if (typeof callback === 'function') {
+    try { callback(); } catch (cbErr) { console.error('loadKeepData callback error:', cbErr); }
   }
 }
 window.loadKeepData = loadKeepData;
@@ -2782,14 +2834,37 @@ function toggleAuditFiltersSection() {
 }
 
 function sanitizeKeepAutofill() {
-  const inp = document.getElementById('keepSearchInput');
-  if (!inp) return;
-  const val = (inp.value || '').trim();
-  if (val.includes('@') || val.toLowerCase().includes('admin') || val.toLowerCase().includes('.com')) {
-    inp.value = '';
-    if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
-    if (typeof applyKeepFilters === 'function') applyKeepFilters();
-  }
+  const searchInputs = [
+    { id: 'keepSearchInput', callback: () => { if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn(); if (typeof applyKeepFilters === 'function') applyKeepFilters(); } },
+    { id: 'fu12SearchInput', callback: () => { if (typeof toggleFu12ClearBtn === 'function') toggleFu12ClearBtn(); if (typeof applyAutoFuFilter === 'function') applyAutoFuFilter(); } },
+    { id: 'csSearchInput', callback: () => { if (typeof filterCustomerSegmentationTable === 'function') filterCustomerSegmentationTable(); } },
+    { id: 'auditSearchInput', callback: () => { if (typeof filterAuditTable === 'function') filterAuditTable(); } },
+    { id: 'claimsSearchInput', callback: () => { if (typeof filterClaimsTable === 'function') filterClaimsTable(); } },
+    { id: 'omniSearchInput', callback: () => { if (typeof filterOmniChats === 'function') filterOmniChats(); } },
+    { id: 'arInputSearch', callback: null }
+  ];
+
+  searchInputs.forEach(item => {
+    const inp = document.getElementById(item.id);
+    if (!inp) return;
+    const val = (inp.value || '').trim();
+    if (val.includes('@') || val.toLowerCase().includes('admin') || val.toLowerCase().includes('.com')) {
+      inp.value = '';
+      if (typeof item.callback === 'function') item.callback();
+    }
+  });
+
+  // Generic sanitizer for all search inputs
+  try {
+    document.querySelectorAll('input[type="search"], input[name*="search"], input[id*="Search"], input[id*="search"], input[placeholder*="Cari"], input[placeholder*="Search"]').forEach(inp => {
+      const val = (inp.value || '').trim();
+      if (val.includes('@') || val.toLowerCase().includes('admin') || val.toLowerCase().includes('.com')) {
+        inp.value = '';
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+  } catch (e) {}
 }
 window.sanitizeKeepAutofill = sanitizeKeepAutofill;
 
@@ -5155,29 +5230,30 @@ function openARDetailModal(docNumber, keepContext = null, sourceTitle = '') {
   const displayWA = formatPhoneDisplay(rawWA);
   const normWA = normalizePhone(rawWA);
   const waHtml = (normWA && normWA.length >= 8)
-    ? `<div style="display:flex; align-items:center; gap:6px;">
-        <span class="font-bold">${displayWA}</span>
-        <a href="https://wa.me/${normWA}" target="_blank" class="btn-whatsapp" style="padding:2px 8px; font-size:0.72rem; border-radius:4px;" title="Chat customer ini di WhatsApp">
-          💬 WA
+    ? `<div class="flex items-center gap-1.5 flex-nowrap">
+        <span class="font-bold text-slate-900 whitespace-nowrap">${displayWA}</span>
+        <a href="https://wa.me/${normWA}" target="_blank" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold shadow-2xs transition shrink-0" title="Chat customer ini di WhatsApp">
+          <svg class="size-3 fill-current shrink-0" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+          <span>WA</span>
         </a>
        </div>`
-    : (displayWA || '-');
+    : (displayWA ? `<span class="font-bold text-slate-800">${displayWA}</span>` : '<span class="text-slate-400">-</span>');
 
   const sosmedCode = (currentModalKeep && currentModalKeep['Kode Sosmed']) ? currentModalKeep['Kode Sosmed'] : '-';
   const keepBarang = (currentModalKeep && currentModalKeep['Barang Keep']) ? currentModalKeep['Barang Keep'] : '-';
 
   const keepCatatan = (currentModalKeep && currentModalKeep['Catatan']) ? String(currentModalKeep['Catatan']).trim() : '';
   const arRemarks = first['Remarks'] ? String(first['Remarks']).trim() : '';
-  let catatanModalHtml = '-';
+  let catatanModalHtml = '<span class="text-slate-400">-</span>';
   if (keepCatatan && arRemarks && keepCatatan.toLowerCase() !== arRemarks.toLowerCase() && keepCatatan !== '-' && arRemarks !== '-') {
     catatanModalHtml = `
-      <div style="font-size:0.76rem; color:#0f172a; margin-bottom:2px; word-break:break-word;">${keepCatatan}</div>
-      <div style="font-size:0.70rem; color:var(--text-muted); word-break:break-word;"><em>Kasir: ${arRemarks}</em></div>
+      <div class="text-[11px] font-medium text-slate-800 leading-snug break-words">${keepCatatan}</div>
+      <div class="text-[10px] text-slate-500 italic mt-0.5 break-words">Kasir: ${arRemarks}</div>
     `;
   } else if (keepCatatan && keepCatatan !== '-') {
-    catatanModalHtml = `<div style="font-size:0.76rem; color:#0f172a; word-break:break-word;">${keepCatatan}</div>`;
+    catatanModalHtml = `<div class="text-[11px] font-medium text-slate-800 leading-snug break-words">${keepCatatan}</div>`;
   } else if (arRemarks && arRemarks !== '-') {
-    catatanModalHtml = `<div style="font-size:0.72rem; color:var(--text-muted); word-break:break-word;"><em>Kasir: ${arRemarks}</em></div>`;
+    catatanModalHtml = `<div class="text-[10px] text-slate-500 italic leading-snug break-words">Kasir: ${arRemarks}</div>`;
   }
 
   const elCust = document.getElementById('modalTrackCust');
@@ -5189,7 +5265,7 @@ function openARDetailModal(docNumber, keepContext = null, sourceTitle = '') {
 
   if (elCust) elCust.innerText = custName;
   if (elWA) elWA.innerHTML = waHtml;
-  if (elSos) elSos.innerHTML = `<span class="badge-sosmed-pill">${sosmedCode}</span>`;
+  if (elSos) elSos.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-brand-50 text-brand-700 border border-brand-200/70 uppercase tracking-wide">${sosmedCode}</span>`;
   if (elBarang) elBarang.innerText = keepBarang;
   if (elCat) elCat.innerHTML = catatanModalHtml;
 
@@ -5209,10 +5285,10 @@ function openARDetailModal(docNumber, keepContext = null, sourceTitle = '') {
     });
 
     elStatus.innerHTML = (rawModalWA && rawModalWA.length >= 8) ? `
-      <select class="select-status-keep ${statusSelectClass}" data-prev="${currentStatus}" onchange="handleModalKeepStatusChange(this, '${rawModalWA}')" title="Klik untuk mengubah status follow-up customer ini (otomatis tersimpan ke Google Sheets)">
+      <select class="rounded-lg border px-2 py-1 text-xs font-bold transition cursor-pointer select-status-keep ${statusSelectClass}" data-prev="${currentStatus}" onchange="handleModalKeepStatusChange(this, '${rawModalWA}')" title="Klik untuk mengubah status follow-up customer ini (otomatis tersimpan ke Google Sheets)">
         ${statusOptionsHtml}
       </select>
-    ` : `<span class="kpi-badge badge-ink">-</span>`;
+    ` : `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-500">-</span>`;
   }
 
   // Backward compatibility metadata
@@ -5263,19 +5339,28 @@ function openARDetailModal(docNumber, keepContext = null, sourceTitle = '') {
   const subtitle = document.getElementById('modalStatusSubtitle');
 
   if (allMissing) {
-    banner.className = 'ar-status-banner banner-danger';
+    banner.className = 'rounded-2xl border border-rose-200 bg-rose-50/80 p-4 flex items-center gap-3.5 transition shadow-2xs';
+    icon.className = 'grid size-10 shrink-0 place-items-center rounded-xl bg-rose-100 text-rose-600 font-bold text-lg';
     icon.innerHTML = '❌';
+    title.className = 'text-xs font-black uppercase tracking-wider text-rose-900';
     title.innerText = 'BELUM DIINPUT KODE SOSMED (100% OFFLINE)';
+    subtitle.className = 'text-[11px] font-medium text-rose-700 mt-0.5';
     subtitle.innerText = `Seluruh item dalam AR ini tercatat dengan kode sales toko fisik/kasir, belum ada kode sosmed.`;
   } else if (missingCount > 0) {
-    banner.className = 'ar-status-banner banner-warning';
+    banner.className = 'rounded-2xl border border-amber-200 bg-amber-50/80 p-4 flex items-center gap-3.5 transition shadow-2xs';
+    icon.className = 'grid size-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700 font-bold text-lg';
     icon.innerHTML = '⚠️';
+    title.className = 'text-xs font-black uppercase tracking-wider text-amber-900';
     title.innerText = `SEBAGIAN ITEM BELUM TERINPUT (${missingCount} DARI ${matchedRows.length} ITEM)`;
+    subtitle.className = 'text-[11px] font-medium text-amber-700 mt-0.5';
     subtitle.innerText = `Sebagian produk sudah berstatus sosmed, namun masih ada ${missingCount} item yang belum terinput sosmed.`;
   } else {
-    banner.className = 'ar-status-banner banner-success';
+    banner.className = 'rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 flex items-center gap-3.5 transition shadow-2xs';
+    icon.className = 'grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700 font-bold text-lg';
     icon.innerHTML = '✅';
+    title.className = 'text-xs font-black uppercase tracking-wider text-emerald-900';
     title.innerText = 'SEMUA ITEM SUDAH TERINPUT SOSMED (100%)';
+    subtitle.className = 'text-[11px] font-medium text-emerald-700 mt-0.5';
     subtitle.innerText = `Semua item dalam dokumen ini sudah valid terinput kode sales sosmed (termasuk item tas yang bebas sosmed).`;
   }
 
@@ -5308,16 +5393,31 @@ function switchModalSubTab(tabIdx) {
   const btn1 = document.getElementById('btnModalSubTab1');
   const btn2 = document.getElementById('btnModalSubTab2');
 
+  const activeClasses = ['bg-white', 'text-slate-900', 'shadow-xs', 'border', 'border-slate-200/80'];
+  const inactiveClasses = ['text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60'];
+
   if (tabIdx === 1) {
     tab1.style.display = 'block';
     tab2.style.display = 'none';
-    btn1.classList.add('active');
-    btn2.classList.remove('active');
+    if (btn1) {
+      btn1.classList.add(...activeClasses);
+      btn1.classList.remove(...inactiveClasses);
+    }
+    if (btn2) {
+      btn2.classList.remove(...activeClasses);
+      btn2.classList.add(...inactiveClasses);
+    }
   } else {
     tab1.style.display = 'none';
     tab2.style.display = 'block';
-    btn1.classList.remove('active');
-    btn2.classList.add('active');
+    if (btn1) {
+      btn1.classList.remove(...activeClasses);
+      btn1.classList.add(...inactiveClasses);
+    }
+    if (btn2) {
+      btn2.classList.add(...activeClasses);
+      btn2.classList.remove(...inactiveClasses);
+    }
     updateSelectedItemsForReport();
     updateWhatsAppMessagePreview();
   }
@@ -5349,34 +5449,36 @@ function renderModalItemsTable() {
     // Potensi Denda: Handphone = DENDA, Aksesoris/Tas/lainnya = PASS
     const dendaStatus = isExempt ? 'PASS' : getItemPotensiDenda(r);
     const dendaBadge = dendaStatus === 'DENDA'
-      ? '<span class="kpi-badge badge-crimson font-bold">🚨 DENDA</span>'
-      : '<span class="kpi-badge badge-ink">PASS</span>';
+      ? '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">🚨 DENDA</span>'
+      : '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500">PASS</span>';
 
     let statusSosmedBadge = '';
     if (isExempt) {
-      statusSosmedBadge = '<span class="status-badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700;">🛍️ Bebas Sosmed</span>';
+      statusSosmedBadge = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">🛍️ Bebas Sosmed</span>';
     } else if (isSosmed) {
-      statusSosmedBadge = '<span class="status-badge badge-accent">✅ Sudah Sosmed</span>';
+      statusSosmedBadge = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">✅ Sudah Sosmed</span>';
     } else {
-      statusSosmedBadge = '<span class="status-badge badge-crimson font-bold">❌ Belum Sosmed</span>';
+      statusSosmedBadge = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200/80">❌ Belum Sosmed</span>';
     }
 
     const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50/70 transition-colors divide-x divide-slate-100 text-xs';
     tr.innerHTML = `
-      <td style="text-align: center;">
-        <input type="checkbox" class="checkbox-custom" ${isChecked ? 'checked' : ''} onchange="toggleModalItemCheck(${idx}, this.checked)">
+      <td class="py-2.5 px-3 text-center">
+        <input type="checkbox" class="size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" ${isChecked ? 'checked' : ''} onchange="toggleModalItemCheck(${idx}, this.checked)">
       </td>
-      <td class="col-sticky">${idx + 1}</td>
-      <td class="text-left font-bold" style="color:var(--ink);">${r['Dscription'] || '-'}</td>
-      <td>${qty}</td>
-      <td>${formatRupiah(price)}</td>
-      <td class="font-bold">${formatRupiah(subtotal)}</td>
-      <td class="text-left">${empDisplay}</td>
-      <td class="text-center">${statusSosmedBadge}</td>
-      <td class="text-center">${dendaBadge}</td>
-      <td class="text-center">
-        <button class="btn btn-outline btn-xs" onclick="copyModalSingleItem(${idx}, this)" style="padding: 3px 8px; font-size: 0.74rem; font-weight:700;" title="Salin baris item ini ke format 12 kolom Excel (tanpa header)">
-          📋 Copy Rekap
+      <td class="py-2.5 px-3 text-center font-bold text-slate-500">${idx + 1}</td>
+      <td class="py-2.5 px-3 font-bold text-slate-900 leading-snug">${r['Dscription'] || '-'}</td>
+      <td class="py-2.5 px-3 text-center font-semibold text-slate-700">${qty}</td>
+      <td class="py-2.5 px-3 text-right font-medium text-slate-600">${formatRupiah(price)}</td>
+      <td class="py-2.5 px-3 text-right font-bold text-slate-900">${formatRupiah(subtotal)}</td>
+      <td class="py-2.5 px-3 text-slate-700 text-[11px] leading-snug">${empDisplay}</td>
+      <td class="py-2.5 px-3 text-center">${statusSosmedBadge}</td>
+      <td class="py-2.5 px-3 text-center">${dendaBadge}</td>
+      <td class="py-2.5 px-3 text-center">
+        <button type="button" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold shadow-2xs transition cursor-pointer" onclick="copyModalSingleItem(${idx}, this)" title="Salin baris item ini ke format 12 kolom Excel (tanpa header)">
+          <span>📋</span>
+          <span>Copy</span>
         </button>
       </td>
     `;
@@ -5384,12 +5486,12 @@ function renderModalItemsTable() {
   });
 
   document.getElementById('modalItemsTableFoot').innerHTML = `
-    <tr class="row-total">
-      <td colspan="3" class="text-left font-bold">TOTAL DOKUMEN AR:</td>
-      <td><strong>${totalQty}</strong></td>
-      <td>-</td>
-      <td class="font-bold">${formatRupiah(totalVal)}</td>
-      <td colspan="4" class="text-left font-bold text-accent">${currentModalRows.length} Baris Produk</td>
+    <tr class="bg-slate-50 border-t-2 border-slate-200 divide-x divide-slate-200 text-xs font-bold text-slate-800">
+      <td colspan="3" class="py-3 px-4 text-left uppercase tracking-wider font-extrabold text-slate-900">Total Dokumen AR:</td>
+      <td class="py-3 px-3 text-center text-slate-900 font-extrabold">${totalQty}</td>
+      <td class="py-3 px-3 text-right text-slate-400">-</td>
+      <td class="py-3 px-3 text-right text-brand-700 font-black text-sm">${formatRupiah(totalVal)}</td>
+      <td colspan="4" class="py-3 px-4 text-left font-bold text-slate-600">${currentModalRows.length} Baris Produk</td>
     </tr>
   `;
 
@@ -5452,7 +5554,7 @@ function updateSelectedItemsForReport() {
   if (!container) return;
 
   if (currentModalCheckedItems.size === 0) {
-    container.innerHTML = '<em style="color:var(--text-muted);">Belum ada item yang dicentang. Silakan kembali ke sub-tab 1 untuk memilih item, atau centang semua item.</em>';
+    container.innerHTML = '<em class="text-slate-400">Belum ada item yang dicentang. Silakan kembali ke sub-tab 1 untuk memilih item, atau centang semua item.</em>';
     return;
   }
 
@@ -5461,9 +5563,9 @@ function updateSelectedItemsForReport() {
     const desc = r['Dscription'] || `Item #${idx+1}`;
     const qty = Number(r['Quantity']) || 1;
     return `
-      <div class="selected-item-tag">
-        <span><strong>${idx + 1}. ${desc}</strong> (Qty: ${qty})</span>
-        <button type="button" class="btn-remove-tag" onclick="toggleModalItemCheck(${idx}, false); renderModalItemsTable();" title="Batal lapor item ini">✕</button>
+      <div class="inline-flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 shadow-2xs mb-1.5 w-full">
+        <span><strong>${idx + 1}. ${desc}</strong> <span class="text-slate-500 font-medium">(Qty: ${qty})</span></span>
+        <button type="button" class="size-5 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-xs font-bold transition cursor-pointer" onclick="toggleModalItemCheck(${idx}, false); renderModalItemsTable();" title="Batal lapor item ini">✕</button>
       </div>
     `;
   }).join('');
@@ -5644,10 +5746,10 @@ function parseDateToISO(dateVal) {
 
 function runARMissingSosmedAudit() {
   const pill = document.getElementById('arAuditStatusPill');
-  if (pill) pill.innerHTML = '<span>⏳ Menganalisis Transaksi vs Data Keep...</span>';
+  if (pill) pill.innerHTML = '<span class="size-1.5 rounded-full bg-amber-500 animate-pulse inline-block mr-1"></span><span>Menganalisis...</span>';
 
   if (!rawCrosellingRows || rawCrosellingRows.length === 0 || !rawKeepRows || rawKeepRows.length === 0) {
-    if (pill) pill.innerHTML = '<span style="color:#e11d48;">⚠️ Data Google Sheets / Keep belum siap</span>';
+    if (pill) pill.innerHTML = '<span class="size-1.5 rounded-full bg-rose-500 inline-block mr-1"></span><span class="text-rose-600">Data belum siap</span>';
     return;
   }
 
@@ -5843,7 +5945,7 @@ function runARMissingSosmedAudit() {
   });
 
   if (pill) {
-    pill.innerHTML = `<span>📁 ${rawAuditARList.length} AR Ditemukan</span>`;
+    pill.innerHTML = `<span class="size-1.5 rounded-full bg-emerald-500 animate-pulse inline-block mr-1"></span><span>${rawAuditARList.length.toLocaleString('id-ID')} AR Ditemukan</span>`;
   }
 
   populateAuditSosmedDropdown();
@@ -5880,13 +5982,27 @@ function applyAuditFilters() {
   const tglReportEl = document.getElementById('auditFilterTanggalReport');
   const statusEl = document.getElementById('auditFilterStatus');
   const searchEl = document.getElementById('auditSearchInput');
+  let keyword = '';
+  if (searchEl) {
+    // Cegah browser autofill credential (seperti superadmin@gmail.com) mengotori pencarian dokumen AR
+    const rawVal = String(searchEl.value || '').trim();
+    if (rawVal.toLowerCase().includes('superadmin') || (rawVal.includes('@') && rawVal.includes('.com') && !window._userExplicitTypedAuditSearch)) {
+      searchEl.value = '';
+    }
+    if (!searchEl._hasAuditTypeListener) {
+      searchEl._hasAuditTypeListener = true;
+      searchEl.addEventListener('input', function() {
+        window._userExplicitTypedAuditSearch = true;
+      });
+    }
+    keyword = (searchEl.value || '').trim().toLowerCase();
+  }
 
   const periodeVal = periodeEl ? periodeEl.value : 'ALL';
   const sosmedVal = sosmedEl ? sosmedEl.value : 'ALL';
   const tanggalVlookupVal = tglVlookupEl ? tglVlookupEl.value : '';
   const tanggalReportVal = tglReportEl ? tglReportEl.value : '';
   const statusVal = statusEl ? statusEl.value : 'ALL';
-  const keyword = (searchEl ? searchEl.value : '').trim().toLowerCase();
 
   filteredAuditARList = rawAuditARList.filter(r => {
     // 1. Periode filter
@@ -6448,7 +6564,7 @@ function renderAuditPage() {
   if (btnNext) btnNext.disabled = auditCurrentPage >= maxPage;
 
   if (pageRows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" class="text-center" style="padding: 30px; color: var(--text-muted);">Tidak ada data tracking AR yang sesuai filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="text-center py-8 text-slate-400 text-xs font-medium">Tidak ada data tracking AR yang sesuai filter.</td></tr>`;
     return;
   }
 
@@ -6459,30 +6575,37 @@ function renderAuditPage() {
     const rawWA = String(keepObj['Nomor WA'] || '').replace(/\D/g, '');
     const normWA = normalizePhone(rawWA);
     const displayWA = formatPhoneDisplay(rawWA);
+    const custName = keepObj['Nama'] || '-';
+    const initials = getCustomerInitials(custName);
 
-    const waHtml = (normWA && normWA.length >= 8) ? `
-      <div style="display:flex; align-items:center; gap:5px;">
-        <span class="font-bold">${displayWA}</span>
-        <a href="https://wa.me/${normWA}" target="_blank" class="btn-whatsapp" style="padding:1px 6px; font-size:0.68rem; border-radius:4px;" title="Chat customer ini di WhatsApp">
-          💬 WA
-        </a>
+    const custHtml = `
+      <div class="customer-cell-flex">
+        <div class="avatar-circle-sm" title="${custName}">${initials}</div>
+        <div class="customer-info-box">
+          <span class="customer-name-bold">${custName}</span>
+          ${(normWA && normWA.length >= 8) ? `
+            <a href="https://wa.me/${normWA}" target="_blank" class="customer-phone-sub" title="Hubungi customer di WhatsApp">
+              ${displayWA}
+            </a>
+          ` : `<span class="customer-phone-sub">${displayWA || '-'}</span>`}
+        </div>
       </div>
-    ` : (displayWA || '-');
+    `;
 
     // Notes HTML
     const keepCatatan = String(keepObj['Catatan'] || '').trim();
     const arRemarks = String((r.items && r.items[0] && r.items[0]['Remarks']) || '').trim();
 
-    let catatanHtml = '-';
+    let catatanHtml = '<span class="text-slate-400">-</span>';
     if (keepCatatan && arRemarks && keepCatatan.toLowerCase() !== arRemarks.toLowerCase() && keepCatatan !== '-' && arRemarks !== '-') {
       catatanHtml = `
-        <div style="font-size:0.73rem; line-height:1.25; color:#0f172a; word-break:break-word;">${keepCatatan}</div>
-        <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px; word-break:break-word;"><em>Kasir: ${arRemarks}</em></div>
+        <div class="text-[11px] leading-tight text-slate-800 break-words">${keepCatatan}</div>
+        <div class="text-[10px] text-slate-400 mt-1 break-words italic">Kasir: ${arRemarks}</div>
       `;
     } else if (keepCatatan && keepCatatan !== '-') {
-      catatanHtml = `<div style="font-size:0.73rem; line-height:1.25; color:#0f172a; word-break:break-word;">${keepCatatan}</div>`;
+      catatanHtml = `<div class="text-[11px] leading-tight text-slate-800 break-words">${keepCatatan}</div>`;
     } else if (arRemarks && arRemarks !== '-') {
-      catatanHtml = `<div style="font-size:0.70rem; line-height:1.25; color:var(--text-muted); word-break:break-word;"><em>Kasir: ${arRemarks}</em></div>`;
+      catatanHtml = `<div class="text-[10px] leading-tight text-slate-400 break-words italic">Kasir: ${arRemarks}</div>`;
     }
 
     // Status Keep Dropdown
@@ -6519,24 +6642,28 @@ function renderAuditPage() {
            <span class="badge-status-link ${repBadge.badgeClass}" onclick="openARDetailModal('${r.reportARDoc}', filteredAuditARList[${auditRowIdx}].keep, 'REPORT AR')" title="Status: ${repBadge.statusLabel}. Klik untuk cek detail Dokumen Report AR">
              <span>${repBadge.badgeIcon}</span> ${r.reportARDoc}
            </span>
-           <button type="button" class="btn-edit-inline-ar" onclick="event.stopPropagation(); startEditAuditReportAR(this.parentElement, '${rawWA}', ${auditRowIdx})" title="Ubah nomor AR">✏️</button>
+           <button type="button" class="btn-edit-inline-ar" onclick="event.stopPropagation(); startEditAuditReportAR(this.parentElement, '${rawWA}', ${auditRowIdx})" title="Ubah nomor AR">
+             <svg class="size-3 text-slate-400 hover:text-blue-600 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+           </button>
          </div>`
       : `<div class="cell-report-ar-wrapper" data-wa="${rawWA}" data-audit-idx="${auditRowIdx}" data-current-ar="">
            <button type="button" class="btn-input-new-ar" onclick="startEditAuditReportAR(this.parentElement, '${rawWA}', ${auditRowIdx})" title="Klik untuk menginput nomor AR">+ Input AR</button>
          </div>`;
 
     const reportARDateDisplay = r.reportARDate
-      ? `${formatCrosellingDate(r.reportARDate)} ${r.reportARCabang || ''}`.trim()
-      : '-';
+      ? `<div class="font-semibold text-slate-800 text-[11px] tabular-nums whitespace-nowrap">${formatCrosellingDate(r.reportARDate)}</div>
+         ${r.reportARCabang ? `<div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">${r.reportARCabang}</div>` : ''}`
+      : '<span class="text-slate-400">-</span>';
 
     // Vlookup AR cell
     const vlookupARDocDisplay = (r.vlookupARDoc && r.vlookupARDoc !== '-')
       ? `<span class="badge-status-link ${vlookBadge.badgeClass}" onclick="openARDetailModal('${r.vlookupARDoc}', filteredAuditARList[${auditRowIdx}].keep, 'AR VLOOKUP')" title="Status: ${vlookBadge.statusLabel}. Klik untuk cek detail Dokumen AR VLOOKUP"><span>${vlookBadge.badgeIcon}</span> ${r.vlookupARDoc}</span>`
-      : '-';
+      : '<span class="text-slate-400">-</span>';
 
     const vlookupARDateDisplay = r.vlookupARDate
-      ? `${formatCrosellingDate(r.vlookupARDate)} ${r.vlookupARCabang || ''}`.trim()
-      : '-';
+      ? `<div class="font-semibold text-slate-800 text-[11px] tabular-nums whitespace-nowrap">${formatCrosellingDate(r.vlookupARDate)}</div>
+         ${r.vlookupARCabang ? `<div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">${r.vlookupARCabang}</div>` : ''}`
+      : '<span class="text-slate-400">-</span>';
 
     const tr = document.createElement('tr');
     tr.className = rowStatusClass;
@@ -6544,26 +6671,19 @@ function renderAuditPage() {
       tr.classList.add('row-lose-tint');
     }
     tr.innerHTML = `
-      <td class="audit-col-no" style="text-align: center;">${globalIdx}</td>
-      <td class="audit-col-keep-date" style="text-align: center; font-weight: 600; white-space: nowrap;">${formatKeepDisplayDate(keepObj['Timestamp'])}</td>
-      <td class="audit-col-cust text-left" style="color: #0f172a; word-break: break-word;">
-        <div class="font-bold">${keepObj['Nama'] || '-'}</div>
-        ${(normWA && normWA.length >= 8) ? `
-          <a href="https://wa.me/${normWA}" target="_blank" style="font-size:0.75rem; color:#64748b; text-decoration:none; display:inline-flex; align-items:center; gap:3px;">
-            📞 ${displayWA}
-          </a>
-        ` : `<div style="font-size:0.75rem; color:#64748b;">${displayWA || '-'}</div>`}
-      </td>
+      <td class="audit-col-no" style="text-align: center;"><span class="text-xs font-semibold text-slate-400">${globalIdx}</span></td>
+      <td class="audit-col-keep-date" style="text-align: center;"><span class="font-semibold text-slate-800 text-xs whitespace-nowrap">${formatKeepDisplayDate(keepObj['Timestamp'])}</span></td>
+      <td class="audit-col-cust text-left">${custHtml}</td>
       <td class="audit-col-sosmed" style="text-align: center;">
         <span class="badge-sosmed-pill">${keepObj['Kode Sosmed'] || '-'}</span>
       </td>
-      <td class="audit-col-keep text-left font-bold" style="color: #1e293b; word-break: break-word;">${keepObj['Barang Keep'] || '-'}</td>
-      <td class="audit-col-notes text-left" style="word-break: break-word; font-size: 0.78rem;">${catatanHtml}</td>
+      <td class="audit-col-keep text-left"><div class="font-bold text-slate-800 text-xs leading-snug break-words">${keepObj['Barang Keep'] || '-'}</div></td>
+      <td class="audit-col-notes text-left">${catatanHtml}</td>
       <td class="audit-col-status-keep" style="text-align: center;">${statusDropdownHtml}</td>
       <td class="audit-col-report-ar" style="text-align: center;">${reportARDocDisplay}</td>
-      <td class="audit-col-report-date" style="text-align: center; font-size: 0.76rem; white-space: nowrap;">${reportARDateDisplay}</td>
+      <td class="audit-col-report-date" style="text-align: center;">${reportARDateDisplay}</td>
       <td class="audit-col-vlookup-ar" style="text-align: center;">${vlookupARDocDisplay}</td>
-      <td class="audit-col-vlookup-date" style="text-align: center; font-size: 0.76rem; white-space: nowrap;">${vlookupARDateDisplay}</td>
+      <td class="audit-col-vlookup-date" style="text-align: center;">${vlookupARDateDisplay}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -9670,7 +9790,9 @@ async function loadARClaimsData() {
   let serverHasData = false;
   try {
     const res = await fetch('/api/ar-claims');
-    if (res.ok) {
+    if (res.status === 304) {
+      serverHasData = true; // Data server sudah identik dan paling mutakhir (HTTP 304 Not Modified)
+    } else if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         rawARClaimsList = data;
@@ -9710,7 +9832,13 @@ async function loadARClaimsData() {
 }
 
 async function saveARClaimsData() {
-  localStorage.setItem('gadgetmart_ar_claims_data', JSON.stringify(rawARClaimsList));
+  // Amankan penyimpanan localStorage dengan try...catch agar lonjakan ukuran bukti foto (base64) tidak memblokir simpan ke database server
+  try {
+    localStorage.setItem('gadgetmart_ar_claims_data', JSON.stringify(rawARClaimsList));
+  } catch (e) {
+    console.warn('LocalStorage quota terlampaui (karena akumulasi foto bukti), data aman dipertahankan di memori & dikirim ke server:', e);
+  }
+
   try {
     const metaCsrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     const headers = {
@@ -9811,29 +9939,37 @@ function addSingleARToClaims(auditItem, customItems = null) {
   }
 }
 
-function claimAllFilteredMissingAR() {
-  if (!filteredAuditARList || filteredAuditARList.length === 0) {
-    alert('Tidak ada data AR yang terfilter saat ini.');
-    return;
+function syncMissingARToClaims(silent = false) {
+  if ((!rawAuditARList || rawAuditARList.length === 0) && typeof runARMissingSosmedAudit === 'function' && typeof rawCrosellingRows !== 'undefined' && rawCrosellingRows.length > 0 && typeof rawKeepRows !== 'undefined' && rawKeepRows.length > 0) {
+    runARMissingSosmedAudit();
   }
 
-  const missingARs = filteredAuditARList.filter(r => r.status === 'ALL_MISSING' || r.status === 'PARTIAL_MISSING');
+  const sourceList = (typeof filteredAuditARList !== 'undefined' && filteredAuditARList && filteredAuditARList.length > 0) 
+    ? filteredAuditARList 
+    : (rawAuditARList || []);
+
+  if (!sourceList || sourceList.length === 0) {
+    if (!silent) alert('Data Audit Tracking AR belum siap. Silakan buka Tab Tracking AR terlebih dahulu.');
+    return 0;
+  }
+
+  const missingARs = sourceList.filter(r => r.status === 'ALL_MISSING' || r.status === 'PARTIAL_MISSING');
   if (missingARs.length === 0) {
-    alert('Semua AR yang terfilter saat ini sudah berstatus 100% sosmed (Hijau).');
-    return;
-  }
-
-  if (!confirm(`Apakah Anda yakin ingin memasukkan seluruh ${missingARs.length} dokumen AR yang belum sosmed ke Modul Klaim AR (Pengumpulan 3 Hari)?`)) {
-    return;
+    if (!silent) alert('Semua AR yang terfilter saat ini sudah berstatus 100% sosmed (Hijau).');
+    return 0;
   }
 
   let totalAdded = 0;
+  const currentYear = new Date().getFullYear();
+  const currentMonthName = new Date().toLocaleString('id-ID', { month: 'long' });
+  const defaultPeriode = `${currentMonthName}-${String(currentYear).slice(-2)}`;
+
   missingARs.forEach(auditItem => {
     const docNum = String(auditItem.doc || auditItem.reportARDoc || auditItem.vlookupARDoc || '').trim();
     const itemsToClaim = (auditItem.items || []).filter(it => !isItemExemptFromSosmed(it) && !isItemInputSosmed(it));
     const periode = (auditItem.keep && auditItem.keep['PERIODE']) 
       ? String(auditItem.keep['PERIODE']).trim() 
-      : 'Oktober-26';
+      : defaultPeriode;
     const keepFormatted = (typeof formatKeepTextForClipboard === 'function') 
       ? formatKeepTextForClipboard(auditItem.keep) 
       : '';
@@ -9877,9 +10013,37 @@ function claimAllFilteredMissingAR() {
     });
   });
 
-  saveARClaimsData();
-  showSaveToast(`Berhasil menambahkan ${totalAdded} item belum sosmed ke Modul Klaim AR.`);
-  renderARClaimsModule();
+  if (totalAdded > 0) {
+    saveARClaimsData();
+    renderARClaimsModule();
+    if (!silent) {
+      showSaveToast(`✅ Berhasil menyinkronkan ${totalAdded} item belum sosmed ke Modul Klaim AR.`);
+    }
+  } else if (!silent) {
+    showSaveToast('Seluruh data AR belum sosmed sudah ada di antrean klaim.');
+  }
+
+  return totalAdded;
+}
+window.syncMissingARToClaims = syncMissingARToClaims;
+
+function claimAllFilteredMissingAR() {
+  if (!filteredAuditARList || filteredAuditARList.length === 0) {
+    alert('Tidak ada data AR yang terfilter saat ini.');
+    return;
+  }
+
+  const missingARs = filteredAuditARList.filter(r => r.status === 'ALL_MISSING' || r.status === 'PARTIAL_MISSING');
+  if (missingARs.length === 0) {
+    alert('Semua AR yang terfilter saat ini sudah berstatus 100% sosmed (Hijau).');
+    return;
+  }
+
+  if (!confirm(`Apakah Anda yakin ingin memasukkan seluruh ${missingARs.length} dokumen AR yang belum sosmed ke Modul Klaim AR (Pengumpulan 3 Hari)?`)) {
+    return;
+  }
+
+  syncMissingARToClaims(false);
 }
 
 function claimModalSelectedItems(btnElement = null) {
@@ -10857,12 +11021,52 @@ function exportClaimsPenaltyReport() {
 
 function setClaimsSubTab(subTabName) {
   currentClaimsSubTab = subTabName;
-  ['COLLECTING', 'SHARED', 'PENALTY', 'RESOLVED', 'INVALID'].forEach(st => {
-    const btn = document.getElementById(`subtabBtn${st.charAt(0) + st.slice(1).toLowerCase()}`);
-    if (btn) btn.classList.toggle('active', st === subTabName);
+  const cardThemes = {
+    'COLLECTING': { id: 'cardStatCollecting', ring: 'ring-amber-500', bg: 'bg-amber-50/25' },
+    'SHARED': { id: 'cardStatShared', ring: 'ring-orange-500', bg: 'bg-orange-50/25' },
+    'PENALTY': { id: 'cardStatPenalty', ring: 'ring-rose-500', bg: 'bg-rose-50/25' },
+    'RESOLVED': { id: 'cardStatResolved', ring: 'ring-emerald-500', bg: 'bg-emerald-50/25' },
+    'INVALID': { id: 'cardStatInvalid', ring: 'ring-slate-400', bg: 'bg-slate-100/50' },
+  };
+
+  Object.entries(cardThemes).forEach(([st, conf]) => {
+    const card = document.getElementById(conf.id);
+    if (card) {
+      if (st === subTabName) {
+        card.classList.add('ring-2', conf.ring, conf.bg, 'shadow-md');
+        card.classList.remove('opacity-75', 'bg-white');
+      } else {
+        card.classList.remove('ring-2', conf.ring, conf.bg, 'shadow-md');
+        card.classList.add('opacity-75', 'bg-white');
+      }
+    }
   });
+
+  updateClaimsActionButtonsState();
   claimsCurrentPage = 1;
   applyClaimsFilters();
+}
+
+function updateClaimsActionButtonsState() {
+  const countCollecting = rawARClaimsList.filter(c => c.validationStatus !== 'TIDAK VALID' && c.status === 'COLLECTING').length;
+  const btnShare = document.getElementById('btnShareBatchDay4');
+  if (btnShare) {
+    btnShare.style.display = (currentClaimsSubTab === 'COLLECTING') ? 'inline-flex' : 'none';
+    btnShare.innerHTML = `
+      <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <span>Paket &amp; Share</span>
+      ${countCollecting > 0 ? `<span class="ml-1 rounded-full bg-blue-200/80 px-1.5 py-0.2 text-[10px] font-extrabold text-blue-900">${countCollecting}</span>` : ''}
+    `;
+  }
+
+  const btnSingle = document.getElementById('btnDownloadSingleExcel');
+  if (btnSingle) {
+    btnSingle.innerHTML = `
+      <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
+      <span>Unduh 1 Excel</span>
+      ${(currentClaimsSubTab === 'COLLECTING' && countCollecting > 0) ? `<span class="ml-1 rounded-full bg-teal-200/80 px-1.5 py-0.2 text-[10px] font-extrabold text-teal-900">${countCollecting}</span>` : ''}
+    `;
+  }
 }
 
 function applyClaimsFilters() {
@@ -10874,7 +11078,20 @@ function applyClaimsFilters() {
   const cabVal = cabEl ? cabEl.value : 'ALL';
   const sosVal = sosEl ? sosEl.value : 'ALL';
   const tglVal = tglEl ? tglEl.value : '';
-  const keyword = (searchEl ? searchEl.value : '').trim().toLowerCase();
+  let keyword = '';
+  if (searchEl) {
+    const rawVal = String(searchEl.value || '').trim();
+    if (rawVal.toLowerCase().includes('superadmin') || (rawVal.includes('@') && rawVal.includes('.com') && !window._userExplicitTypedClaimsSearch)) {
+      searchEl.value = '';
+    }
+    if (!searchEl._hasClaimsTypeListener) {
+      searchEl._hasClaimsTypeListener = true;
+      searchEl.addEventListener('input', function() {
+        window._userExplicitTypedClaimsSearch = true;
+      });
+    }
+    keyword = (searchEl.value || '').trim().toLowerCase();
+  }
 
   filteredARClaimsList = rawARClaimsList.filter(c => {
     if (currentClaimsSubTab === 'INVALID') {
@@ -10927,6 +11144,51 @@ function toggleClaimsFiltersSection() {
   }
 }
 window.toggleClaimsFiltersSection = toggleClaimsFiltersSection;
+
+// Modal Format Keep Viewer
+let currentClaimKeepTextToCopy = '';
+
+function openClaimKeepModal(claimId) {
+  const item = rawARClaimsList.find(c => c.id === claimId);
+  if (!item || !item.keepText) return;
+
+  const modal = document.getElementById('claimKeepDetailModal');
+  const titleEl = document.getElementById('claimKeepModalTitle');
+  const subEl = document.getElementById('claimKeepModalSubtitle');
+  const contentEl = document.getElementById('claimKeepModalContent');
+
+  if (titleEl) titleEl.innerText = `Detail Format Keep (${item.cabang || '-'})`;
+  if (subEl) subEl.innerText = `Faktur AR: ${item.docNumber} • Customer: ${item.customerName || '-'} (${item.customerPhone || '-'})`;
+  if (contentEl) contentEl.innerText = item.keepText;
+
+  currentClaimKeepTextToCopy = item.keepText;
+
+  const btnCopy = document.getElementById('btnCopyClaimKeepModal');
+  if (btnCopy) btnCopy.innerText = 'Salin Teks';
+
+  if (modal) modal.style.display = 'flex';
+}
+window.openClaimKeepModal = openClaimKeepModal;
+
+function closeClaimKeepModal() {
+  const modal = document.getElementById('claimKeepDetailModal');
+  if (modal) modal.style.display = 'none';
+}
+window.closeClaimKeepModal = closeClaimKeepModal;
+
+function copyClaimKeepModalText() {
+  if (!currentClaimKeepTextToCopy) return;
+  navigator.clipboard.writeText(currentClaimKeepTextToCopy).then(() => {
+    const btn = document.getElementById('btnCopyClaimKeepModal');
+    if (btn) {
+      btn.innerText = 'Tersalin!';
+      setTimeout(() => { if (btn) btn.innerText = 'Salin Teks'; }, 2000);
+    }
+  }).catch(() => {
+    alert("Gagal menyalin format keep.");
+  });
+}
+window.copyClaimKeepModalText = copyClaimKeepModalText;
 
 function renderARClaimsModule() {
   populateClaimsDropdowns();
@@ -10982,19 +11244,7 @@ function renderARClaimsModule() {
   if (bRes) bRes.innerText = countResolved;
   if (bInv) bInv.innerText = countInvalid;
 
-  const btnShare = document.getElementById('btnShareBatchDay4');
-  if (btnShare) {
-    btnShare.style.display = (currentClaimsSubTab === 'COLLECTING') ? 'inline-flex' : 'none';
-    btnShare.innerText = `📦 Unduh Paket Cabang & Share (${countCollecting})`;
-  }
-
-  const btnSingle = document.getElementById('btnDownloadSingleExcel');
-  if (btnSingle) {
-    btnSingle.innerHTML = (currentClaimsSubTab === 'COLLECTING' && countCollecting > 0)
-      ? `📊 Unduh Jadi 1 Excel (${countCollecting})`
-      : `📊 Unduh Jadi 1 Excel`;
-  }
-
+  updateClaimsActionButtonsState();
   applyClaimsFilters();
 }
 
@@ -11028,7 +11278,7 @@ function renderARClaimsTable() {
   if (btnNext) btnNext.disabled = claimsCurrentPage >= maxPage;
 
   if (pageRows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="13" class="text-center" style="padding: 40px; color: var(--text-muted); font-size: 0.9rem;">Tidak ada data klaim AR pada status ini.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" class="text-center py-10 text-slate-400 text-xs font-medium">Tidak ada data klaim AR pada status ini.</td></tr>`;
     return;
   }
 
@@ -11062,10 +11312,10 @@ function renderARClaimsTable() {
       ${periodeDisplay ? `<div style="font-size: 0.70rem; color: #64748b; margin-top: 2px;">${periodeDisplay}</div>` : ''}
     `;
 
-    // 3. NO. AR: Bold Red/Blue Clickable Number
+    // 3. NO. AR: Bold Clickable Number
     const arHtml = `
       <div class="cell-report-ar-wrapper" style="justify-content: center;">
-        <span class="text-ar-number-bold" onclick="openARDetailModal('${r.docNumber}')" title="Klik untuk cek detail faktur AR" style="cursor: pointer; font-variant-numeric: tabular-nums;">
+        <span class="text-ar-number-bold font-mono text-brand-700 hover:underline cursor-pointer" onclick="openARDetailModal('${r.docNumber}')" title="Klik untuk cek detail faktur AR" style="font-variant-numeric: tabular-nums;">
           ${r.docNumber}
         </span>
       </div>
@@ -11088,28 +11338,33 @@ function renderARClaimsTable() {
       <span style="font-weight: 800; font-size: 0.80rem; color: #0f172a; letter-spacing: 0.02em;">${r.cabang || '-'}</span>
     `;
 
-    // 7. DENDA: Modern Status Pill with Dot (Anti-Slop Clean Style)
+    // 7. DENDA: Sleek Dot Badges (Executive Anti-Slop Clean Style)
     let dendaDisplay = '';
     if (r.status === 'COLLECTING' || r.status === 'SHARED') {
       dendaDisplay = r.isHandphone 
-        ? `<span class="modern-status-pill status-pill-orange"><span class="status-dot"></span>Potensi Rp 50.000</span>` 
-        : `<span class="modern-status-pill status-pill-gray"><span class="status-dot"></span>Pass (Rp 0)</span>`;
+        ? `<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/90 px-2.5 py-1 text-[11px] font-bold text-amber-800 shadow-2xs whitespace-nowrap"><span class="size-1.5 rounded-full bg-amber-500 animate-pulse"></span>Potensi Rp 50.000</span>` 
+        : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 select-none whitespace-nowrap"><span class="size-1.5 rounded-full bg-slate-300"></span>Rp 0 (Pass)</span>`;
     } else if (r.status === 'PENALTY_REAL' || r.status === 'RESOLVED_MANUAL_SOSMED') {
       dendaDisplay = r.isHandphone 
-        ? `<span class="modern-status-pill status-pill-red"><span class="status-dot"></span>Denda Rp 50.000</span>` 
-        : `<span class="modern-status-pill status-pill-gray"><span class="status-dot"></span>Pass (Rp 0)</span>`;
+        ? `<span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-[11px] font-bold text-rose-700 shadow-2xs whitespace-nowrap"><span class="size-1.5 rounded-full bg-rose-500"></span>Denda Rp 50.000</span>` 
+        : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 select-none whitespace-nowrap"><span class="size-1.5 rounded-full bg-slate-300"></span>Rp 0 (Pass)</span>`;
     } else if (r.status === 'RESOLVED_BY_STORE') {
-      dendaDisplay = `<span class="modern-status-pill status-pill-green"><span class="status-dot"></span>Gugur (Pass)</span>`;
+      dendaDisplay = `<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-700 shadow-2xs whitespace-nowrap"><span class="size-1.5 rounded-full bg-emerald-500"></span>Gugur (Pass)</span>`;
     } else {
-      dendaDisplay = `<span class="modern-status-pill status-pill-gray"><span class="status-dot"></span>-</span>`;
+      dendaDisplay = `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 select-none whitespace-nowrap"><span class="size-1.5 rounded-full bg-slate-300"></span>-</span>`;
     }
 
-    // 8. FORMAT KEEP: Clean snippet box
-    const keepHtml = r.keepText ? `
-      <div class="claim-keep-box" title="Format Keep WhatsApp">${r.keepText}</div>
-    ` : `<span style="color: #94a3b8; font-size: 0.76rem;">-</span>`;
+    // 8. FORMAT KEEP: Clean 2-Line Snippet with Click-to-Modal (No Native Scrollbars)
+    const keepClean = (r.keepText || '').trim();
+    const keepHtml = keepClean ? `
+      <div class="cursor-pointer group" onclick="openClaimKeepModal('${r.id}')" title="Klik untuk cek detail lengkap format keep">
+        <div class="text-[11px] font-mono text-slate-700 bg-slate-50 group-hover:bg-slate-100 border border-slate-200/80 group-hover:border-slate-300 rounded-lg p-2 transition line-clamp-2 leading-relaxed">
+          ${escapeHtml(keepClean)}
+        </div>
+      </div>
+    ` : `<span class="text-slate-400 text-xs">-</span>`;
 
-    // 9. EVIDENCE: Clean thumbnail or multi-photo strip
+    // 9. EVIDENCE: Clean thumbnail or modern photo upload button
     const imgs = (Array.isArray(r.evidenceImages) && r.evidenceImages.length > 0)
       ? r.evidenceImages
       : (r.evidenceImage ? [r.evidenceImage] : []);
@@ -11142,8 +11397,9 @@ function renderARClaimsTable() {
       `;
     } else {
       evidenceHtml = `
-        <button type="button" class="btn-upload-evidence" onclick="triggerEvidenceUpload('${r.id}')" title="Klik untuk mengunggah bukti format keep (bisa pilih beberapa gambar)">
-          + Unggah Bukti
+        <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-slate-50/80 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-brand-700 hover:border-brand-300 hover:bg-brand-50/50 transition cursor-pointer" onclick="triggerEvidenceUpload('${r.id}')" title="Unggah bukti format keep (foto / screenshot)">
+          <svg class="size-3 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          <span>+ Bukti</span>
         </button>
       `;
     }
@@ -11167,26 +11423,43 @@ function renderARClaimsTable() {
       <input type="text" class="input-claim-reason" value="${r.invalidReason || ''}" placeholder="Tulis alasan..." onchange="handleClaimInvalidReasonChange('${r.id}', this.value)" title="Alasan tidak valid">
     ` : `<span style="color: #94a3b8; font-size: 0.76rem;">-</span>`;
 
-    // 13. AKSI: Anti-Slop Clean Flat Buttons
+    // 13. AKSI: Modern Tailwind Compact Buttons
     let actionBtn = '';
     if (r.status === 'COLLECTING') {
-      actionBtn = `<button type="button" class="btn-claim-action btn-claim-delete" onclick="deleteARClaimItem('${r.id}')" title="Hapus dari antrean klaim">Hapus</button>`;
+      actionBtn = `
+        <button type="button" class="inline-flex items-center rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer" onclick="deleteARClaimItem('${r.id}')" title="Hapus dari antrean klaim">
+          <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
+      `;
     } else if (r.status === 'SHARED') {
       actionBtn = `
-        <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
-          <button type="button" class="btn-claim-action btn-claim-secondary" onclick="copyBranchWAFollowupMessage('${r.cabang}')" title="Salin pesan follow-up WA untuk cabang ini">Chat WA</button>
-          <button type="button" class="btn-claim-action btn-claim-delete" onclick="deleteARClaimItem('${r.id}')" title="Hapus">Hapus</button>
+        <div class="inline-flex items-center gap-1">
+          <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs" onclick="copyBranchWAFollowupMessage('${r.cabang}')" title="Salin pesan follow-up WA untuk cabang ini">
+            <svg class="size-3 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>WA</span>
+          </button>
+          <button type="button" class="inline-flex items-center rounded-lg p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer" onclick="deleteARClaimItem('${r.id}')" title="Hapus">
+            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          </button>
         </div>
       `;
     } else if (r.status === 'PENALTY_REAL') {
       actionBtn = `
-        <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
-          <button type="button" class="btn-claim-action btn-claim-primary" onclick="markClaimResolvedManually('${r.id}')" title="Tandai sudah direvisi mandiri oleh tim sosmed di SAP">Ubah Mandiri</button>
-          <button type="button" class="btn-claim-action btn-claim-secondary" onclick="copyBranchWAFollowupMessage('${r.cabang}')" title="Kirim teguran denda ke cabang">Tegur</button>
+        <div class="inline-flex items-center gap-1">
+          <button type="button" class="inline-flex items-center rounded-lg bg-rose-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-rose-700 transition cursor-pointer shadow-2xs" onclick="markClaimResolvedManually('${r.id}')" title="Tandai sudah direvisi mandiri oleh tim sosmed di SAP">
+            <span>Revisi</span>
+          </button>
+          <button type="button" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs" onclick="copyBranchWAFollowupMessage('${r.cabang}')" title="Kirim teguran denda ke cabang">
+            <span>Tegur</span>
+          </button>
         </div>
       `;
     } else {
-      actionBtn = `<button type="button" class="btn-claim-action btn-claim-delete" onclick="deleteARClaimItem('${r.id}')" title="Hapus">Hapus</button>`;
+      actionBtn = `
+        <button type="button" class="inline-flex items-center rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer" onclick="deleteARClaimItem('${r.id}')" title="Hapus">
+          <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        </button>
+      `;
     }
 
     const tr = document.createElement('tr');
@@ -11301,6 +11574,36 @@ async function initSosmedApp() {
     try { loadKeepData(true); } catch (e) { console.warn('loadKeepData background error:', e); }
     try { startRealtimeSyncEngine(); } catch (e) { console.warn('startRealtimeSyncEngine error:', e); }
   }, 100);
+
+  // 5. Anti-Autofill Guard: Bersihkan credential (superadmin@gmail.com dsb) yang salah diinjeksi oleh password manager browser ke kolom search
+  window._userExplicitTypedSearchMap = window._userExplicitTypedSearchMap || {};
+  ['auditSearchInput', 'claimsSearchInput', 'omniSearchInput', 'keepSearchInput', 'csSearchInput'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', function() {
+        window._userExplicitTypedSearchMap[id] = true;
+      });
+    }
+  });
+
+  [100, 250, 500, 900, 1500, 2500].forEach(delay => {
+    setTimeout(() => {
+      ['auditSearchInput', 'claimsSearchInput', 'omniSearchInput', 'keepSearchInput', 'csSearchInput'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !window._userExplicitTypedSearchMap[id]) {
+          const val = String(el.value || '').trim();
+          if (val.toLowerCase().includes('superadmin') || (val.includes('@') && val.includes('.com'))) {
+            el.value = '';
+            if (id === 'auditSearchInput' && typeof applyAuditFilters === 'function') applyAuditFilters();
+            if (id === 'claimsSearchInput' && typeof applyClaimsFilters === 'function') applyClaimsFilters();
+            if (id === 'keepSearchInput' && typeof applyKeepFilters === 'function') applyKeepFilters();
+            if (id === 'omniSearchInput' && typeof renderOmniInboxModule === 'function') renderOmniInboxModule();
+            if (id === 'csSearchInput' && typeof applyCustomerSegmentationFilters === 'function') applyCustomerSegmentationFilters();
+          }
+        }
+      });
+    }, delay);
+  });
 }
 window.initSosmedApp = initSosmedApp;
 
@@ -14605,3 +14908,780 @@ window.toggleSimMediaInputs = toggleSimMediaInputs;
 window.submitSimulateChat = submitSimulateChat;
 window.syncOmniChatsFromWhatsApp = syncOmniChatsFromWhatsApp;
 window.parseOmniTimestamp = parseOmniTimestamp;
+
+// ==============================================================================
+// CUSTOMER SEGMENTATION & ITEM TERJUAL BASED ON FORMAT KEEP (TAB 11)
+// ==============================================================================
+let csChartInstances = {
+  donut: null,
+  topItems: null,
+  branchCredit: null,
+  leasing: null
+};
+let csFilteredData = [];
+let csCurrentPage = 1;
+const CS_PAGE_SIZE = 25;
+
+function isRowKredit(row) {
+  if (!row) return false;
+  const userKredit = String(row['USER KREDIT'] || row.user_kredit || '').trim().toUpperCase();
+  const catatan = String(row['Catatan'] || row.catatan || row['Remarks'] || row.remarks || '').trim().toUpperCase();
+  const combined = `${userKredit} ${catatan}`;
+
+  if (userKredit === 'NON KREDIT' || userKredit === 'NON-KREDIT' || userKredit === 'CASH' || userKredit === 'TUNAI' || userKredit === 'TRANSFER') {
+    return false;
+  }
+  if (userKredit.includes('KREDIT') || userKredit.includes('LEASING') || userKredit.includes('CICILAN')) {
+    return true;
+  }
+  const creditKeywords = ['HCI', 'HOME CREDIT', 'KREDIVO', 'AKULAKU', 'INDODANA', 'MEGAZIP', 'MEGA ZIP', 'KREDITPLUS', 'KREDIT PLUS', 'BAF', 'FIF', 'SPEKTRA', 'SPECTRA', 'AEON', 'CC ', 'KARTU KREDIT'];
+  return creditKeywords.some(kw => combined.includes(kw));
+}
+
+function detectLeasingProvider(row) {
+  if (!row) return 'Cash / Non-Kredit';
+  const userKredit = String(row['USER KREDIT'] || row.user_kredit || '').trim().toUpperCase();
+  const catatan = String(row['Catatan'] || row.catatan || row['Remarks'] || row.remarks || '').trim().toUpperCase();
+  const combined = `${userKredit} ${catatan}`;
+
+  if (combined.includes('HCI') || combined.includes('HOME CREDIT')) return 'Home Credit (HCI)';
+  if (combined.includes('KREDIVO')) return 'Kredivo';
+  if (combined.includes('AKULAKU')) return 'Akulaku';
+  if (combined.includes('INDODANA')) return 'Indodana';
+  if (combined.includes('MEGAZIP') || combined.includes('MEGA ZIP')) return 'Megazip';
+  if (combined.includes('KREDITPLUS') || combined.includes('KREDIT PLUS')) return 'Kredit Plus';
+  if (combined.includes('BAF')) return 'BAF';
+  if (combined.includes('FIF') || combined.includes('SPEKTRA') || combined.includes('SPECTRA')) return 'FIF / Spektra';
+  if (combined.includes('AEON')) return 'AEON Credit';
+  if (combined.includes('CC') || combined.includes('KARTU KREDIT') || combined.includes('CIMB') || combined.includes('BCA') || combined.includes('MANDIRI') || combined.includes('BRI') || combined.includes('BNI')) return 'Kartu Kredit (CC)';
+  if (isRowKredit(row)) return 'Leasing Lain';
+  return 'Cash / Non-Kredit';
+}
+
+function populateCsBranchDropdown() {
+  const branchSelect = document.getElementById('csFilterCabang');
+  if (!branchSelect) return;
+  const currentVal = branchSelect.value;
+  const branches = new Set();
+  (rawKeepRows || []).forEach(r => {
+    const b = String(r['Cabang'] || r.cabang || '').trim().toUpperCase();
+    if (b && b !== '-' && b !== 'N/A') branches.add(b);
+  });
+  const sortedBranches = Array.from(branches).sort();
+
+  branchSelect.innerHTML = '<option value="ALL">Semua Cabang Toko</option>';
+  sortedBranches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = `Cabang ${b}`;
+    branchSelect.appendChild(opt);
+  });
+  if (currentVal && (currentVal === 'ALL' || sortedBranches.includes(currentVal))) {
+    branchSelect.value = currentVal;
+  }
+}
+
+function renderTab11CustomerSegmentation() {
+  sanitizeCsAutofill();
+  populateCsBranchDropdown();
+  applyCustomerSegmentationFilters();
+}
+
+function sanitizeCsAutofill() {
+  const csInp = document.getElementById('csSearchInput');
+  if (!csInp) return;
+  const val = (csInp.value || '').trim();
+  if (val.toLowerCase().includes('superadmin') || (val.includes('@') && val.includes('.com') && !window._userExplicitTypedSearchMap['csSearchInput'])) {
+    csInp.value = '';
+    toggleCsClearBtn();
+  }
+}
+window.sanitizeCsAutofill = sanitizeCsAutofill;
+
+function toggleCsClearBtn() {
+  const inp = document.getElementById('csSearchInput');
+  const btn = document.getElementById('btnCsClearSearch');
+  if (!btn) return;
+  if (inp && inp.value.trim().length > 0) {
+    btn.classList.remove('hidden');
+    btn.classList.add('flex');
+  } else {
+    btn.classList.remove('flex');
+    btn.classList.add('hidden');
+  }
+}
+window.toggleCsClearBtn = toggleCsClearBtn;
+
+function clearCsSearch() {
+  const inp = document.getElementById('csSearchInput');
+  if (inp) {
+    inp.value = '';
+    window._userExplicitTypedSearchMap['csSearchInput'] = false;
+  }
+  toggleCsClearBtn();
+  applyCustomerSegmentationFilters();
+}
+window.clearCsSearch = clearCsSearch;
+
+function applyCustomerSegmentationFilters() {
+  const searchEl = document.getElementById('csSearchInput');
+  let searchInput = (searchEl?.value || '').trim();
+  // Tangkal otomatis jika browser menginjeksi kredensial superadmin@gmail.com
+  if (searchInput.toLowerCase().includes('superadmin') || (searchInput.includes('@') && searchInput.includes('.com') && !window._userExplicitTypedSearchMap['csSearchInput'])) {
+    if (searchEl) searchEl.value = '';
+    searchInput = '';
+  }
+  searchInput = searchInput.toLowerCase();
+  toggleCsClearBtn();
+
+  const filterMetode = document.getElementById('csFilterMetode')?.value || 'ALL';
+  const filterCabang = document.getElementById('csFilterCabang')?.value || 'ALL';
+  const filterStatus = document.getElementById('csFilterStatus')?.value || 'WIN';
+
+  const rows = rawKeepRows || [];
+  csFilteredData = rows.filter(row => {
+    // 1. Search Query
+    if (searchInput) {
+      const nama = String(row['Nama'] || row.nama || '').toLowerCase();
+      const wa = String(row['Nomor WA'] || row.nomor_wa || '').replace(/\D/g, '');
+      const barang = String(row['Barang Keep'] || row.barang_keep || row['ITEM'] || row.item || '').toLowerCase();
+      const pic = String(row['Nama Tim Follow Up'] || row.nama_tim_follow_up || row['Kode Sosmed'] || row.kode_sosmed || '').toLowerCase();
+      const catatan = String(row['Catatan'] || row.catatan || row['Remarks'] || row.remarks || '').toLowerCase();
+      const match = nama.includes(searchInput) || wa.includes(searchInput) || barang.includes(searchInput) || pic.includes(searchInput) || catatan.includes(searchInput);
+      if (!match) return false;
+    }
+
+    // 2. Filter Metode (KREDIT / NON_KREDIT)
+    const isCredit = isRowKredit(row);
+    if (filterMetode === 'KREDIT' && !isCredit) return false;
+    if (filterMetode === 'NON_KREDIT' && isCredit) return false;
+
+    // 3. Filter Cabang
+    if (filterCabang !== 'ALL') {
+      const cabang = String(row['Cabang'] || row.cabang || '').trim().toUpperCase();
+      if (cabang !== filterCabang) return false;
+    }
+
+    // 4. Filter Status
+    if (filterStatus !== 'ALL') {
+      const status = String(row['Status'] || row.status || '').trim().toUpperCase();
+      if (filterStatus === 'WIN' && !status.includes('WIN')) return false;
+      if (filterStatus === 'NEED_TO_CHECK' && !status.includes('NEED TO CHECK')) return false;
+      if (filterStatus === 'ON_PROGRESS' && !status.includes('ON PROGRESS')) return false;
+      if (filterStatus === 'LOSE' && !status.includes('LOSE')) return false;
+    }
+
+    return true;
+  });
+
+  // Calculate Metrics
+  const totalKeep = csFilteredData.length;
+  const totalWin = csFilteredData.filter(r => String(r['Status'] || r.status || '').toUpperCase().includes('WIN')).length;
+  const totalCredit = csFilteredData.filter(r => isRowKredit(r)).length;
+  const totalNonCredit = totalKeep - totalCredit;
+
+  const convRate = totalKeep > 0 ? ((totalWin / totalKeep) * 100).toFixed(1) : '0';
+  const creditRatio = totalKeep > 0 ? ((totalCredit / totalKeep) * 100).toFixed(1) : '0';
+  const nonCreditRatio = totalKeep > 0 ? ((totalNonCredit / totalKeep) * 100).toFixed(1) : '0';
+
+  // Update UI Elements
+  const elTotalKeep = document.getElementById('csStatTotalKeep');
+  if (elTotalKeep) elTotalKeep.textContent = totalKeep.toLocaleString('id-ID');
+
+  const elTotalWin = document.getElementById('csStatTotalWin');
+  if (elTotalWin) elTotalWin.textContent = totalWin.toLocaleString('id-ID');
+
+  const elConv = document.getElementById('csStatWinConversionRate');
+  if (elConv) elConv.textContent = `Conversion Rate: ${convRate}%`;
+
+  const elTotalCredit = document.getElementById('csStatTotalCredit');
+  if (elTotalCredit) elTotalCredit.textContent = totalCredit.toLocaleString('id-ID');
+
+  const elCreditRatio = document.getElementById('csStatCreditRatio');
+  if (elCreditRatio) elCreditRatio.textContent = `Rasio Kredit: ${creditRatio}%`;
+
+  const elTotalNonCredit = document.getElementById('csStatTotalNonCredit');
+  if (elTotalNonCredit) elTotalNonCredit.textContent = totalNonCredit.toLocaleString('id-ID');
+
+  const elNonCreditRatio = document.getElementById('csStatNonCreditRatio');
+  if (elNonCreditRatio) elNonCreditRatio.textContent = `Rasio Non-Kredit: ${nonCreditRatio}%`;
+
+  const heroSub = document.getElementById('csHeroSubtitle');
+  if (heroSub) {
+    heroSub.textContent = `Analisis ${totalKeep.toLocaleString('id-ID')} transaksi format keep (${totalWin.toLocaleString('id-ID')} closing terjual)`;
+  }
+
+  // Update Donut Sub-cards
+  const elDonutCreditCount = document.getElementById('csDonutCreditCount');
+  if (elDonutCreditCount) elDonutCreditCount.textContent = `${totalCredit.toLocaleString('id-ID')} Unit`;
+  const elDonutCreditPct = document.getElementById('csDonutCreditPct');
+  if (elDonutCreditPct) elDonutCreditPct.textContent = `${creditRatio}%`;
+
+  const elDonutNonCreditCount = document.getElementById('csDonutNonCreditCount');
+  if (elDonutNonCreditCount) elDonutNonCreditCount.textContent = `${totalNonCredit.toLocaleString('id-ID')} Unit`;
+  const elDonutNonCreditPct = document.getElementById('csDonutNonCreditPct');
+  if (elDonutNonCreditPct) elDonutNonCreditPct.textContent = `${nonCreditRatio}%`;
+
+  // Render Charts
+  renderCsDonutChart(totalCredit, totalNonCredit);
+  renderCsTopItemsChart();
+  renderCsBranchCreditChart();
+  renderCsLeasingChart();
+
+  // Reset to first page and render Table
+  csCurrentPage = 1;
+  renderCsTable();
+}
+
+function renderCsDonutChart(kreditCount, nonKreditCount) {
+  const canvas = document.getElementById('csChartCreditDonut');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (csChartInstances.donut) {
+    csChartInstances.donut.destroy();
+    csChartInstances.donut = null;
+  }
+
+  const ctx = canvas.getContext('2d');
+  csChartInstances.donut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Kredit (Leasing/Cicilan)', 'Non-Kredit (Cash/Transfer)'],
+      datasets: [{
+        data: [kreditCount, nonKreditCount],
+        backgroundColor: ['#6366f1', '#14b8a6'],
+        borderWidth: 2,
+        borderColor: '#ffffff',
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 12,
+            boxHeight: 12,
+            font: { size: 11, weight: 'bold' },
+            padding: 14
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const val = ctx.raw || 0;
+              const total = kreditCount + nonKreditCount;
+              const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+              return ` ${ctx.label}: ${val.toLocaleString('id-ID')} unit (${pct}%)`;
+            }
+          }
+        }
+      },
+      cutout: '68%'
+    }
+  });
+}
+
+let csItemRegulationActive = true;
+
+function regulateKeepItemName(rawName) {
+  if (!rawName) return '';
+  let str = String(rawName).trim().toUpperCase();
+  if (!str || str === '-' || str === 'N/A' || str === 'NULL') return '';
+
+  str = str.replace(/[\t\r\n]+/g, ' ');
+
+  // 1. Remove accessory & bundle additions (+ TM, + CASE, + ADAPTOR, etc.)
+  str = str.replace(/\s*\+\s*(TM|TEMPERED\s*GLASS|TG|HYDROGEL|ANTI\s*GORES|CASE|CASING|SILIKON|SOFTCASE|HARDCASE|ADAPTOR|ADAPTER|CHARGER|FAST\s*CHARGING|KABEL|HEADSET|HANDSFREE|TWS|EARPHONE|SPEAKER|OLA|BONUS|FREE|ASURANSI|G-PROTECTION|G-SMART|GPROTECT|RING|STRAP|POWERBANK|PB|TRIPOD)[^\+,\/]*/gi, '');
+  str = str.replace(/\s*\+\s*[A-Z0-9\s]{1,25}$/gi, '');
+  str = str.replace(/\([^\)]*(BONUS|FREE|TM|CASE|ADAPTOR|CHARGER|TG|ASURANSI)[^\)]*\)/gi, '');
+
+  // 2. Remove RAM / Storage variants (e.g. 8/256GB, 8/256, 128GB, 256GB, 4/64, etc.)
+  str = str.replace(/\b\d{1,2}\s*\/\s*\d{2,4}\s*(GB|TB)?\b/gi, '');
+  str = str.replace(/\b(32|64|128|256|512)\s*(GB|TB|ROM|RAM|G)\b/gi, '');
+  str = str.replace(/\b1\s*TB\b/gi, '');
+  str = str.replace(/\b\d{1,2}\s*(GB|G)\s*RAM\b/gi, '');
+  str = str.replace(/\bRAM\s*\d{1,2}\s*(GB|G)?\b/gi, '');
+  str = str.replace(/\bROM\s*\d{2,4}\s*(GB|G)?\b/gi, '');
+
+  // 3. Multi-word & single colors
+  const colors = [
+    'TITANIUM BLACK', 'TITANIUM GRAY', 'TITANIUM GREY', 'TITANIUM SILVER', 'TITANIUM GOLD', 'NATURAL TITANIUM', 'DESERT TITANIUM', 'BLACK TITANIUM', 'WHITE TITANIUM',
+    'MIDNIGHT BLACK', 'PHANTOM BLACK', 'SPACE BLACK', 'STARLIGHT WHITE', 'AURORA GREEN', 'GLACIER WHITE', 'FOREST GREEN', 'TWILIGHT BLUE', 'STARLIGHT', 'MIDNIGHT',
+    'LIGHT BLUE', 'DARK BLUE', 'DEEP BLUE', 'LIGHT GREEN', 'DARK GREEN', 'DEEP PURPLE', 'SPACE GRAY', 'SPACE GREY', 'ROSE GOLD', 'SUNSET GOLD', 'STARRY BLUE', 'STARRY BLACK',
+    'OCEAN BLUE', 'LAKE GREEN', 'LAVENDER PURPLE', 'MINT GREEN', 'SIERRA BLUE', 'ALPINE GREEN', 'COSMIC BLACK', 'LUNAR SILVER', 'AGATE GREEN',
+    'TITANIUM', 'BLACK', 'WHITE', 'HITAM', 'PUTIH', 'BLUE', 'BIRU', 'GREEN', 'HIJAU', 'GOLD', 'EMAS', 'SILVER', 'PERAK', 'PURPLE', 'UNGU', 'GREY', 'GRAY', 'ABU-ABU',
+    'PINK', 'RED', 'MERAH', 'YELLOW', 'KUNING', 'ORANGE', 'JINGGA', 'LAVENDER', 'MINT', 'CREAM', 'NAVY', 'GRAPHITE', 'AGATE'
+  ];
+  for (const c of colors) {
+    const reg = new RegExp('\\b' + c + '\\b', 'gi');
+    str = str.replace(reg, '');
+  }
+  str = str.replace(/\b(LIGHT|DARK|DEEP)\s*$/gi, '');
+
+  // 4. Conditions and warranty noise
+  str = str.replace(/\b(NEW|SEALED|ORIGINAL|ORI|GARANSI RESMI|GARANSI|TAM|SEIN|INTER|IBOX|CPO|SECOND|BEKAS|FULLSET|UNIT ONLY)\b/gi, '');
+
+  // 5. Brand standardizations
+  str = str.replace(/\b(APL\s*IPHONE|APPLE\s*IPHONE|APL\s*IP|APPLE\s*IP|APL|IP)\b/gi, 'IPHONE');
+  str = str.replace(/\b(SAMSUNG\s*GALAXY|SAM\s*GALAXY|SAM)\b/gi, 'SAMSUNG');
+  str = str.replace(/\bXIAOMI\s*REDMI\b/gi, 'REDMI');
+  str = str.replace(/\bIPHONE\s+IPHONE\b/gi, 'IPHONE');
+  str = str.replace(/\bSAMSUNG\s+SAMSUNG\b/gi, 'SAMSUNG');
+  str = str.replace(/\bOPPO\s+OPPO\b/gi, 'OPPO');
+  str = str.replace(/\bVIVO\s+VIVO\b/gi, 'VIVO');
+  str = str.replace(/\bREALME\s+REALME\b/gi, 'REALME');
+  str = str.replace(/\bREDMI\s+REDMI\b/gi, 'REDMI');
+  str = str.replace(/\bINFINIX\s+INFINIX\b/gi, 'INFINIX');
+  str = str.replace(/\bTECNO\s+TECNO\b/gi, 'TECNO');
+
+  // Starlink standardization
+  if (str.includes('STARLINK')) {
+    if (str.includes('ROUTER')) str = 'ROUTER STARLINK';
+    else str = 'STARLINK STANDARD KIT';
+  }
+
+  // Accessories prefixes
+  if (str.startsWith('SG TMPR') || str.startsWith('TG ') || str.startsWith('TEMPERED GLASS')) {
+    str = str.replace(/^SG\s*TMPR/gi, 'TEMPERED GLASS');
+  }
+  if (str.startsWith('SLK ') || str.startsWith('SILIKON ') || str.startsWith('CASE ')) {
+    str = str.replace(/^SLK\s*/gi, 'CASE ');
+  }
+
+  // Remove parenthesis, brackets, trailing symbols, extra spaces
+  str = str.replace(/[\(\)\[\]\{\}\*#]/g, ' ');
+  str = str.replace(/\s*-\s*$/, '');
+  str = str.replace(/^\s*-\s*/, '');
+  str = str.replace(/\s+/g, ' ').trim();
+
+  return str;
+}
+
+function toggleCsItemRegulation() {
+  csItemRegulationActive = !csItemRegulationActive;
+  const lbl = document.getElementById('csItemRegulationLabel');
+  if (lbl) {
+    lbl.textContent = csItemRegulationActive ? 'Model Ter-Regulasi (ON)' : 'Nama Varian Asli (OFF)';
+  }
+  const btn = document.getElementById('btnToggleCsItemRegulation');
+  if (btn) {
+    if (csItemRegulationActive) {
+      btn.className = 'inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200/80 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs cursor-pointer';
+    } else {
+      btn.className = 'inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-600 hover:bg-slate-200 transition shadow-2xs cursor-pointer';
+    }
+  }
+  renderCsTopItemsChart();
+  renderCsTable();
+}
+
+function renderCsTopItemsChart() {
+  const canvas = document.getElementById('csChartTopItems');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (csChartInstances.topItems) {
+    csChartInstances.topItems.destroy();
+    csChartInstances.topItems = null;
+  }
+
+  // Count items sold/kept with regulation support
+  const itemMap = new Map();
+  const variantsMap = new Map();
+
+  csFilteredData.forEach(r => {
+    let rawName = String(r['Barang Keep'] || r.barang_keep || r['ITEM'] || r.item || '').trim();
+    if (!rawName || rawName === '-' || rawName.toUpperCase() === 'N/A') return;
+    
+    let displayName = rawName.toUpperCase().replace(/\s+/g, ' ');
+    if (csItemRegulationActive) {
+      const reg = regulateKeepItemName(rawName);
+      if (reg) displayName = reg;
+    }
+
+    itemMap.set(displayName, (itemMap.get(displayName) || 0) + 1);
+
+    if (!variantsMap.has(displayName)) {
+      variantsMap.set(displayName, new Set());
+    }
+    variantsMap.get(displayName).add(rawName);
+  });
+
+  const sortedItems = Array.from(itemMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  const labels = sortedItems.map(item => item[0].length > 26 ? item[0].slice(0, 24) + '...' : item[0]);
+  const counts = sortedItems.map(item => item[1]);
+
+  const ctx = canvas.getContext('2d');
+  csChartInstances.topItems = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Jumlah Terjual (Unit)',
+        data: counts,
+        backgroundColor: [
+          '#ec4899', '#f43f5e', '#fb7185', '#8b5cf6', '#a855f7',
+          '#6366f1', '#3b82f6', '#06b6d4', '#14b8a6', '#10b981'
+        ],
+        borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: function(items) {
+              const idx = items[0]?.dataIndex;
+              return sortedItems[idx] ? sortedItems[idx][0] : '';
+            },
+            label: function(ctx) {
+              const item = sortedItems[ctx.dataIndex];
+              return ` Total Terjual: ${item[1]} unit`;
+            },
+            afterLabel: function(ctx) {
+              const item = sortedItems[ctx.dataIndex];
+              const variants = variantsMap.get(item[0]);
+              if (variants && variants.size > 1) {
+                const list = Array.from(variants).slice(0, 2).join(', ');
+                return ` Varian: ${list}${variants.size > 2 ? ' (+ ' + (variants.size - 2) + ' lainnya)' : ''}`;
+              }
+              return '';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { size: 10 } }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { font: { size: 10, weight: '600' } }
+        }
+      }
+    }
+  });
+}
+
+function renderCsBranchCreditChart() {
+  const canvas = document.getElementById('csChartBranchCredit');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (csChartInstances.branchCredit) {
+    csChartInstances.branchCredit.destroy();
+    csChartInstances.branchCredit = null;
+  }
+
+  // Group by Branch: { [branch]: { credit: 0, nonCredit: 0 } }
+  const branchMap = {};
+  csFilteredData.forEach(r => {
+    let b = String(r['Cabang'] || r.cabang || '').trim().toUpperCase();
+    if (!b || b === '-' || b === 'N/A') b = 'LAINNYA';
+    if (!branchMap[b]) branchMap[b] = { credit: 0, nonCredit: 0 };
+    if (isRowKredit(r)) {
+      branchMap[b].credit++;
+    } else {
+      branchMap[b].nonCredit++;
+    }
+  });
+
+  const sortedBranches = Object.keys(branchMap).sort((a, b) => {
+    const totalA = branchMap[a].credit + branchMap[a].nonCredit;
+    const totalB = branchMap[b].credit + branchMap[b].nonCredit;
+    return totalB - totalA;
+  }).slice(0, 10);
+
+  const creditData = sortedBranches.map(b => branchMap[b].credit);
+  const nonCreditData = sortedBranches.map(b => branchMap[b].nonCredit);
+
+  const ctx = canvas.getContext('2d');
+  csChartInstances.branchCredit = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sortedBranches,
+      datasets: [
+        {
+          label: 'Kredit',
+          data: creditData,
+          backgroundColor: '#6366f1',
+          borderRadius: 4
+        },
+        {
+          label: 'Non-Kredit / Cash',
+          data: nonCreditData,
+          backgroundColor: '#14b8a6',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { boxWidth: 12, font: { size: 11, weight: 'bold' } }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return ` ${ctx.dataset.label}: ${ctx.raw} unit`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: 'bold' } }
+        },
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+function renderCsLeasingChart() {
+  const canvas = document.getElementById('csChartLeasing');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (csChartInstances.leasing) {
+    csChartInstances.leasing.destroy();
+    csChartInstances.leasing = null;
+  }
+
+  // Count credit providers among credit rows only
+  const providerMap = {};
+  let totalCreditCount = 0;
+  csFilteredData.forEach(r => {
+    if (!isRowKredit(r)) return;
+    totalCreditCount++;
+    const prov = detectLeasingProvider(r);
+    providerMap[prov] = (providerMap[prov] || 0) + 1;
+  });
+
+  const sortedProviders = Object.entries(providerMap).sort((a, b) => b[1] - a[1]);
+  const labels = sortedProviders.map(p => p[0]);
+  const counts = sortedProviders.map(p => p[1]);
+
+  const colors = [
+    '#8b5cf6', '#ec4899', '#3b82f6', '#f59e0b', '#10b981',
+    '#06b6d4', '#6366f1', '#64748b'
+  ];
+
+  const ctx = canvas.getContext('2d');
+  csChartInstances.leasing = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels.length > 0 ? labels : ['Belum Ada Transaksi Kredit'],
+      datasets: [{
+        data: counts.length > 0 ? counts : [1],
+        backgroundColor: counts.length > 0 ? colors.slice(0, labels.length) : ['#e2e8f0'],
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 10, font: { size: 10, weight: '600' }, padding: 8 }
+        }
+      },
+      cutout: '60%'
+    }
+  });
+
+  // Top summary text
+  const summaryEl = document.getElementById('csLeasingTopSummary');
+  if (summaryEl) {
+    if (sortedProviders.length > 0) {
+      const top3 = sortedProviders.slice(0, 3).map(p => {
+        const pct = totalCreditCount > 0 ? ((p[1] / totalCreditCount) * 100).toFixed(0) : 0;
+        return `<span class="inline-flex items-center gap-1 font-bold text-slate-700"><b>${p[0]}</b> (${p[1]} unit / ${pct}%)</span>`;
+      }).join(' &bull; ');
+      summaryEl.innerHTML = `<div class="text-[11px] text-slate-500 font-medium">Top Mitra Kredit: ${top3}</div>`;
+    } else {
+      summaryEl.innerHTML = '<div class="text-[11px] text-slate-400">Belum ada rincian mitra kredit pada filter saat ini.</div>';
+    }
+  }
+}
+
+function renderCsTable() {
+  const tbody = document.getElementById('csTableBody');
+  if (!tbody) return;
+
+  const total = csFilteredData.length;
+  const totalPages = Math.ceil(total / CS_PAGE_SIZE) || 1;
+  if (csCurrentPage > totalPages) csCurrentPage = totalPages;
+  if (csCurrentPage < 1) csCurrentPage = 1;
+
+  const startIdx = (csCurrentPage - 1) * CS_PAGE_SIZE;
+  const endIdx = Math.min(startIdx + CS_PAGE_SIZE, total);
+  const pageRows = csFilteredData.slice(startIdx, endIdx);
+
+  // Update Count Badge & Pagination
+  const countBadge = document.getElementById('csTableCountBadge');
+  if (countBadge) countBadge.textContent = `Menampilkan ${pageRows.length} dari ${total.toLocaleString('id-ID')} Data`;
+
+  const infoEl = document.getElementById('csPaginationInfo');
+  if (infoEl) {
+    if (total === 0) {
+      infoEl.textContent = 'Menampilkan 0 dari 0 Transaksi';
+    } else {
+      infoEl.textContent = `Menampilkan ${(startIdx + 1).toLocaleString('id-ID')} - ${endIdx.toLocaleString('id-ID')} dari ${total.toLocaleString('id-ID')} Transaksi`;
+    }
+  }
+
+  const pageText = document.getElementById('csCurrentPageText');
+  if (pageText) pageText.textContent = `Halaman ${csCurrentPage} / ${totalPages}`;
+
+  const btnPrev = document.getElementById('btnCsPrev');
+  if (btnPrev) btnPrev.disabled = csCurrentPage <= 1;
+
+  const btnNext = document.getElementById('btnCsNext');
+  if (btnNext) btnNext.disabled = csCurrentPage >= totalPages;
+
+  if (pageRows.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" class="py-12 text-center text-slate-400 text-xs font-medium">
+          <div class="flex flex-col items-center justify-center gap-2">
+            <svg class="size-8 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span>Tidak ditemukan transaksi format keep yang sesuai filter.</span>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const html = pageRows.map((r, i) => {
+    const rowNo = startIdx + i + 1;
+    const nama = (r['Nama'] || r.nama || '-').trim();
+    const rawWA = String(r['Nomor WA'] || r.nomor_wa || '').trim();
+    const cleanWA = rawWA.replace(/\D/g, '');
+    let displayWA = rawWA || '-';
+    if (cleanWA.startsWith('0')) displayWA = '+62 ' + cleanWA.slice(1);
+    else if (cleanWA.startsWith('62')) displayWA = '+' + cleanWA;
+
+    const barang = (r['Barang Keep'] || r.barang_keep || r['ITEM'] || r.item || '-').trim();
+    const cabang = (r['Cabang'] || r.cabang || '-').trim().toUpperCase();
+    const isCredit = isRowKredit(r);
+    const leasing = detectLeasingProvider(r);
+    const catatan = (r['Catatan'] || r.catatan || r['Remarks'] || r.remarks || '-').trim();
+    const pic = (r['Nama Tim Follow Up'] || r.nama_tim_follow_up || r['Kode Sosmed'] || r.kode_sosmed || '-').trim();
+    const tanggal = (r['Timestamp'] || r.keep_timestamp || '-').trim();
+    const status = String(r['Status'] || r.status || '').trim().toUpperCase();
+
+    // Initials for avatar
+    const initials = nama.split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || 'CS';
+
+    // Status Badge Styling
+    let statusBadge = '<span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">MENUNGGU</span>';
+    if (status.includes('WIN')) {
+      statusBadge = '<span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">✓ WIN / DEAL</span>';
+    } else if (status.includes('CHECK')) {
+      statusBadge = '<span class="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">⏳ NEED TO CHECK</span>';
+    } else if (status.includes('PROGRESS')) {
+      statusBadge = '<span class="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">⚡ ON PROGRESS</span>';
+    } else if (status.includes('LOSE')) {
+      statusBadge = '<span class="inline-flex items-center gap-1 rounded-md bg-rose-50 border border-rose-200 px-2 py-0.5 text-[10px] font-bold text-rose-700">✕ LOSE</span>';
+    }
+
+    // Payment Method Badge
+    const methodBadge = isCredit
+      ? '<span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">💳 KREDIT</span>'
+      : '<span class="inline-flex items-center gap-1 rounded-md bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-teal-700">💵 CASH</span>';
+
+    // WA Click link
+    const waLink = cleanWA.length >= 8
+      ? `https://wa.me/${cleanWA.startsWith('0') ? '62' + cleanWA.slice(1) : cleanWA}`
+      : null;
+
+    const regModel = (typeof regulateKeepItemName === 'function') ? regulateKeepItemName(barang) : '';
+
+    return `
+      <tr class="hover:bg-slate-50/70 transition">
+        <td class="py-3 px-4 text-center font-bold text-slate-500 text-[11px]">${rowNo}</td>
+        <td class="py-3 px-4">
+          <div class="flex items-center gap-2.5">
+            <div class="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-900 text-[10px] font-black text-white">
+              ${initials}
+            </div>
+            <div>
+              <div class="font-bold text-slate-900">${nama}</div>
+              ${waLink ? `
+                <a href="${waLink}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 hover:underline">
+                  <span>${displayWA}</span>
+                </a>
+              ` : `<span class="text-[11px] text-slate-400">${displayWA}</span>`}
+            </div>
+          </div>
+        </td>
+        <td class="py-3 px-4">
+          <div class="font-bold text-slate-800">${barang}</div>
+          ${regModel && regModel !== barang.toUpperCase() ? `
+            <div class="mt-0.5 inline-flex items-center gap-1 rounded bg-indigo-50 border border-indigo-100/80 px-1.5 py-0.2 text-[9px] font-bold text-indigo-700">
+              <span>Model: ${regModel}</span>
+            </div>
+          ` : ''}
+        </td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200">${cabang}</span>
+        </td>
+        <td class="py-3 px-4 text-center">${methodBadge}</td>
+        <td class="py-3 px-4 text-center">${statusBadge}</td>
+        <td class="py-3 px-4">
+          <div class="font-semibold text-slate-800 text-[11px]">${leasing}</div>
+          ${catatan !== '-' && catatan !== leasing ? `<div class="text-[10px] text-slate-400 truncate max-w-[200px]" title="${catatan}">${catatan}</div>` : ''}
+        </td>
+        <td class="py-3 px-4">
+          <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">${pic}</span>
+        </td>
+        <td class="py-3 px-4 text-center text-[10px] text-slate-500 font-medium whitespace-nowrap">${tanggal}</td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.innerHTML = html;
+}
+
+function changeCsPage(dir) {
+  csCurrentPage += dir;
+  renderCsTable();
+}
+
+function refreshCustomerSegmentationData() {
+  loadKeepData(() => {
+    renderTab11CustomerSegmentation();
+  });
+}
+
+// Global Window Exports for Customer Segmentation
+window.renderTab11CustomerSegmentation = renderTab11CustomerSegmentation;
+window.applyCustomerSegmentationFilters = applyCustomerSegmentationFilters;
+window.refreshCustomerSegmentationData = refreshCustomerSegmentationData;
+window.changeCsPage = changeCsPage;
+window.isRowKredit = isRowKredit;
+window.detectLeasingProvider = detectLeasingProvider;
+

@@ -262,8 +262,19 @@ class SosmedKeepWebhookController extends Controller
             ));
             $sameNama = (! empty($cleanNama) && ! empty($candCleanNama) && $cleanNama === $candCleanNama);
 
-            // Jika nomor sama DAN (barang sama ATAU nama sama)
-            if ($samePhone && ($sameBarang || $sameNama)) {
+            // Cek kesamaan grup/cabang
+            // Jika dikirim ke grup yang berbeda (misal konsumen beli di Grup A lalu beli aksesoris di Grup B),
+            // maka ini adalah transaksi berbeda dan BUKAN duplikat!
+            $candGroup = strtolower(trim((string) ($cand->grup_id ?: $cand->cabang ?: $cand->grup)));
+            $incomingGroup = strtolower(trim((string) ($groupId ?: $cabang ?: $grupName)));
+            $sameGroup = empty($candGroup) || empty($incomingGroup) || ($candGroup === $incomingGroup);
+
+            // Duplikasi Fonnte vs Baileys hanya terjadi jika:
+            // 1. Berada di grup/cabang yang sama ($sameGroup)
+            // 2. Nomor WA konsumen sama ($samePhone)
+            // 3. DAN barang yang dibeli sama ($sameBarang)
+            // Jika barangnya berbeda (misal beli HP lalu beli aksesoris) atau beda grup, TIDAK dianggap duplikat!
+            if ($sameGroup && $samePhone && $sameBarang) {
                 $diffSec = abs($cand->created_at ? now()->diffInSeconds($cand->created_at) : 0);
                 // Batas toleransi 15 menit (900 detik)
                 if ($diffSec < 900 || empty($cand->created_at)) {

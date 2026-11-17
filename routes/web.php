@@ -42,9 +42,11 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    // Gateway Routing Terenkripsi (Semua modul DCMS & Workspace)
+    // Gateway Routing Terenkripsi (Semua modul DCMS & Workspace - Format xxxx-xxxx-xxxx)
     Route::get('/r/{token}', EncryptedRouteController::class)->name('encrypted.route');
     Route::get('/app/{token}', EncryptedRouteController::class);
+    Route::get('/{token}', EncryptedRouteController::class)
+        ->where('token', '^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$');
 
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
@@ -141,6 +143,12 @@ Route::middleware('auth')->group(function () {
     Route::put('/shifts/{shift}', [\App\Http\Controllers\SosmedShiftController::class, 'update'])->name('shifts.update');
     Route::delete('/shifts/{shift}', [\App\Http\Controllers\SosmedShiftController::class, 'destroy'])->name('shifts.destroy');
 
+    // Dashboard Manager: File Manager Berkas Klaim AR
+    Route::get('/file-manager', [\App\Http\Controllers\FileManagerController::class, 'index'])->name('file-manager.index');
+    Route::get('/file-manager/download/{cabang}', [\App\Http\Controllers\FileManagerController::class, 'downloadBranchExcel'])->name('file-manager.download');
+    Route::post('/file-manager/download-batch', [\App\Http\Controllers\FileManagerController::class, 'downloadBatchZip'])->name('file-manager.download_batch');
+    Route::post('/file-manager/send-pic', [\App\Http\Controllers\FileManagerController::class, 'sendToPic'])->name('file-manager.send_pic');
+
     // Pengaturan Data Karyawan & Bobot Penilaian KPI
     Route::get('/settings/karyawan', [EmployeeSettingController::class, 'index'])->name('settings.karyawan.index');
     Route::post('/settings/karyawan', [EmployeeSettingController::class, 'storeEmployee'])->name('settings.karyawan.store');
@@ -208,6 +216,9 @@ $registerSosmedApiRoutes = function () {
     Route::get('/turnover-records', [WorkspaceSosmedController::class, 'turnoverRecords'])->name('api.sosmed.turnover_records');
     Route::get('/croselling-records', [WorkspaceSosmedController::class, 'crosellingRecords'])->name('api.sosmed.croselling_records');
     Route::match(['get', 'post'], '/ar-claims', [WorkspaceSosmedController::class, 'arClaims'])->name('api.sosmed.ar_claims');
+    Route::get('/auto-fu-h1', [WorkspaceSosmedController::class, 'autoFuH1Data'])->name('api.sosmed.auto_fu_h1_data');
+    Route::post('/auto-fu-h1/send-digest', [WorkspaceSosmedController::class, 'autoFuH1SendDigest'])->name('api.sosmed.auto_fu_h1_send_digest');
+    Route::post('/auto-fu-h1/settings', [WorkspaceSosmedController::class, 'autoFuH1SaveSettings'])->name('api.sosmed.auto_fu_h1_save_settings');
     Route::get('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.index');
     Route::delete('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.clear');
 };
@@ -250,17 +261,19 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
             $actionTitle = 'PEMBERSIHAN DUPLIKASI DATA FORMAT KEEP';
             $duplicates = \App\Models\SosmedKeep::whereNotNull('nomor_wa')
                 ->where('nomor_wa', '!=', '')
-                ->select('nomor_wa', 'barang_keep', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
-                ->groupBy('nomor_wa', 'barang_keep')
+                ->select('nomor_wa', 'barang_keep', 'grup_id', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
+                ->groupBy('nomor_wa', 'barang_keep', 'grup_id')
                 ->having('total', '>', 1)
                 ->get();
 
             $deletedCount = 0;
             foreach ($duplicates as $dup) {
-                $rows = \App\Models\SosmedKeep::where('nomor_wa', $dup->nomor_wa)
-                    ->where('barang_keep', $dup->barang_keep)
-                    ->orderByDesc('id')
-                    ->get();
+                $query = \App\Models\SosmedKeep::where('nomor_wa', $dup->nomor_wa)
+                    ->where('barang_keep', $dup->barang_keep);
+                if (! empty($dup->grup_id)) {
+                    $query->where('grup_id', $dup->grup_id);
+                }
+                $rows = $query->orderByDesc('id')->get();
 
                 // Cari baris yang paling lengkap (misal yang sudah di-claim ON PROGRESS / WIN)
                 $keepRow = $rows->first(fn ($r) => in_array(strtoupper((string) $r->status), ['ON PROGRESS', 'WIN', 'LOSE']) || ! empty($r->nomor_fu))
