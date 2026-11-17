@@ -13377,11 +13377,7 @@ function getOmniPicChats() {
       const isOut = (lastMsg.sender === 'ADMIN' || lastMsg.sender === 'admin' || lastMsg.fromMe);
       const prefix = isOut ? 'Anda: ' : '';
       if (isOut) {
-        let effStatus = lastMsg.status || 'sent';
-        if (effStatus === 'sending') {
-          const msgAge = Date.now() - parseOmniTimestamp(lastMsg.timestamp);
-          if (msgAge > 30000) effStatus = 'sent';
-        }
+        const effStatus = resolveOmniMessageEffectiveStatus(lastMsg, chatMsgs, cleanKey);
         lastStatusTick = renderOmniMessageStatusTick(effStatus, true);
       }
       if (rawTxt) {
@@ -13767,6 +13763,57 @@ function renderOmniMessageStatusTick(status, isSidebar) {
   return '<svg width="' + singleTickSize + '" height="' + singleTickSize + '" viewBox="0 0 24 24" fill="none" stroke="#8696a0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Terkirim ke Server WhatsApp (Centang 1 Abu)"><polyline points="20 6 9 17 4 12"/></svg>';
 }
 
+function resolveOmniMessageEffectiveStatus(msg, threadMsgs, picKey) {
+  if (!msg) return 'sent';
+  const curStatus = String(msg.status || '').toLowerCase().trim();
+
+  // 1. Jika sudah bertanda 'read' atau 'played', langsung pertahankan Centang 2 Biru
+  if (curStatus === 'read' || curStatus === 'played' || curStatus === '4' || curStatus === '5') {
+    return 'read';
+  }
+
+  const msgTs = parseOmniTimestamp(msg.timestamp);
+
+  // 2. SMART READ INFERENCE:
+  // Cek apakah di thread ini kontak PIC sudah membalas chat setelah (atau bersamaan) dengan pesan keluar ini
+  if (Array.isArray(threadMsgs) && threadMsgs.length > 0) {
+    const hasIncomingAfter = threadMsgs.some(function(m) {
+      if (m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe) return false;
+      const inTs = parseOmniTimestamp(m.timestamp);
+      // Ada pesan masuk dari kontak setelah pesan keluar ini
+      return inTs >= (msgTs - 1000);
+    });
+    if (hasIncomingAfter) {
+      return 'read';
+    }
+  }
+
+  // 3. Jika status eksplisit delivered dari socket
+  if (curStatus === 'delivered' || curStatus === 'd' || curStatus === '3') {
+    return 'delivered';
+  }
+
+  // 4. Jika baru dikirim dan status eksplisit sending/pending (dalam 25 detik)
+  if (curStatus === 'sending' || curStatus === 'pending') {
+    const ageMs = Date.now() - msgTs;
+    if (ageMs < 25000) {
+      return 'sending';
+    }
+  }
+
+  // 5. SMART DELIVERY INFERENCE:
+  // Jika kontak sedang Online ATAU pesan sudah terkirim lebih dari 45 detik lalu,
+  // pesan di WhatsApp sudah tersampaikan ke device penerima (Centang 2 Abu-Abu)
+  const isOnline = isOmniContactOnline(picKey || msg.phone);
+  const msgAge = Date.now() - msgTs;
+  if (isOnline || msgAge > 45000) {
+    return 'delivered';
+  }
+
+  // 6. Pesan yang baru saja dikirim ke server (di bawah 45 detik) dan kontak sedang offline
+  return 'sent';
+}
+
 window.omniOnlineUsersMap = {};
 
 function isOmniContactOnline(phoneOrKey) {
@@ -13856,9 +13903,10 @@ function renderOmniActiveChat(pic) {
     const isOutgoing = msg.sender === 'ADMIN';
     const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const msgDomId = String(msg.id || msg.messageId || ('msg_' + (msg.timestamp || Math.random().toString(36).slice(2))));
+    const effStatus = isOutgoing ? resolveOmniMessageEffectiveStatus(msg, dedupedMessages, cleanWA || pic.key) : 'sent';
     const tickMarkup = isOutgoing ? (
       '<span class="omni-msg-status-tick" id="tick_' + escapeHtml(msgDomId) + '">' +
-        renderOmniMessageStatusTick(msg.status || 'sent', false) +
+        renderOmniMessageStatusTick(effStatus, false) +
       '</span>'
     ) : '';
 
@@ -14357,11 +14405,8 @@ function updateOmniCardInSidebar(picKey, lastMsg, picName, picCabang) {
   const timeStr = lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
   const isOut = lastMsg && (lastMsg.sender === 'ADMIN' || lastMsg.sender === 'admin' || lastMsg.fromMe);
   const snippet = lastMsg ? (isOut ? 'Anda: ' + (lastMsg.text || '') : (lastMsg.text || '')) : '';
-  let effStatus = lastMsg ? (lastMsg.status || 'sent') : 'sent';
-  if (effStatus === 'sending' && lastMsg) {
-    const msgAge = Date.now() - parseOmniTimestamp(lastMsg.timestamp);
-    if (msgAge > 30000) effStatus = 'sent';
-  }
+  const threadMsgs = (getOmniThreads()[normKey]) || [];
+  const effStatus = isOut ? resolveOmniMessageEffectiveStatus(lastMsg, threadMsgs, normKey) : 'sent';
   const tickHtml = isOut ? (renderOmniMessageStatusTick(effStatus, true) + ' ') : '';
 
   if (targetCard) {

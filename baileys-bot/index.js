@@ -626,6 +626,44 @@ async function startBaileysSocket() {
     }
   });
 
+  // Handler Event Delivery & Read Receipts Spesifik (message-receipt.update)
+  sock.ev.on('message-receipt.update', async (receipts) => {
+    try {
+      if (!Array.isArray(receipts)) return;
+      for (const item of receipts) {
+        if (!item.key || !item.key.id) continue;
+        const msgId = item.key.id;
+        const remoteJid = item.key.remoteJid;
+        if (!remoteJid || remoteJid.endsWith('@g.us')) continue; // Khusus Inbox DM Personal
+
+        const cleanPhone = remoteJid.replace(/@.*$/, '').replace(/\D/g, '');
+        let statusStr = 'delivered';
+        const r = item.receipt;
+        if (r) {
+          if (r.readTimestamp || r.playedTimestamp) {
+            statusStr = 'read';
+          } else if (r.receiptTimestamp || r.deliveryTimestamp) {
+            statusStr = 'delivered';
+          }
+        }
+
+        sendToDCMSInbox({
+          event: 'message.status_update',
+          action: 'MESSAGE_STATUS_UPDATE',
+          payload: {
+            id: msgId,
+            messageId: msgId,
+            phone: cleanPhone,
+            status: statusStr,
+            remoteJid: remoteJid
+          }
+        }).catch(() => {});
+      }
+    } catch (err) {
+      logger.warn(`[Message-receipt.update Error] ${err.message}`);
+    }
+  });
+
   sock.ev.on('messages.reaction', async (reactions) => {
     if (!Array.isArray(reactions)) return;
 
