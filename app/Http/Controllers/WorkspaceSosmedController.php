@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityNotification;
 use App\Models\BroadcastMedia;
+use App\Models\BroadcastReport;
 use App\Models\Employee;
 use App\Models\Setting;
 use App\Models\SosmedKeep;
@@ -1008,6 +1009,92 @@ class WorkspaceSosmedController extends Controller
                     } catch (\Throwable) {
                     }
                 }
+            }
+
+            // Sinkronkan riwayat Broadcast yang terkirim ke daftar chat Inbox & Live Widget jika belum tercatat
+            try {
+                $lastBroadcastSync = (int) cache()->get('broadcast_inbox_sync_ts', 0);
+                if ((time() - $lastBroadcastSync) >= 10 || $forceSync) {
+                    cache()->put('broadcast_inbox_sync_ts', time(), 60);
+                    $recentBroadcasts = BroadcastReport::where('status', 'sent')
+                        ->where('created_at', '>=', now()->subDays(3))
+                        ->with('prediction')
+                        ->latest('id')
+                        ->take(50)
+                        ->get();
+
+                    if ($recentBroadcasts->isNotEmpty()) {
+                        $existingIds = array_column($messages, 'messageId');
+                        $existingIdMap = array_flip(array_filter($existingIds));
+                        $hasNewBroadcast = false;
+
+                        foreach ($recentBroadcasts as $br) {
+                            $cleanP = preg_replace('/\D/', '', (string) $br->phone_number);
+                            if (str_starts_with($cleanP, '0')) {
+                                $cleanP = '62'.substr($cleanP, 1);
+                            }
+                            if (! $cleanP || strlen($cleanP) < 9) {
+                                continue;
+                            }
+
+                            $bMsgId = 'bc_'.$br->id;
+                            if (isset($existingIdMap[$bMsgId])) {
+                                continue;
+                            }
+
+                            $custName = $br->prediction?->customer_vendor_name ?: ('Customer '.$cleanP);
+                            $bTimestamp = $br->sent_at ? ($br->sent_at->timestamp * 1000) : (time() * 1000);
+
+                            $messages[] = [
+                                'messageId' => $bMsgId,
+                                'phone' => $cleanP,
+                                'message' => (string) $br->message,
+                                'media_url' => $br->image_url,
+                                'media_type' => $br->image_url ? 'image' : null,
+                                'timestamp' => $bTimestamp,
+                                'status' => 'sent',
+                                'direction' => 'outbound',
+                                'sender' => 'ADMIN',
+                                'senderName' => 'Broadcast DCMS',
+                                'gateway' => 'BAILEYS_GATEWAY',
+                            ];
+
+                            $existingIdMap[$bMsgId] = true;
+                            $hasNewBroadcast = true;
+
+                            // Pastikan juga kontak terdaftar di tabel whatsapp_chats
+                            try {
+                                $chat = WhatsAppChat::firstOrCreate(
+                                    ['phone_number' => $cleanP],
+                                    [
+                                        'customer_name' => $custName,
+                                        'folder' => 'all',
+                                        'unread_count' => 0,
+                                    ]
+                                );
+                                $chat->update([
+                                    'customer_name' => $custName,
+                                    'last_message' => (string) $br->message ?: ($br->image_url ? '[Gambar]' : 'Pesan broadcast'),
+                                    'last_message_at' => $br->sent_at ?: now(),
+                                ]);
+                            } catch (\Throwable) {
+                            }
+                        }
+
+                        if ($hasNewBroadcast) {
+                            usort($messages, function ($a, $b) {
+                                $tA = is_numeric($a['timestamp'] ?? 0) ? (int) $a['timestamp'] : strtotime((string) ($a['timestamp'] ?? ''));
+                                $tB = is_numeric($b['timestamp'] ?? 0) ? (int) $b['timestamp'] : strtotime((string) ($b['timestamp'] ?? ''));
+
+                                return $tA <=> $tB;
+                            });
+                            $trimmed = array_slice($messages, -1000);
+                            @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
+                            $messages = $trimmed;
+                        }
+                    }
+                }
+            } catch (\Throwable) {
             }
 
             $parseEpochMs = function ($val): int {

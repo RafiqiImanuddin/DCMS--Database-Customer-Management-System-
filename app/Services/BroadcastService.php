@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\BroadcastMedia;
 use App\Models\BroadcastReport;
 use App\Models\RepeatOrderPrediction;
 use App\Models\Setting;
+use App\Models\WhatsAppChat;
+use App\Models\WhatsAppMessage;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Throwable;
 
 class BroadcastService
@@ -63,12 +67,31 @@ class BroadcastService
         }
 
         try {
+            // Ambil data Base64 gambar dari database jika ada untuk pengiriman langsung tanpa URL download
+            $fileData = null;
+            if ($imageUrl) {
+                if (preg_match('/\/media\/broadcasts\/(\d+)/', $imageUrl, $m)) {
+                    $bMedia = BroadcastMedia::find((int) $m[1]);
+                    if ($bMedia && ! empty($bMedia->data)) {
+                        $fileData = [
+                            'base64' => $bMedia->data,
+                            'mimetype' => $bMedia->mime_type ?: 'image/jpeg',
+                            'filename' => $bMedia->filename ?: 'broadcast.jpg',
+                        ];
+                    }
+                }
+            }
+
             $res = $this->watzap->sendOmnichannel(
                 $prediction->no_hp_customer,
                 $personalizedMessage,
                 $imageUrl,
-                $imageUrl ? 'image' : null
+                $imageUrl ? 'image' : null,
+                null,
+                $fileData
             );
+
+            $msgId = $res['message_id'] ?? ('broadcast_'.uniqid());
 
             $report->update([
                 'status' => $res['success'] ? 'sent' : 'failed',
@@ -78,6 +101,16 @@ class BroadcastService
 
             if ($res['success']) {
                 $this->recordCycleStart();
+
+                // Sinkronkan langsung ke Inbox Follow-Up (Tab 9) & Live Chat Widget DCMS
+                $this->recordBroadcastToInbox(
+                    $prediction->no_hp_customer,
+                    $personalizedMessage,
+                    $imageUrl,
+                    $msgId,
+                    $userId,
+                    $prediction->customer_vendor_name
+                );
             }
         } catch (Throwable $exception) {
             $report->update([
@@ -87,6 +120,91 @@ class BroadcastService
         }
 
         return $report;
+    }
+
+    /**
+     * Catat pesan broadcast yang terkirim ke Inbox Chat & Database WhatsAppChat/WhatsAppMessage.
+     */
+    public function recordBroadcastToInbox(
+        string $rawPhone,
+        string $message,
+        ?string $mediaUrl,
+        string $msgId,
+        int $userId,
+        ?string $customerName = null
+    ): void {
+        try {
+            $cleanPhone = preg_replace('/\D/', '', $rawPhone);
+            if (str_starts_with($cleanPhone, '0')) {
+                $cleanPhone = '62'.substr($cleanPhone, 1);
+            }
+
+            if (! $cleanPhone || strlen($cleanPhone) < 9) {
+                return;
+            }
+
+            $now = now();
+            $displayName = ($customerName && strcasecmp($customerName, 'No Name') !== 0)
+                ? $customerName
+                : ('Customer '.$cleanPhone);
+
+            // 1. Catat ke tabel whatsapp_chats
+            $chat = WhatsAppChat::firstOrCreate(
+                ['phone_number' => $cleanPhone],
+                [
+                    'customer_name' => $displayName,
+                    'folder' => 'all',
+                    'unread_count' => 0,
+                ]
+            );
+
+            $chat->update([
+                'customer_name' => $displayName,
+                'last_message' => $message ?: ($mediaUrl ? '[Gambar]' : 'Pesan keluar'),
+                'last_message_at' => $now,
+            ]);
+
+            // 2. Catat ke tabel whatsapp_messages
+            WhatsAppMessage::create([
+                'whatsapp_chat_id' => $chat->id,
+                'message_id' => $msgId,
+                'sender_type' => 'admin',
+                'user_id' => $userId,
+                'agent_name' => 'Broadcast DCMS',
+                'message' => $message,
+                'media_url' => $mediaUrl,
+                'media_type' => $mediaUrl ? 'image' : null,
+                'status' => 'sent',
+            ]);
+
+            // 3. Catat ke file cache live watzap_messages.json
+            $storageDir = public_path('workspace-sosmed');
+            if (! File::isDirectory($storageDir)) {
+                @File::makeDirectory($storageDir, 0755, true);
+            }
+            $msgFile = $storageDir.DIRECTORY_SEPARATOR.'watzap_messages.json';
+            $messages = File::exists($msgFile) ? (json_decode(File::get($msgFile), true) ?? []) : [];
+
+            $entry = [
+                'messageId' => $msgId,
+                'phone' => $cleanPhone,
+                'message' => $message,
+                'media_url' => $mediaUrl,
+                'media_type' => $mediaUrl ? 'image' : null,
+                'timestamp' => time() * 1000,
+                'status' => 'sent',
+                'direction' => 'outbound',
+                'sender' => 'ADMIN',
+                'senderName' => 'Broadcast DCMS',
+                'gateway' => 'BAILEYS_GATEWAY',
+            ];
+
+            $messages[] = $entry;
+            $trimmed = array_slice($messages, -1000);
+            @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
+        } catch (\Throwable) {
+            // Ignore error agar tidak menggagalkan broadcast flow
+        }
     }
 
     /**
