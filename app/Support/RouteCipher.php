@@ -121,10 +121,6 @@ class RouteCipher
             'controller' => \App\Http\Controllers\SosmedShiftController::class,
             'method' => 'index',
         ],
-        'file-manager.index' => [
-            'controller' => \App\Http\Controllers\FileManagerController::class,
-            'method' => 'index',
-        ],
         'guidance.index' => [
             'controller' => \App\Http\Controllers\GuidanceController::class,
             'method' => 'index',

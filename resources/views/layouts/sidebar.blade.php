@@ -77,13 +77,13 @@
                 'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index', 'pricelist.index'
             ]);
             $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index' && !in_array($activeWorkspaceTab, [7, 8]));
-            $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index', 'quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show', 'quotations.print', 'shifts.index', 'file-manager.index']);
+            $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index', 'quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show', 'quotations.print', 'shifts.index']);
             $isGuidanceActive = ($activeTarget === 'guidance.index');
             $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.karyawan.index', 'imports.index', 'profile.edit', 'settings.users.index']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
 
             $canSeeCustomerGroup = $currentUser && ($currentUser->canAccessFeature('dashboard') || $currentUser->canAccessFeature('predictions') || $currentUser->canAccessFeature('leads') || $currentUser->canAccessFeature('broadcasts') || $currentUser->canAccessFeature('pricelist'));
             $canSeeWorkspaceGroup = $currentUser && ($currentUser->canAccessFeature('workspace_dashboard') || $currentUser->canAccessFeature('workspace_matrix') || $currentUser->canAccessFeature('workspace_cek_ar') || $currentUser->canAccessFeature('workspace_format_keep') || $currentUser->canAccessFeature('workspace_tracking_ar') || $currentUser->canAccessFeature('workspace_klaim_ar') || $currentUser->canAccessFeature('workspace_inbox_fu') || $currentUser->canAccessFeature('workspace_customer_segmentation') || $currentUser->canAccessFeature('workspace_auto_fu_h1'));
-            $canSeeMonitoringGroup = $currentUser && ($currentUser->canAccessFeature('monitoring_sales') || $currentUser->canAccessFeature('quotations') || $currentUser->canAccessFeature('sosmed_shifts') || $currentUser->canAccessFeature('file_manager'));
+            $canSeeMonitoringGroup = $currentUser && ($currentUser->canAccessFeature('monitoring_sales') || $currentUser->canAccessFeature('quotations') || $currentUser->canAccessFeature('sosmed_shifts'));
         @endphp
 
         @if ($canSeeCustomerGroup)
@@ -342,14 +342,6 @@
                 </a>
                 @endif
 
-                @if ($currentUser->canAccessFeature('file_manager'))
-                <a href="{{ \App\Support\RouteCipher::url('file-manager.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ in_array($activeTarget, ['file-manager.index']) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/>
-                    </svg>
-                    <span>File Manager</span>
-                </a>
-                @endif
             </div>
         </div>
         @endif

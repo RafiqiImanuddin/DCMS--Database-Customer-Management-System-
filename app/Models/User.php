@@ -232,12 +232,6 @@ class User extends Authenticatable
                 'category' => 'Dashboard Manager',
                 'default_roles' => ['admin'],
             ],
-            'file_manager' => [
-                'name' => 'File Manager Klaim AR',
-                'description' => 'Kelola berkas klaim AR per cabang/folder, checklist berkas, dan kirim ke PIC WhatsApp.',
-                'category' => 'Dashboard Manager',
-                'default_roles' => ['admin', 'user'],
-            ],
 
             // Kategori 4: Panduan & SOP
             'guidance' => [

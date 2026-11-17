@@ -135,12 +135,6 @@ Route::middleware('auth')->group(function () {
     Route::put('/shifts/{shift}', [\App\Http\Controllers\SosmedShiftController::class, 'update'])->name('shifts.update');
     Route::delete('/shifts/{shift}', [\App\Http\Controllers\SosmedShiftController::class, 'destroy'])->name('shifts.destroy');
 
-    // Dashboard Manager: File Manager Berkas Klaim AR
-    Route::get('/file-manager', [\App\Http\Controllers\FileManagerController::class, 'index'])->name('file-manager.index');
-    Route::get('/file-manager/download/{cabang}', [\App\Http\Controllers\FileManagerController::class, 'downloadBranchExcel'])->name('file-manager.download');
-    Route::post('/file-manager/download-batch', [\App\Http\Controllers\FileManagerController::class, 'downloadBatchZip'])->name('file-manager.download_batch');
-    Route::post('/file-manager/send-pic', [\App\Http\Controllers\FileManagerController::class, 'sendToPic'])->name('file-manager.send_pic');
-
     // Pengaturan Data Karyawan & Bobot Penilaian KPI
     Route::get('/settings/karyawan', [EmployeeSettingController::class, 'index'])->name('settings.karyawan.index');
     Route::post('/settings/karyawan', [EmployeeSettingController::class, 'storeEmployee'])->name('settings.karyawan.store');
