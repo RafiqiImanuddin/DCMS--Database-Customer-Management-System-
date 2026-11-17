@@ -902,6 +902,7 @@ app.get('/api/status', (req, res) => {
     phone: botPhone,
     name: connectedUser?.name || 'Bot DCMS',
     hasQR: Boolean(currentQR),
+    qr: currentQR,
     uptime: Math.round(process.uptime()),
     cloudAutoSave: {
       enabled: true,

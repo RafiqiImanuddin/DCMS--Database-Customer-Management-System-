@@ -102,20 +102,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/broadcasts/{report}', [BroadcastReportController::class, 'destroy'])->name('broadcasts.destroy');
     Route::post('/predictions/{prediction}/broadcast', [BroadcastReportController::class, 'store'])->name('broadcasts.store');
 
-    // Setup & Pengaturan WhatsApp (WatZap Gateway)
+    // Setup & Pengaturan WhatsApp Gateway (One Gateway Baileys Bot)
     Route::get('/whatsapp', [WatzapSettingController::class, 'index'])->name('whatsapp.index');
     Route::get('/settings/watzap', [WatzapSettingController::class, 'index'])->name('settings.watzap.index');
     Route::post('/settings/watzap', [WatzapSettingController::class, 'update'])->name('settings.watzap.update');
-    Route::post('/settings/watzap/check', [WatzapSettingController::class, 'check'])->name('settings.watzap.check');
     Route::post('/settings/watzap/test-send', [WatzapSettingController::class, 'testSend'])->name('settings.watzap.test_send');
-    Route::post('/settings/watzap/register-webhook', [WatzapSettingController::class, 'registerWebhook'])->name('settings.watzap.register_webhook');
-    Route::get('/settings/watzap/get-webhook', [WatzapSettingController::class, 'getWebhookStatus'])->name('settings.watzap.get_webhook');
-    Route::post('/settings/watzap/check-waha', [WatzapSettingController::class, 'checkWaha'])->name('settings.watzap.check_waha');
     Route::post('/settings/watzap/check-baileys', [WatzapSettingController::class, 'checkBaileys'])->name('settings.watzap.check_baileys');
-    Route::post('/settings/watzap/check-fonnte', [WatzapSettingController::class, 'checkFonnte'])->name('settings.watzap.check_fonnte');
-    Route::post('/settings/watzap/register-fonnte-webhook', [WatzapSettingController::class, 'registerFonnteWebhook'])->name('settings.watzap.register_fonnte_webhook');
-    Route::post('/settings/watzap/test-send-fonnte', [WatzapSettingController::class, 'testSendFonnte'])->name('settings.watzap.test_send_fonnte');
-    Route::post('/settings/watzap/sync-google-sheet', [WatzapSettingController::class, 'syncGoogleSheetKeep'])->name('settings.watzap.sync_google_sheet');
 
     // Dashboard Manager: Monitoring Kinerja Admin Sales (Manager & Admin)
     Route::get('/monitoring/sales', [SalesMonitoringController::class, 'index'])->name('monitoring.sales.index');

@@ -53,25 +53,26 @@ class BroadcastService
             return $report;
         }
 
-        if (! $this->watzap->isConfigured()) {
+        if (! $this->watzap->isBaileysEnabled()) {
             $report->update([
                 'status' => 'logged',
-                'provider_response' => 'WatZap belum dikonfigurasi. Silakan isi API Key dan Number Key di menu Pengaturan Super Admin.',
+                'provider_response' => 'Gateway Baileys belum diaktifkan. Silakan hubungkan WhatsApp di menu Pengaturan WhatsApp.',
             ]);
 
             return $report;
         }
 
         try {
-            if ($imageUrl !== null && trim($imageUrl) !== '') {
-                $res = $this->watzap->sendImage($prediction->no_hp_customer, $imageUrl, $personalizedMessage);
-            } else {
-                $res = $this->watzap->sendMessage($prediction->no_hp_customer, $personalizedMessage);
-            }
+            $res = $this->watzap->sendOmnichannel(
+                $prediction->no_hp_customer,
+                $personalizedMessage,
+                $imageUrl,
+                $imageUrl ? 'image' : null
+            );
 
             $report->update([
                 'status' => $res['success'] ? 'sent' : 'failed',
-                'provider_response' => $res['message'].($res['raw'] ? ' | '.$res['raw'] : ''),
+                'provider_response' => $res['message'].(! empty($res['raw']) ? ' | '.(is_string($res['raw']) ? $res['raw'] : json_encode($res['raw'])) : ''),
                 'sent_at' => $res['success'] ? now() : null,
             ]);
 

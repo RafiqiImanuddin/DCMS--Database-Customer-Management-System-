@@ -118,9 +118,15 @@ class WatzapService
                     'phone' => ! empty($data['phone']) ? (string) $data['phone'] : null,
                     'name' => ! empty($data['name']) ? (string) $data['name'] : 'Bot DCMS',
                     'message' => ! empty($data['connected']) ? 'Baileys Bot Terhubung' : 'Baileys Bot Belum Terhubung (Scan QR)',
+                    'hasQR' => ! empty($data['hasQR']),
+                    'qr' => ! empty($data['qr']) ? (string) $data['qr'] : null,
                 ];
 
-                cache()->put($cacheKey, $result, now()->addSeconds(20));
+                if (! empty($result['online'])) {
+                    cache()->put($cacheKey, $result, now()->addSeconds(20));
+                } else {
+                    cache()->put($cacheKey, $result, now()->addSeconds(4));
+                }
                 if (! empty($result['phone'])) {
                     cache()->put('baileys_bot_phone', preg_replace('/\D/', '', (string) $result['phone']), now()->addHours(1));
                 }
