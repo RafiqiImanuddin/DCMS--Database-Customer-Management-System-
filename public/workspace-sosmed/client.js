@@ -13377,7 +13377,12 @@ function getOmniPicChats() {
       const isOut = (lastMsg.sender === 'ADMIN' || lastMsg.sender === 'admin' || lastMsg.fromMe);
       const prefix = isOut ? 'Anda: ' : '';
       if (isOut) {
-        lastStatusTick = renderOmniMessageStatusTick(lastMsg.status || 'sent', true);
+        let effStatus = lastMsg.status || 'sent';
+        if (effStatus === 'sending') {
+          const msgAge = Date.now() - parseOmniTimestamp(lastMsg.timestamp);
+          if (msgAge > 30000) effStatus = 'sent';
+        }
+        lastStatusTick = renderOmniMessageStatusTick(effStatus, true);
       }
       if (rawTxt) {
         snippet = prefix + rawTxt;
@@ -13748,13 +13753,18 @@ function renderOmniMessageStatusTick(status, isSidebar) {
     return '<svg width="' + tickSize + '" height="' + tickSize + '" viewBox="0 0 24 24" fill="none" stroke="#8696a0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Tersampaikan ke Penerima (Centang 2 Abu)"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>';
   }
 
-  // 3. Centang 1 Abu-Abu: Berhasil terkirim ke server WhatsApp (Sent)
-  if (status === 'sent' || status === 's' || status === 'server_ack' || status === '2' || status === '1') {
-    return '<svg width="' + singleTickSize + '" height="' + singleTickSize + '" viewBox="0 0 24 24" fill="none" stroke="#8696a0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Terkirim ke Server WhatsApp (Centang 1 Abu)"><polyline points="20 6 9 17 4 12"/></svg>';
+  // 3. Jam Pengiriman: HANYA jika status pesan secara eksplisit masih 'sending' atau 'pending'
+  if (status === 'sending' || status === 'pending') {
+    return '<svg width="' + clockSize + '" height="' + clockSize + '" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Sedang Mengirim..."><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
   }
 
-  // 4. Jam Pengiriman (Pending / Sending)
-  return '<svg width="' + clockSize + '" height="' + clockSize + '" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Sedang Mengirim..."><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  // 4. Ikon Gagal Kirim
+  if (status === 'failed' || status === 'error') {
+    return '<svg width="' + clockSize + '" height="' + clockSize + '" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Gagal Terkirim"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+  }
+
+  // 5. Default untuk semua pesan terkirim / pesan histori lama (Centang 1 Abu-Abu: Sent / Server ACK)
+  return '<svg width="' + singleTickSize + '" height="' + singleTickSize + '" viewBox="0 0 24 24" fill="none" stroke="#8696a0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Terkirim ke Server WhatsApp (Centang 1 Abu)"><polyline points="20 6 9 17 4 12"/></svg>';
 }
 
 window.omniOnlineUsersMap = {};
@@ -14347,7 +14357,12 @@ function updateOmniCardInSidebar(picKey, lastMsg, picName, picCabang) {
   const timeStr = lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
   const isOut = lastMsg && (lastMsg.sender === 'ADMIN' || lastMsg.sender === 'admin' || lastMsg.fromMe);
   const snippet = lastMsg ? (isOut ? 'Anda: ' + (lastMsg.text || '') : (lastMsg.text || '')) : '';
-  const tickHtml = isOut ? (renderOmniMessageStatusTick(lastMsg.status || 'sent', true) + ' ') : '';
+  let effStatus = lastMsg ? (lastMsg.status || 'sent') : 'sent';
+  if (effStatus === 'sending' && lastMsg) {
+    const msgAge = Date.now() - parseOmniTimestamp(lastMsg.timestamp);
+    if (msgAge > 30000) effStatus = 'sent';
+  }
+  const tickHtml = isOut ? (renderOmniMessageStatusTick(effStatus, true) + ' ') : '';
 
   if (targetCard) {
     const isOnline = isOmniContactOnline(normKey);
@@ -14540,6 +14555,8 @@ async function sendOmniReply() {
       if (tick) {
         tick.innerHTML = renderOmniMessageStatusTick('sent', false);
       }
+      // Update juga kartu sidebar secara instan agar ikon jam langsung berubah jadi centang 1 (terkirim)
+      updateOmniCardInSidebar(selectedOmniPicKey, outgoingMsg, picName, currentPic ? currentPic.cabang : '-');
       if (typeof showSaveToast === 'function') {
         showSaveToast('Pesan ' + (fileToSend ? (fileToSend.type.startsWith('image/') ? 'gambar' : 'dokumen') : 'teks') + ' terkirim ke WhatsApp ' + picName + '!');
       }
