@@ -13797,9 +13797,17 @@ function renderOmniActiveChat(pic) {
       '<span id="omniAttachmentName" class="omni-attachment-filename" style="font-weight:600; color:#1e293b; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>' +
       '<button type="button" class="omni-attachment-remove-btn" onclick="removeOmniAttachment()" style="border:none; background:transparent; cursor:pointer; color:#ef4444; font-weight:700; font-size:1.1rem; line-height:1;" title="Hapus lampiran">&times;</button>' +
     '</div>' +
+    '<div id="omniEmojiPopover" class="omni-emoji-popover" style="display:none;">' +
+      ['😊','🙏','👍','🔥','❤️','🎉','✨','📱','👌','🛍️','🛵','✅','❌','❓','📞'].map(function(em) {
+        return '<span class="omni-emoji-item" onclick="insertOmniEmoji(\'' + em + '\')">' + em + '</span>';
+      }).join('') +
+    '</div>' +
     '<div class="omni-wa-input-row">' +
       '<button type="button" class="omni-btn-wa-attach" title="Lampirkan File / Gambar" onclick="handleOmniAttachmentClick()">' +
         '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>' +
+      '</button>' +
+      '<button type="button" class="omni-btn-wa-emoji" title="Pilih Emoji" onclick="toggleOmniEmojiPopover(event)">' +
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>' +
       '</button>' +
       '<input type="file" id="omniFileInput" style="display:none;" onchange="handleOmniFileSelected(this)" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">' +
       '<div class="omni-wa-input-pill">' +
@@ -13864,19 +13872,46 @@ function insertQuickReply(type) {
   }
 }
 
+function toggleOmniEmojiPopover(e) {
+  if (e) e.stopPropagation();
+  const pop = document.getElementById('omniEmojiPopover');
+  if (!pop) return;
+  pop.style.display = (pop.style.display === 'none' || !pop.style.display) ? 'flex' : 'none';
+}
+
+function insertOmniEmoji(emoji) {
+  const inp = document.getElementById('omniReplyInput');
+  if (!inp) return;
+  const start = inp.selectionStart != null ? inp.selectionStart : inp.value.length;
+  const end = inp.selectionEnd != null ? inp.selectionEnd : inp.value.length;
+  inp.value = inp.value.substring(0, start) + emoji + inp.value.substring(end);
+  inp.focus();
+  inp.selectionStart = inp.selectionEnd = start + emoji.length;
+  handleOmniInputTyping(inp);
+}
+
 function handleOmniInputTyping(el) {
   if (!el) el = document.getElementById('omniReplyInput');
   if (!el) return;
-  el.style.setProperty('height', 'auto', 'important');
-  const maxHeight = 160;
-  const minHeight = 24;
+
+  // 1. Reset height to 0px so scrollHeight measures exact text size
+  el.style.setProperty('height', '0px', 'important');
+
+  // 2. Measure scrollHeight accurately
   const scrollH = el.scrollHeight;
-  const newHeight = Math.min(Math.max(scrollH, minHeight), maxHeight);
-  el.style.setProperty('height', newHeight + 'px', 'important');
+  const minHeight = 20;
+  const maxHeight = 140;
+  const targetH = Math.min(Math.max(scrollH, minHeight), maxHeight);
+
+  // 3. Set height with !important
+  el.style.setProperty('height', targetH + 'px', 'important');
   el.style.setProperty('overflow-y', scrollH > maxHeight ? 'auto' : 'hidden', 'important');
+
+  // 4. Update Send Button Active state
   const sendBtn = document.getElementById('omniBtnSend');
   if (sendBtn) {
-    if (el.value.trim().length > 0 || (typeof omniPendingFile !== 'undefined' && omniPendingFile)) {
+    const hasVal = el.value.trim().length > 0 || (typeof omniPendingFile !== 'undefined' && omniPendingFile);
+    if (hasVal) {
       sendBtn.classList.add('active');
     } else {
       sendBtn.classList.remove('active');
@@ -15180,6 +15215,8 @@ window.sendOmniReply = sendOmniReply;
 window.scrollOmniStreamToBottom = scrollOmniStreamToBottom;
 window.handleOmniInputKey = handleOmniInputKey;
 window.handleOmniInputTyping = handleOmniInputTyping;
+window.toggleOmniEmojiPopover = toggleOmniEmojiPopover;
+window.insertOmniEmoji = insertOmniEmoji;
 window.insertQuickReply = insertQuickReply;
 window.handleOmniAttachmentClick = handleOmniAttachmentClick;
 window.handleOmniResolveClick = handleOmniResolveClick;
