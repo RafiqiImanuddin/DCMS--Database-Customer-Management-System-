@@ -381,6 +381,13 @@ async function startBaileysSocket() {
           mediaType = 'document';
         }
 
+        // Berlangganan presence update agar menerima event 'sedang mengetik' dari kontak ini
+        try {
+          if (sock?.presenceSubscribe) {
+            sock.presenceSubscribe(remoteJid).catch(() => {});
+          }
+        } catch (e) {}
+
         let contactPhone = remoteJid.replace(/@.+/, '').replace(/\D/g, '');
         let resolvedPhone = null;
 
@@ -527,6 +534,45 @@ async function startBaileysSocket() {
   // ----------------------------------------------------------------------------
   // LISTENER 2: REAKSI EMOJI WHATSAPP DARI TIM FOLLOW UP
   // ----------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
+  // LISTENER 3: PRESENCE UPDATE (STATUS SEDANG MENGETIK / COMPOSING / RECORDING)
+  // ----------------------------------------------------------------------------
+  sock.ev.on('presence.update', async ({ id, presences }) => {
+    try {
+      if (!id || !presences) return;
+      if (id.includes('@g.us')) return; // Abaikan grup WhatsApp
+
+      const pKeys = Object.keys(presences);
+      for (const pKey of pKeys) {
+        const pres = presences[pKey];
+        const status = pres?.lastKnownPresence; // 'composing' | 'recording' | 'paused' | 'available' | 'unavailable'
+
+        let targetPhone = id.replace(/@.*$/, '').replace(/\D/g, '');
+        if (targetPhone.startsWith('0')) {
+          targetPhone = '62' + targetPhone.substring(1);
+        }
+
+        if (id.endsWith('@lid') || (targetPhone.length > 13 && !targetPhone.startsWith('628'))) {
+          const resolved = await resolveParticipantPhone(id, '', '');
+          if (resolved) targetPhone = resolved;
+        }
+
+        logger.info(`[Presence Update] Kontak ${targetPhone} (${id}): ${status}`);
+
+        sendToDCMSInbox({
+          event: 'presence.update',
+          payload: {
+            id: targetPhone,
+            phone: targetPhone,
+            presence: status || 'paused',
+            timestamp: Date.now()
+          }
+        }).catch(() => {});
+      }
+    } catch (err) {
+      logger.warn(`[Presence Error] ${err.message}`);
+    }
+  });
   sock.ev.on('messages.reaction', async (reactions) => {
     if (!Array.isArray(reactions)) return;
 
@@ -874,6 +920,22 @@ app.post('/api/send-message', async (req, res) => {
       success: false,
       message: err.message || 'Gagal mengirim pesan via WhatsApp'
     });
+  }
+});
+
+// Endpoint Berlangganan Presence Update (Status Sedang Mengetik)
+app.post('/api/subscribe-presence', async (req, res) => {
+  try {
+    const rawPhone = req.body.phone || req.body.chatId || '';
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
+    const jid = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
+    if (sock && sock.presenceSubscribe) {
+      await sock.presenceSubscribe(jid);
+    }
+    return res.json({ success: true, message: `Subscribed presence for ${cleanPhone}` });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
   }
 });
 

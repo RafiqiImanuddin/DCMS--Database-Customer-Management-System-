@@ -833,6 +833,24 @@ class WorkspaceSosmedController extends Controller
         ]);
     }
 
+    /**
+     * Berlangganan Presence Update (Status Sedang Mengetik) dari kontak WhatsApp.
+     */
+    public function watzapSubscribe(Request $request, WatzapService $watzapService): JsonResponse
+    {
+        $phone = $request->input('phone');
+        if ($phone && $watzapService->isBaileysEnabled()) {
+            try {
+                $baileysUrl = $watzapService->getBaileysUrl();
+                \Illuminate\Support\Facades\Http::timeout(1)->post("{$baileysUrl}/api/subscribe-presence", [
+                    'phone' => $phone,
+                ]);
+            } catch (\Throwable) {}
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function watzapStatus(WatzapService $watzapService): JsonResponse
     {
         $status = $watzapService->getDeviceStatus('inbox');
@@ -1033,16 +1051,55 @@ class WorkspaceSosmedController extends Controller
             // Ambil nomor gateway dari cache untuk respon instan tanpa blocking HTTP network call
             $gatewayPhone = cache()->get('baileys_bot_phone', '6285111426699');
 
+            // Ambil status pengguna yang sedang mengetik (realtime presence typing)
+            $now = time();
+            $typingUsers = (array) cache()->get('omni_typing_users', []);
+            $activeTyping = [];
+            foreach ($typingUsers as $k => $v) {
+                if (($v['expires_at'] ?? 0) >= $now) {
+                    $activeTyping[$k] = $v['type'] ?? 'composing';
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'gateway_phone' => $gatewayPhone,
                 'messages' => $filtered,
                 'total' => count($filtered),
+                'typing' => $activeTyping,
             ]);
         }
 
-        // Mode POST: Webhook masuk (WAHA VPS atau WatZap Cloud API)
+        // Mode POST: Webhook masuk (WAHA VPS atau WatZap Cloud API / Baileys Gateway)
         $data = $request->all();
+
+        // 0. Dukungan Event Presence Update (Status Sedang Mengetik / Composing / Recording)
+        if (isset($data['event']) && $data['event'] === 'presence.update') {
+            $p = $data['payload'] ?? [];
+            $rawPhone = (string) ($p['phone'] ?? $p['id'] ?? '');
+            $cleanPhone = preg_replace('/\D/', '', $rawPhone);
+            $presence = (string) ($p['presence'] ?? 'paused');
+            if ($cleanPhone) {
+                $typingUsers = (array) cache()->get('omni_typing_users', []);
+                if (in_array($presence, ['composing', 'recording'], true)) {
+                    $typingUsers[$cleanPhone] = [
+                        'type' => $presence,
+                        'expires_at' => time() + 7,
+                    ];
+                } else {
+                    unset($typingUsers[$cleanPhone]);
+                }
+                $now = time();
+                foreach ($typingUsers as $k => $v) {
+                    if (($v['expires_at'] ?? 0) < $now) {
+                        unset($typingUsers[$k]);
+                    }
+                }
+                cache()->put('omni_typing_users', $typingUsers, now()->addMinutes(2));
+            }
+
+            return response()->json(['success' => true, 'presence' => $presence]);
+        }
 
         // 1. Dukungan Webhook Resmi WAHA (WhatsApp HTTP API di VPS)
         if (isset($data['event']) && in_array($data['event'], ['message', 'message.any'], true) && isset($data['payload']) && is_array($data['payload'])) {
@@ -1066,6 +1123,13 @@ class WorkspaceSosmedController extends Controller
             $cleanPhone = preg_replace('/\D/', '', (string) $cleanPhone);
             if (! $cleanPhone || strlen($cleanPhone) < 9) {
                 return response()->json(['status' => 200, 'message' => 'Invalid phone ignored']);
+            }
+
+            // Hapus status typing karena kontak sudah mengirim pesannya
+            $typingUsers = (array) cache()->get('omni_typing_users', []);
+            if (isset($typingUsers[$cleanPhone])) {
+                unset($typingUsers[$cleanPhone]);
+                cache()->put('omni_typing_users', $typingUsers, now()->addMinutes(2));
             }
 
             $messageId = (string) ($p['id'] ?? ('baileys_'.time()));

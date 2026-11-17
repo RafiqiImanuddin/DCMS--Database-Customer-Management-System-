@@ -203,6 +203,7 @@ $registerSosmedApiRoutes = function () {
     Route::get('/api/sosmed-keeps/latest', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getLatestKeeps'])->name('api.sosmed.get_latest_keeps_alias');
     Route::post('/chat-ai', [WorkspaceSosmedController::class, 'chatAi'])->name('api.sosmed.chat_ai');
     Route::post('/watzap-send', [WorkspaceSosmedController::class, 'watzapSend'])->name('api.sosmed.watzap_send');
+    Route::post('/watzap-subscribe', [WorkspaceSosmedController::class, 'watzapSubscribe'])->name('api.sosmed.watzap_subscribe');
     Route::match(['get', 'post'], '/watzap-webhook', [WorkspaceSosmedController::class, 'watzapWebhook'])->name('api.sosmed.watzap_webhook');
     Route::match(['get', 'post', 'delete'], '/baileys-session', [WorkspaceSosmedController::class, 'baileysSession'])->name('api.sosmed.baileys_session');
     Route::get('/watzap-status', [WorkspaceSosmedController::class, 'watzapStatus'])->name('api.sosmed.watzap_status');

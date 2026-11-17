@@ -6136,6 +6136,53 @@ body.tab9-mode-active #tabContent9.active {
   font-weight: 700;
 }
 
+/* WHATSAPP REALTIME TYPING INDICATOR */
+.omni-typing-dot-anim {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  vertical-align: middle;
+}
+.omni-typing-dot-anim span {
+  width: 4px;
+  height: 4px;
+  background-color: #059669;
+  border-radius: 50%;
+  display: inline-block;
+  animation: omniBlink 1.4s infinite ease-in-out both;
+}
+.omni-typing-dot-anim span:nth-child(1) { animation-delay: -0.32s; }
+.omni-typing-dot-anim span:nth-child(2) { animation-delay: -0.16s; }
+.omni-typing-dot-anim span:nth-child(3) { animation-delay: 0s; }
+
+@keyframes omniBlink {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.25); }
+}
+
+.omni-typing-bubble {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 8px 12px !important;
+  border-radius: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-top: 4px;
+}
+.omni-typing-bubble .omni-dot-bounce {
+  width: 6px;
+  height: 6px;
+  background-color: #64748b;
+  border-radius: 50%;
+  display: inline-block;
+  animation: omniBlink 1.4s infinite ease-in-out both;
+}
+.omni-typing-bubble .omni-dot-bounce:nth-child(1) { animation-delay: -0.32s; }
+.omni-typing-bubble .omni-dot-bounce:nth-child(2) { animation-delay: -0.16s; }
+.omni-typing-bubble .omni-dot-bounce:nth-child(3) { animation-delay: 0s; }
+
 /* 3. CENTER ACTIVE CHAT CONSOLE (100% CERMIN WHATSAPP) */
 .omni-col-chatview {
   flex: 1;

@@ -13503,6 +13503,7 @@ function selectOmniPic(key) {
   
   // Tandai sudah dibaca dan hilangkan bubble unread secara instan
   markOmniChatAsRead(normKey);
+  subscribeOmniPresence(normKey);
 
   const allPics = getOmniPicChats();
   let pic = allPics.find(function(p) {
@@ -13763,9 +13764,9 @@ function renderOmniActiveChat(pic) {
           '<span>' + escapeHtml(pic.picName) + '</span>' +
           '<span class="omni-badge-fu-tag">' + escapeHtml(pic.cabang) + '</span>' +
         '</div>' +
-        '<div class="omni-header-meta">' +
+        '<div class="omni-header-meta" id="omniHeaderMeta">' +
           '<span class="omni-dot-online"></span>' +
-          '<span>WhatsApp Official &middot; ' + formatWhatsAppPhoneDisplay(pic.picWA || cleanWA) + '</span>' +
+          '<span id="omniHeaderMetaText">WhatsApp Official &middot; ' + formatWhatsAppPhoneDisplay(pic.picWA || cleanWA) + '</span>' +
         '</div>' +
       '</div>' +
     '</div>' +
@@ -14334,6 +14335,114 @@ async function sendOmniReply() {
   }
 }
 
+window.omniActiveTypingMap = {};
+
+function updateOmniTypingIndicators(typingMap) {
+  window.omniActiveTypingMap = typingMap || {};
+
+  // 1. UPDATE HEADER ROOMCHAT AKTIF
+  if (selectedOmniPicKey) {
+    const normSelected = normalizeWhatsAppPhone(selectedOmniPicKey) || selectedOmniPicKey;
+    let isTypingActive = false;
+    Object.keys(window.omniActiveTypingMap).forEach(function(ph) {
+      if (ph === normSelected || ph === selectedOmniPicKey || (ph.length >= 8 && normSelected.endsWith(ph.slice(-8))) || (normSelected.length >= 8 && ph.endsWith(normSelected.slice(-8)))) {
+        isTypingActive = true;
+      }
+    });
+
+    const headerMeta = document.getElementById('omniHeaderMeta');
+    const headerMetaText = document.getElementById('omniHeaderMetaText');
+    if (headerMeta && headerMetaText) {
+      if (isTypingActive) {
+        if (!headerMeta._isTyping) {
+          headerMeta._isTyping = true;
+          headerMeta._savedText = headerMetaText.innerHTML;
+          headerMetaText.innerHTML = '<span style="color:#059669; font-weight:700;"><span class="omni-typing-dot-anim"><span></span><span></span><span></span></span> sedang mengetik...</span>';
+        }
+      } else {
+        if (headerMeta._isTyping) {
+          headerMeta._isTyping = false;
+          if (headerMeta._savedText) {
+            headerMetaText.innerHTML = headerMeta._savedText;
+          }
+        }
+      }
+    }
+
+    // 2. UPDATE TYPING BUBBLE DI STREAM BAWAH OBROLAN
+    const stream = document.getElementById('omniMessagesStream');
+    if (stream) {
+      const existingTypingRow = document.getElementById('omniTypingRow');
+      if (isTypingActive) {
+        if (!existingTypingRow) {
+          const row = document.createElement('div');
+          row.className = 'omni-msg-row omni-msg-incoming';
+          row.id = 'omniTypingRow';
+          row.style.animation = 'fadeIn 0.2s ease-in-out';
+          row.innerHTML = '<div class="omni-bubble omni-bubble-incoming omni-typing-bubble">' +
+            '<span class="omni-dot-bounce"></span>' +
+            '<span class="omni-dot-bounce"></span>' +
+            '<span class="omni-dot-bounce"></span>' +
+          '</div>';
+          stream.appendChild(row);
+          const isNearBottom = (stream.scrollHeight - stream.scrollTop - stream.clientHeight) <= 180;
+          if (isNearBottom) {
+            stream.scrollTo({ top: stream.scrollHeight, behavior: 'smooth' });
+          }
+        }
+      } else {
+        if (existingTypingRow) {
+          existingTypingRow.remove();
+        }
+      }
+    }
+  }
+
+  // 3. UPDATE SNIPPET DI KARTU SIDEBAR
+  const listContainer = document.getElementById('omniChatListContainer');
+  if (listContainer) {
+    const cards = listContainer.querySelectorAll('.omni-chat-card');
+    cards.forEach(function(card) {
+      const oc = card.getAttribute('onclick') || '';
+      const snippetEl = card.querySelector('.omni-card-snippet');
+      if (!snippetEl) return;
+
+      let isCardTyping = false;
+      Object.keys(window.omniActiveTypingMap).forEach(function(ph) {
+        if (oc.includes(ph) || (ph.length >= 8 && oc.includes(ph.slice(-8)))) {
+          isCardTyping = true;
+        }
+      });
+
+      if (isCardTyping) {
+        if (!snippetEl._isTyping) {
+          snippetEl._isTyping = true;
+          snippetEl._cachedSnippet = snippetEl.innerText;
+          snippetEl.innerHTML = '<span style="color:#059669; font-style:italic; font-weight:600;"><span class="omni-typing-dot-anim" style="margin-right:3px;"><span></span><span></span><span></span></span> sedang mengetik...</span>';
+        }
+      } else {
+        if (snippetEl._isTyping) {
+          snippetEl._isTyping = false;
+          snippetEl.innerText = snippetEl._cachedSnippet || '';
+        }
+      }
+    });
+  }
+}
+
+function subscribeOmniPresence(phone) {
+  if (!phone) return;
+  const clean = normalizeWhatsAppPhone(phone) || phone;
+  fetch('/api/watzap-subscribe', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+    },
+    body: JSON.stringify({ phone: clean })
+  }).catch(function() {});
+}
+
 async function pollWatzapIncomingMessages() {
   // OPTIMASI: HANYA poll jika user sedang berada di Tab 9 (Omnichannel)!
   if (typeof currentActiveTab !== 'undefined' && currentActiveTab !== 9) {
@@ -14347,6 +14456,9 @@ async function pollWatzapIncomingMessages() {
     if (!res.ok) return;
     const data = await res.json();
     if (!data.success) return;
+
+    // REALTIME TYPING INDICATOR UPDATE (WHATSAPP STYLE)
+    updateOmniTypingIndicators(data.typing || {});
 
     // SINKRONISASI STATUS RESOLVE PERMANEN DARI NEON POSTGRESQL (Tidak pernah hilang saat redeploy)
     if (data.resolvedChats && typeof data.resolvedChats === 'object') {
