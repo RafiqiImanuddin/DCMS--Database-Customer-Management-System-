@@ -1042,7 +1042,13 @@ class WorkspaceSosmedController extends Controller
                                 continue;
                             }
 
-                            $custName = $br->prediction?->customer_vendor_name ?: ('Customer '.$cleanP);
+                            $custName = $br->prediction?->customer_vendor_name;
+                            if (preg_match('/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i', (string) $br->message, $nm)) {
+                                $custName = trim($nm[1]);
+                            } elseif (empty($custName) || strcasecmp($custName, 'No Name') === 0) {
+                                $custName = 'Customer '.$cleanP;
+                            }
+
                             $bTimestamp = $br->sent_at ? ($br->sent_at->timestamp * 1000) : (time() * 1000);
 
                             $messages[] = [
@@ -1055,7 +1061,7 @@ class WorkspaceSosmedController extends Controller
                                 'status' => 'sent',
                                 'direction' => 'outbound',
                                 'sender' => 'ADMIN',
-                                'senderName' => 'Broadcast DCMS',
+                                'senderName' => $custName,
                                 'gateway' => 'BAILEYS_GATEWAY',
                             ];
 
@@ -1080,6 +1086,20 @@ class WorkspaceSosmedController extends Controller
                             } catch (\Throwable) {
                             }
                         }
+
+                        // Bersihkan juga entri lama yang terlanjur tercatat sebagai 'Broadcast DCMS'
+                        foreach ($messages as &$exM) {
+                            if (($exM['senderName'] ?? '') === 'Broadcast DCMS') {
+                                $pClean = preg_replace('/\D/', '', (string) ($exM['phone'] ?? ''));
+                                if (preg_match('/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i', (string) ($exM['message'] ?? ''), $nm)) {
+                                    $exM['senderName'] = trim($nm[1]);
+                                } else {
+                                    $exM['senderName'] = 'Customer '.$pClean;
+                                }
+                                $hasNewBroadcast = true;
+                            }
+                        }
+                        unset($exM);
 
                         if ($hasNewBroadcast) {
                             usort($messages, function ($a, $b) {

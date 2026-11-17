@@ -148,6 +148,10 @@ class BroadcastService
                 ? $customerName
                 : ('Customer '.$cleanPhone);
 
+            if (preg_match('/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i', $message, $nm)) {
+                $displayName = trim($nm[1]);
+            }
+
             // 1. Catat ke tabel whatsapp_chats
             $chat = WhatsAppChat::firstOrCreate(
                 ['phone_number' => $cleanPhone],
@@ -170,7 +174,7 @@ class BroadcastService
                 'message_id' => $msgId,
                 'sender_type' => 'admin',
                 'user_id' => $userId,
-                'agent_name' => 'Broadcast DCMS',
+                'agent_name' => 'Admin',
                 'message' => $message,
                 'media_url' => $mediaUrl,
                 'media_type' => $mediaUrl ? 'image' : null,
@@ -195,7 +199,7 @@ class BroadcastService
                 'status' => 'sent',
                 'direction' => 'outbound',
                 'sender' => 'ADMIN',
-                'senderName' => 'Broadcast DCMS',
+                'senderName' => $displayName,
                 'gateway' => 'BAILEYS_GATEWAY',
             ];
 

@@ -13515,7 +13515,7 @@ function getOmniPicChats() {
       const m = chatMsgs[i];
       if (!detectedSenderName) {
         const cand = (m.senderName || m.pushname || m.notifyName || '').trim();
-        if (cand && !cand.toLowerCase().startsWith('admin') && cand.toLowerCase() !== 'pic' && !cand.startsWith('PIC ')) {
+        if (cand && !cand.toLowerCase().startsWith('admin') && cand.toLowerCase() !== 'pic' && !cand.startsWith('PIC ') && !cand.toLowerCase().includes('broadcast')) {
           detectedSenderName = cand;
         }
       }
@@ -13526,6 +13526,20 @@ function getOmniPicChats() {
         }
       }
       if (detectedSenderName && detectedRealPhone) break;
+    }
+
+    // Jika belum ada nama tapi ada pesan sapaan broadcast, otomatis ambil nama customer dari teks
+    if (!detectedSenderName) {
+      for (let i = 0; i < chatMsgs.length; i++) {
+        const t = (chatMsgs[i].text || chatMsgs[i].message || '').trim();
+        const mName = t.match(/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i) ||
+                      t.match(/halo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i) ||
+                      t.match(/halo\s+kak\s+([A-Za-z0-9\s\.\-_]+?)[\s,\n\r]/i);
+        if (mName && mName[1] && mName[1].trim() && mName[1].trim().length < 25) {
+          detectedSenderName = mName[1].trim();
+          break;
+        }
+      }
     }
 
     const isLid = cleanKey.length > 13 || (!cleanKey.startsWith('628') && !cleanKey.startsWith('08') && !cleanKey.startsWith('8'));
@@ -13970,14 +13984,14 @@ function formatOmniWhatsAppMessage(rawText) {
   // 4. Inline code `code`
   escaped = escaped.replace(/`([^`\n]+)`/g, '<code style="background:rgba(0,0,0,0.06); padding:2px 4px; border-radius:4px; font-family:monospace; font-size:0.9em;">$1</code>');
 
-  // 5. WhatsApp Bold: *text*
-  escaped = escaped.replace(/(^|[^\w*])\*([^*\n\r]+?)\*(?=[^\w*]|$)/g, '$1<strong style="font-weight:700;">$2</strong>');
+  // 5. WhatsApp Bold: *text* (Toleran terhadap emoji, spasi, dan tanda baca seperti WhatsApp resmi)
+  escaped = escaped.replace(/\*([^*\r\n]+?)\*/g, '<strong style="font-weight:700; color:inherit;">$1</strong>');
 
   // 6. WhatsApp Italic: _text_
-  escaped = escaped.replace(/(^|[^\w_])_([^_\n\r]+?)_(?=[^\w_]|$)/g, '$1<em style="font-style:italic;">$2</em>');
+  escaped = escaped.replace(/_([^_\r\n]+?)_/g, '<em style="font-style:italic;">$1</em>');
 
   // 7. WhatsApp Strikethrough: ~text~
-  escaped = escaped.replace(/(^|[^\w~])~([^~\n\r]+?)~(?=[^\w~]|$)/g, '$1<del style="text-decoration:line-through; opacity:0.75;">$2</del>');
+  escaped = escaped.replace(/~([^~\r\n]+?)~/g, '<del style="text-decoration:line-through; opacity:0.8;">$1</del>');
 
   // 8. Auto-link URLs
   escaped = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#0284c7; text-decoration:underline; font-weight:600;">$1</a>');
@@ -15181,7 +15195,11 @@ async function pollWatzapIncomingMessages() {
       // STRICT: TOLAK & ABAIKAN GRUP
       if (msg.isGroup || isGroupWhatsApp(cleanPhone)) return;
 
-      const matched = matchPicFromMasterData(cleanPhone, msg.senderName || ('PIC ' + cleanPhone), '-');
+      let safeSenderName = (msg.senderName || '').trim();
+      if (safeSenderName.toLowerCase().includes('broadcast') || safeSenderName.toLowerCase() === 'admin') {
+        safeSenderName = '';
+      }
+      const matched = matchPicFromMasterData(cleanPhone, safeSenderName || ('Customer ' + cleanPhone), '-');
       const picKey = cleanPhone; // Standarisasi: Key percakapan SELALU nomor telepon
       const text = msg.message || msg.text || '';
       const incomingMediaUrl = msg.mediaUrl || msg.media_url || msg.image || msg.url || '';
@@ -15377,7 +15395,11 @@ async function syncOmniChatsFromWhatsApp(isManual) {
         const picKey = cleanPhone;
         const text = msg.message || msg.text || '';
         const incomingMediaUrl = msg.mediaUrl || msg.media_url || msg.image || msg.url || '';
-        const matched = matchPicFromMasterData(cleanPhone, msg.senderName || ('PIC ' + cleanPhone), '-');
+        let safeSenderName = (msg.senderName || '').trim();
+      if (safeSenderName.toLowerCase().includes('broadcast') || safeSenderName.toLowerCase() === 'admin') {
+        safeSenderName = '';
+      }
+      const matched = matchPicFromMasterData(cleanPhone, safeSenderName || ('Customer ' + cleanPhone), '-');
 
         if (!threads[picKey]) threads[picKey] = [];
 

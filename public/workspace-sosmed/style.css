@@ -6594,11 +6594,11 @@ body.tab9-mode-active #tabContent9.active {
 }
 
 .omni-bubble {
-  padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 8px 10px 8px 10px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
   position: relative;
 }
 
@@ -6606,7 +6606,7 @@ body.tab9-mode-active #tabContent9.active {
 .omni-bubble-bot {
   background: #064e3b;
   color: #ffffff;
-  border-top-left-radius: 4px;
+  border-top-left-radius: 2px;
 }
 
 .omni-bubble-bot-text {
@@ -6628,16 +6628,20 @@ body.tab9-mode-active #tabContent9.active {
 
 .omni-bubble-incoming {
   background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
-  border-top-left-radius: 4px;
+  color: #111827;
+  border: none;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  border-radius: 8px;
+  border-top-left-radius: 2px;
 }
 
 .omni-bubble-outgoing {
-  background: #dcf8c6;
+  background: #d9fdd3;
   color: #111827;
-  border: 1px solid #bbf7d0;
-  border-top-right-radius: 4px;
+  border: none;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  border-radius: 8px;
+  border-top-right-radius: 2px;
 }
 
 .omni-bubble-sender {
@@ -8198,28 +8202,29 @@ body.tab9-mode-active #tabContent9.active {
   background: #ffe4e6;
 }
 
-/* WhatsApp Chat Media Image */
+/* WhatsApp Chat Media Image (Official Aspect Ratio & Sizing) */
 .omni-bubble-media {
-  max-width: 260px;
-  border-radius: 6px;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 8px;
   overflow: hidden;
   margin-bottom: 6px;
   cursor: pointer;
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .omni-chat-image {
   width: 100%;
   height: auto;
-  max-height: 240px;
-  object-fit: cover;
+  max-height: 480px;
+  object-fit: contain;
   display: block;
-  border-radius: 6px;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  border-radius: 8px;
+  transition: filter 0.15s ease;
 }
 
 .omni-chat-image:hover {
-  filter: brightness(0.95);
-  transform: scale(1.02);
+  filter: brightness(0.96);
 }
 
 /* Image Lightbox Modal with Full-Screen Stage */
