@@ -15507,8 +15507,45 @@ function openWhatsAppChat(cleanWA, picName) {
 }
 
 // --------------------------------------------------------------------------
-// DEDICATED FORMAT KEEP PANEL (RIGHT COLUMN - MODERNIZED)
+// DEDICATED FORMAT KEEP PANEL (RIGHT COLUMN - MODERNIZED & COLLAPSIBLE)
 // --------------------------------------------------------------------------
+window.omniExpandedKeepCards = window.omniExpandedKeepCards || {};
+
+function toggleOmniKeepCard(customerWA) {
+  if (!customerWA) return;
+  const body = document.getElementById('keepBody_' + customerWA);
+  const chevron = document.getElementById('keepChevron_' + customerWA);
+  if (!body) return;
+  const isCurrentlyOpen = body.style.display !== 'none';
+  if (isCurrentlyOpen) {
+    body.style.display = 'none';
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+    window.omniExpandedKeepCards[customerWA] = false;
+  } else {
+    body.style.display = 'block';
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+    window.omniExpandedKeepCards[customerWA] = true;
+  }
+}
+window.toggleOmniKeepCard = toggleOmniKeepCard;
+
+function toggleAllOmniKeepCards(forceOpen) {
+  const bodies = document.querySelectorAll('.omni-keep-card-body');
+  const chevrons = document.querySelectorAll('.omni-keep-chevron');
+  const anyClosed = Array.from(bodies).some(function(b) { return b.style.display === 'none'; });
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : anyClosed;
+
+  bodies.forEach(function(b) {
+    b.style.display = shouldOpen ? 'block' : 'none';
+    const cWA = b.getAttribute('data-customer-wa');
+    if (cWA) window.omniExpandedKeepCards[cWA] = shouldOpen;
+  });
+  chevrons.forEach(function(c) {
+    c.style.transform = shouldOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  });
+}
+window.toggleAllOmniKeepCards = toggleAllOmniKeepCards;
+
 function renderOmniKeepPanel(pic) {
   const container = document.getElementById('omniDetailsPanelContainer');
   if (!container) return;
@@ -15550,71 +15587,108 @@ function renderOmniKeepPanel(pic) {
       '</div>' +
     '</div>';
 
-  const cardsMarkup = displayKeeps.length === 0 ? emptyMarkup : displayKeeps.map(function(k) {
+  const cardsMarkup = displayKeeps.length === 0 ? emptyMarkup : displayKeeps.map(function(k, idx) {
     const curStatus = k.status || 'BELUM DIINPUT';
     const optMarkup = statusOptions.map(function(opt) {
       return '<option value="' + opt + '" ' + (opt === curStatus ? 'selected' : '') + '>' + opt + '</option>';
     }).join('');
     const dateFormatted = k.timestamp ? k.timestamp.split(' ')[0] : '-';
 
-    return '<div class="bg-white rounded-xl border border-slate-200/90 p-3 shadow-xs hover:border-slate-300 hover:shadow-sm transition space-y-2" id="keepCard_' + k.customerWA + '">' +
-      // Header: Nama, Telpon, Cabang, Tanggal
-      '<div class="flex items-start justify-between gap-1.5">' +
+    let statusBadgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
+    if (curStatus === 'WIN') {
+      statusBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
+    } else if (curStatus.startsWith('ON PROGRESS')) {
+      statusBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200/80';
+    } else if (curStatus === 'BELUM DIINPUT' || curStatus === 'PENDING') {
+      statusBadgeClass = 'bg-rose-50 text-rose-600 border-rose-200/80';
+    } else if (curStatus === 'DOUBLE KEEP') {
+      statusBadgeClass = 'bg-purple-50 text-purple-700 border-purple-200/80';
+    } else if (curStatus === 'LOSE' || curStatus === 'TAKE OUT') {
+      statusBadgeClass = 'bg-slate-100 text-slate-500 border-slate-200';
+    }
+
+    // Default: item pertama (idx === 0) dibuka, sisanya ditutup agar tampilan awal super clean & rapi
+    window.omniExpandedKeepCards = window.omniExpandedKeepCards || {};
+    const isOpen = (typeof window.omniExpandedKeepCards[k.customerWA] === 'boolean')
+      ? window.omniExpandedKeepCards[k.customerWA]
+      : (idx === 0);
+
+    return '<div class="bg-white rounded-xl border border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-sm transition overflow-hidden" id="keepCard_' + k.customerWA + '">' +
+      // Collapsible Header: Selalu tampil ringkas dan rapi
+      '<div class="p-2.5 cursor-pointer select-none bg-white hover:bg-slate-50/80 transition flex items-start justify-between gap-1.5" onclick="toggleOmniKeepCard(\'' + k.customerWA + '\')">' +
         '<div class="min-w-0 flex-1">' +
           '<div class="flex items-center gap-1.5 flex-wrap">' +
-            '<span class="text-xs font-extrabold text-slate-900 truncate max-w-[150px]" title="' + escapeHtml(k.customerName) + '">' + escapeHtml(k.customerName) + '</span>' +
+            '<span class="text-xs font-extrabold text-slate-900 truncate max-w-[130px]" title="' + escapeHtml(k.customerName) + '">' + escapeHtml(k.customerName) + '</span>' +
             '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 shrink-0">' + escapeHtml(k.cabang) + '</span>' +
+            '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold border ' + statusBadgeClass + ' shrink-0">' + escapeHtml(curStatus) + '</span>' +
           '</div>' +
-          '<a href="https://wa.me/' + k.customerWA + '" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline mt-0.5" title="Buka Chat WhatsApp Customer">' +
-            '<span>+' + k.customerWA + '</span>' +
+          '<div class="flex items-center gap-1.5 mt-1 text-[11px] text-slate-600">' +
+            '<span class="font-bold text-slate-800 truncate max-w-[145px]" title="' + escapeHtml(k.barang) + '">📦 ' + escapeHtml(k.barang) + '</span>' +
+            '<span class="text-[9px] text-slate-300">&bull;</span>' +
+            '<span class="text-[10px] font-mono text-emerald-600 font-semibold truncate">+' + k.customerWA + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex flex-col items-end gap-1 shrink-0">' +
+          '<span class="text-[10px] font-mono font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded-md" title="Tanggal Keep">' + dateFormatted + '</span>' +
+          '<div class="p-0.5 text-slate-400 hover:text-slate-600">' +
+            '<svg id="keepChevron_' + k.customerWA + '" class="omni-keep-chevron w-4 h-4 transition-transform duration-200" style="transform:' + (isOpen ? 'rotate(180deg)' : 'rotate(0deg)') + ';" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // Collapsible Detail Body: Ditampilkan saat di-expand
+      '<div id="keepBody_' + k.customerWA + '" class="omni-keep-card-body px-3 pb-3 pt-1 border-t border-slate-100 space-y-2 bg-slate-50/40" data-customer-wa="' + k.customerWA + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
+        // Chat WA link
+        '<div class="flex items-center justify-between text-[11px] pt-1">' +
+          '<a href="https://wa.me/' + k.customerWA + '" target="_blank" class="inline-flex items-center gap-1 font-semibold text-emerald-600 hover:text-emerald-700 hover:underline" title="Buka Chat WhatsApp Customer">' +
+            '<span>Chat WhatsApp (+' + k.customerWA + ')</span>' +
             '<svg class="w-2.5 h-2.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
           '</a>' +
         '</div>' +
-        '<span class="shrink-0 text-[10px] font-mono font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded-md" title="Tanggal Keep">' + dateFormatted + '</span>' +
-      '</div>' +
 
-      // Info Box Compact: Barang, Catatan, Remarks, Tim Follow Up
-      '<div class="bg-slate-50/90 border border-slate-200/70 rounded-lg p-2 text-[11px] text-slate-700 space-y-1">' +
-        '<div class="flex items-baseline gap-1.5">' +
-          '<span class="text-[9px] font-bold text-slate-400 shrink-0 uppercase tracking-wider">Barang:</span>' +
-          '<span class="font-bold text-slate-900 break-words leading-tight">' + escapeHtml(k.barang) + '</span>' +
-        '</div>' +
-        (k.catatan && k.catatan !== '-' ? (
+        // Info Box Compact: Barang, Catatan, Remarks, Tim Follow Up
+        '<div class="bg-white border border-slate-200/80 rounded-lg p-2 text-[11px] text-slate-700 space-y-1 shadow-2xs">' +
           '<div class="flex items-baseline gap-1.5">' +
-            '<span class="text-[9px] font-bold text-slate-400 shrink-0 uppercase tracking-wider">Catatan:</span>' +
-            '<span class="text-slate-600 break-words leading-tight text-[10px]">' + escapeHtml(k.catatan) + '</span>' +
-          '</div>'
-        ) : '') +
-        '<div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-200/60 text-[10px]">' +
-          '<span class="text-slate-500 truncate" title="Remarks: ' + escapeHtml(k.remarks || '-') + '"><strong class="text-slate-400">Remarks:</strong> ' + escapeHtml(k.remarks || '-') + '</span>' +
-          (k.fuName ? ('<span class="text-blue-600 font-semibold shrink-0 truncate max-w-[130px]" title="Tim FU: ' + escapeHtml(k.fuName) + '"><strong class="text-slate-400">FU:</strong> ' + escapeHtml(k.fuName) + '</span>') : '') +
-        '</div>' +
-      '</div>' +
-
-      // Form 2 Kolom Efisien: Status & Report AR
-      '<div class="space-y-1.5 pt-0.5">' +
-        '<div class="grid grid-cols-2 gap-1.5">' +
-          '<div>' +
-            '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Status (Kolom V)</label>' +
-            '<select class="w-full text-[11px] font-bold py-1 px-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 transition" id="omniStatusSelect_' + k.customerWA + '">' +
-              optMarkup +
-            '</select>' +
+            '<span class="text-[9px] font-bold text-slate-400 shrink-0 uppercase tracking-wider">Barang:</span>' +
+            '<span class="font-bold text-slate-900 break-words leading-tight">' + escapeHtml(k.barang) + '</span>' +
           '</div>' +
-          '<div>' +
-            '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Report AR (Kolom N)</label>' +
-            '<input type="text" class="w-full text-[11px] py-1 px-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 text-slate-800 transition" id="omniReportARInp_' + k.customerWA + '" value="' + escapeHtml(k.reportAR || '') + '" placeholder="No Dokumen AR..." />' +
+          (k.catatan && k.catatan !== '-' ? (
+            '<div class="flex items-baseline gap-1.5">' +
+              '<span class="text-[9px] font-bold text-slate-400 shrink-0 uppercase tracking-wider">Catatan:</span>' +
+              '<span class="text-slate-600 break-words leading-tight text-[10px]">' + escapeHtml(k.catatan) + '</span>' +
+            '</div>'
+          ) : '') +
+          '<div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-200/60 text-[10px]">' +
+            '<span class="text-slate-500 truncate" title="Remarks: ' + escapeHtml(k.remarks || '-') + '"><strong class="text-slate-400">Remarks:</strong> ' + escapeHtml(k.remarks || '-') + '</span>' +
+            (k.fuName ? ('<span class="text-blue-600 font-semibold shrink-0 truncate max-w-[130px]" title="Tim FU: ' + escapeHtml(k.fuName) + '"><strong class="text-slate-400">FU:</strong> ' + escapeHtml(k.fuName) + '</span>') : '') +
           '</div>' +
         '</div>' +
 
-        '<div>' +
-          '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Feedback Tim FU (Kolom W)</label>' +
-          '<textarea rows="2" class="w-full text-[11px] py-1 px-2 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 text-slate-800 transition resize-y" id="omniFeedbackInp_' + k.customerWA + '" placeholder="Tulis feedback PIC FU...">' + escapeHtml(k.feedback || '') + '</textarea>' +
-        '</div>' +
+        // Form 2 Kolom Efisien: Status & Report AR
+        '<div class="space-y-1.5 pt-0.5">' +
+          '<div class="grid grid-cols-2 gap-1.5">' +
+            '<div>' +
+              '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Status (Kolom V)</label>' +
+              '<select class="w-full text-[11px] font-bold py-1 px-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 transition" id="omniStatusSelect_' + k.customerWA + '">' +
+                optMarkup +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Report AR (Kolom N)</label>' +
+              '<input type="text" class="w-full text-[11px] py-1 px-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 text-slate-800 transition" id="omniReportARInp_' + k.customerWA + '" value="' + escapeHtml(k.reportAR || '') + '" placeholder="No Dokumen AR..." />' +
+            '</div>' +
+          '</div>' +
 
-        '<button type="button" class="w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 active:scale-[0.99] shadow-xs flex items-center justify-center gap-1.5 transition cursor-pointer" id="btnSaveKeep_' + k.customerWA + '" onclick="saveSingleKeepFeedback(\'' + k.customerWA + '\', \'' + pic.key + '\')">' +
-          '<svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
-          '<span>Simpan Feedback & AR</span>' +
-        '</button>' +
+          '<div>' +
+            '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Feedback Tim FU (Kolom W)</label>' +
+            '<textarea rows="2" class="w-full text-[11px] py-1 px-2 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 text-slate-800 transition resize-y" id="omniFeedbackInp_' + k.customerWA + '" placeholder="Tulis feedback PIC FU...">' + escapeHtml(k.feedback || '') + '</textarea>' +
+          '</div>' +
+
+          '<button type="button" class="w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 active:scale-[0.99] shadow-xs flex items-center justify-center gap-1.5 transition cursor-pointer" id="btnSaveKeep_' + k.customerWA + '" onclick="saveSingleKeepFeedback(\'' + k.customerWA + '\', \'' + pic.key + '\')">' +
+            '<svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+            '<span>Simpan Feedback & AR</span>' +
+          '</button>' +
+        '</div>' +
       '</div>' +
 
     '</div>';
@@ -15638,16 +15712,22 @@ function renderOmniKeepPanel(pic) {
           '</button>' +
         '</div>' +
       '</div>' +
-      '<div class="grid grid-cols-2 p-1 bg-slate-100/90 rounded-lg text-[11px] font-bold text-slate-500 gap-1">' +
-        '<button type="button" class="py-1 px-2 rounded-md transition text-center cursor-pointer ' + (selectedOmniKeepSubTab === 'PENDING' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-800') + '" onclick="setOmniKeepSubTab(\'PENDING\')">' +
-          'Belum Diisi (' + pendingCount + ')' +
-        '</button>' +
-        '<button type="button" class="py-1 px-2 rounded-md transition text-center cursor-pointer ' + (selectedOmniKeepSubTab === 'RESOLVED' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-800') + '" onclick="setOmniKeepSubTab(\'RESOLVED\')">' +
-          'Selesai (' + resolvedCount + ')' +
+      '<div class="flex items-center gap-1.5">' +
+        '<div class="grid grid-cols-2 p-1 bg-slate-100/90 rounded-lg text-[11px] font-bold text-slate-500 gap-1 flex-1">' +
+          '<button type="button" class="py-1 px-2 rounded-md transition text-center cursor-pointer ' + (selectedOmniKeepSubTab === 'PENDING' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-800') + '" onclick="setOmniKeepSubTab(\'PENDING\')">' +
+            'Belum Diisi (' + pendingCount + ')' +
+          '</button>' +
+          '<button type="button" class="py-1 px-2 rounded-md transition text-center cursor-pointer ' + (selectedOmniKeepSubTab === 'RESOLVED' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-800') + '" onclick="setOmniKeepSubTab(\'RESOLVED\')">' +
+            'Selesai (' + resolvedCount + ')' +
+          '</button>' +
+        '</div>' +
+        '<button type="button" onclick="toggleAllOmniKeepCards()" class="p-1 px-2 text-[10px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/90 rounded-lg transition flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs" title="Buka atau Tutup Semua Kartu Konsumen">' +
+          '<svg class="w-3 h-3 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>' +
+          '<span>Toggle</span>' +
         '</button>' +
       '</div>' +
     '</div>' +
-    '<div class="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2.5 bg-slate-50/60">' +
+    '<div class="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2 bg-slate-50/60">' +
       cardsMarkup +
     '</div>';
 }

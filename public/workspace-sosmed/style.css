@@ -6568,6 +6568,10 @@ body.tab9-mode-active #tabContent9.active {
   transform: translateY(0);
 }
 
+.omni-keep-chevron {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Chat Bubbles: Modern Tailwind & WhatsApp Web Styling */
 .omni-msg-row {
   display: flex;
