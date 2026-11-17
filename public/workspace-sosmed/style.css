@@ -8227,6 +8227,26 @@ body.tab9-mode-active #tabContent9.active {
   filter: brightness(0.96);
 }
 
+/* WhatsApp Official Bubble Layout with Media */
+.omni-bubble.has-media {
+  padding: 4px 4px 6px 4px !important;
+  max-width: 400px;
+}
+
+.omni-bubble.has-media .omni-bubble-media {
+  margin: 0 0 6px 0;
+  border-radius: 6px 6px 4px 4px;
+}
+
+.omni-bubble.has-media > div:not(.omni-bubble-media) {
+  padding: 0 6px;
+}
+
+.omni-bubble.has-media .omni-bubble-time {
+  padding-right: 6px;
+  margin-top: 4px;
+}
+
 /* Image Lightbox Modal with Full-Screen Stage */
 .omni-img-modal {
   position: fixed;

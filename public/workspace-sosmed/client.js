@@ -14314,11 +14314,15 @@ function renderOmniActiveChat(pic) {
     }
     const textHtml = cleanTextRender ? ('<div style="white-space:pre-wrap; word-break:break-word;' + (hasImage ? ' margin-top:6px;' : '') + '">' + formatOmniWhatsAppMessage(cleanTextRender) + '</div>') : '';
 
+    const senderHeader = (!hasImage && !isOutgoing && pic.cabang && pic.cabang !== '-')
+      ? ('<div class="omni-bubble-sender">' + senderDisplayName + '</div>')
+      : '';
+
     messagesRendered.push(
       '<div class="omni-msg-row ' + (isOutgoing ? 'omni-msg-outgoing' : 'omni-msg-incoming') + '" id="omniMsg_' + safeMsgId + '" data-msg-id="' + safeMsgId + '">' +
         replyBtn +
-        '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
-          '<div class="omni-bubble-sender">' + senderDisplayName + '</div>' +
+        '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + (hasImage ? ' has-media' : '') + '">' +
+          senderHeader +
           quotedBlock +
           mediaMarkup +
           textHtml +
@@ -14708,9 +14712,13 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
   }
   const textHtmlStream = cleanTextRenderStream ? ('<div style="white-space:pre-wrap; word-break:break-word;' + (hasImage ? ' margin-top:6px;' : '') + '">' + formatOmniWhatsAppMessage(cleanTextRenderStream) + '</div>') : '';
 
+  const senderHeaderStream = (!hasImage && !isOutgoing && currentPic && currentPic.cabang && currentPic.cabang !== '-')
+    ? ('<div class="omni-bubble-sender">' + escapeHtml(senderNameText) + '</div>')
+    : '';
+
   row.innerHTML = replyBtn +
-    '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
-      '<div class="omni-bubble-sender">' + escapeHtml(senderNameText) + '</div>' +
+    '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + (hasImage ? ' has-media' : '') + '">' +
+      senderHeaderStream +
       quotedBlock +
       mediaMarkupStream +
       textHtmlStream +
