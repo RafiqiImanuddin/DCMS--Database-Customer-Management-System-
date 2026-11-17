@@ -12421,7 +12421,6 @@ function seedMasterDataFromKeepRows() {
     }
   }
 
-  // 3. Dari dynamicMasterSales (karyawan sales DCMS)
   if (typeof dynamicMasterSales !== 'undefined' && Array.isArray(dynamicMasterSales) && dynamicMasterSales.length > 0) {
     dynamicMasterSales.forEach(s => {
       if (s.name && s.phone) {
@@ -14098,6 +14097,27 @@ function renderOmniOnlineBadge(isOnline) {
   return '<span class="omni-status-pill offline" title="Kontak sedang Offline"><span class="omni-status-pill-dot"></span>Offline</span>';
 }
 
+window.omniLoadedFullHistoryMap = window.omniLoadedFullHistoryMap || {};
+
+function loadOmniFullChatHistory(picKey) {
+  if (!picKey) return;
+  window.omniLoadedFullHistoryMap[picKey] = true;
+  const stream = document.getElementById('omniMessagesStream');
+  const prevScrollHeight = stream ? stream.scrollHeight : 0;
+  const prevScrollTop = stream ? stream.scrollTop : 0;
+
+  const allPics = typeof getOmniPicChats === 'function' ? getOmniPicChats() : [];
+  const curPic = allPics.find(function(p) { return p.key === picKey; });
+  if (curPic) {
+    renderOmniActiveChat(curPic);
+    const newStream = document.getElementById('omniMessagesStream');
+    if (newStream && prevScrollHeight > 0) {
+      newStream.scrollTop = (newStream.scrollHeight - prevScrollHeight) + prevScrollTop;
+    }
+  }
+}
+window.loadOmniFullChatHistory = loadOmniFullChatHistory;
+
 function renderOmniActiveChat(pic) {
   const container = document.getElementById('omniChatViewContainer');
   if (!container) return;
@@ -14130,10 +14150,56 @@ function renderOmniActiveChat(pic) {
   });
   window.currentOmniChatMessages = dedupedMessages;
 
+  // OPTIMASI PERFORMA ROOMCHAT: HANYA MUAT 2 HARI TERAKHIR SECARA DEFAULT
+  const isFullHistoryLoaded = !!(window.omniLoadedFullHistoryMap && window.omniLoadedFullHistoryMap[pic.key]);
+
+  // Hitung batas 2 hari yang lalu (H-2 jam 00:00:00)
+  const dCutoff = new Date();
+  dCutoff.setDate(dCutoff.getDate() - 2);
+  dCutoff.setHours(0, 0, 0, 0);
+  const twoDaysAgoCutoff = dCutoff.getTime();
+
+  let olderMessages = [];
+  let visibleMessages = [];
+
+  if (isFullHistoryLoaded) {
+    visibleMessages = dedupedMessages;
+  } else {
+    dedupedMessages.forEach(function(m) {
+      const ts = parseOmniTimestamp(m.timestamp);
+      if (ts < twoDaysAgoCutoff) {
+        olderMessages.push(m);
+      } else {
+        visibleMessages.push(m);
+      }
+    });
+
+    // Jika seluruh pesan lebih lama dari 2 hari (obrolan tidak aktif), tampilkan 15 pesan terakhir sebagai konteks awal
+    if (visibleMessages.length === 0 && olderMessages.length > 0) {
+      const keepContextCount = Math.min(15, olderMessages.length);
+      visibleMessages = olderMessages.slice(-keepContextCount);
+      olderMessages = olderMessages.slice(0, olderMessages.length - keepContextCount);
+    }
+  }
+
   let lastDateGroup = null;
   const messagesRendered = [];
 
-  dedupedMessages.forEach(function(msg, idx) {
+  // Jika ada riwayat terdahulu yang disembunyikan (> 2 hari), sediakan tombol muat riwayat
+  if (olderMessages.length > 0) {
+    messagesRendered.push(
+      '<div class="omni-load-older-container" id="omniLoadOlderContainer">' +
+        '<button type="button" class="omni-load-older-btn" onclick="loadOmniFullChatHistory(\'' + escapeHtml(pic.key).replace(/'/g, "\\'") + '\')">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="display:inline-block; vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+          '<span>Muat Riwayat Chat Sebelumnya (' + olderMessages.length + ' pesan terdahulu)</span>' +
+        '</button>' +
+      '</div>'
+    );
+  }
+
+  visibleMessages.forEach(function(msg, idx) {
+    const fullIdx = dedupedMessages.indexOf(msg);
+    const targetIdx = fullIdx >= 0 ? fullIdx : idx;
     const msgTs = parseOmniTimestamp(msg.timestamp);
     const d = new Date(msgTs);
     const dateKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` : 'today';
@@ -14184,7 +14250,7 @@ function renderOmniActiveChat(pic) {
     const safeMsgId = escapeHtml(msgId).replace(/'/g, "\\'");
 
     const quotedBlock = replyToObj ? (
-      '<div class="omni-bubble-reply-block" onclick="handleOmniQuotedClick(' + idx + ')" title="Klik untuk melompat ke pesan yang direply">' +
+      '<div class="omni-bubble-reply-block" onclick="handleOmniQuotedClick(' + targetIdx + ')" title="Klik untuk melompat ke pesan yang direply">' +
         '<div class="omni-reply-block-sender">' + escapeHtml(replyToObj.senderName || 'Balasan') + '</div>' +
         '<div class="omni-reply-block-text">' + escapeHtml(replyToObj.text || '') + '</div>' +
       '</div>'

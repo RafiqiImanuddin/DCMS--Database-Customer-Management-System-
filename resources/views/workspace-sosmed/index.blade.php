@@ -16,7 +16,7 @@
     <script src="{{ asset('workspace-sosmed/lib/exceljs.min.js') }}"></script>
     <script src="{{ asset('workspace-sosmed/lib/html2canvas.min.js') }}"></script>
     <script src="{{ asset('workspace-sosmed/lib/chart.umd.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ asset('workspace-sosmed/style.css') }}?v={{ @filemtime(public_path('workspace-sosmed/style.css')) ?: '8.5' }}-v85">
+    <link rel="stylesheet" href="{{ asset('workspace-sosmed/style.css') }}?v={{ @filemtime(public_path('workspace-sosmed/style.css')) ?: '8.7' }}-v87">
 @endsection
 
 @section('content')

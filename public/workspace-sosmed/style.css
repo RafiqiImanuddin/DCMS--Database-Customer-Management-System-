@@ -6531,6 +6531,43 @@ body.tab9-mode-active #tabContent9.active {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+.omni-load-older-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0 16px;
+  width: 100%;
+}
+
+.omni-load-older-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 9999px;
+  color: #0369a1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.omni-load-older-btn:hover {
+  background: #f0f9ff;
+  border-color: #38bdf8;
+  color: #0284c7;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.15);
+  transform: translateY(-1px);
+}
+
+.omni-load-older-btn:active {
+  transform: translateY(0);
+}
+
 /* Chat Bubbles: Modern Tailwind & WhatsApp Web Styling */
 .omni-msg-row {
   display: flex;
