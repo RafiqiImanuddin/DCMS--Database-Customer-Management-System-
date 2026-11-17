@@ -11696,6 +11696,15 @@ try {
 
 const _omniFetchingAvatars = {};
 
+function handleOmniAvatarClick(e, phoneOrKey) {
+  if (e) e.stopPropagation();
+  const clean = typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(phoneOrKey) : String(phoneOrKey).replace(/\D/g, '');
+  const avatarUrl = window._omniAvatarMap[clean] || window._omniAvatarMap[phoneOrKey];
+  if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
+    openOmniImageModal(avatarUrl);
+  }
+}
+
 function getOmniAvatarHtml(phoneOrKey, size) {
   size = size || 36;
   if (!phoneOrKey) return generateBotAvatarSvg('PIC', size);
@@ -11704,7 +11713,7 @@ function getOmniAvatarHtml(phoneOrKey, size) {
   const avatarUrl = window._omniAvatarMap[clean] || window._omniAvatarMap[phoneOrKey];
 
   if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
-    return '<img src="' + escapeHtml(avatarUrl) + '" alt="Avatar" class="omni-avatar-img" style="width:' + size + 'px; height:' + size + 'px; min-width:' + size + 'px; border-radius:50%; object-fit:cover; display:block;" onerror="handleOmniAvatarError(this, \'' + escapeHtml(clean || phoneOrKey) + '\', ' + size + ')">';
+    return '<img src="' + escapeHtml(avatarUrl) + '" alt="Avatar" class="omni-avatar-img" style="width:' + size + 'px; height:' + size + 'px; min-width:' + size + 'px; border-radius:50%; object-fit:cover; display:block; cursor:pointer;" onclick="handleOmniAvatarClick(event, \'' + escapeHtml(clean || phoneOrKey) + '\')" title="Klik untuk memperbesar foto profil" onerror="handleOmniAvatarError(this, \'' + escapeHtml(clean || phoneOrKey) + '\', ' + size + ')">';
   }
 
   // Trigger background fetch foto profil WhatsApp asli dari gateway jika belum pernah dicoba
@@ -11754,7 +11763,7 @@ function updateOmniAvatarsInDom(clean, url, size) {
     if (onclickAttr.includes(clean)) {
       const avatarCircle = card.querySelector('.omni-avatar-circle');
       if (avatarCircle) {
-        avatarCircle.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Avatar" class="omni-avatar-img" style="width:36px; height:36px; min-width:36px; border-radius:50%; object-fit:cover; display:block;">';
+        avatarCircle.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Avatar" class="omni-avatar-img" style="width:36px; height:36px; min-width:36px; border-radius:50%; object-fit:cover; display:block; cursor:pointer;" onclick="handleOmniAvatarClick(event, \'' + escapeHtml(clean) + '\')" title="Klik untuk memperbesar foto profil">';
       }
     }
   });
@@ -11765,7 +11774,7 @@ function updateOmniAvatarsInDom(clean, url, size) {
     const curKey = typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(selectedOmniPicKey) : selectedOmniPicKey;
     if (curKey === clean || selectedOmniPicKey.includes(clean)) {
       const badge = headerAvatar.querySelector('.omni-badge-wa-dot');
-      headerAvatar.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Avatar" class="omni-avatar-img" style="width:38px; height:38px; min-width:38px; border-radius:50%; object-fit:cover; display:block;">';
+      headerAvatar.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Avatar" class="omni-avatar-img" style="width:38px; height:38px; min-width:38px; border-radius:50%; object-fit:cover; display:block; cursor:pointer;" onclick="handleOmniAvatarClick(event, \'' + escapeHtml(clean) + '\')" title="Klik untuk memperbesar foto profil">';
       if (badge) headerAvatar.appendChild(badge);
     }
   }
@@ -13877,7 +13886,7 @@ function renderOmniActiveChat(pic) {
 
   container.innerHTML = '<div class="omni-chatview-header">' +
     '<div class="omni-header-contact">' +
-      '<div class="omni-header-avatar" style="background:transparent; border:none; padding:0;">' +
+      '<div class="omni-header-avatar" style="background:transparent; border:none; padding:0; cursor:pointer;" onclick="handleOmniAvatarClick(event, \'' + escapeHtml(pic.picWA || pic.key) + '\')" title="Klik untuk memperbesar foto profil">' +
         getOmniAvatarHtml(pic.picWA || pic.key, 38) +
         '<span class="omni-badge-wa-dot"></span>' +
       '</div>' +
@@ -15319,6 +15328,7 @@ window.openWhatsAppChat = openWhatsAppChat;
 window.clearOmniTestChats = clearOmniTestChats;
 window.generateBotAvatarSvg = generateBotAvatarSvg;
 window.getOmniAvatarHtml = getOmniAvatarHtml;
+window.handleOmniAvatarClick = handleOmniAvatarClick;
 window.startOmniQuotedReply = startOmniQuotedReply;
 window.cancelOmniQuotedReply = cancelOmniQuotedReply;
 window.openOmniImageModal = openOmniImageModal;

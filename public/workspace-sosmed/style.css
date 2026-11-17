@@ -6040,6 +6040,21 @@ body.tab9-mode-active #tabContent9.active {
   border-radius: 50% !important;
   object-fit: cover !important;
   display: block !important;
+  cursor: pointer !important;
+  transition: transform 0.18s ease, filter 0.18s ease !important;
+}
+
+.omni-avatar-img:hover {
+  transform: scale(1.08) !important;
+  filter: brightness(1.05) !important;
+}
+
+.omni-header-avatar {
+  transition: transform 0.18s ease !important;
+}
+
+.omni-header-avatar:hover {
+  transform: scale(1.06) !important;
 }
 
 .omni-badge-wa-dot {
