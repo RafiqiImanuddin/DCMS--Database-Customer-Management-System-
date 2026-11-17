@@ -7211,8 +7211,7 @@ body.tab9-mode-active #tabContent9.active {
   border: 1px solid #e2e8f0 !important;
   border-radius: 12px !important;
   padding: 8px 14px !important;
-  display: flex !important;
-  align-items: flex-end !important;
+  display: block !important;
   box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08) !important;
   transition: border-color 0.15s, box-shadow 0.15s !important;
 }
@@ -7223,6 +7222,7 @@ body.tab9-mode-active #tabContent9.active {
 }
 
 .omni-textarea-wa {
+  display: block !important;
   width: 100% !important;
   border: none !important;
   background: transparent !important;
@@ -7232,7 +7232,7 @@ body.tab9-mode-active #tabContent9.active {
   font-size: 0.92rem !important;
   line-height: 1.45 !important;
   color: #111b21 !important;
-  padding: 2px 0 !important;
+  padding: 0 !important;
   margin: 0 !important;
   min-height: 24px !important;
   max-height: 160px !important;
