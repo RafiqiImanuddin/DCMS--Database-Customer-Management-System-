@@ -6031,6 +6031,15 @@ body.tab9-mode-active #tabContent9.active {
   font-size: 0.76rem;
   font-weight: 800;
   border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.omni-avatar-img {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  display: block !important;
 }
 
 .omni-badge-wa-dot {

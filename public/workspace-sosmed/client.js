@@ -11687,6 +11687,90 @@ function generateBotAvatarSvg(identifier, size) {
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 40 40" style="display:block;">' + shapePath + eyes + '</svg>';
 }
 
+// CACHE & FETCHER FOTO PROFIL WHATSAPP ASLI (Memory + LocalStorage)
+window._omniAvatarMap = window._omniAvatarMap || {};
+try {
+  const savedAvatars = localStorage.getItem('dcms_omni_avatars');
+  if (savedAvatars) window._omniAvatarMap = JSON.parse(savedAvatars) || {};
+} catch (e) {}
+
+const _omniFetchingAvatars = {};
+
+function getOmniAvatarHtml(phoneOrKey, size) {
+  size = size || 36;
+  if (!phoneOrKey) return generateBotAvatarSvg('PIC', size);
+
+  const clean = typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(phoneOrKey) : String(phoneOrKey).replace(/\D/g, '');
+  const avatarUrl = window._omniAvatarMap[clean] || window._omniAvatarMap[phoneOrKey];
+
+  if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
+    return '<img src="' + escapeHtml(avatarUrl) + '" alt="Avatar" class="omni-avatar-img" style="width:' + size + 'px; height:' + size + 'px; min-width:' + size + 'px; border-radius:50%; object-fit:cover; display:block;" onerror="handleOmniAvatarError(this, \'' + escapeHtml(clean || phoneOrKey) + '\', ' + size + ')">';
+  }
+
+  // Trigger background fetch foto profil WhatsApp asli dari gateway jika belum pernah dicoba
+  fetchOmniProfilePictureAsync(clean || phoneOrKey, size);
+
+  // Fallback instan awal: robot geometric SVG avatar
+  return generateBotAvatarSvg(clean || phoneOrKey, size);
+}
+
+function handleOmniAvatarError(imgEl, key, size) {
+  if (imgEl && imgEl.parentNode) {
+    imgEl.parentNode.innerHTML = generateBotAvatarSvg(key, size);
+  }
+}
+
+function fetchOmniProfilePictureAsync(phoneOrKey, size) {
+  if (!phoneOrKey) return;
+  const clean = typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(phoneOrKey) : String(phoneOrKey).replace(/\D/g, '');
+  if (!clean || clean.length < 10 || _omniFetchingAvatars[clean]) return;
+  if (window._omniAvatarMap[clean] !== undefined) return;
+
+  _omniFetchingAvatars[clean] = true;
+  fetch('/api/whatsapp-profile-pic?phone=' + encodeURIComponent(clean))
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      delete _omniFetchingAvatars[clean];
+      if (data && data.success && data.url) {
+        window._omniAvatarMap[clean] = data.url;
+        try {
+          localStorage.setItem('dcms_omni_avatars', JSON.stringify(window._omniAvatarMap));
+        } catch (e) {}
+        updateOmniAvatarsInDom(clean, data.url, size);
+      } else {
+        window._omniAvatarMap[clean] = false;
+      }
+    })
+    .catch(function() {
+      delete _omniFetchingAvatars[clean];
+    });
+}
+
+function updateOmniAvatarsInDom(clean, url, size) {
+  size = size || 36;
+  // 1. Update di sidebar list card
+  document.querySelectorAll('.omni-chat-card').forEach(function(card) {
+    const onclickAttr = card.getAttribute('onclick') || '';
+    if (onclickAttr.includes(clean)) {
+      const avatarCircle = card.querySelector('.omni-avatar-circle');
+      if (avatarCircle) {
+        avatarCircle.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Avatar" class="omni-avatar-img" style="width:36px; height:36px; min-width:36px; border-radius:50%; object-fit:cover; display:block;">';
+      }
+    }
+  });
+
+  // 2. Update di header roomchat jika obrolan ini sedang dibuka
+  const headerAvatar = document.querySelector('.omni-header-avatar');
+  if (headerAvatar && typeof selectedOmniPicKey !== 'undefined' && selectedOmniPicKey) {
+    const curKey = typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(selectedOmniPicKey) : selectedOmniPicKey;
+    if (curKey === clean || selectedOmniPicKey.includes(clean)) {
+      const badge = headerAvatar.querySelector('.omni-badge-wa-dot');
+      headerAvatar.innerHTML = '<img src="' + escapeHtml(url) + '" alt="Avatar" class="omni-avatar-img" style="width:38px; height:38px; min-width:38px; border-radius:50%; object-fit:cover; display:block;">';
+      if (badge) headerAvatar.appendChild(badge);
+    }
+  }
+}
+
 // QUOTED REPLY & IMAGE LIGHTBOX STATE
 let activeQuotedMsg = null; // { text: '...', senderName: '...' }
 
@@ -13440,7 +13524,7 @@ function renderOmniInboxModule() {
 
   listContainer.innerHTML = filtered.map(function(pic) {
     const isSelected = pic.key === selectedOmniPicKey;
-    const botAvatar = generateBotAvatarSvg(pic.picWA || pic.key, 36);
+    const botAvatar = getOmniAvatarHtml(pic.picWA || pic.key, 36);
     let timeDisplay = '';
     if (pic.latestTimestamp) {
       const parts = pic.latestTimestamp.split(' ');
@@ -13794,7 +13878,7 @@ function renderOmniActiveChat(pic) {
   container.innerHTML = '<div class="omni-chatview-header">' +
     '<div class="omni-header-contact">' +
       '<div class="omni-header-avatar" style="background:transparent; border:none; padding:0;">' +
-        generateBotAvatarSvg(pic.picWA || pic.key, 38) +
+        getOmniAvatarHtml(pic.picWA || pic.key, 38) +
         '<span class="omni-badge-wa-dot"></span>' +
       '</div>' +
       '<div class="omni-header-info">' +
@@ -15234,6 +15318,7 @@ window.handleOmniResolveClick = handleOmniResolveClick;
 window.openWhatsAppChat = openWhatsAppChat;
 window.clearOmniTestChats = clearOmniTestChats;
 window.generateBotAvatarSvg = generateBotAvatarSvg;
+window.getOmniAvatarHtml = getOmniAvatarHtml;
 window.startOmniQuotedReply = startOmniQuotedReply;
 window.cancelOmniQuotedReply = cancelOmniQuotedReply;
 window.openOmniImageModal = openOmniImageModal;

@@ -1499,6 +1499,79 @@ class WorkspaceSosmedController extends Controller
     }
 
     /**
+     * Dapatkan URL foto profil WhatsApp kontak secara non-blocking via Baileys atau WAHA
+     */
+    public function whatsappProfilePic(Request $request, WatzapService $watzapService): \Illuminate\Http\JsonResponse
+    {
+        $rawPhone = (string) $request->query('phone', '');
+        $phone = preg_replace('/\D/', '', $rawPhone);
+        if (! $phone) {
+            return response()->json(['success' => false, 'url' => null, 'message' => 'Phone required']);
+        }
+
+        if (str_starts_with($phone, '08')) {
+            $phone = '628' . substr($phone, 2);
+        } elseif (str_starts_with($phone, '8')) {
+            $phone = '62' . $phone;
+        }
+
+        $cacheKey = "wa_profile_pic_{$phone}";
+        $cachedUrl = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cachedUrl !== null) {
+            return response()->json([
+                'success' => ! empty($cachedUrl),
+                'url' => $cachedUrl ?: null,
+                'cached' => true,
+            ]);
+        }
+
+        $profilePicUrl = null;
+
+        // 1. Coba ambil via Baileys Bot Gateway jika aktif
+        if ($watzapService->isBaileysEnabled()) {
+            try {
+                $baileysUrl = $watzapService->getBaileysUrl();
+                $res = Http::timeout(4)
+                    ->withHeaders(['X-Api-Key' => $watzapService->getBaileysApiKey()])
+                    ->get("{$baileysUrl}/api/profile-picture", ['phone' => $phone]);
+
+                if ($res->successful() && ! empty($res->json('url'))) {
+                    $profilePicUrl = (string) $res->json('url');
+                }
+            } catch (\Throwable) {}
+        }
+
+        // 2. Fallback via WAHA VPS jika Baileys tidak memiliki foto
+        if (! $profilePicUrl && $watzapService->isWahaEnabled()) {
+            try {
+                $wahaUrl = $watzapService->getWahaUrl();
+                $session = $watzapService->getWahaSession();
+                $res = Http::timeout(4)
+                    ->withHeaders(['X-Api-Key' => $watzapService->getWahaApiKey()])
+                    ->get("{$wahaUrl}/api/contacts/profile-picture", [
+                        'session' => $session,
+                        'contactId' => "{$phone}@c.us",
+                    ]);
+
+                if ($res->successful() && ! empty($res->json('url') ?? $res->json('profilePictureURL'))) {
+                    $profilePicUrl = (string) ($res->json('url') ?? $res->json('profilePictureURL'));
+                }
+            } catch (\Throwable) {}
+        }
+
+        if ($profilePicUrl) {
+            // Cache foto profil selama 3 hari agar hemat kuota dan super cepat
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $profilePicUrl, now()->addDays(3));
+            return response()->json(['success' => true, 'url' => $profilePicUrl]);
+        }
+
+        // Jika tidak ada foto atau privasi disembunyikan, cache selama 1 jam agar tidak berulang-ulang query
+        \Illuminate\Support\Facades\Cache::put($cacheKey, '', now()->addHours(1));
+
+        return response()->json(['success' => false, 'url' => null]);
+    }
+
+    /**
      * Parse smart WhatsApp quoted text (> *Sender*:\n> message\n\nReply)
      *
      * @return array{cleanText: string, replyTo: array{senderName: string, text: string}|null}

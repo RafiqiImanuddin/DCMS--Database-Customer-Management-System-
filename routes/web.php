@@ -209,6 +209,7 @@ $registerSosmedApiRoutes = function () {
     Route::get('/watzap-status', [WorkspaceSosmedController::class, 'watzapStatus'])->name('api.sosmed.watzap_status');
     Route::match(['get', 'post'], '/omni-resolve', [WorkspaceSosmedController::class, 'omniResolve'])->name('api.sosmed.omni_resolve');
     Route::get('/watzap-media', [WorkspaceSosmedController::class, 'watzapMedia'])->name('api.sosmed.watzap_media');
+    Route::get('/whatsapp-profile-pic', [WorkspaceSosmedController::class, 'whatsappProfilePic'])->name('api.sosmed.whatsapp_profile_pic');
     Route::post('/watzap-simulate-receive', [WorkspaceSosmedController::class, 'watzapSimulateReceive'])->name('api.sosmed.watzap_simulate_receive');
     Route::match(['get', 'delete'], '/get-excel', [WorkspaceSosmedController::class, 'getExcel'])->name('api.sosmed.get_excel');
     Route::post('/save-excel', [WorkspaceSosmedController::class, 'saveExcel'])->name('api.sosmed.save_excel');

@@ -939,6 +939,37 @@ app.post('/api/subscribe-presence', async (req, res) => {
   }
 });
 
+// Endpoint Dapatkan URL Foto Profil WhatsApp Kontak
+app.get('/api/profile-picture', async (req, res) => {
+  try {
+    const rawPhone = req.query.phone || req.query.jid || '';
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
+    const jid = rawPhone.includes('@') ? rawPhone : `${cleanPhone}@s.whatsapp.net`;
+
+    if (!sock || connectionState !== 'CONNECTED') {
+      return res.json({ success: false, url: null, message: 'WhatsApp bot belum terhubung' });
+    }
+
+    let ppUrl = null;
+    try {
+      ppUrl = await sock.profilePictureUrl(jid, 'image');
+    } catch (e1) {
+      try {
+        ppUrl = await sock.profilePictureUrl(jid, 'preview');
+      } catch (e2) {}
+    }
+
+    if (ppUrl) {
+      return res.json({ success: true, url: ppUrl });
+    } else {
+      return res.json({ success: false, url: null, message: 'Tidak ada foto profil atau disembunyikan' });
+    }
+  } catch (err) {
+    return res.json({ success: false, url: null, message: err.message });
+  }
+});
+
 // Endpoint Dapatkan Pairing Code (Alternatif Scan QR untuk Cloud Deployment)
 app.post('/api/pair', async (req, res) => {
   const phone = (req.body.phone || '').replace(/\D/g, '');
