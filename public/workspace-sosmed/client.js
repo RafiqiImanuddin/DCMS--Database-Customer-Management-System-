@@ -13592,6 +13592,44 @@ function formatOmniDateDivider(timestamp) {
   return dateStr;
 }
 
+function formatOmniWhatsAppMessage(rawText) {
+  if (!rawText) return '';
+  let text = String(rawText);
+
+  // 1. Sisipkan newline jika ada label template keep yang terhimpit tanpa enter
+  text = text.replace(/([^\n\r])\s*(tanggal\s*keep|nama\s*customer|nomor\s*whatsapp|nomor\s*wa|barang\s*keep|barang|catatan|remaks|remarks|cabang|customer|handover|pesan\s*terakhir):/gi, '$1\n$2:');
+
+  // 2. Escape HTML untuk mencegah XSS
+  let escaped = escapeHtml(text);
+
+  // 3. Monospace code block ```code```
+  escaped = escaped.replace(/```([\s\S]*?)```/g, function(match, code) {
+    return '<pre style="background:rgba(0,0,0,0.06); padding:6px 10px; border-radius:6px; font-family:monospace; font-size:0.85em; margin:4px 0;"><code>' + code.trim() + '</code></pre>';
+  });
+
+  // 4. Inline code `code`
+  escaped = escaped.replace(/`([^`\n]+)`/g, '<code style="background:rgba(0,0,0,0.06); padding:2px 4px; border-radius:4px; font-family:monospace; font-size:0.9em;">$1</code>');
+
+  // 5. WhatsApp Bold: *text*
+  escaped = escaped.replace(/(^|[^\w*])\*([^*\n\r]+?)\*(?=[^\w*]|$)/g, '$1<strong style="font-weight:700;">$2</strong>');
+
+  // 6. WhatsApp Italic: _text_
+  escaped = escaped.replace(/(^|[^\w_])_([^_\n\r]+?)_(?=[^\w_]|$)/g, '$1<em style="font-style:italic;">$2</em>');
+
+  // 7. WhatsApp Strikethrough: ~text~
+  escaped = escaped.replace(/(^|[^\w~])~([^~\n\r]+?)~(?=[^\w~]|$)/g, '$1<del style="text-decoration:line-through; opacity:0.75;">$2</del>');
+
+  // 8. Auto-link URLs
+  escaped = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#0284c7; text-decoration:underline; font-weight:600;">$1</a>');
+
+  // 9. Format label field agar tampak tebal & terstruktur rapi
+  escaped = escaped.replace(/(^|\n|\r)(tanggal\s*keep|nama\s*customer|nomor\s*whatsapp|nomor\s*wa|barang\s*keep|barang|catatan|remaks|remarks|cabang|customer|handover|pesan\s*terakhir):\s*/gi, function(match, prefix, label) {
+    return prefix + '<span style="font-weight:700; color:#0f172a;">' + label.toUpperCase() + ':</span> ';
+  });
+
+  return escaped;
+}
+
 function renderOmniActiveChat(pic) {
   const container = document.getElementById('omniChatViewContainer');
   if (!container) return;
@@ -13726,7 +13764,7 @@ function renderOmniActiveChat(pic) {
     if (hasImage && (cleanTextRender === '[Foto/Gambar]' || cleanTextRender === '[Pesan Masuk]' || cleanTextRender === '[Image]')) {
       cleanTextRender = '';
     }
-    const textHtml = cleanTextRender ? ('<div style="white-space:pre-wrap; word-break:break-word;' + (hasImage ? ' margin-top:6px;' : '') + '">' + escapeHtml(cleanTextRender) + '</div>') : '';
+    const textHtml = cleanTextRender ? ('<div style="white-space:pre-wrap; word-break:break-word;' + (hasImage ? ' margin-top:6px;' : '') + '">' + formatOmniWhatsAppMessage(cleanTextRender) + '</div>') : '';
 
     messagesRendered.push(
       '<div class="omni-msg-row ' + (isOutgoing ? 'omni-msg-outgoing' : 'omni-msg-incoming') + '" id="omniMsg_' + safeMsgId + '" data-msg-id="' + safeMsgId + '">' +
@@ -14117,7 +14155,7 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
   if (hasImage && (cleanTextRenderStream === '[Foto/Gambar]' || cleanTextRenderStream === '[Pesan Masuk]' || cleanTextRenderStream === '[Image]')) {
     cleanTextRenderStream = '';
   }
-  const textHtmlStream = cleanTextRenderStream ? ('<div style="white-space:pre-wrap; word-break:break-word;' + (hasImage ? ' margin-top:6px;' : '') + '">' + escapeHtml(cleanTextRenderStream) + '</div>') : '';
+  const textHtmlStream = cleanTextRenderStream ? ('<div style="white-space:pre-wrap; word-break:break-word;' + (hasImage ? ' margin-top:6px;' : '') + '">' + formatOmniWhatsAppMessage(cleanTextRenderStream) + '</div>') : '';
 
   row.innerHTML = replyBtn +
     '<div class="omni-bubble ' + (isOutgoing ? 'omni-bubble-outgoing' : 'omni-bubble-incoming') + '">' +
@@ -15189,6 +15227,7 @@ window.sendOmniReply = sendOmniReply;
 window.scrollOmniStreamToBottom = scrollOmniStreamToBottom;
 window.handleOmniInputKey = handleOmniInputKey;
 window.handleOmniInputTyping = handleOmniInputTyping;
+window.formatOmniWhatsAppMessage = formatOmniWhatsAppMessage;
 window.insertQuickReply = insertQuickReply;
 window.handleOmniAttachmentClick = handleOmniAttachmentClick;
 window.handleOmniResolveClick = handleOmniResolveClick;
