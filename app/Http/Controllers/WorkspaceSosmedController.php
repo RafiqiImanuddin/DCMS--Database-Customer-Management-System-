@@ -1018,7 +1018,7 @@ class WorkspaceSosmedController extends Controller
                     cache()->put('broadcast_inbox_sync_ts', time(), 60);
                     $recentBroadcasts = BroadcastReport::where('status', 'sent')
                         ->where('created_at', '>=', now()->subDays(3))
-                        ->with('prediction')
+                        ->with(['prediction', 'batch'])
                         ->latest('id')
                         ->take(50)
                         ->get();
@@ -1050,6 +1050,9 @@ class WorkspaceSosmedController extends Controller
                             }
 
                             $bTimestamp = $br->sent_at ? ($br->sent_at->timestamp * 1000) : (time() * 1000);
+                            $batchTitle = $br->batch?->title ?: 'Test Baileys Broadcast';
+                            $custCode = $br->customer_vendor_code ?: ($br->prediction?->customer_vendor_code ?? '-');
+                            $custCabang = $br->prediction?->cabang ?? '-';
 
                             $messages[] = [
                                 'messageId' => $bMsgId,
@@ -1063,6 +1066,14 @@ class WorkspaceSosmedController extends Controller
                                 'sender' => 'ADMIN',
                                 'senderName' => $custName,
                                 'gateway' => 'BAILEYS_GATEWAY',
+                                'is_broadcast' => true,
+                                'is_outbound' => true,
+                                'customer_name' => $custName,
+                                'customer_code' => $custCode,
+                                'customer_cabang' => $custCabang,
+                                'batch_title' => $batchTitle,
+                                'template_name' => $batchTitle,
+                                'sent_at' => $br->sent_at ? $br->sent_at->toDateTimeString() : null,
                             ];
 
                             $existingIdMap[$bMsgId] = true;
@@ -1087,16 +1098,29 @@ class WorkspaceSosmedController extends Controller
                             }
                         }
 
-                        // Bersihkan juga entri lama yang terlanjur tercatat sebagai 'Broadcast DCMS'
+                        // Bersihkan juga entri lama yang terlanjur tercatat sebagai 'Broadcast DCMS' atau outbound
                         foreach ($messages as &$exM) {
-                            if (($exM['senderName'] ?? '') === 'Broadcast DCMS') {
-                                $pClean = preg_replace('/\D/', '', (string) ($exM['phone'] ?? ''));
-                                if (preg_match('/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i', (string) ($exM['message'] ?? ''), $nm)) {
-                                    $exM['senderName'] = trim($nm[1]);
-                                } else {
-                                    $exM['senderName'] = 'Customer '.$pClean;
+                            $isBc = !empty($exM['is_broadcast']) || str_starts_with((string)($exM['messageId'] ?? ''), 'bc_') || ($exM['gateway'] ?? '') === 'BAILEYS_GATEWAY';
+                            if ($isBc || ($exM['senderName'] ?? '') === 'Broadcast DCMS' || str_contains((string)($exM['message'] ?? ''), 'kami dari Gadgetmart')) {
+                                $exM['is_broadcast'] = true;
+                                $exM['is_outbound'] = true;
+                                if (empty($exM['batch_title'])) {
+                                    $exM['batch_title'] = 'Test Baileys Broadcast';
                                 }
-                                $hasNewBroadcast = true;
+                                if (empty($exM['template_name'])) {
+                                    $exM['template_name'] = $exM['batch_title'] ?? 'Template Promo WhatsApp';
+                                }
+                                if (($exM['senderName'] ?? '') === 'Broadcast DCMS' || empty($exM['senderName']) || str_starts_with((string)$exM['senderName'], 'Customer 62')) {
+                                    $pClean = preg_replace('/\D/', '', (string) ($exM['phone'] ?? ''));
+                                    if (preg_match('/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i', (string) ($exM['message'] ?? ''), $nm)) {
+                                        $exM['senderName'] = trim($nm[1]);
+                                        $exM['customer_name'] = trim($nm[1]);
+                                    } else {
+                                        $exM['senderName'] = 'Customer '.$pClean;
+                                        $exM['customer_name'] = 'Customer '.$pClean;
+                                    }
+                                    $hasNewBroadcast = true;
+                                }
                             }
                         }
                         unset($exM);

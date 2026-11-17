@@ -103,13 +103,17 @@ class BroadcastService
                 $this->recordCycleStart();
 
                 // Sinkronkan langsung ke Inbox Follow-Up (Tab 9) & Live Chat Widget DCMS
+                $batchTitle = $report->batch?->title ?: 'Test Baileys Broadcast';
                 $this->recordBroadcastToInbox(
                     $prediction->no_hp_customer,
                     $personalizedMessage,
                     $imageUrl,
                     $msgId,
                     $userId,
-                    $prediction->customer_vendor_name
+                    $prediction->customer_vendor_name,
+                    $batchTitle,
+                    $prediction->customer_vendor_code,
+                    $prediction->cabang
                 );
             }
         } catch (Throwable $exception) {
@@ -131,7 +135,10 @@ class BroadcastService
         ?string $mediaUrl,
         string $msgId,
         int $userId,
-        ?string $customerName = null
+        ?string $customerName = null,
+        ?string $batchTitle = null,
+        ?string $customerCode = null,
+        ?string $cabang = null
     ): void {
         try {
             $cleanPhone = preg_replace('/\D/', '', $rawPhone);
@@ -189,6 +196,7 @@ class BroadcastService
             $msgFile = $storageDir.DIRECTORY_SEPARATOR.'watzap_messages.json';
             $messages = File::exists($msgFile) ? (json_decode(File::get($msgFile), true) ?? []) : [];
 
+            $resolvedBatch = $batchTitle ?: 'Test Baileys Broadcast';
             $entry = [
                 'messageId' => $msgId,
                 'phone' => $cleanPhone,
@@ -201,6 +209,14 @@ class BroadcastService
                 'sender' => 'ADMIN',
                 'senderName' => $displayName,
                 'gateway' => 'BAILEYS_GATEWAY',
+                'is_broadcast' => true,
+                'is_outbound' => true,
+                'customer_name' => $displayName,
+                'customer_code' => $customerCode ?? '-',
+                'customer_cabang' => $cabang ?? '-',
+                'batch_title' => $resolvedBatch,
+                'template_name' => $resolvedBatch,
+                'sent_at' => now()->toDateTimeString(),
             ];
 
             $messages[] = $entry;

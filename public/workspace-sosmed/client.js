@@ -12918,6 +12918,20 @@ function getOmniThreads() {
 
       if (!cleaned[targetKey]) cleaned[targetKey] = [];
       (raw[k] || []).forEach(function(msg) {
+        // Otomatis bersihkan entri lama jika masih tersimpan 'Broadcast DCMS' di localStorage
+        if (msg.senderName === 'Broadcast DCMS' || (msg.senderName && msg.senderName.includes('Broadcast'))) {
+          const t = (msg.text || msg.message || '').trim();
+          const mName = t.match(/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i) ||
+                        t.match(/halo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i);
+          if (mName && mName[1]) {
+            msg.senderName = mName[1].trim();
+            msg.customer_name = mName[1].trim();
+          } else {
+            msg.senderName = 'Customer ' + (normalizeWhatsAppPhone(msg.phone || k) || k);
+          }
+          modified = true;
+        }
+
         const msgTs = parseOmniTimestamp(msg.timestamp);
         const msgText = (msg.text || msg.message || '').trim();
         const exists = cleaned[targetKey].some(function(m) {
@@ -13502,11 +13516,67 @@ function getOmniPicChats() {
   const lidMap = getLidPicMap();
   const readMap = getOmniReadTimestamps();
 
+  // Bersihkan cache lidMap jika ada entri lama yang tercatat 'Broadcast'
+  let lidModified = false;
+  Object.keys(lidMap).forEach(function(lk) {
+    if (lidMap[lk] && lidMap[lk].picName && lidMap[lk].picName.toLowerCase().includes('broadcast')) {
+      delete lidMap[lk];
+      lidModified = true;
+    }
+  });
+  if (lidModified) saveLidPicMap(lidMap);
+
   const result = [];
   activeKeys.forEach(function(key) {
     const cleanKey = normalizeWhatsAppPhone(key) || key;
     const chatMsgs = threads[key] || [];
     const lastMsg = chatMsgs[chatMsgs.length - 1];
+
+    // Deteksi apakah percakapan berasal dari aktivitas broadcast outbound
+    let isOutbound = false;
+    let outboundDetail = null;
+    for (let i = chatMsgs.length - 1; i >= 0; i--) {
+      const m = chatMsgs[i];
+      const mText = (m.text || m.message || '').trim();
+      const isBcMsg = !!(m.is_broadcast || m.is_outbound || (m.id && String(m.id).startsWith('bc_')) || (m.messageId && String(m.messageId).startsWith('bc_')) || (m.gateway === 'BAILEYS_GATEWAY'));
+      const hasBcGreeting = /hallo\s+kaka?\s+[A-Za-z0-9\s\.\-_]+?\s+kami\s+dari/i.test(mText) || /halo\s+kaka?\s+[A-Za-z0-9\s\.\-_]+?\s+kami\s+dari/i.test(mText) || mText.includes('kami dari Gadgetmart');
+
+      if (isBcMsg || hasBcGreeting) {
+        isOutbound = true;
+        if (!outboundDetail) {
+          let custName = (m.customer_name || m.senderName || '').trim();
+          if (!custName || custName.toLowerCase().includes('broadcast') || custName.toLowerCase().startsWith('customer 62')) {
+            const mName = mText.match(/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i) ||
+                          mText.match(/halo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i);
+            if (mName && mName[1]) custName = mName[1].trim();
+          }
+
+          let templateName = m.template_name || m.batch_title || '';
+          if (!templateName) {
+            const mPromo = mText.match(/🚨\s*PROMO\s+SPESIAL\s+([^!\n\r]+)/i) || mText.match(/PROMO\s+([^!\n\r]+)/i);
+            if (mPromo && mPromo[1]) {
+              templateName = 'Promo ' + mPromo[1].trim();
+            } else {
+              templateName = 'Template Promo WhatsApp';
+            }
+          }
+
+          outboundDetail = {
+            batchTitle: m.batch_title || 'Test Baileys Broadcast',
+            templateName: templateName,
+            customerName: custName || ('Customer ' + cleanKey.slice(-4)),
+            customerCode: m.customer_code || '-',
+            cabang: m.customer_cabang || '-',
+            phone: cleanKey,
+            sentAt: m.sent_at || m.timestamp,
+            mediaUrl: m.mediaUrl || m.media_url || '',
+            messageText: mText,
+            status: m.status || 'sent',
+            gateway: m.gateway || 'BAILEYS_GATEWAY'
+          };
+        }
+      }
+    }
 
     // Deteksi nama profil WhatsApp dan nomor telepon asli dari riwayat pesan
     let detectedSenderName = '';
@@ -13514,7 +13584,7 @@ function getOmniPicChats() {
     for (let i = chatMsgs.length - 1; i >= 0; i--) {
       const m = chatMsgs[i];
       if (!detectedSenderName) {
-        const cand = (m.senderName || m.pushname || m.notifyName || '').trim();
+        const cand = (m.customer_name || m.senderName || m.pushname || m.notifyName || '').trim();
         if (cand && !cand.toLowerCase().startsWith('admin') && cand.toLowerCase() !== 'pic' && !cand.startsWith('PIC ') && !cand.toLowerCase().includes('broadcast')) {
           detectedSenderName = cand;
         }
@@ -13528,8 +13598,10 @@ function getOmniPicChats() {
       if (detectedSenderName && detectedRealPhone) break;
     }
 
-    // Jika belum ada nama tapi ada pesan sapaan broadcast, otomatis ambil nama customer dari teks
-    if (!detectedSenderName) {
+    // Jika broadcast outbound, utamakan nama pelanggan dari detail pesan/sapaan
+    if (isOutbound && outboundDetail && outboundDetail.customerName) {
+      detectedSenderName = outboundDetail.customerName;
+    } else if (!detectedSenderName) {
       for (let i = 0; i < chatMsgs.length; i++) {
         const t = (chatMsgs[i].text || chatMsgs[i].message || '').trim();
         const mName = t.match(/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i) ||
@@ -13569,11 +13641,13 @@ function getOmniPicChats() {
     const cabang = matched.cabang || (lidCached ? lidCached.cabang : '-') || '-';
 
     let picName = '';
-    if (lidCached && lidCached.picName) {
+    if (isOutbound && outboundDetail && outboundDetail.customerName) {
+      picName = outboundDetail.customerName;
+    } else if (lidCached && lidCached.picName && !lidCached.picName.toLowerCase().includes('broadcast')) {
       picName = lidCached.picName;
-    } else if (matched.matched && matched.picName) {
+    } else if (matched.matched && matched.picName && !matched.picName.toLowerCase().includes('broadcast')) {
       picName = matched.picName;
-    } else if (detectedSenderName) {
+    } else if (detectedSenderName && !detectedSenderName.toLowerCase().includes('broadcast')) {
       picName = detectedSenderName;
     } else if (isLid) {
       picName = 'Pengguna WhatsApp (' + cleanKey.slice(-4) + ')';
@@ -13679,6 +13753,8 @@ function getOmniPicChats() {
       latestSnippet: snippet,
       lastMessageText: snippet,
       lastStatusTick: lastStatusTick,
+      isOutbound: isOutbound,
+      outboundDetail: outboundDetail,
       messages: chatMsgs
     });
   });
@@ -13825,7 +13901,10 @@ function renderOmniInboxModule() {
       '</div>' +
       '<div class="omni-card-body">' +
         '<div class="omni-card-top-row">' +
-          '<span class="omni-card-name" title="' + escapeHtml(pic.picName) + '">' + escapeHtml(pic.picName) + '</span>' +
+          '<div style="display:flex; align-items:center; gap:5px; min-width:0; flex:1; overflow:hidden;">' +
+            '<span class="omni-card-name" title="' + escapeHtml(pic.picName) + '">' + escapeHtml(pic.picName) + '</span>' +
+            (pic.isOutbound ? '<span class="omni-badge-outbound">OUTBOUND</span>' : '') +
+          '</div>' +
           '<span class="omni-card-time">' + timeDisplay + '</span>' +
         '</div>' +
         '<div class="omni-card-snippet" title="' + escapeHtml(pic.latestSnippet) + '">' + (pic.lastStatusTick ? pic.lastStatusTick + ' ' : '') + escapeHtml(pic.latestSnippet) + '</div>' +
@@ -14353,6 +14432,7 @@ function renderOmniActiveChat(pic) {
       '<div class="omni-header-info">' +
         '<div class="omni-header-name">' +
           '<span>' + escapeHtml(pic.picName) + '</span>' +
+          (pic.isOutbound ? '<span class="omni-badge-outbound" style="font-size:8.5px; padding:2px 6px;">OUTBOUND</span>' : '') +
           '<span class="omni-badge-fu-tag">' + escapeHtml(pic.cabang) + '</span>' +
         '</div>' +
         '<div class="omni-header-meta" id="omniHeaderMeta">' +
@@ -15576,11 +15656,162 @@ function toggleAllOmniKeepCards(forceOpen) {
 }
 window.toggleAllOmniKeepCards = toggleAllOmniKeepCards;
 
+function renderOmniLeadsOutboundPanel(pic, container) {
+  if (!container) container = document.getElementById('omniDetailsPanelContainer');
+  if (!container || !pic) return;
+
+  const d = pic.outboundDetail || {};
+  const custName = d.customerName || pic.picName || 'Pelanggan';
+  const custPhone = d.phone || pic.picWA || pic.key;
+  const custCode = (d.customerCode && d.customerCode !== '-') ? d.customerCode : '-';
+  const custCabang = (d.cabang && d.cabang !== '-') ? d.cabang : (pic.cabang && pic.cabang !== '-' ? pic.cabang : '-');
+  const batchTitle = d.batchTitle || 'Test Baileys Broadcast';
+  const templateName = d.templateName || 'PROMO SPESIAL IPHONE 18 PRO SERIES DI GADGET MART!';
+  const sentTimeStr = d.sentAt ? (function() {
+    const epoch = parseOmniTimestamp(d.sentAt);
+    const dt = new Date(epoch);
+    return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  })() : 'Baru saja';
+  const messageSnippet = d.messageText || (pic.messages && pic.messages.length > 0 ? (pic.messages[0].text || pic.messages[0].message || '') : '-');
+  const mediaUrl = d.mediaUrl || '';
+
+  container.innerHTML =
+    '<div class="p-3 border-b border-slate-200 bg-white space-y-1 shrink-0">' +
+      '<div class="flex items-center justify-between gap-1.5">' +
+        '<div class="flex items-center gap-1.5 min-w-0">' +
+          '<span class="text-xs font-black text-slate-900 tracking-tight">Leads Outbound Detail</span>' +
+          '<span class="omni-badge-outbound">OUTBOUND</span>' +
+        '</div>' +
+        '<a href="/broadcast-reports" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-0.5" title="Buka Halaman Laporan Broadcast">' +
+          '<span>Laporan</span>' +
+          '<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>' +
+        '</a>' +
+      '</div>' +
+      '<div class="text-[11px] text-slate-400 truncate">Detail data leads konsumen & aktivitas broadcast</div>' +
+    '</div>' +
+
+    '<div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 bg-slate-50/70">' +
+      // Card 1: Data Konsumen
+      '<div class="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-3 space-y-2.5">' +
+        '<div class="flex items-center justify-between border-b border-slate-100 pb-2">' +
+          '<div class="flex items-center gap-1.5">' +
+            '<div class="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">' +
+              '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+            '</div>' +
+            '<span class="text-xs font-extrabold text-slate-800">Data Konsumen</span>' +
+          '</div>' +
+          '<span class="text-[9.5px] font-extrabold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">Leads Customer</span>' +
+        '</div>' +
+        '<div class="space-y-1.5 text-xs">' +
+          '<div class="flex justify-between items-center py-1 border-b border-slate-50">' +
+            '<span class="text-[11px] font-medium text-slate-400">Nama Pelanggan</span>' +
+            '<span class="font-bold text-slate-800 text-right">' + escapeHtml(custName) + '</span>' +
+          '</div>' +
+          '<div class="flex justify-between items-center py-1 border-b border-slate-50">' +
+            '<span class="text-[11px] font-medium text-slate-400">Nomor WhatsApp</span>' +
+            '<a href="https://wa.me/' + escapeHtml(custPhone) + '" target="_blank" class="font-bold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 text-right" title="Hubungi di WhatsApp">' +
+              '<span>' + formatWhatsAppPhoneDisplay(custPhone) + '</span>' +
+              '<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
+            '</a>' +
+          '</div>' +
+          '<div class="flex justify-between items-center py-1 border-b border-slate-50">' +
+            '<span class="text-[11px] font-medium text-slate-400">Kode Pelanggan</span>' +
+            '<span class="font-mono font-bold text-slate-700 bg-slate-50 px-1.5 py-0.5 rounded text-[11px]">' + escapeHtml(custCode) + '</span>' +
+          '</div>' +
+          '<div class="flex justify-between items-center py-1">' +
+            '<span class="text-[11px] font-medium text-slate-400">Cabang / Wilayah</span>' +
+            '<span class="font-bold text-slate-700 text-right">' + escapeHtml(custCabang) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // Card 2: Data Broadcast
+      '<div class="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-3 space-y-2.5">' +
+        '<div class="flex items-center justify-between border-b border-slate-100 pb-2">' +
+          '<div class="flex items-center gap-1.5">' +
+            '<div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">' +
+              '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>' +
+            '</div>' +
+            '<span class="text-xs font-extrabold text-slate-800">Data Broadcast</span>' +
+          '</div>' +
+          '<span class="inline-flex items-center gap-1 text-[9.5px] font-extrabold px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded">' +
+            '<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' +
+            'Terkirim' +
+          '</span>' +
+        '</div>' +
+
+        '<div class="space-y-2 text-xs">' +
+          '<div>' +
+            '<div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Nama Batch / Kampanye</div>' +
+            '<div class="font-bold text-slate-800 mt-0.5">' + escapeHtml(batchTitle) + '</div>' +
+          '</div>' +
+
+          '<div>' +
+            '<div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Template Broadcast</div>' +
+            '<div class="font-semibold text-indigo-700 mt-0.5 bg-indigo-50/70 border border-indigo-100 px-2 py-1.5 rounded-lg text-[11px] leading-snug">' +
+              escapeHtml(templateName) +
+            '</div>' +
+          '</div>' +
+
+          '<div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">' +
+            '<div>' +
+              '<div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Waktu Kirim</div>' +
+              '<div class="font-bold text-slate-700 text-[11px] mt-0.5">' + escapeHtml(sentTimeStr) + '</div>' +
+            '</div>' +
+            '<div>' +
+              '<div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Gateway</div>' +
+              '<div class="font-bold text-slate-700 text-[11px] mt-0.5">Baileys Gateway</div>' +
+            '</div>' +
+          '</div>' +
+
+          (mediaUrl ? (
+            '<div class="pt-2 border-t border-slate-100">' +
+              '<div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Lampiran Poster</div>' +
+              '<div class="relative rounded-lg overflow-hidden border border-slate-200 max-h-36 bg-slate-900/5 group cursor-pointer" onclick="handleOmniAvatarClick(event, \'' + escapeHtml(mediaUrl) + '\')">' +
+                '<img src="' + escapeHtml(mediaUrl) + '" class="w-full object-cover max-h-36 hover:scale-105 transition duration-300" alt="Poster Broadcast" />' +
+                '<div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10.5px] font-bold">' +
+                  'Klik untuk perbesar' +
+                '</div>' +
+              '</div>' +
+            '</div>'
+          ) : '') +
+
+          '<div class="pt-2 border-t border-slate-100">' +
+            '<div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Cuplikan Pesan Broadcast</div>' +
+            '<div class="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-sans leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap select-text">' +
+              escapeHtml(messageSnippet) +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // Card 3: Quick Action
+      '<div class="p-3 bg-gradient-to-br from-indigo-50/80 to-blue-50/50 rounded-xl border border-indigo-100 flex items-center justify-between gap-2">' +
+        '<div class="min-w-0">' +
+          '<div class="text-xs font-black text-indigo-950">Laporan Broadcast</div>' +
+          '<div class="text-[10px] text-indigo-700/80">Pantau performa delivery & read rate</div>' +
+        '</div>' +
+        '<a href="/broadcast-reports" class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10.5px] font-bold transition shadow-xs shrink-0 flex items-center gap-1 cursor-pointer">' +
+          '<span>Lihat Laporan</span>' +
+          '<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>' +
+        '</a>' +
+      '</div>' +
+    '</div>';
+}
+window.renderOmniLeadsOutboundPanel = renderOmniLeadsOutboundPanel;
+
 function renderOmniKeepPanel(pic) {
   const container = document.getElementById('omniDetailsPanelContainer');
   if (!container) return;
   if (!pic) {
     container.innerHTML = '';
+    return;
+  }
+
+  // JIKA AKTIVITAS DARI BROADCAST (OUTBOUND):
+  // Alihkan tampilan panel menjadi Leads Outbound Detail (Data Konsumen & Data Broadcast)
+  if (pic.isOutbound) {
+    renderOmniLeadsOutboundPanel(pic, container);
     return;
   }
 
