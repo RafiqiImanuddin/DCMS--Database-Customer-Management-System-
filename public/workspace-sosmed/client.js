@@ -4740,6 +4740,7 @@ window.focusKeepRow = focusKeepRow;
 
 async function pollLatestKeepData() {
   if (isKeepPollingRunning) return;
+  if (typeof document !== 'undefined' && document.hidden) return;
   isKeepPollingRunning = true;
 
   try {
@@ -12432,7 +12433,19 @@ function seedMasterDataFromKeepRows() {
   return Array.from(masterMap.values());
 }
 
+let _cachedMasterDataPICs = null;
+let _lastMasterKeepRowsLength = -1;
+
+function invalidateMasterDataCache() {
+  _cachedMasterDataPICs = null;
+  _lastMasterKeepRowsLength = -1;
+}
+
 function getMasterDataPICs() {
+  const currentKeepLen = Array.isArray(rawKeepRows) ? rawKeepRows.length : 0;
+  if (_cachedMasterDataPICs && _lastMasterKeepRowsLength === currentKeepLen) {
+    return _cachedMasterDataPICs;
+  }
   const seeded = seedMasterDataFromKeepRows();
   try {
     const raw = localStorage.getItem(OMNI_MASTER_STORAGE_KEY);
@@ -12451,14 +12464,20 @@ function getMasterDataPICs() {
             }
           }
         });
-        return Array.from(map.values());
+        _cachedMasterDataPICs = Array.from(map.values());
+        _lastMasterKeepRowsLength = currentKeepLen;
+        return _cachedMasterDataPICs;
       }
     }
   } catch (e) {}
-  return seeded;
+  _cachedMasterDataPICs = seeded;
+  _lastMasterKeepRowsLength = currentKeepLen;
+  return _cachedMasterDataPICs;
 }
 
 function saveMasterDataPICs(list) {
+  _cachedMasterDataPICs = list;
+  _lastMasterKeepRowsLength = Array.isArray(rawKeepRows) ? rawKeepRows.length : 0;
   try {
     localStorage.setItem(OMNI_MASTER_STORAGE_KEY, JSON.stringify(list || []));
   } catch (e) {}
@@ -12500,15 +12519,23 @@ function syncMasterDataFromKeepCSV() {
 // ==========================================================================
 const OMNI_LID_MAP_KEY = 'gadgetmart_lid_pic_map';
 
+let _cachedLidPicMap = null;
+
 function getLidPicMap() {
+  if (_cachedLidPicMap && typeof _cachedLidPicMap === 'object') {
+    return _cachedLidPicMap;
+  }
   try {
-    return JSON.parse(localStorage.getItem(OMNI_LID_MAP_KEY) || '{}');
+    _cachedLidPicMap = JSON.parse(localStorage.getItem(OMNI_LID_MAP_KEY) || '{}');
+    return _cachedLidPicMap;
   } catch (e) {
-    return {};
+    _cachedLidPicMap = {};
+    return _cachedLidPicMap;
   }
 }
 
 function saveLidPicMap(map) {
+  _cachedLidPicMap = map;
   try {
     localStorage.setItem(OMNI_LID_MAP_KEY, JSON.stringify(map || {}));
   } catch (e) {}
@@ -12836,9 +12863,14 @@ function deletePicMaster(wa) {
 }
 
 // --------------------------------------------------------------------------
-// ROOMCHAT THREAD PERSISTENCE (100% CERMIN WHATSAPP)
+// ROOMCHAT THREAD PERSISTENCE (100% CERMIN WHATSAPP - ULTRA FAST MEMORY CACHED)
 // --------------------------------------------------------------------------
+let _cachedOmniThreads = null;
+
 function getOmniThreads() {
+  if (_cachedOmniThreads && typeof _cachedOmniThreads === 'object') {
+    return _cachedOmniThreads;
+  }
   try {
     const raw = JSON.parse(localStorage.getItem('gadgetmart_omni_threads') || '{}');
     const cleaned = {};
@@ -12902,28 +12934,32 @@ function getOmniThreads() {
     });
 
     if (modified) {
-      localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
+      try {
+        localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
+      } catch (e) {}
 
-    // Sinkronisasi realtime ke Live Chat Widget di pojok kanan bawah
-    if (typeof window.renderDcmsLwChatsList === 'function') {
-      try { window.renderDcmsLwChatsList(); } catch (e) {}
-    } else if (typeof renderChatsList === 'function') {
-      try { renderChatsList(); } catch (e) {}
+      // Sinkronisasi realtime ke Live Chat Widget di pojok kanan bawah
+      if (typeof window.renderDcmsLwChatsList === 'function') {
+        try { window.renderDcmsLwChatsList(); } catch (e) {}
+      } else if (typeof renderChatsList === 'function') {
+        try { renderChatsList(); } catch (e) {}
+      }
+      if (typeof window.updateDcmsLwUnreadBadge === 'function') {
+        try { window.updateDcmsLwUnreadBadge(); } catch (e) {}
+      } else if (typeof updateUnreadBadge === 'function') {
+        try { updateUnreadBadge(); } catch (e) {}
+      }
+      if (typeof window.renderDcmsLwActiveRoomMessages === 'function') {
+        try { window.renderDcmsLwActiveRoomMessages(); } catch (e) {}
+      } else if (typeof renderActiveRoomMessages === 'function') {
+        try { renderActiveRoomMessages(); } catch (e) {}
+      }
     }
-    if (typeof window.updateDcmsLwUnreadBadge === 'function') {
-      try { window.updateDcmsLwUnreadBadge(); } catch (e) {}
-    } else if (typeof updateUnreadBadge === 'function') {
-      try { updateUnreadBadge(); } catch (e) {}
-    }
-    if (typeof window.renderDcmsLwActiveRoomMessages === 'function') {
-      try { window.renderDcmsLwActiveRoomMessages(); } catch (e) {}
-    } else if (typeof renderActiveRoomMessages === 'function') {
-      try { renderActiveRoomMessages(); } catch (e) {}
-    }
-    }
-    return cleaned;
+    _cachedOmniThreads = cleaned;
+    return _cachedOmniThreads;
   } catch (e) {
-    return {};
+    _cachedOmniThreads = {};
+    return _cachedOmniThreads;
   }
 }
 
@@ -12946,7 +12982,10 @@ function saveOmniThreads(threads) {
         return m;
       });
     });
-    localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
+    _cachedOmniThreads = cleaned;
+    try {
+      localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
+    } catch (e) {}
 
     // Sinkronisasi realtime ke Live Chat Widget di pojok kanan bawah
     if (typeof window.renderDcmsLwChatsList === 'function') {
@@ -13093,15 +13132,23 @@ async function fetchOmniResolvedStatuses() {
 // --------------------------------------------------------------------------
 // UNREAD CHAT TRACKER (WHATSAPP-STYLE UNREAD MESSAGE BUBBLE)
 // --------------------------------------------------------------------------
+let _cachedOmniReadTimestamps = null;
+
 function getOmniReadTimestamps() {
+  if (_cachedOmniReadTimestamps && typeof _cachedOmniReadTimestamps === 'object') {
+    return _cachedOmniReadTimestamps;
+  }
   try {
-    return JSON.parse(localStorage.getItem('omni_read_timestamps_v1')) || {};
+    _cachedOmniReadTimestamps = JSON.parse(localStorage.getItem('omni_read_timestamps_v1')) || {};
+    return _cachedOmniReadTimestamps;
   } catch (e) {
-    return {};
+    _cachedOmniReadTimestamps = {};
+    return _cachedOmniReadTimestamps;
   }
 }
 
 function saveOmniReadTimestamps(map) {
+  _cachedOmniReadTimestamps = map;
   try {
     localStorage.setItem('omni_read_timestamps_v1', JSON.stringify(map || {}));
   } catch (e) {}
@@ -14502,8 +14549,9 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
           if (bText.includes(cleanDisplayText)) {
             // Update centang status jika pesan berhasil terkirim
             const tick = existingBubbles[i].querySelector('.omni-msg-status-tick');
-            if (tick && msg.status) {
-              tick.innerHTML = renderOmniMessageStatusTick(msg.status, false);
+            if (tick) {
+              const eff = resolveOmniMessageEffectiveStatus(msg, window.currentOmniChatMessages, selectedOmniPicKey);
+              tick.innerHTML = renderOmniMessageStatusTick(eff, false);
             }
             return;
           }
@@ -14518,9 +14566,10 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
   row.setAttribute('data-msg-id', safeMsgId);
   row.style.animation = 'fadeIn 0.2s ease-in-out';
 
+  const effStatus = isOutgoing ? resolveOmniMessageEffectiveStatus(msg, window.currentOmniChatMessages, selectedOmniPicKey) : 'sent';
   const tickSvg = isOutgoing ? (
     '<span class="omni-msg-status-tick" id="tick_' + safeMsgId + '">' +
-      renderOmniMessageStatusTick(msg.status || 'sending', false) +
+      renderOmniMessageStatusTick(effStatus, false) +
     '</span>'
   ) : '';
 
@@ -14807,11 +14856,14 @@ async function sendOmniReply() {
       } else {
         saveOmniThreads(threads);
       }
+      const normKey = normalizeWhatsAppPhone(selectedOmniPicKey) || selectedOmniPicKey;
+      const threadMsgs = (currentThreads[normKey] || currentThreads[selectedOmniPicKey]) || [outgoingMsg];
+      const effStatus = resolveOmniMessageEffectiveStatus(outgoingMsg, threadMsgs, normKey);
       const tick = document.getElementById('tick_' + msgId);
       if (tick) {
-        tick.innerHTML = renderOmniMessageStatusTick('sent', false);
+        tick.innerHTML = renderOmniMessageStatusTick(effStatus, false);
       }
-      // Update juga kartu sidebar secara instan agar ikon jam langsung berubah jadi centang 1 (terkirim)
+      // Update juga kartu sidebar secara instan agar status centang 100% sinkron
       updateOmniCardInSidebar(selectedOmniPicKey, outgoingMsg, picName, currentPic ? currentPic.cabang : '-');
       if (typeof showSaveToast === 'function') {
         showSaveToast('Pesan ' + (fileToSend ? (fileToSend.type.startsWith('image/') ? 'gambar' : 'dokumen') : 'teks') + ' terkirim ke WhatsApp ' + picName + '!');
@@ -14977,6 +15029,21 @@ function updateOmniOnlineIndicators() {
       const phoneDisplay = formatWhatsAppPhoneDisplay(curPic ? (curPic.picWA || curPic.key) : selectedOmniPicKey);
       headerMetaText.innerHTML = '<strong style="color:' + (isHeaderOnline ? '#059669' : '#64748b') + ';">' + (isHeaderOnline ? 'Online' : 'Offline') + '</strong> &middot; WhatsApp Official &middot; ' + phoneDisplay;
     }
+
+    // SINKRONISASI CENTANG BUBBLE CHAT DI ROOMCHAT:
+    // Jika kontak online atau status berubah, sinkronkan tick semua pesan outgoing yang belum 'read'
+    if (window.currentOmniChatMessages && Array.isArray(window.currentOmniChatMessages)) {
+      window.currentOmniChatMessages.forEach(function(m) {
+        if (m.sender === 'ADMIN' && m.status !== 'read') {
+          const mId = m.id || m.messageId;
+          const tickEl = document.getElementById('tick_' + mId);
+          if (tickEl) {
+            const eff = resolveOmniMessageEffectiveStatus(m, window.currentOmniChatMessages, selectedOmniPicKey);
+            tickEl.innerHTML = renderOmniMessageStatusTick(eff, false);
+          }
+        }
+      });
+    }
   }
 }
 
@@ -15075,7 +15142,8 @@ async function pollWatzapIncomingMessages() {
           hasNew = true;
           const tickEl = document.getElementById('tick_' + (existingMsg.id || existingMsg.messageId));
           if (tickEl) {
-            tickEl.innerHTML = renderOmniMessageStatusTick(existingMsg.status, false);
+            const eff = resolveOmniMessageEffectiveStatus(existingMsg, threads[picKey], picKey);
+            tickEl.innerHTML = renderOmniMessageStatusTick(eff, false);
           }
         } else if (msg.sender === 'ADMIN' && !existingMsg.status) {
           existingMsg.status = 'sent';
@@ -15193,11 +15261,13 @@ let watzapPollTimer = null;
 
 function scheduleNextWatzapPoll(delayMs) {
   if (watzapPollTimer) clearTimeout(watzapPollTimer);
-  const delay = typeof delayMs === 'number' ? delayMs : 1000;
+  const isHidden = typeof document !== 'undefined' && document.hidden;
+  const defaultDelay = isHidden ? 15000 : 3000;
+  const delay = typeof delayMs === 'number' ? delayMs : defaultDelay;
   watzapPollTimer = setTimeout(async function() {
     if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
       await pollWatzapIncomingMessages();
-      scheduleNextWatzapPoll(1000);
+      scheduleNextWatzapPoll();
     }
   }, delay);
 }
@@ -15205,13 +15275,13 @@ function scheduleNextWatzapPoll(delayMs) {
 function startWatzapPolling() {
   if (watzapPollTimer) return;
   pollWatzapIncomingMessages();
-  scheduleNextWatzapPoll(1000);
+  scheduleNextWatzapPoll(3000);
 
-  // Saat user berpindah window (Alt+Tab) dan kembali, langsung sinkronkan seketika (0 delay)
+  // Saat user berpindah window (Alt+Tab) dan kembali, langsung sinkronkan seketika
   document.addEventListener('visibilitychange', function() {
     if (!document.hidden && typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
       pollWatzapIncomingMessages();
-      scheduleNextWatzapPoll(1000);
+      scheduleNextWatzapPoll(3000);
     }
   });
 }
