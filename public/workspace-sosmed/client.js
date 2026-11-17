@@ -14207,14 +14207,19 @@ async function sendOmniReply() {
       if (typeof showSaveToast === 'function') {
         showSaveToast('Pesan ' + (fileToSend ? (fileToSend.type.startsWith('image/') ? 'gambar' : 'dokumen') : 'teks') + ' terkirim ke WhatsApp ' + picName + '!');
       }
+      // Pemicu polling instan untuk mengupdate status centang dua dan sinkronisasi seketika
+      setTimeout(function() { pollWatzapIncomingMessages(); }, 250);
     } else {
       console.warn('WatZap API response:', json);
       if (typeof showSaveToast === 'function') {
-        showSaveToast('Pesan tersimpan lokal. WatZap info: ' + (json.message || 'Gagal terkirim'));
+        showSaveToast('Pesan tersimpan lokal. Info: ' + (json.message || 'Gagal terkirim'));
       }
     }
   } catch (err) {
-    console.error('Gagal kirim via WatZap:', err);
+    console.error('Gagal kirim via WatZap/Baileys:', err);
+  } finally {
+    // Sinkronkan ulang antrean pesan keluar
+    setTimeout(function() { pollWatzapIncomingMessages(); }, 500);
   }
 }
 
@@ -14381,16 +14386,29 @@ async function pollWatzapIncomingMessages() {
   }
 }
 
-function startWatzapPolling() {
-  if (watzapPollInterval) return;
-  pollWatzapIncomingMessages();
-  // Polling super cepat (1.2 detik) langsung ke Neon PostgreSQL
-  watzapPollInterval = setInterval(pollWatzapIncomingMessages, 1200);
+let watzapPollTimer = null;
 
-  // Saat user berpindah window (Alt+Tab) dan kembali, langsung sinkronkan tanpa refresh
+function scheduleNextWatzapPoll(delayMs) {
+  if (watzapPollTimer) clearTimeout(watzapPollTimer);
+  const delay = typeof delayMs === 'number' ? delayMs : 1000;
+  watzapPollTimer = setTimeout(async function() {
+    if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
+      await pollWatzapIncomingMessages();
+      scheduleNextWatzapPoll(1000);
+    }
+  }, delay);
+}
+
+function startWatzapPolling() {
+  if (watzapPollTimer) return;
+  pollWatzapIncomingMessages();
+  scheduleNextWatzapPoll(1000);
+
+  // Saat user berpindah window (Alt+Tab) dan kembali, langsung sinkronkan seketika (0 delay)
   document.addEventListener('visibilitychange', function() {
     if (!document.hidden && typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
       pollWatzapIncomingMessages();
+      scheduleNextWatzapPoll(1000);
     }
   });
 }

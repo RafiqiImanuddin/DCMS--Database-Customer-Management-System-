@@ -95,44 +95,59 @@ class WatzapService
      *
      * @return array{online: bool, status: string, phone: string|null, name: string|null, message: string}
      */
-    public function getBaileysStatus(): array
+    public function getBaileysStatus(bool $forceFresh = false): array
     {
+        $cacheKey = 'baileys_status_cache_v2';
+        if (! $forceFresh && cache()->has($cacheKey)) {
+            return (array) cache()->get($cacheKey);
+        }
+
         $baileysUrl = $this->getBaileysUrl();
         $apiKey = $this->getBaileysApiKey();
 
         try {
-            $res = Http::timeout(3)
+            $res = Http::timeout(2)
                 ->withHeaders(['X-Api-Key' => $apiKey])
                 ->get("{$baileysUrl}/api/status");
 
             if ($res->ok()) {
                 $data = $res->json();
-
-                return [
+                $result = [
                     'online' => ! empty($data['connected']),
                     'status' => (string) ($data['state'] ?? 'UNKNOWN'),
                     'phone' => ! empty($data['phone']) ? (string) $data['phone'] : null,
                     'name' => ! empty($data['name']) ? (string) $data['name'] : 'Bot DCMS',
                     'message' => ! empty($data['connected']) ? 'Baileys Bot Terhubung' : 'Baileys Bot Belum Terhubung (Scan QR)',
                 ];
+
+                cache()->put($cacheKey, $result, now()->addSeconds(20));
+                if (! empty($result['phone'])) {
+                    cache()->put('baileys_bot_phone', preg_replace('/\D/', '', (string) $result['phone']), now()->addHours(1));
+                }
+
+                return $result;
             }
         } catch (Throwable $e) {
-            return [
+            $result = [
                 'online' => false,
                 'status' => 'OFFLINE',
                 'phone' => null,
                 'name' => null,
                 'message' => 'Tidak dapat terhubung ke server Baileys: '.$e->getMessage(),
             ];
+            cache()->put($cacheKey, $result, now()->addSeconds(10));
+            return $result;
         }
 
-        return [
+        $result = [
             'online' => false,
             'status' => 'DISCONNECTED',
             'phone' => null,
             'name' => null,
             'message' => 'Status Baileys tidak aktif',
         ];
+        cache()->put($cacheKey, $result, now()->addSeconds(10));
+        return $result;
     }
 
     /**

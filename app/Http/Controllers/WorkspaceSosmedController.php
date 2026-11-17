@@ -956,11 +956,11 @@ class WorkspaceSosmedController extends Controller
             $inboundOnly = $request->boolean('inbound_only', false);
             $forceSync = $request->boolean('sync', false);
 
-            // Sinkronisasi otomatis dari WAHA VPS jika aktif
-            if ($watzapService->isWahaEnabled()) {
-                // Throttle sinkronisasi ke WAHA VPS minimal 3 detik antar pemanggilan agar responsif & tidak flooding
+            // Sinkronisasi otomatis dari WAHA VPS hanya jika forceSync atau Baileys tidak aktif
+            if ($watzapService->isWahaEnabled() && (! $watzapService->isBaileysEnabled() || $forceSync)) {
+                // Throttle sinkronisasi ke WAHA VPS minimal 30 detik antar pemanggilan agar responsif & tidak flooding
                 $lastWahaSync = (int) cache()->get('waha_last_sync_timestamp', 0);
-                $shouldSync = $forceSync || (time() - $lastWahaSync) >= 3;
+                $shouldSync = $forceSync || (time() - $lastWahaSync) >= 30;
                 if ($shouldSync) {
                     cache()->put('waha_last_sync_timestamp', time(), 120);
                     try {
@@ -1030,21 +1030,8 @@ class WorkspaceSosmedController extends Controller
                 return $parseEpochMs($a['timestamp'] ?? 0) <=> $parseEpochMs($b['timestamp'] ?? 0);
             });
 
-            $gatewayPhone = '6285111426699';
-            try {
-                if ($watzapService->isBaileysEnabled()) {
-                    $bStatus = $watzapService->getBaileysStatus();
-                    if (! empty($bStatus['phone'])) {
-                        $gatewayPhone = preg_replace('/\D/', '', (string) $bStatus['phone']);
-                    }
-                } elseif ($watzapService->isWahaEnabled()) {
-                    $wahaStatus = $watzapService->getWahaStatus();
-                    if (! empty($wahaStatus['me']['id'])) {
-                        $gatewayPhone = preg_replace('/\D/', '', (string) $wahaStatus['me']['id']);
-                    }
-                }
-            } catch (\Throwable) {
-            }
+            // Ambil nomor gateway dari cache untuk respon instan tanpa blocking HTTP network call
+            $gatewayPhone = cache()->get('baileys_bot_phone', '6285111426699');
 
             return response()->json([
                 'success' => true,
