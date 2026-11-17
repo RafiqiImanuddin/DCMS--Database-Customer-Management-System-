@@ -263,6 +263,15 @@ async function startBaileysSocket() {
 
   connectionState = 'CONNECTING';
 
+  // Cache Retry Counter untuk mencegah dan menyelesaikan error Signal decryption delay ("Waiting for this message")
+  const msgRetryCounterCache = {
+    _map: new Map(),
+    get(key) { return this._map.get(key); },
+    set(key, val) { this._map.set(key, val); return this; },
+    del(key) { this._map.delete(key); },
+    delete(key) { this._map.delete(key); }
+  };
+
   sock = makeWASocket({
     version,
     auth: state,
@@ -271,6 +280,8 @@ async function startBaileysSocket() {
     browser: ['DCMS Reaction Bot', 'Chrome', '1.0.0'],
     generateHighQualityLinkPreview: false,
     syncFullHistory: false,
+    msgRetryCounterCache,
+    retryRequestDelayMs: 250,
     getMessage: async (key) => {
       // Callback getMessage agar Baileys dapat merespon retry receipt saat terjadi Bad MAC / Signal decryption delay
       if (key && key.id) {
