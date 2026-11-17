@@ -13856,7 +13856,9 @@ function insertQuickReply(type) {
     }
     inp.focus();
     inp.style.height = 'auto';
-    inp.style.height = Math.min(inp.scrollHeight, 140) + 'px';
+    const newH = Math.min(Math.max(inp.scrollHeight, 24), 160);
+    inp.style.height = newH + 'px';
+    inp.style.overflowY = inp.scrollHeight > 160 ? 'auto' : 'hidden';
     const sendBtn = document.getElementById('omniBtnSend');
     if (sendBtn) sendBtn.classList.add('active');
   }
@@ -13865,7 +13867,10 @@ function insertQuickReply(type) {
 function handleOmniInputTyping(el) {
   if (!el) return;
   el.style.height = 'auto';
-  el.style.height = Math.min(Math.max(el.scrollHeight, 24), 110) + 'px';
+  const maxHeight = 160;
+  const newHeight = Math.min(Math.max(el.scrollHeight, 24), maxHeight);
+  el.style.height = newHeight + 'px';
+  el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
   const sendBtn = document.getElementById('omniBtnSend');
   if (sendBtn) {
     if (el.value.trim().length > 0 || (typeof omniPendingFile !== 'undefined' && omniPendingFile)) {
@@ -14252,6 +14257,7 @@ async function sendOmniReply() {
   // Clear input immediately (0ms UI latency) & maintain focus
   inp.value = '';
   inp.style.height = 'auto';
+  inp.style.overflowY = 'hidden';
   inp.focus();
   removeOmniAttachment();
   const sendBtn = document.getElementById('omniBtnSend');
@@ -14767,9 +14773,16 @@ async function syncOmniChatsFromWhatsApp(isManual) {
 }
 
 function handleOmniInputKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendOmniReply();
+  if (e.key === 'Enter') {
+    if (!e.shiftKey) {
+      e.preventDefault();
+      sendOmniReply();
+    } else {
+      // Shift + Enter: biarkan newline terisi, lalu langsung sesuaikan tinggi secara responsif
+      setTimeout(function() {
+        handleOmniInputTyping(e.target);
+      }, 0);
+    }
   }
 }
 

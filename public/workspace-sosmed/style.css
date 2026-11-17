@@ -7208,17 +7208,18 @@ body.tab9-mode-active #tabContent9.active {
   flex: 1 1 0% !important;
   min-width: 0 !important;
   background: #ffffff !important;
-  border: 1px solid #ffffff !important;
-  border-radius: 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
   padding: 8px 14px !important;
   display: flex !important;
-  align-items: center !important;
+  align-items: flex-end !important;
   box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08) !important;
-  transition: border-color 0.15s !important;
+  transition: border-color 0.15s, box-shadow 0.15s !important;
 }
 
 .omni-wa-input-pill:focus-within {
   border-color: #00a884 !important;
+  box-shadow: 0 0 0 1px #00a884 !important;
 }
 
 .omni-textarea-wa {
@@ -7228,15 +7229,15 @@ body.tab9-mode-active #tabContent9.active {
   outline: none !important;
   resize: none !important;
   font-family: inherit !important;
-  font-size: 0.90rem !important;
-  line-height: 1.4 !important;
+  font-size: 0.92rem !important;
+  line-height: 1.45 !important;
   color: #111b21 !important;
-  padding: 0 !important;
+  padding: 2px 0 !important;
   margin: 0 !important;
-  height: 24px !important;
   min-height: 24px !important;
-  max-height: 100px !important;
+  max-height: 160px !important;
   box-sizing: border-box !important;
+  overflow-y: hidden;
 }
 
 .omni-textarea-wa::placeholder {
