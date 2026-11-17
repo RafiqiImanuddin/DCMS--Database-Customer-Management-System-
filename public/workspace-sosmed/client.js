@@ -1443,7 +1443,17 @@ function switchTab(tabIndex) {
     onAdminTargetMonthChange();
     renderAdminPhotoTable();
   }
-  if (tabIndex === 9) renderOmniInboxModule();
+  if (tabIndex === 9) {
+    if ((!Array.isArray(rawKeepRows) || rawKeepRows.length === 0) && typeof loadKeepData === 'function') {
+      loadKeepData(true, function() {
+        cachedOmniKeepsMap = null;
+        if (selectedTabIndex === 9) {
+          renderOmniInboxModule();
+        }
+      });
+    }
+    renderOmniInboxModule();
+  }
   
   // Sembunyikan Floating Live Chat Widget di Tab 9 (Inbox Follow-Up) agar tidak menindih layar & toast notifikasi
   const lwWidget = document.getElementById('dcmsLiveWidgetContainer');
@@ -13005,22 +13015,13 @@ function filterOmniChats() {
 }
 
 function isEligibleKeep(ts) {
-  if (!ts) return false;
-  const firstSpace = ts.indexOf(' ');
-  const datePart = firstSpace > 0 ? ts.slice(0, firstSpace) : ts;
-  const parts = datePart.split('/');
-  if (parts.length !== 3) return false;
-
-  const m = parseInt(parts[0], 10);
-  const d = parseInt(parts[1], 10);
-  const y = parseInt(parts[2], 10);
-  if (isNaN(m) || isNaN(d) || isNaN(y)) return false;
-
-  const keepMidnight = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  const d = parseKeepDateObj(ts);
+  if (!d) return false;
+  const keepMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
   const now = new Date();
-  // 2 HARI TERAKHIR: Mulai dari kemarin jam 00:00:00 hingga hari ini
-  const yesterdayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0).getTime();
-  return keepMidnight >= yesterdayMidnight;
+  // CYCLE PER DUA HARI YANG LALU: Mulai dari H-2 (00:00:00) hingga hari ini & ke depan
+  const twoDaysAgoMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0, 0).getTime();
+  return keepMidnight >= twoDaysAgoMidnight;
 }
 
 window.omniResolvedDbMap = null;
@@ -13146,6 +13147,182 @@ let cachedOmniKeepsMap = null;
 let lastIndexedKeepRowsLength = -1;
 window.omni2DayKeepsMap = {};
 
+function matchKeepToPic(keepRow, pic) {
+  if (!keepRow || !pic) return false;
+  const row = keepRow.rawRow || keepRow;
+
+  // 1. Data Tim FU dari baris keep
+  const fuPhoneRaw = String(row['Nomor Follow Up'] || row['nomor_follow_up'] || row['Nomor FU'] || row['nomor_fu'] || '').trim();
+  const fuNameRaw = String(row['Nama Tim Follow Up'] || row['nama_tim_follow_up'] || row['fu_name'] || row['Nama Tim FU'] || '').trim();
+  const keepCabangRaw = String(row['Cabang'] || row['cabang'] || '').trim();
+
+  const fuDigits = fuPhoneRaw.replace(/\D/g, '');
+
+  // 2. Data kontak PIC
+  const picKey = String(pic.key || '');
+  const picKeyDigits = picKey.replace(/\D/g, '');
+  const picWA = String(pic.picWA || '');
+  const picWADigits = picWA.replace(/\D/g, '');
+  const picCabang = String(pic.cabang || '').trim().toLowerCase();
+  const picName = String(pic.picName || '').trim();
+
+  // A. PENCCOKAN NOMOR WHATSAPP PIC (Phone Match)
+  if (fuDigits.length >= 8) {
+    if (picKeyDigits && (picKeyDigits.endsWith(fuDigits.slice(-9)) || fuDigits.endsWith(picKeyDigits.slice(-9)))) {
+      return true;
+    }
+    if (picWADigits && (picWADigits.endsWith(fuDigits.slice(-9)) || fuDigits.endsWith(picWADigits.slice(-9)))) {
+      return true;
+    }
+  }
+
+  // B. PENCOCOKAN NAMA & KODE TIM FOLLOW UP
+  if (fuNameRaw) {
+    const fuNameLower = fuNameRaw.toLowerCase();
+    const fuNameClean = fuNameLower.replace(/[^a-z0-9]/g, '');
+
+    const picNameLower = picName.toLowerCase();
+    const picNameClean = picNameLower.replace(/[^a-z0-9]/g, '');
+
+    // Ekstrak kode dan nama (contoh: "SC.MTPC.002 - NURIN AULIA")
+    const picParts = picName.split('-');
+    let picCode = '';
+    let picPureName = '';
+    if (picParts.length >= 2) {
+      picCode = picParts[0].trim().toLowerCase();
+      picPureName = picParts.slice(1).join('-').trim().toLowerCase();
+    } else {
+      picPureName = picNameLower;
+    }
+
+    const picPureNameClean = picPureName.replace(/[^a-z0-9]/g, '');
+    const picCodeClean = picCode.replace(/[^a-z0-9]/g, '');
+
+    // 1. Cocokkan kode sales (contoh: "scmtpc002", "bjbxmi007")
+    if (picCodeClean && picCodeClean.length >= 4) {
+      if (fuNameClean.includes(picCodeClean) || picCodeClean.includes(fuNameClean)) {
+        return true;
+      }
+    }
+
+    // 2. Cocokkan nama PIC murni (contoh: "nurin aulia", "erni")
+    if (picPureNameClean && picPureNameClean.length >= 3) {
+      if (fuNameClean.includes(picPureNameClean) || picPureNameClean.includes(fuNameClean)) {
+        return true;
+      }
+
+      // Cocokkan per kata / token nama
+      const picTokens = picPureName.split(/[\s.\-_/]+/).filter(function(t) { return t.length >= 3; });
+      const fuTokens = fuNameLower.split(/[\s.\-_/]+/).filter(function(t) { return t.length >= 3; });
+      for (let i = 0; i < picTokens.length; i++) {
+        const pt = picTokens[i];
+        if (fuTokens.includes(pt)) {
+          if (!keepCabangRaw || keepCabangRaw === '-' || !picCabang || picCabang === '-' ||
+              keepCabangRaw.toLowerCase().includes(picCabang) || picCabang.includes(keepCabangRaw.toLowerCase())) {
+            return true;
+          }
+        }
+      }
+    }
+
+    if (picNameClean && (fuNameClean.includes(picNameClean) || picNameClean.includes(fuNameClean))) {
+      return true;
+    }
+  }
+
+  // C. CORRELATION CHAT REMINDER: nomor WA customer pernah disebut di thread chat PIC
+  const custWA = String(row['Nomor WA'] || row['nomor_wa'] || '').replace(/\D/g, '');
+  if (custWA && custWA.length >= 8 && pic.chatThreadText) {
+    if (pic.chatThreadText.includes(custWA) || (custWA.length >= 9 && pic.chatThreadText.includes(custWA.slice(-9)))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getOmniKeepsForPic(pic, picKeepsMap) {
+  if (!pic) return [];
+  if (!picKeepsMap) picKeepsMap = getIndexedOmniKeeps();
+
+  const collected = [];
+  const seenCust = new Set();
+
+  function pushItems(arr) {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(function(k) {
+      const dedupeKey = (k.customerWA || '') + '_' + (k.barang || '');
+      if (!seenCust.has(dedupeKey)) {
+        seenCust.add(dedupeKey);
+        collected.push(k);
+      }
+    });
+  }
+
+  // 1. Direct key lookups
+  if (pic.key) pushItems(picKeepsMap[pic.key]);
+  if (pic.picWA) {
+    pushItems(picKeepsMap[pic.picWA]);
+    const last9 = pic.picWA.slice(-9);
+    if (last9.length >= 9) pushItems(picKeepsMap[last9]);
+  }
+
+  // 2. Lookup nama dan kode PIC
+  const picName = String(pic.picName || '').trim();
+  if (picName) {
+    const normPicName = picName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (normPicName && normPicName.length >= 3) pushItems(picKeepsMap[normPicName]);
+
+    const parts = picName.split('-');
+    if (parts.length >= 2) {
+      const codeClean = parts[0].trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const nameClean = parts.slice(1).join('-').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (codeClean && codeClean.length >= 4) pushItems(picKeepsMap[codeClean]);
+      if (nameClean && nameClean.length >= 3) pushItems(picKeepsMap[nameClean]);
+    }
+  }
+
+  // 3. Fallback scan komprehensif jika belum ditemukan atau untuk menjamin kelengkapan
+  if (Array.isArray(rawKeepRows)) {
+    for (let i = rawKeepRows.length - 1; i >= 0; i--) {
+      const r = rawKeepRows[i];
+      const ts = r['Timestamp'] || r.keep_timestamp;
+      if (!ts || !isEligibleKeep(ts)) continue;
+
+      if (matchKeepToPic(r, pic)) {
+        const custWA = cleanPhoneDigits(r['Nomor WA'] || r.nomor_wa || '');
+        const barang = (r['Barang Keep'] || r.barang_keep || '-').trim();
+        const dedupeKey = custWA + '_' + barang;
+        if (!seenCust.has(dedupeKey)) {
+          seenCust.add(dedupeKey);
+          const status = (r['Status'] || r.status || 'BELUM DIINPUT').trim() || 'BELUM DIINPUT';
+          const feedback = (r['Feedback Tim FU'] || r.feedback_tim_fu || '').trim();
+          const isPending = (!feedback || feedback === '-' || feedback === '""') || status === 'BELUM DIINPUT' || !status;
+          collected.push({
+            customerWA: custWA,
+            customerName: (r['Nama'] || r.nama || 'Customer').trim(),
+            barang: barang,
+            catatan: (r['Catatan'] || r.catatan || '-').trim(),
+            cabang: (r['Cabang'] || r.cabang || pic.cabang || '-').trim(),
+            sender: (r['Sender'] || r.sender || '-').trim(),
+            remarks: (r['Remarks'] || r.remarks || r['Kode Sosmed'] || r.kode_sosmed || '-').trim(),
+            reportAR: (r['REPORT AR'] || r['Report AR'] || r.report_ar || '').trim(),
+            status: status,
+            feedback: feedback,
+            fuName: (r['Nama Tim Follow Up'] || r.nama_tim_follow_up || r.fu_name || r['Nama Tim FU'] || '').trim(),
+            fuPhone: (r['Nomor Follow Up'] || r.nomor_follow_up || r['Nomor FU'] || r.nomor_fu || '').trim(),
+            timestamp: ts,
+            isPending: isPending,
+            rawRow: r
+          });
+        }
+      }
+    }
+  }
+
+  return collected;
+}
+
 function getIndexedOmniKeeps() {
   if (!Array.isArray(rawKeepRows)) return {};
   if (cachedOmniKeepsMap && lastIndexedKeepRowsLength === rawKeepRows.length) {
@@ -13160,48 +13337,59 @@ function getIndexedOmniKeeps() {
     if (c) masterMap[c] = m;
   });
 
-  // Iterasi baris keep-data (hanya data 2 hari terakhir: kemarin & hari ini)
+  function addIndex(key, item) {
+    if (!key) return;
+    if (!picKeepsMap[key]) picKeepsMap[key] = [];
+    const exists = picKeepsMap[key].some(function(k) {
+      return k.customerWA === item.customerWA && k.barang === item.barang;
+    });
+    if (!exists) picKeepsMap[key].push(item);
+  }
+
+  // Iterasi baris keep-data (hanya data cycle per 2 hari yang lalu: H-2 s/d hari ini)
   for (let i = rawKeepRows.length - 1; i >= 0; i--) {
     const r = rawKeepRows[i];
-    const ts = r['Timestamp'];
+    const ts = r['Timestamp'] || r.keep_timestamp;
     if (!ts || !isEligibleKeep(ts)) continue;
 
-    const customerWA = normalizeWhatsAppPhone(r['Nomor WA'] || '');
+    const customerWA = cleanPhoneDigits(r['Nomor WA'] || r.nomor_wa || '');
     if (!customerWA || customerWA.length < 8) continue;
 
-    const rawPicWA = normalizeWhatsAppPhone(r['Nomor Follow Up'] || r['Nomor FU'] || '');
-    const rawPicName = (r['Nama Tim Follow Up'] || r['Nama Tim FU'] || '').trim();
-    const rawCabang = (r['Cabang'] || '-').trim();
-    const sender = (r['Sender'] || '-').trim();
+    const rawPicWA = cleanPhoneDigits(r['Nomor Follow Up'] || r['nomor_follow_up'] || r['Nomor FU'] || r['nomor_fu'] || '');
+    const rawPicName = (r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || r['Nama Tim FU'] || '').trim();
+    const rawCabang = (r['Cabang'] || r.cabang || '-').trim();
+    const sender = (r['Sender'] || r.sender || '-').trim();
 
-    let matched = masterMap[rawPicWA] || masterMap[customerWA];
-    if (!matched) {
-      const last9 = (rawPicWA || customerWA).slice(-9);
-      if (last9 && last9.length >= 9) {
+    let matched = null;
+    if (rawPicWA) {
+      matched = masterMap[normalizeWhatsAppPhone(rawPicWA)];
+      if (!matched && rawPicWA.length >= 9) {
+        const l9 = rawPicWA.slice(-9);
         matched = master.find(function(m) {
           const mc = normalizeWhatsAppPhone(m.wa);
-          return mc && mc.endsWith(last9);
+          return mc && mc.endsWith(l9);
         });
       }
     }
+    if (!matched && rawPicName) {
+      const normRaw = rawPicName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      matched = master.find(function(m) {
+        const mn = (m.picName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return mn && (mn.includes(normRaw) || normRaw.includes(mn));
+      });
+    }
 
-    const picWA = (matched ? matched.wa : '') || rawPicWA || customerWA;
-    const picName = matched ? matched.picName : (rawPicName || ('PIC ' + (rawPicWA || customerWA)));
+    const picWA = (matched ? matched.wa : '') || (rawPicWA ? normalizeWhatsAppPhone(rawPicWA) : '');
+    const picName = matched ? matched.picName : rawPicName;
     const cabang = (matched ? matched.cabang : '') || rawCabang;
-    
-    // STANDARISASI: Key percakapan SELALU menggunakan nomor HP E.164 (628...)
-    const picKey = normalizeWhatsAppPhone(picWA) || picWA;
 
-    // Abaikan jika terdeteksi ID grup
-    if (isGroupWhatsApp(picKey)) continue;
-
-    const customerName = (r['Nama'] || 'Customer').trim();
-    const barang = (r['Barang Keep'] || '-').trim();
-    const catatan = (r['Catatan'] || '-').trim();
-    const status = (r['Status'] || 'BELUM DIINPUT').trim() || 'BELUM DIINPUT';
-    const feedback = (r['Feedback Tim FU'] || '').trim();
-    const remarks = (r['Remarks'] || r['Kode Sosmed'] || sender || '-').trim();
-    const reportAR = (r['REPORT AR'] || r['Report AR'] || r['AR'] || '').trim();
+    const customerName = (r['Nama'] || r.nama || 'Customer').trim();
+    const barang = (r['Barang Keep'] || r.barang_keep || '-').trim();
+    const catatan = (r['Catatan'] || r.catatan || '-').trim();
+    const status = (r['Status'] || r.status || 'BELUM DIINPUT').trim() || 'BELUM DIINPUT';
+    const feedback = (r['Feedback Tim FU'] || r.feedback_tim_fu || '').trim();
+    const remarks = (r['Remarks'] || r.remarks || r['Kode Sosmed'] || r.kode_sosmed || sender || '-').trim();
+    const reportAR = (r['REPORT AR'] || r['Report AR'] || r.report_ar || r['AR'] || '').trim();
     const isPending = (!feedback || feedback === '-' || feedback === '""') || status === 'BELUM DIINPUT' || !status;
 
     const keepItem = {
@@ -13215,27 +13403,41 @@ function getIndexedOmniKeeps() {
       reportAR: reportAR,
       status: status,
       feedback: feedback,
+      fuName: rawPicName,
+      fuPhone: rawPicWA,
       timestamp: ts,
       isPending: isPending,
       rawRow: r
     };
 
-    if (!picKeepsMap[picKey]) picKeepsMap[picKey] = [];
-    picKeepsMap[picKey].push(keepItem);
-
-    if (picWA && picWA !== picKey) {
-      if (!picKeepsMap[picWA]) picKeepsMap[picWA] = picKeepsMap[picKey];
-      const last9 = picWA.slice(-9);
-      if (last9.length >= 9 && !picKeepsMap[last9]) picKeepsMap[last9] = picKeepsMap[picKey];
+    // 1. Indeks nomor WA
+    if (picWA) {
+      addIndex(picWA, keepItem);
+      const l9 = picWA.slice(-9);
+      if (l9.length >= 9) addIndex(l9, keepItem);
+    }
+    if (rawPicWA) {
+      addIndex(rawPicWA, keepItem);
+      const normRaw = normalizeWhatsAppPhone(rawPicWA);
+      if (normRaw && normRaw !== rawPicWA) addIndex(normRaw, keepItem);
+      const rawDigits = rawPicWA.replace(/\D/g, '');
+      if (rawDigits.length >= 9) addIndex(rawDigits.slice(-9), keepItem);
     }
 
-    // Indeks juga berdasarkan nama PIC yang ternormalisasi agar keep otomatis match
-    if (picName) {
-      const normName = picName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (normName && normName.length >= 4 && !picKeepsMap[normName]) {
-        picKeepsMap[normName] = picKeepsMap[picKey];
+    // 2. Indeks nama dan kode PIC
+    const namesToIndex = [rawPicName, picName].filter(Boolean);
+    namesToIndex.forEach(function(n) {
+      const normN = n.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normN && normN.length >= 3) addIndex(normN, keepItem);
+
+      const parts = n.split('-');
+      if (parts.length >= 2) {
+        const codeClean = parts[0].trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const nameClean = parts.slice(1).join('-').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (codeClean && codeClean.length >= 4) addIndex(codeClean, keepItem);
+        if (nameClean && nameClean.length >= 3) addIndex(nameClean, keepItem);
       }
-    }
+    });
   }
 
   cachedOmniKeepsMap = picKeepsMap;
@@ -13323,9 +13525,21 @@ function getOmniPicChats() {
       picName = formatWhatsAppPhoneDisplay(picWA);
     }
 
-    const last9 = picWA.slice(-9);
-    const normPicName = picName ? picName.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-    const keeps = picKeepsMap[cleanKey] || picKeepsMap[picWA] || (normPicName ? picKeepsMap[normPicName] : null) || (last9.length >= 9 ? picKeepsMap[last9] : []) || [];
+    let chatThreadText = '';
+    chatMsgs.forEach(function(m) {
+      if (m.text) chatThreadText += ' ' + m.text;
+      if (m.message) chatThreadText += ' ' + m.message;
+    });
+
+    const picCandidate = {
+      key: cleanKey,
+      picWA: picWA,
+      picName: picName,
+      cabang: cabang,
+      chatThreadText: chatThreadText
+    };
+
+    const keeps = getOmniKeepsForPic(picCandidate, picKeepsMap);
     const pendingCount = keeps.filter(function(k) { return k.isPending; }).length;
     const resolvedCount = keeps.filter(function(k) { return !k.isPending; }).length;
 
@@ -13396,6 +13610,7 @@ function getOmniPicChats() {
       picName: picName,
       picWA: picWA,
       cabang: cabang,
+      chatThreadText: chatThreadText,
       keeps: keeps,
       pendingCount: pendingCount,
       resolvedCount: resolvedCount,
@@ -15169,6 +15384,12 @@ function renderOmniKeepPanel(pic) {
     container.innerHTML = '';
     return;
   }
+
+  // Pastikan data keep PIC selalu terambil akurat dari cycle 2 hari terakhir
+  if (!pic.keeps || pic.keeps.length === 0) {
+    pic.keeps = getOmniKeepsForPic(pic);
+  }
+
   const pendingKeeps = (pic.keeps || []).filter(function(k) { return k.isPending; });
   const resolvedKeeps = (pic.keeps || []).filter(function(k) { return !k.isPending; });
   const displayKeeps = selectedOmniKeepSubTab === 'PENDING' ? pendingKeeps : resolvedKeeps;
@@ -15184,7 +15405,6 @@ function renderOmniKeepPanel(pic) {
     'TAKE OUT'
   ];
 
-  // User requirement: Yang kotak warna hijau tolong tulisannya dihapus aja (jika 0 maka kosong tanpa teks / notifikasi)
   const cardsMarkup = displayKeeps.length === 0 ? '' : displayKeeps.map(function(k) {
     const curStatus = k.status || 'BELUM DIINPUT';
     const optMarkup = statusOptions.map(function(opt) {
@@ -15200,7 +15420,7 @@ function renderOmniKeepPanel(pic) {
             k.customerWA + ' &middot; ' + escapeHtml(k.cabang) +
           '</a>' +
         '</div>' +
-        '<span class="omni-keep-date-chip">' + dateFormatted + '</span>' +
+        '<span class="omni-keep-date-chip" title="Tanggal Keep">' + dateFormatted + '</span>' +
       '</div>' +
       '<div class="omni-keep-info-box">' +
         '<div class="omni-keep-info-row">' +
@@ -15215,6 +15435,10 @@ function renderOmniKeepPanel(pic) {
           '<span class="omni-keep-info-label">Remarks:</span>' +
           '<span>' + escapeHtml(k.remarks || '-') + '</span>' +
         '</div>' +
+        (k.fuName ? ('<div class="omni-keep-info-row">' +
+          '<span class="omni-keep-info-label">Tim Follow Up:</span>' +
+          '<strong style="color: #2563eb;">' + escapeHtml(k.fuName) + '</strong>' +
+        '</div>') : '') +
       '</div>' +
       '<div class="omni-keep-form-modern">' +
         '<div>' +
@@ -15242,7 +15466,12 @@ function renderOmniKeepPanel(pic) {
   container.innerHTML = '<div class="omni-details-top">' +
     '<div class="omni-details-title-row">' +
       '<span class="omni-details-heading">Format Keep PIC</span>' +
-      '<span class="omni-keep-period-chip">2 Hari Terakhir</span>' +
+      '<div style="display: flex; align-items: center; gap: 6px;">' +
+        '<span class="omni-keep-period-chip" title="Data keep cycle H-2 sampai Hari Ini">Cycle 2 Hari Terakhir</span>' +
+        '<button type="button" class="omni-keep-refresh-btn" onclick="refreshOmniKeepPanelData()" title="Segarkan Data Format Keep">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
+        '</button>' +
+      '</div>' +
     '</div>' +
     '<span class="omni-keep-counter-badge ' + (pendingKeeps.length === 0 ? 'zero' : '') + '">' +
       pendingKeeps.length + ' Pending' +
@@ -15262,6 +15491,22 @@ function renderOmniKeepPanel(pic) {
     cardsMarkup +
   '</div>';
 }
+
+async function refreshOmniKeepPanelData() {
+  cachedOmniKeepsMap = null;
+  if (typeof loadKeepData === 'function') {
+    if (typeof showSaveToast === 'function') showSaveToast('Menyinkronkan data format keep...');
+    await loadKeepData(true);
+    cachedOmniKeepsMap = null;
+    const allPics = getOmniPicChats();
+    const cur = allPics.find(function(p) { return p.key === selectedOmniPicKey; });
+    if (cur) {
+      renderOmniKeepPanel(cur);
+      renderOmniInboxSidebar();
+    }
+  }
+}
+window.refreshOmniKeepPanelData = refreshOmniKeepPanelData;
 
 async function saveSingleKeepFeedback(customerWA, picKey) {
   const statusEl = document.getElementById('omniStatusSelect_' + customerWA);

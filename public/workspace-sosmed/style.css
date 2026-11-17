@@ -7456,6 +7456,41 @@ body.tab9-mode-active #tabContent9.active {
   letter-spacing: -0.01em;
 }
 
+.omni-keep-period-chip {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.omni-keep-refresh-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.omni-keep-refresh-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+  transform: rotate(45deg);
+}
+
 .omni-keep-counter-badge {
   font-size: 0.68rem;
   font-weight: 800;
