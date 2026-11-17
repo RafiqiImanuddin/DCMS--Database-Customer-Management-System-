@@ -6064,8 +6064,62 @@ body.tab9-mode-active #tabContent9.active {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #22c55e;
+  background: #cbd5e1;
   border: 2px solid #ffffff;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.omni-badge-wa-dot.online {
+  background: #22c55e !important;
+  box-shadow: 0 0 0 1px #fff, 0 0 5px rgba(34, 197, 94, 0.6);
+}
+
+.omni-badge-wa-dot.offline {
+  background: #cbd5e1 !important;
+}
+
+.omni-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  font-size: 0.60rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  line-height: 1.3;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.omni-status-pill.online {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.omni-status-pill.offline {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.omni-status-pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.omni-status-pill.online .omni-status-pill-dot {
+  background: #10b981;
+  box-shadow: 0 0 5px rgba(16, 185, 129, 0.7);
+}
+
+.omni-status-pill.offline .omni-status-pill-dot {
+  background: #94a3b8;
 }
 
 .omni-card-body {
@@ -6336,13 +6390,26 @@ body.tab9-mode-active #tabContent9.active {
   text-overflow: ellipsis;
 }
 
-.omni-dot-online {
-  width: 6px;
-  height: 6px;
+.omni-dot-online,
+.omni-dot-status {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #22c55e;
+  background: #cbd5e1;
   display: inline-block;
   flex-shrink: 0;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.omni-dot-online,
+.omni-dot-status.online {
+  background: #22c55e !important;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+.omni-dot-status.offline {
+  background: #94a3b8 !important;
+  box-shadow: none !important;
 }
 
 .omni-header-actions {

@@ -1052,7 +1052,7 @@ class WorkspaceSosmedController extends Controller
             // Ambil nomor gateway dari cache untuk respon instan tanpa blocking HTTP network call
             $gatewayPhone = cache()->get('baileys_bot_phone', '6285111426699');
 
-            // Ambil status pengguna yang sedang mengetik (realtime presence typing)
+            // Ambil status pengguna yang sedang online & sedang mengetik (realtime presence)
             $now = time();
             $typingUsers = (array) cache()->get('omni_typing_users', []);
             $activeTyping = [];
@@ -1062,19 +1062,28 @@ class WorkspaceSosmedController extends Controller
                 }
             }
 
+            $onlineUsers = (array) cache()->get('omni_online_users', []);
+            $activeOnline = [];
+            foreach ($onlineUsers as $k => $exp) {
+                if ($exp >= $now) {
+                    $activeOnline[$k] = true;
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'gateway_phone' => $gatewayPhone,
                 'messages' => $filtered,
                 'total' => count($filtered),
                 'typing' => $activeTyping,
+                'online' => $activeOnline,
             ]);
         }
 
         // Mode POST: Webhook masuk (WAHA VPS atau WatZap Cloud API / Baileys Gateway)
         $data = $request->all();
 
-        // 0. Dukungan Event Presence Update (Status Sedang Mengetik / Composing / Recording)
+        // 0. Dukungan Event Presence Update (Status Sedang Mengetik & Online/Offline)
         if (isset($data['event']) && $data['event'] === 'presence.update') {
             $p = $data['payload'] ?? [];
             $rawPhone = (string) ($p['phone'] ?? $p['id'] ?? '');
@@ -1082,21 +1091,40 @@ class WorkspaceSosmedController extends Controller
             $presence = (string) ($p['presence'] ?? 'paused');
             if ($cleanPhone) {
                 $typingUsers = (array) cache()->get('omni_typing_users', []);
+                $onlineUsers = (array) cache()->get('omni_online_users', []);
+                $now = time();
+
+                // Typing Status
                 if (in_array($presence, ['composing', 'recording'], true)) {
                     $typingUsers[$cleanPhone] = [
                         'type' => $presence,
-                        'expires_at' => time() + 7,
+                        'expires_at' => $now + 7,
                     ];
+                    $onlineUsers[$cleanPhone] = $now + 300;
                 } else {
                     unset($typingUsers[$cleanPhone]);
                 }
-                $now = time();
+
+                // Online/Offline Status
+                if (in_array($presence, ['available', 'composing', 'recording'], true)) {
+                    $onlineUsers[$cleanPhone] = $now + 300;
+                } elseif ($presence === 'unavailable') {
+                    unset($onlineUsers[$cleanPhone]);
+                }
+
                 foreach ($typingUsers as $k => $v) {
                     if (($v['expires_at'] ?? 0) < $now) {
                         unset($typingUsers[$k]);
                     }
                 }
+                foreach ($onlineUsers as $k => $exp) {
+                    if ($exp < $now) {
+                        unset($onlineUsers[$k]);
+                    }
+                }
+
                 cache()->put('omni_typing_users', $typingUsers, now()->addMinutes(2));
+                cache()->put('omni_online_users', $onlineUsers, now()->addMinutes(10));
             }
 
             return response()->json(['success' => true, 'presence' => $presence]);
@@ -1163,11 +1191,16 @@ class WorkspaceSosmedController extends Controller
                 return response()->json(['status' => 200, 'message' => 'Invalid phone ignored']);
             }
 
-            // Hapus status typing karena kontak sudah mengirim pesannya
+            // Hapus status typing karena kontak sudah mengirim pesannya, dan tandai online
             $typingUsers = (array) cache()->get('omni_typing_users', []);
             if (isset($typingUsers[$cleanPhone])) {
                 unset($typingUsers[$cleanPhone]);
                 cache()->put('omni_typing_users', $typingUsers, now()->addMinutes(2));
+            }
+            if (! $isFromMe) {
+                $onlineUsers = (array) cache()->get('omni_online_users', []);
+                $onlineUsers[$cleanPhone] = time() + 300;
+                cache()->put('omni_online_users', $onlineUsers, now()->addMinutes(10));
             }
 
             $messageId = (string) ($p['id'] ?? ('baileys_'.time()));

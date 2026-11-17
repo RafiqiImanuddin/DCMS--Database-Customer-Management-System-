@@ -13539,6 +13539,7 @@ function renderOmniInboxModule() {
   listContainer.innerHTML = filtered.map(function(pic) {
     const isSelected = pic.key === selectedOmniPicKey;
     const botAvatar = getOmniAvatarHtml(pic.picWA || pic.key, 36);
+    const isOnline = isOmniContactOnline(pic.picWA || pic.key);
     let timeDisplay = '';
     if (pic.latestTimestamp) {
       const parts = pic.latestTimestamp.split(' ');
@@ -13548,7 +13549,7 @@ function renderOmniInboxModule() {
     return '<div class="omni-chat-card ' + (isSelected ? 'active' : '') + '" onclick="selectOmniPic(\'' + pic.key + '\')">' +
       '<div class="omni-card-avatar-wrap">' +
         '<div class="omni-avatar-circle">' + botAvatar + '</div>' +
-        '<span class="omni-badge-wa-dot"></span>' +
+        '<span class="omni-badge-wa-dot ' + (isOnline ? 'online' : 'offline') + '" title="' + (isOnline ? 'Online' : 'Offline') + '"></span>' +
       '</div>' +
       '<div class="omni-card-body">' +
         '<div class="omni-card-top-row">' +
@@ -13557,7 +13558,10 @@ function renderOmniInboxModule() {
         '</div>' +
         '<div class="omni-card-snippet" title="' + escapeHtml(pic.latestSnippet) + '">' + (pic.lastStatusTick ? pic.lastStatusTick + ' ' : '') + escapeHtml(pic.latestSnippet) + '</div>' +
         '<div class="omni-card-bottom-row">' +
-          '<span class="omni-channel-tag">' + (pic.cabang && pic.cabang !== '-' ? escapeHtml(pic.cabang) + ' &middot; ' : '') + formatWhatsAppPhoneDisplay(pic.picWA || pic.key) + '</span>' +
+          '<div style="display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden;">' +
+            '<span class="omni-channel-tag">' + (pic.cabang && pic.cabang !== '-' ? escapeHtml(pic.cabang) + ' &middot; ' : '') + formatWhatsAppPhoneDisplay(pic.picWA || pic.key) + '</span>' +
+            renderOmniOnlineBadge(isOnline) +
+          '</div>' +
           '<div class="omni-card-badges-right">' +
             (pic.unreadCount > 0 && !isSelected
               ? '<span class="omni-unread-badge" title="' + pic.unreadCount + ' pesan belum dibaca">' + (pic.unreadCount > 99 ? '99+' : pic.unreadCount) + '</span>'
@@ -13753,6 +13757,32 @@ function renderOmniMessageStatusTick(status, isSidebar) {
   return '<svg width="' + clockSize + '" height="' + clockSize + '" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Sedang Mengirim..."><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
 }
 
+window.omniOnlineUsersMap = {};
+
+function isOmniContactOnline(phoneOrKey) {
+  if (!phoneOrKey) return false;
+  const clean = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(phoneOrKey) : String(phoneOrKey)).replace(/\D/g, '');
+  if (!clean) return false;
+  if (window.omniOnlineUsersMap[clean]) return true;
+  if (window.omniOnlineUsersMap[phoneOrKey]) return true;
+  const d8 = clean.slice(-8);
+  for (const k in window.omniOnlineUsersMap) {
+    if (!window.omniOnlineUsersMap[k]) continue;
+    const ck = String(k).replace(/\D/g, '');
+    if (ck.endsWith(d8) || d8.endsWith(ck.slice(-8))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function renderOmniOnlineBadge(isOnline) {
+  if (isOnline) {
+    return '<span class="omni-status-pill online" title="Kontak sedang Online"><span class="omni-status-pill-dot"></span>Online</span>';
+  }
+  return '<span class="omni-status-pill offline" title="Kontak sedang Offline"><span class="omni-status-pill-dot"></span>Offline</span>';
+}
+
 function renderOmniActiveChat(pic) {
   const container = document.getElementById('omniChatViewContainer');
   if (!container) return;
@@ -13913,11 +13943,12 @@ function renderOmniActiveChat(pic) {
     );
   }
 
+  const isOnline = isOmniContactOnline(pic.picWA || pic.key);
   container.innerHTML = '<div class="omni-chatview-header">' +
     '<div class="omni-header-contact">' +
       '<div class="omni-header-avatar" style="background:transparent; border:none; padding:0; cursor:pointer;" onclick="handleOmniAvatarClick(event, \'' + escapeHtml(pic.picWA || pic.key) + '\')" title="Klik untuk memperbesar foto profil">' +
         getOmniAvatarHtml(pic.picWA || pic.key, 38) +
-        '<span class="omni-badge-wa-dot"></span>' +
+        '<span class="omni-badge-wa-dot ' + (isOnline ? 'online' : 'offline') + '" title="' + (isOnline ? 'Online' : 'Offline') + '"></span>' +
       '</div>' +
       '<div class="omni-header-info">' +
         '<div class="omni-header-name">' +
@@ -13925,8 +13956,10 @@ function renderOmniActiveChat(pic) {
           '<span class="omni-badge-fu-tag">' + escapeHtml(pic.cabang) + '</span>' +
         '</div>' +
         '<div class="omni-header-meta" id="omniHeaderMeta">' +
-          '<span class="omni-dot-online"></span>' +
-          '<span id="omniHeaderMetaText">WhatsApp Official &middot; ' + formatWhatsAppPhoneDisplay(pic.picWA || cleanWA) + '</span>' +
+          '<span class="omni-dot-status ' + (isOnline ? 'online' : 'offline') + '"></span>' +
+          '<span id="omniHeaderMetaText">' +
+            '<strong style="color:' + (isOnline ? '#059669' : '#64748b') + ';">' + (isOnline ? 'Online' : 'Offline') + '</strong> &middot; WhatsApp Official &middot; ' + formatWhatsAppPhoneDisplay(pic.picWA || cleanWA) +
+          '</span>' +
         '</div>' +
       '</div>' +
     '</div>' +
@@ -14317,6 +14350,19 @@ function updateOmniCardInSidebar(picKey, lastMsg, picName, picCabang) {
   const tickHtml = isOut ? (renderOmniMessageStatusTick(lastMsg.status || 'sent', true) + ' ') : '';
 
   if (targetCard) {
+    const isOnline = isOmniContactOnline(normKey);
+    const dot = targetCard.querySelector('.omni-badge-wa-dot');
+    if (dot) {
+      dot.className = 'omni-badge-wa-dot ' + (isOnline ? 'online' : 'offline');
+      dot.title = isOnline ? 'Online' : 'Offline';
+    }
+    const pill = targetCard.querySelector('.omni-status-pill');
+    if (pill) {
+      pill.className = 'omni-status-pill ' + (isOnline ? 'online' : 'offline');
+      pill.title = isOnline ? 'Kontak sedang Online' : 'Kontak sedang Offline';
+      pill.innerHTML = '<span class="omni-status-pill-dot"></span>' + (isOnline ? 'Online' : 'Offline');
+    }
+
     const snippetEl = targetCard.querySelector('.omni-card-snippet');
     if (snippetEl) snippetEl.innerHTML = tickHtml + escapeHtml(snippet);
     const timeEl = targetCard.querySelector('.omni-card-time');
@@ -14608,6 +14654,59 @@ function updateOmniTypingIndicators(typingMap) {
   }
 }
 
+function updateOmniOnlineIndicators() {
+  const listContainer = document.getElementById('omniChatListContainer');
+  if (listContainer) {
+    const cards = listContainer.querySelectorAll('.omni-chat-card');
+    cards.forEach(function(card) {
+      const oc = card.getAttribute('onclick') || '';
+      const dot = card.querySelector('.omni-badge-wa-dot');
+      const pill = card.querySelector('.omni-status-pill');
+      if (!dot && !pill) return;
+
+      let isCardOnline = false;
+      Object.keys(window.omniOnlineUsersMap).forEach(function(ph) {
+        if (!window.omniOnlineUsersMap[ph]) return;
+        if (oc.includes(ph) || (ph.length >= 8 && oc.includes(ph.slice(-8)))) {
+          isCardOnline = true;
+        }
+      });
+
+      if (dot) {
+        dot.className = 'omni-badge-wa-dot ' + (isCardOnline ? 'online' : 'offline');
+        dot.title = isCardOnline ? 'Online' : 'Offline';
+      }
+      if (pill) {
+        pill.className = 'omni-status-pill ' + (isCardOnline ? 'online' : 'offline');
+        pill.title = isCardOnline ? 'Kontak sedang Online' : 'Kontak sedang Offline';
+        pill.innerHTML = '<span class="omni-status-pill-dot"></span>' + (isCardOnline ? 'Online' : 'Offline');
+      }
+    });
+  }
+
+  // Update header roomchat aktif
+  if (selectedOmniPicKey) {
+    const isHeaderOnline = isOmniContactOnline(selectedOmniPicKey);
+    const headerAvatarDot = document.querySelector('.omni-header-avatar .omni-badge-wa-dot');
+    if (headerAvatarDot) {
+      headerAvatarDot.className = 'omni-badge-wa-dot ' + (isHeaderOnline ? 'online' : 'offline');
+      headerAvatarDot.title = isHeaderOnline ? 'Online' : 'Offline';
+    }
+    const headerMeta = document.getElementById('omniHeaderMeta');
+    const headerDotStatus = headerMeta ? headerMeta.querySelector('.omni-dot-status') : null;
+    if (headerDotStatus) {
+      headerDotStatus.className = 'omni-dot-status ' + (isHeaderOnline ? 'online' : 'offline');
+    }
+    const headerMetaText = document.getElementById('omniHeaderMetaText');
+    if (headerMeta && headerMetaText && !headerMeta._isTyping) {
+      const allPics = typeof getOmniPicChats === 'function' ? getOmniPicChats() : [];
+      const curPic = allPics.find(function(p) { return p.key === selectedOmniPicKey; });
+      const phoneDisplay = formatWhatsAppPhoneDisplay(curPic ? (curPic.picWA || curPic.key) : selectedOmniPicKey);
+      headerMetaText.innerHTML = '<strong style="color:' + (isHeaderOnline ? '#059669' : '#64748b') + ';">' + (isHeaderOnline ? 'Online' : 'Offline') + '</strong> &middot; WhatsApp Official &middot; ' + phoneDisplay;
+    }
+  }
+}
+
 function subscribeOmniPresence(phone) {
   if (!phone) return;
   const clean = normalizeWhatsAppPhone(phone) || phone;
@@ -14637,6 +14736,12 @@ async function pollWatzapIncomingMessages() {
 
     // REALTIME TYPING INDICATOR UPDATE (WHATSAPP STYLE)
     updateOmniTypingIndicators(data.typing || {});
+
+    // REALTIME ONLINE / OFFLINE STATUS UPDATE
+    if (data.online && typeof data.online === 'object') {
+      window.omniOnlineUsersMap = data.online;
+      updateOmniOnlineIndicators();
+    }
 
     // SINKRONISASI STATUS RESOLVE PERMANEN DARI NEON POSTGRESQL (Tidak pernah hilang saat redeploy)
     if (data.resolvedChats && typeof data.resolvedChats === 'object') {
@@ -14740,6 +14845,8 @@ async function pollWatzapIncomingMessages() {
 
         // Smart Read: Jika kontak/PIC membalas pesan, semua pesan keluar ADMIN sebelumnya di thread ini otomatis ditandai 'read' (Centang 2 Biru)
         if (msg.sender !== 'ADMIN') {
+          window.omniOnlineUsersMap[cleanPhone] = true;
+          updateOmniOnlineIndicators();
           threads[picKey].forEach(function(prevM) {
             if (prevM.sender === 'ADMIN' && prevM.status !== 'read') {
               prevM.status = 'read';
