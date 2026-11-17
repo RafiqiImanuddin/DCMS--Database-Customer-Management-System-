@@ -13371,10 +13371,14 @@ function getOmniPicChats() {
     const isUnresponded = !isResolved && unreadCount > 0;
 
     let snippet = 'Percakapan baru';
+    let lastStatusTick = '';
     if (lastMsg) {
       const rawTxt = (lastMsg.text || lastMsg.message || '').trim();
       const isOut = (lastMsg.sender === 'ADMIN' || lastMsg.sender === 'admin' || lastMsg.fromMe);
       const prefix = isOut ? 'Anda: ' : '';
+      if (isOut) {
+        lastStatusTick = renderOmniMessageStatusTick(lastMsg.status || 'sent', true);
+      }
       if (rawTxt) {
         snippet = prefix + rawTxt;
       } else if (lastMsg.mediaUrl || lastMsg.media_url || lastMsg.messageType === 'image') {
@@ -13402,6 +13406,7 @@ function getOmniPicChats() {
       latestTimestamp: latestTimestamp,
       latestSnippet: snippet,
       lastMessageText: snippet,
+      lastStatusTick: lastStatusTick,
       messages: chatMsgs
     });
   });
@@ -13550,7 +13555,7 @@ function renderOmniInboxModule() {
           '<span class="omni-card-name" title="' + escapeHtml(pic.picName) + '">' + escapeHtml(pic.picName) + '</span>' +
           '<span class="omni-card-time">' + timeDisplay + '</span>' +
         '</div>' +
-        '<div class="omni-card-snippet" title="' + escapeHtml(pic.latestSnippet) + '">' + escapeHtml(pic.latestSnippet) + '</div>' +
+        '<div class="omni-card-snippet" title="' + escapeHtml(pic.latestSnippet) + '">' + (pic.lastStatusTick ? pic.lastStatusTick + ' ' : '') + escapeHtml(pic.latestSnippet) + '</div>' +
         '<div class="omni-card-bottom-row">' +
           '<span class="omni-channel-tag">' + (pic.cabang && pic.cabang !== '-' ? escapeHtml(pic.cabang) + ' &middot; ' : '') + formatWhatsAppPhoneDisplay(pic.picWA || pic.key) + '</span>' +
           '<div class="omni-card-badges-right">' +
@@ -13723,6 +13728,31 @@ function formatOmniWhatsAppMessage(rawText) {
   return escaped;
 }
 
+function renderOmniMessageStatusTick(status, isSidebar) {
+  status = String(status || '').toLowerCase().trim();
+  const tickSize = isSidebar ? 14 : 16;
+  const singleTickSize = isSidebar ? 13 : 14;
+  const clockSize = isSidebar ? 11 : 12;
+
+  // 1. Centang 2 Biru: Dibaca penerima (Read / Played)
+  if (status === 'read' || status === 'played' || status === '4' || status === '5') {
+    return '<svg width="' + tickSize + '" height="' + tickSize + '" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Dibaca Penerima (Centang 2 Biru)"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>';
+  }
+
+  // 2. Centang 2 Abu-Abu: Tersampaikan ke HP penerima (Delivered)
+  if (status === 'delivered' || status === 'd' || status === '3') {
+    return '<svg width="' + tickSize + '" height="' + tickSize + '" viewBox="0 0 24 24" fill="none" stroke="#8696a0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Tersampaikan ke Penerima (Centang 2 Abu)"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>';
+  }
+
+  // 3. Centang 1 Abu-Abu: Berhasil terkirim ke server WhatsApp (Sent)
+  if (status === 'sent' || status === 's' || status === 'server_ack' || status === '2' || status === '1') {
+    return '<svg width="' + singleTickSize + '" height="' + singleTickSize + '" viewBox="0 0 24 24" fill="none" stroke="#8696a0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Terkirim ke Server WhatsApp (Centang 1 Abu)"><polyline points="20 6 9 17 4 12"/></svg>';
+  }
+
+  // 4. Jam Pengiriman (Pending / Sending)
+  return '<svg width="' + clockSize + '" height="' + clockSize + '" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline; vertical-align:middle; margin-right:2px;" title="Sedang Mengirim..."><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+}
+
 function renderOmniActiveChat(pic) {
   const container = document.getElementById('omniChatViewContainer');
   if (!container) return;
@@ -13785,11 +13815,10 @@ function renderOmniActiveChat(pic) {
 
     const isOutgoing = msg.sender === 'ADMIN';
     const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const msgDomId = String(msg.id || msg.messageId || ('msg_' + (msg.timestamp || Math.random().toString(36).slice(2))));
     const tickMarkup = isOutgoing ? (
-      '<span class="omni-msg-status-tick" id="tick_' + (msg.id || '') + '">' +
-        (msg.status === 'sending'
-          ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/></svg>'
-          : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>') +
+      '<span class="omni-msg-status-tick" id="tick_' + escapeHtml(msgDomId) + '">' +
+        renderOmniMessageStatusTick(msg.status || 'sent', false) +
       '</span>'
     ) : '';
 
@@ -14171,8 +14200,8 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
           if (bText.includes(cleanDisplayText)) {
             // Update centang status jika pesan berhasil terkirim
             const tick = existingBubbles[i].querySelector('.omni-msg-status-tick');
-            if (tick && msg.status === 'sent') {
-              tick.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>';
+            if (tick && msg.status) {
+              tick.innerHTML = renderOmniMessageStatusTick(msg.status, false);
             }
             return;
           }
@@ -14189,9 +14218,7 @@ function appendOmniBubbleToStream(msg, senderDisplayName) {
 
   const tickSvg = isOutgoing ? (
     '<span class="omni-msg-status-tick" id="tick_' + safeMsgId + '">' +
-      (msg.status === 'sending'
-        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/></svg>'
-        : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>') +
+      renderOmniMessageStatusTick(msg.status || 'sending', false) +
     '</span>'
   ) : '';
 
@@ -14285,11 +14312,13 @@ function updateOmniCardInSidebar(picKey, lastMsg, picName, picCabang) {
   });
 
   const timeStr = lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-  const snippet = lastMsg ? (lastMsg.sender === 'ADMIN' ? 'Anda: ' + lastMsg.text : lastMsg.text) : '';
+  const isOut = lastMsg && (lastMsg.sender === 'ADMIN' || lastMsg.sender === 'admin' || lastMsg.fromMe);
+  const snippet = lastMsg ? (isOut ? 'Anda: ' + (lastMsg.text || '') : (lastMsg.text || '')) : '';
+  const tickHtml = isOut ? (renderOmniMessageStatusTick(lastMsg.status || 'sent', true) + ' ') : '';
 
   if (targetCard) {
     const snippetEl = targetCard.querySelector('.omni-card-snippet');
-    if (snippetEl) snippetEl.innerText = snippet;
+    if (snippetEl) snippetEl.innerHTML = tickHtml + escapeHtml(snippet);
     const timeEl = targetCard.querySelector('.omni-card-time');
     if (timeEl) timeEl.innerText = timeStr;
 
@@ -14463,7 +14492,7 @@ async function sendOmniReply() {
       }
       const tick = document.getElementById('tick_' + msgId);
       if (tick) {
-        tick.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#53bdeb" stroke-width="2" style="display:inline; vertical-align:middle; margin-left:3px;"><polyline points="20 6 9 17 4 12"/><polyline points="20 12 13 19"/></svg>';
+        tick.innerHTML = renderOmniMessageStatusTick('sent', false);
       }
       if (typeof showSaveToast === 'function') {
         showSaveToast('Pesan ' + (fileToSend ? (fileToSend.type.startsWith('image/') ? 'gambar' : 'dokumen') : 'teks') + ' terkirim ke WhatsApp ' + picName + '!');
@@ -14663,7 +14692,14 @@ async function pollWatzapIncomingMessages() {
       });
 
       if (existingMsg) {
-        if (msg.sender === 'ADMIN') {
+        if (msg.status && existingMsg.status !== msg.status) {
+          existingMsg.status = msg.status;
+          hasNew = true;
+          const tickEl = document.getElementById('tick_' + (existingMsg.id || existingMsg.messageId));
+          if (tickEl) {
+            tickEl.innerHTML = renderOmniMessageStatusTick(existingMsg.status, false);
+          }
+        } else if (msg.sender === 'ADMIN' && !existingMsg.status) {
           existingMsg.status = 'sent';
         }
         if (msg.messageId && (!existingMsg.messageId || (existingMsg.id && String(existingMsg.id).startsWith('out_')))) {
@@ -14693,7 +14729,7 @@ async function pollWatzapIncomingMessages() {
           senderName: msg.senderName || matched.picName,
           text: cleanMsgText,
           timestamp: ts,
-          status: 'sent',
+          status: msg.status || 'sent',
           mediaUrl: incomingMediaUrl,
           messageType: msg.messageType || (incomingMediaUrl ? 'image' : 'text'),
           replyTo: replyToObj
@@ -14701,6 +14737,20 @@ async function pollWatzapIncomingMessages() {
         threads[picKey].push(newMsgObj);
         // CATATAN: Sekali di-resolve, tetap berstatus resolve permanen di database Neon PostgreSQL!
         hasNew = true;
+
+        // Smart Read: Jika kontak/PIC membalas pesan, semua pesan keluar ADMIN sebelumnya di thread ini otomatis ditandai 'read' (Centang 2 Biru)
+        if (msg.sender !== 'ADMIN') {
+          threads[picKey].forEach(function(prevM) {
+            if (prevM.sender === 'ADMIN' && prevM.status !== 'read') {
+              prevM.status = 'read';
+              hasNew = true;
+              const tEl = document.getElementById('tick_' + (prevM.id || prevM.messageId));
+              if (tEl) {
+                tEl.innerHTML = renderOmniMessageStatusTick('read', false);
+              }
+            }
+          });
+        }
 
         if (!isInitialLoad) {
           // INCREMENTAL UPDATE: Jika chat ini sedang dibuka di layar, langsung tempel bubble!

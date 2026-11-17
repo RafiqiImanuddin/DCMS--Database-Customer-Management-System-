@@ -1033,9 +1033,10 @@ class WorkspaceSosmedController extends Controller
                 }
                 if ($since) {
                     $mTime = $parseEpochMs($m['timestamp'] ?? null);
+                    $statusTime = (int) ($m['status_updated_at'] ?? 0);
                     $sTime = $parseEpochMs($since);
-                    // Buffer toleransi 30 detik untuk mengantisipasi perbedaan clock server vs browser
-                    if ($mTime <= ($sTime - 30000)) {
+                    // Loloskan jika timestamp pesan baru ATAU status receipt-nya baru diperbarui
+                    if ($mTime <= ($sTime - 30000) && $statusTime <= ($sTime - 30000)) {
                         return false;
                     }
                 }
@@ -1099,6 +1100,43 @@ class WorkspaceSosmedController extends Controller
             }
 
             return response()->json(['success' => true, 'presence' => $presence]);
+        }
+
+        // 0A. Dukungan Status Pengiriman & Tanda Baca Pesan (Sent Centang 1, Delivered Centang 2 Abu, Read Centang 2 Biru)
+        if ((isset($data['event']) && in_array($data['event'], ['message.status_update', 'message.ack', 'message_ack'], true)) ||
+            (isset($data['action']) && $data['action'] === 'MESSAGE_STATUS_UPDATE')) {
+            $p = $data['payload'] ?? $data;
+            $msgId = (string) ($p['id'] ?? $p['messageId'] ?? $p['key']['id'] ?? '');
+            $status = (string) ($p['status'] ?? $p['ackName'] ?? '');
+            $rawAck = $p['ack'] ?? $p['update']['status'] ?? null;
+            if ($rawAck !== null) {
+                if ($rawAck == 2 || $rawAck == 1) $status = 'sent';
+                elseif ($rawAck == 3) $status = 'delivered';
+                elseif ($rawAck >= 4) $status = 'read';
+            }
+            if ($msgId && $status) {
+                $status = strtolower($status);
+                $updated = false;
+                $nowMs = time() * 1000;
+                foreach ($messages as &$m) {
+                    if (! empty($m['messageId']) && $m['messageId'] === $msgId) {
+                        $m['status'] = $status;
+                        $m['status_updated_at'] = $nowMs;
+                        $updated = true;
+                        break;
+                    }
+                }
+                unset($m);
+                if ($updated) {
+                    @File::put($msgFile, json_encode(array_values($messages), JSON_PRETTY_PRINT));
+                }
+
+                try {
+                    WhatsAppMessage::where('message_id', $msgId)->update(['status' => $status]);
+                } catch (\Throwable) {}
+            }
+
+            return response()->json(['success' => true, 'status' => $status, 'messageId' => $msgId]);
         }
 
         // 1. Dukungan Webhook Resmi WAHA (WhatsApp HTTP API di VPS)
@@ -1248,6 +1286,28 @@ class WorkspaceSosmedController extends Controller
                     'status' => $isFromMe ? 'sent' : 'received',
                 ]);
             } catch (\Throwable) {
+            }
+
+            // Smart Read Inference: Jika kontak/PIC membalas chat (inbound), tandai semua pesan outbound sebelumnya ke nomor ini sebagai 'read' (Centang 2 Biru)
+            if (! $isFromMe && $cleanPhone) {
+                $nowMs = time() * 1000;
+                foreach ($messages as &$prevM) {
+                    $mPhone = preg_replace('/\D/', '', (string) ($prevM['phone'] ?? ''));
+                    if ($mPhone === $cleanPhone && ($prevM['direction'] ?? '') === 'outbound' && ($prevM['status'] ?? '') !== 'read') {
+                        $prevM['status'] = 'read';
+                        $prevM['status_updated_at'] = $nowMs;
+                    }
+                }
+                unset($prevM);
+
+                try {
+                    if (isset($chat)) {
+                        WhatsAppMessage::where('whatsapp_chat_id', $chat->id)
+                            ->where('sender_type', 'admin')
+                            ->where('status', '!=', 'read')
+                            ->update(['status' => 'read']);
+                    }
+                } catch (\Throwable) {}
             }
 
             try {

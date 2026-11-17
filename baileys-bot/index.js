@@ -573,6 +573,48 @@ async function startBaileysSocket() {
       logger.warn(`[Presence Error] ${err.message}`);
     }
   });
+
+  // Handler Event Delivery & Read Receipts (Centang 1, Centang 2 Abu, Centang 2 Biru)
+  sock.ev.on('messages.update', async (updates) => {
+    try {
+      if (!Array.isArray(updates)) return;
+      for (const item of updates) {
+        if (!item.key || !item.update) continue;
+        const msgId = item.key.id;
+        const remoteJid = item.key.remoteJid;
+        const fromMe = Boolean(item.key.fromMe);
+        const statusNum = item.update.status;
+
+        // Status mapping Baileys:
+        // 2: SERVER_ACK -> 'sent' (centang 1 abu-abu)
+        // 3: DELIVERY_ACK -> 'delivered' (centang 2 abu-abu)
+        // 4: READ -> 'read' (centang 2 biru)
+        // 5: PLAYED -> 'read' (centang 2 biru)
+        let statusStr = null;
+        if (statusNum === 2) statusStr = 'sent';
+        else if (statusNum === 3) statusStr = 'delivered';
+        else if (statusNum === 4 || statusNum === 5) statusStr = 'read';
+
+        if (statusStr && fromMe && remoteJid) {
+          const cleanPhone = remoteJid.replace(/@.*$/, '').replace(/\D/g, '');
+          sendToDCMSInbox({
+            event: 'message.status_update',
+            action: 'MESSAGE_STATUS_UPDATE',
+            payload: {
+              id: msgId,
+              messageId: msgId,
+              phone: cleanPhone,
+              status: statusStr,
+              remoteJid: remoteJid
+            }
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      logger.warn(`[Messages.update Error] ${e.message}`);
+    }
+  });
+
   sock.ev.on('messages.reaction', async (reactions) => {
     if (!Array.isArray(reactions)) return;
 
