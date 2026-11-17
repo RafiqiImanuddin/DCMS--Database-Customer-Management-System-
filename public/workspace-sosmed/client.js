@@ -12164,8 +12164,35 @@ function parseOmniTimestamp(raw) {
   if (!isNaN(num) && num > 0) {
     return num < 1e11 ? num * 1000 : num;
   }
-  const parsed = new Date(str).getTime();
-  return (!isNaN(parsed) && parsed > 0) ? parsed : Date.now();
+
+  // Coba parse format ISO 8601 atau SQL Datetime (YYYY-MM-DD...)
+  let parsed = new Date(str).getTime();
+  if (!isNaN(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  // Parse format lokal / Format Keep: DD/MM/YYYY atau MM/DD/YYYY (e.g. "17/11/2026 10:45:00" atau "11/5/2026 15:38:34")
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (m) {
+    let p1 = parseInt(m[1], 10);
+    let p2 = parseInt(m[2], 10);
+    const year = parseInt(m[3], 10);
+    const hour = m[4] ? parseInt(m[4], 10) : 0;
+    const min = m[5] ? parseInt(m[5], 10) : 0;
+    const sec = m[6] ? parseInt(m[6], 10) : 0;
+    let day, month;
+    if (p1 > 12) {
+      day = p1; month = p2 - 1;
+    } else if (p2 > 12) {
+      month = p1 - 1; day = p2;
+    } else {
+      day = p1; month = p2 - 1;
+    }
+    const cd = new Date(year, month, day, hour, min, sec);
+    if (!isNaN(cd.getTime())) return cd.getTime();
+  }
+
+  return Date.now();
 }
 
 // --------------------------------------------------------------------------
@@ -12761,17 +12788,17 @@ function getOmniThreads() {
 
       if (!cleaned[targetKey]) cleaned[targetKey] = [];
       (raw[k] || []).forEach(function(msg) {
-        const msgTs = Number(msg.timestamp || 0);
+        const msgTs = parseOmniTimestamp(msg.timestamp);
         const msgText = (msg.text || msg.message || '').trim();
         const exists = cleaned[targetKey].some(function(m) {
           return (m.id && msg.id && m.id === msg.id) ||
             (msg.messageId && (m.messageId === msg.messageId || m.id === msg.messageId)) ||
-            (Math.abs(Number(m.timestamp || 0) - msgTs) < 5000 && (m.text || m.message || '').trim() === msgText && (m.sender || '') === (msg.sender || ''));
+            (Math.abs(parseOmniTimestamp(m.timestamp) - msgTs) < 5000 && (m.text || m.message || '').trim() === msgText && (m.sender || '') === (msg.sender || ''));
         });
         if (!exists) cleaned[targetKey].push(msg);
       });
       cleaned[targetKey].sort(function(a, b) {
-        return (Number(a.timestamp || 0)) - (Number(b.timestamp || 0));
+        return parseOmniTimestamp(a.timestamp) - parseOmniTimestamp(b.timestamp);
       });
     });
 
@@ -13451,7 +13478,8 @@ function formatOmniDateDivider(timestamp) {
   const defaultToday = `Today, ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
   if (!timestamp) return defaultToday;
 
-  const msgDate = new Date(Number(timestamp) || timestamp);
+  const epoch = parseOmniTimestamp(timestamp);
+  const msgDate = new Date(epoch);
   if (isNaN(msgDate.getTime())) return defaultToday;
 
   const today = new Date();
@@ -13486,9 +13514,9 @@ function renderOmniActiveChat(pic) {
   const threads = getOmniThreads();
   const customMessages = threads[pic.key] || threads[cleanWA] || threads[normalizeWhatsAppPhone(cleanWA)] || [];
 
-  // Sort messages chronologically
+  // Sort messages chronologically: Pesan paling lama di atas, pesan terbaru di paling bawah
   const sortedMessages = (customMessages || []).slice().sort(function(a, b) {
-    return (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0);
+    return parseOmniTimestamp(a.timestamp) - parseOmniTimestamp(b.timestamp);
   });
 
   // Deduplikasi pesan agar tidak muncul ganda (2x) jika ada duplikat di localStorage/polling
@@ -13497,7 +13525,7 @@ function renderOmniActiveChat(pic) {
   sortedMessages.forEach(function(m) {
     const mText = (m.text || m.message || '').trim();
     const mSender = m.sender || 'PIC';
-    const mTs = Number(m.timestamp) || 0;
+    const mTs = parseOmniTimestamp(m.timestamp);
     const roundTs = Math.round(mTs / 25000); // 25s bucket
     const dedupeKey = mSender + '_' + mText + '_' + roundTs;
     const msgId = m.id || m.messageId;
@@ -13513,9 +13541,9 @@ function renderOmniActiveChat(pic) {
   const messagesRendered = [];
 
   dedupedMessages.forEach(function(msg, idx) {
-    const msgTs = msg.timestamp ? Number(msg.timestamp) : Date.now();
+    const msgTs = parseOmniTimestamp(msg.timestamp);
     const d = new Date(msgTs);
-    const dateKey = isNaN(d.getTime()) ? 'today' : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    const dateKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` : 'today';
     if (dateKey !== lastDateGroup) {
       lastDateGroup = dateKey;
       const dateLabel = formatOmniDateDivider(msgTs);
@@ -14447,11 +14475,11 @@ async function syncOmniChatsFromWhatsApp(isManual) {
         }
       });
 
-      // Urutkan pesan per thread berdasarkan timestamp
+      // Urutkan pesan per thread secara kronologis (pesan lama di atas, terbaru di bawah)
       Object.keys(threads).forEach(function(k) {
         if (Array.isArray(threads[k])) {
           threads[k].sort(function(a, b) {
-            return (a.timestamp || 0) - (b.timestamp || 0);
+            return parseOmniTimestamp(a.timestamp) - parseOmniTimestamp(b.timestamp);
           });
         }
       });

@@ -992,7 +992,17 @@ class WorkspaceSosmedController extends Controller
                 }
             }
 
-            $filtered = array_values(array_filter($messages, function ($m) use ($since, $phone, $inboundOnly) {
+            $parseEpochMs = function ($val): int {
+                if (empty($val)) return 0;
+                if (is_numeric($val)) {
+                    $n = (int) $val;
+                    return $n < 1e11 ? $n * 1000 : $n;
+                }
+                $t = strtotime((string) $val);
+                return ($t !== false && $t > 0) ? ($t * 1000) : 0;
+            };
+
+            $filtered = array_values(array_filter($messages, function ($m) use ($since, $phone, $inboundOnly, $parseEpochMs) {
                 if ($inboundOnly && ($m['direction'] ?? '') !== 'inbound') {
                     return false;
                 }
@@ -1004,8 +1014,8 @@ class WorkspaceSosmedController extends Controller
                     }
                 }
                 if ($since) {
-                    $mTime = is_numeric($m['timestamp'] ?? null) ? (int) $m['timestamp'] : (isset($m['timestamp']) ? strtotime((string) $m['timestamp']) * 1000 : 0);
-                    $sTime = is_numeric($since) ? (int) ($since < 1e11 ? $since * 1000 : $since) : strtotime((string) $since) * 1000;
+                    $mTime = $parseEpochMs($m['timestamp'] ?? null);
+                    $sTime = $parseEpochMs($since);
                     // Buffer toleransi 30 detik untuk mengantisipasi perbedaan clock server vs browser
                     if ($mTime <= ($sTime - 30000)) {
                         return false;
@@ -1014,6 +1024,11 @@ class WorkspaceSosmedController extends Controller
 
                 return true;
             }));
+
+            // Pastikan pesan selalu terurut secara kronologis (pesan lama di atas, terbaru di bawah)
+            usort($filtered, function ($a, $b) use ($parseEpochMs) {
+                return $parseEpochMs($a['timestamp'] ?? 0) <=> $parseEpochMs($b['timestamp'] ?? 0);
+            });
 
             $gatewayPhone = '6285111426699';
             try {

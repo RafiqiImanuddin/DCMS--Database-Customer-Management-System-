@@ -547,7 +547,7 @@ class KeepAutoFollowUpService
         return [
             'id' => $k->id,
             'message_id' => $k->message_id,
-            'timestamp' => $k->keep_timestamp ? $k->keep_timestamp->format('d/m/Y H:i') : ($k->created_at ? $k->created_at->format('d/m/Y H:i') : '-'),
+            'timestamp' => $this->formatDateTimeSafely($k->keep_timestamp) ?: ($this->formatDateTimeSafely($k->created_at) ?: '-'),
             'nama' => $k->nama ?: '-',
             'nomor_wa' => $k->nomor_wa ?: '-',
             'nomor_wa_norm' => $cleanCustWA,
@@ -660,12 +660,17 @@ class KeepAutoFollowUpService
 
         // 0. Check other keeps with same nama_tim_follow_up that have a real mobile phone
         try {
-            $otherKeeps = SosmedKeep::where('nama_tim_follow_up', $salesName)
-                ->whereNotNull('nomor_fu')
-                ->where('nomor_fu', '!=', '')
-                ->orderByDesc('id')
-                ->limit(10)
-                ->get(['nomor_fu']);
+            $otherKeeps = SosmedKeep::where(function ($q) use ($salesName, $namePart) {
+                $q->where('nama_tim_follow_up', $salesName);
+                if ($namePart && strlen($namePart) >= 3) {
+                    $q->orWhere('nama_tim_follow_up', 'like', "%{$namePart}%");
+                }
+            })
+            ->whereNotNull('nomor_fu')
+            ->where('nomor_fu', '!=', '')
+            ->orderByDesc('id')
+            ->limit(25)
+            ->get(['nomor_fu']);
 
             foreach ($otherKeeps as $ok) {
                 $norm = $this->normalizePhone($ok->nomor_fu);
@@ -676,39 +681,64 @@ class KeepAutoFollowUpService
         } catch (\Throwable) {}
 
         // 1. Check if salesName contains code/nik: e.g. "BJM.SOS.015 - DANIEL"
-        $codePart = '';
-        $namePart = $salesName;
-        if (str_contains($salesName, '-')) {
-            $parts = explode('-', $salesName);
-            $codePart = trim($parts[0]);
-            $namePart = trim(end($parts));
-        }
-
         if ($codePart) {
-            $emp = Employee::where('nik', 'like', "%{$codePart}%")
-                ->whereNotNull('phone')
-                ->where('phone', '!=', '')
-                ->first();
-            if ($emp && ! empty($emp->phone)) {
-                $empNorm = $this->normalizePhone($emp->phone);
-                if (! $this->isLidPhone($empNorm) && strlen($empNorm) >= 9 && strlen($empNorm) <= 14) {
-                    return $empNorm;
+            try {
+                $emp = Employee::where('nik', 'like', "%{$codePart}%")
+                    ->whereNotNull('phone')
+                    ->where('phone', '!=', '')
+                    ->first();
+                if ($emp && ! empty($emp->phone)) {
+                    $empNorm = $this->normalizePhone($emp->phone);
+                    if (! $this->isLidPhone($empNorm) && strlen($empNorm) >= 9 && strlen($empNorm) <= 14) {
+                        return $empNorm;
+                    }
                 }
-            }
+            } catch (\Throwable) {}
         }
 
-        // 2. Check by name
-        if ($namePart) {
-            $emp = Employee::where('name', 'like', "%{$namePart}%")
-                ->whereNotNull('phone')
-                ->where('phone', '!=', '')
-                ->first();
-            if ($emp && ! empty($emp->phone)) {
-                $empNorm = $this->normalizePhone($emp->phone);
-                if (! $this->isLidPhone($empNorm) && strlen($empNorm) >= 9 && strlen($empNorm) <= 14) {
-                    return $empNorm;
+        // 2. Check by name in Employee
+        if ($namePart && strlen($namePart) >= 3) {
+            try {
+                $emp = Employee::where('name', 'like', "%{$namePart}%")
+                    ->whereNotNull('phone')
+                    ->where('phone', '!=', '')
+                    ->first();
+                if ($emp && ! empty($emp->phone)) {
+                    $empNorm = $this->normalizePhone($emp->phone);
+                    if (! $this->isLidPhone($empNorm) && strlen($empNorm) >= 9 && strlen($empNorm) <= 14) {
+                        return $empNorm;
+                    }
                 }
-            }
+            } catch (\Throwable) {}
+
+            // 3. Check in User model
+            try {
+                $u = User::where('name', 'like', "%{$namePart}%")
+                    ->whereNotNull('phone')
+                    ->where('phone', '!=', '')
+                    ->first();
+                if ($u && ! empty($u->phone)) {
+                    $uNorm = $this->normalizePhone($u->phone);
+                    if (! $this->isLidPhone($uNorm) && strlen($uNorm) >= 9 && strlen($uNorm) <= 14) {
+                        return $uNorm;
+                    }
+                }
+            } catch (\Throwable) {}
+
+            // 4. Check in WhatsAppChat
+            try {
+                $chat = WhatsAppChat::where('customer_name', 'like', "%{$namePart}%")
+                    ->whereNotNull('phone_number')
+                    ->where('phone_number', '!=', '')
+                    ->orderByDesc('id')
+                    ->first();
+                if ($chat && ! empty($chat->phone_number)) {
+                    $cNorm = $this->normalizePhone($chat->phone_number);
+                    if (! $this->isLidPhone($cNorm) && strlen($cNorm) >= 9 && strlen($cNorm) <= 14) {
+                        return $cNorm;
+                    }
+                }
+            } catch (\Throwable) {}
         }
 
         return $isLid ? null : $clean;
