@@ -12421,7 +12421,7 @@ function seedMasterDataFromKeepRows() {
   }
 
   // 3. Dari dynamicMasterSales (karyawan sales DCMS)
-  if (Array.isArray(dynamicMasterSales) && dynamicMasterSales.length > 0) {
+  if (typeof dynamicMasterSales !== 'undefined' && Array.isArray(dynamicMasterSales) && dynamicMasterSales.length > 0) {
     dynamicMasterSales.forEach(s => {
       if (s.name && s.phone) {
         addPic(s.name, s.phone, s.cabang || '-');
@@ -12429,11 +12429,7 @@ function seedMasterDataFromKeepRows() {
     });
   }
 
-  const result = Array.from(masterMap.values());
-  if (result.length > 0) {
-    saveMasterDataPICs(result);
-  }
-  return result;
+  return Array.from(masterMap.values());
 }
 
 function getMasterDataPICs() {
@@ -15393,6 +15389,8 @@ function renderOmniKeepPanel(pic) {
   const pendingKeeps = (pic.keeps || []).filter(function(k) { return k.isPending; });
   const resolvedKeeps = (pic.keeps || []).filter(function(k) { return !k.isPending; });
   const displayKeeps = selectedOmniKeepSubTab === 'PENDING' ? pendingKeeps : resolvedKeeps;
+  const pendingCount = pendingKeeps.length;
+  const resolvedCount = resolvedKeeps.length;
 
   const statusOptions = [
     'WIN',
@@ -15405,91 +15403,117 @@ function renderOmniKeepPanel(pic) {
     'TAKE OUT'
   ];
 
-  const cardsMarkup = displayKeeps.length === 0 ? '' : displayKeeps.map(function(k) {
+  const emptyMarkup = 
+    '<div class="py-12 px-4 flex flex-col items-center justify-center text-center space-y-2">' +
+      '<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">' +
+        '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+      '</div>' +
+      '<div class="text-xs font-bold text-slate-800">' + (selectedOmniKeepSubTab === 'PENDING' ? 'Tidak Ada Pending Keep' : 'Belum Ada Keep Selesai') + '</div>' +
+      '<div class="text-[11px] text-slate-400 max-w-[200px] leading-relaxed">' +
+        (selectedOmniKeepSubTab === 'PENDING' ? 'Semua format keep cycle 2 hari terakhir untuk PIC ini sudah diisi.' : 'Format keep yang sudah selesai akan muncul di sini.') +
+      '</div>' +
+    '</div>';
+
+  const cardsMarkup = displayKeeps.length === 0 ? emptyMarkup : displayKeeps.map(function(k) {
     const curStatus = k.status || 'BELUM DIINPUT';
     const optMarkup = statusOptions.map(function(opt) {
       return '<option value="' + opt + '" ' + (opt === curStatus ? 'selected' : '') + '>' + opt + '</option>';
     }).join('');
     const dateFormatted = k.timestamp ? k.timestamp.split(' ')[0] : '-';
 
-    return '<div class="omni-keep-card-modern" id="keepCard_' + k.customerWA + '">' +
-      '<div class="omni-keep-card-top-row">' +
-        '<div>' +
-          '<div class="omni-keep-cust-name">' + escapeHtml(k.customerName) + '</div>' +
-          '<a href="https://wa.me/' + k.customerWA + '" target="_blank" class="omni-keep-cust-phone" title="Chat WhatsApp Customer">' +
-            k.customerWA + ' &middot; ' + escapeHtml(k.cabang) +
+    return '<div class="bg-white rounded-xl border border-slate-200/90 p-3 shadow-xs hover:border-slate-300 hover:shadow-sm transition space-y-2" id="keepCard_' + k.customerWA + '">' +
+      // Header: Nama, Telpon, Cabang, Tanggal
+      '<div class="flex items-start justify-between gap-1.5">' +
+        '<div class="min-w-0 flex-1">' +
+          '<div class="flex items-center gap-1.5 flex-wrap">' +
+            '<span class="text-xs font-extrabold text-slate-900 truncate max-w-[150px]" title="' + escapeHtml(k.customerName) + '">' + escapeHtml(k.customerName) + '</span>' +
+            '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 shrink-0">' + escapeHtml(k.cabang) + '</span>' +
+          '</div>' +
+          '<a href="https://wa.me/' + k.customerWA + '" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline mt-0.5" title="Buka Chat WhatsApp Customer">' +
+            '<span>+' + k.customerWA + '</span>' +
+            '<svg class="w-2.5 h-2.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
           '</a>' +
         '</div>' +
-        '<span class="omni-keep-date-chip" title="Tanggal Keep">' + dateFormatted + '</span>' +
+        '<span class="shrink-0 text-[10px] font-mono font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded-md" title="Tanggal Keep">' + dateFormatted + '</span>' +
       '</div>' +
-      '<div class="omni-keep-info-box">' +
-        '<div class="omni-keep-info-row">' +
-          '<span class="omni-keep-info-label">Barang:</span>' +
-          '<strong>' + escapeHtml(k.barang) + '</strong>' +
+
+      // Info Box Compact: Barang, Catatan, Remarks, Tim Follow Up
+      '<div class="bg-slate-50/90 border border-slate-200/70 rounded-lg p-2 text-[11px] text-slate-700 space-y-1">' +
+        '<div class="flex items-baseline gap-1.5">' +
+          '<span class="text-[9px] font-bold text-slate-400 shrink-0 uppercase tracking-wider">Barang:</span>' +
+          '<span class="font-bold text-slate-900 break-words leading-tight">' + escapeHtml(k.barang) + '</span>' +
         '</div>' +
-        '<div class="omni-keep-info-row">' +
-          '<span class="omni-keep-info-label">Catatan:</span>' +
-          '<span>' + escapeHtml(k.catatan || '-') + '</span>' +
+        (k.catatan && k.catatan !== '-' ? (
+          '<div class="flex items-baseline gap-1.5">' +
+            '<span class="text-[9px] font-bold text-slate-400 shrink-0 uppercase tracking-wider">Catatan:</span>' +
+            '<span class="text-slate-600 break-words leading-tight text-[10px]">' + escapeHtml(k.catatan) + '</span>' +
+          '</div>'
+        ) : '') +
+        '<div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-200/60 text-[10px]">' +
+          '<span class="text-slate-500 truncate" title="Remarks: ' + escapeHtml(k.remarks || '-') + '"><strong class="text-slate-400">Remarks:</strong> ' + escapeHtml(k.remarks || '-') + '</span>' +
+          (k.fuName ? ('<span class="text-blue-600 font-semibold shrink-0 truncate max-w-[130px]" title="Tim FU: ' + escapeHtml(k.fuName) + '"><strong class="text-slate-400">FU:</strong> ' + escapeHtml(k.fuName) + '</span>') : '') +
         '</div>' +
-        '<div class="omni-keep-info-row">' +
-          '<span class="omni-keep-info-label">Remarks:</span>' +
-          '<span>' + escapeHtml(k.remarks || '-') + '</span>' +
-        '</div>' +
-        (k.fuName ? ('<div class="omni-keep-info-row">' +
-          '<span class="omni-keep-info-label">Tim Follow Up:</span>' +
-          '<strong style="color: #2563eb;">' + escapeHtml(k.fuName) + '</strong>' +
-        '</div>') : '') +
       '</div>' +
-      '<div class="omni-keep-form-modern">' +
-        '<div>' +
-          '<label class="omni-keep-label-modern">REPORT AR (Kolom N):</label>' +
-          '<input type="text" class="omni-keep-input-modern" id="omniReportARInp_' + k.customerWA + '" value="' + escapeHtml(k.reportAR || '') + '" placeholder="Nomor Dokumen AR..." />' +
+
+      // Form 2 Kolom Efisien: Status & Report AR
+      '<div class="space-y-1.5 pt-0.5">' +
+        '<div class="grid grid-cols-2 gap-1.5">' +
+          '<div>' +
+            '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Status (Kolom V)</label>' +
+            '<select class="w-full text-[11px] font-bold py-1 px-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 transition" id="omniStatusSelect_' + k.customerWA + '">' +
+              optMarkup +
+            '</select>' +
+          '</div>' +
+          '<div>' +
+            '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Report AR (Kolom N)</label>' +
+            '<input type="text" class="w-full text-[11px] py-1 px-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 text-slate-800 transition" id="omniReportARInp_' + k.customerWA + '" value="' + escapeHtml(k.reportAR || '') + '" placeholder="No Dokumen AR..." />' +
+          '</div>' +
         '</div>' +
+
         '<div>' +
-          '<label class="omni-keep-label-modern">Status (Kolom V):</label>' +
-          '<select class="omni-keep-select-modern" id="omniStatusSelect_' + k.customerWA + '">' +
-            optMarkup +
-          '</select>' +
+          '<label class="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">Feedback Tim FU (Kolom W)</label>' +
+          '<textarea rows="2" class="w-full text-[11px] py-1 px-2 bg-white border border-slate-200 rounded-lg shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 text-slate-800 transition resize-y" id="omniFeedbackInp_' + k.customerWA + '" placeholder="Tulis feedback PIC FU...">' + escapeHtml(k.feedback || '') + '</textarea>' +
         '</div>' +
-        '<div>' +
-          '<label class="omni-keep-label-modern">Feedback Tim FU (Kolom W):</label>' +
-          '<textarea class="omni-keep-textarea-modern" id="omniFeedbackInp_' + k.customerWA + '" placeholder="Tulis feedback dari PIC FU...">' + escapeHtml(k.feedback || '') + '</textarea>' +
-        '</div>' +
-        '<button type="button" class="omni-btn-save-modern" id="btnSaveKeep_' + k.customerWA + '" onclick="saveSingleKeepFeedback(\'' + k.customerWA + '\', \'' + pic.key + '\')">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+
+        '<button type="button" class="w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 active:scale-[0.99] shadow-xs flex items-center justify-center gap-1.5 transition cursor-pointer" id="btnSaveKeep_' + k.customerWA + '" onclick="saveSingleKeepFeedback(\'' + k.customerWA + '\', \'' + pic.key + '\')">' +
+          '<svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
           '<span>Simpan Feedback & AR</span>' +
         '</button>' +
       '</div>' +
+
     '</div>';
   }).join('');
 
-  container.innerHTML = '<div class="omni-details-top">' +
-    '<div class="omni-details-title-row">' +
-      '<span class="omni-details-heading">Format Keep PIC</span>' +
-      '<div style="display: flex; align-items: center; gap: 6px;">' +
-        '<span class="omni-keep-period-chip" title="Data keep cycle H-2 sampai Hari Ini">Cycle 2 Hari Terakhir</span>' +
-        '<button type="button" class="omni-keep-refresh-btn" onclick="refreshOmniKeepPanelData()" title="Segarkan Data Format Keep">' +
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
+  container.innerHTML = 
+    '<div class="p-3 border-b border-slate-200 bg-white space-y-2.5 shrink-0">' +
+      '<div class="flex items-center justify-between gap-1.5">' +
+        '<div class="flex items-center gap-1.5 min-w-0">' +
+          '<span class="text-xs font-black text-slate-900 tracking-tight">Format Keep PIC</span>' +
+          '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ' + (pendingCount > 0 ? 'bg-rose-50 text-rose-600 border border-rose-200/80' : 'bg-emerald-50 text-emerald-600 border border-emerald-200/80') + '">' +
+            pendingCount + ' Pending' +
+          '</span>' +
+        '</div>' +
+        '<div class="flex items-center gap-1 shrink-0">' +
+          '<span class="inline-flex items-center text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/70 px-1.5 py-0.5 rounded-md" title="Cycle data 2 hari yang lalu (H-2 s/d Hari ini)">' +
+            'H-2 s/d Hari Ini' +
+          '</span>' +
+          '<button type="button" class="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer" onclick="refreshOmniKeepPanelData()" title="Segarkan Data Format Keep">' +
+            '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="grid grid-cols-2 p-1 bg-slate-100/90 rounded-lg text-[11px] font-bold text-slate-500 gap-1">' +
+        '<button type="button" class="py-1 px-2 rounded-md transition text-center cursor-pointer ' + (selectedOmniKeepSubTab === 'PENDING' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-800') + '" onclick="setOmniKeepSubTab(\'PENDING\')">' +
+          'Belum Diisi (' + pendingCount + ')' +
+        '</button>' +
+        '<button type="button" class="py-1 px-2 rounded-md transition text-center cursor-pointer ' + (selectedOmniKeepSubTab === 'RESOLVED' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-800') + '" onclick="setOmniKeepSubTab(\'RESOLVED\')">' +
+          'Selesai (' + resolvedCount + ')' +
         '</button>' +
       '</div>' +
     '</div>' +
-    '<span class="omni-keep-counter-badge ' + (pendingKeeps.length === 0 ? 'zero' : '') + '">' +
-      pendingKeeps.length + ' Pending' +
-    '</span>' +
-  '</div>' +
-  '<div class="omni-keep-subtabs-wrap">' +
-    '<div class="omni-keep-subtabs">' +
-      '<button type="button" class="omni-subtab-btn ' + (selectedOmniKeepSubTab === 'PENDING' ? 'active' : '') + '" onclick="setOmniKeepSubTab(\'PENDING\')">' +
-        'Belum Diisi (' + pendingKeeps.length + ')' +
-      '</button>' +
-      '<button type="button" class="omni-subtab-btn ' + (selectedOmniKeepSubTab === 'RESOLVED' ? 'active' : '') + '" onclick="setOmniKeepSubTab(\'RESOLVED\')">' +
-        'Selesai (' + resolvedKeeps.length + ')' +
-      '</button>' +
-    '</div>' +
-  '</div>' +
-  '<div class="omni-details-scroll">' +
-    cardsMarkup +
-  '</div>';
+    '<div class="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2.5 bg-slate-50/60">' +
+      cardsMarkup +
+    '</div>';
 }
 
 async function refreshOmniKeepPanelData() {
@@ -15547,8 +15571,8 @@ async function saveSingleKeepFeedback(customerWA, picKey) {
   saveOmniThreads(threads);
 
   if (saveBtn) {
-    saveBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <span>✓ Tersimpan</span>';
-    saveBtn.style.background = '#059669';
+    saveBtn.innerHTML = '<svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <span>✓ Tersimpan</span>';
+    saveBtn.className = 'w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-white bg-emerald-600 active:scale-[0.99] shadow-xs flex items-center justify-center gap-1.5 transition cursor-pointer';
   }
 
   // Update in-memory 2-day keep cache (0ms)

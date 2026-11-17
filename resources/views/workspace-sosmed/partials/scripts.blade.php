@@ -7,7 +7,7 @@
     window.WORKSPACE_ACTIVE_TAB = {{ (int) ($activeTab ?? 1) }};
     window.WORKSPACE_INITIAL_SETTINGS = @json($initialWorkspaceSettings ?? []);
   </script>
-  <script src="{{ asset('workspace-sosmed/client.js') }}?v={{ @filemtime(public_path('workspace-sosmed/client.js')) ?: '8.4' }}-v84"></script>
+  <script src="{{ asset('workspace-sosmed/client.js') }}?v={{ @filemtime(public_path('workspace-sosmed/client.js')) ?: '8.5' }}-v85"></script>
     <!-- Omnichannel Image Lightbox Modal with Full-Screen Stage & Free Zoom/Pan -->
     <div id="omniImageModal" class="omni-img-modal" style="display:none;">
         <!-- Close Button (Fixed Top-Right) -->

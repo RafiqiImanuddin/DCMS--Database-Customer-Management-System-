@@ -108,7 +108,7 @@
                                 </div>
 
                                 <!-- PANEL UPDATE FEEDBACK FORMAT KEEP -->
-                                <aside class="omni-col-details w-72 2xl:w-80 shrink-0 flex flex-col border-l border-slate-200 bg-white min-h-0" id="omniDetailsPanelContainer">
+                                <aside class="omni-col-details w-80 lg:w-[330px] 2xl:w-[360px] shrink-0 flex flex-col border-l border-slate-200 bg-white min-h-0" id="omniDetailsPanelContainer">
                                     <!-- Rendered via client.js -->
                                 </aside>
                             </div>
