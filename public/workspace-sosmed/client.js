@@ -13001,6 +13001,52 @@ async function fetchOmniResolvedStatuses() {
 }
 
 // --------------------------------------------------------------------------
+// UNREAD CHAT TRACKER (WHATSAPP-STYLE UNREAD MESSAGE BUBBLE)
+// --------------------------------------------------------------------------
+function getOmniReadTimestamps() {
+  try {
+    return JSON.parse(localStorage.getItem('omni_read_timestamps_v1')) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveOmniReadTimestamps(map) {
+  try {
+    localStorage.setItem('omni_read_timestamps_v1', JSON.stringify(map || {}));
+  } catch (e) {}
+}
+
+function markOmniChatAsRead(key) {
+  if (!key) return;
+  const normKey = normalizeWhatsAppPhone(key) || key;
+  const map = getOmniReadTimestamps();
+  map[normKey] = Date.now();
+  saveOmniReadTimestamps(map);
+
+  const listContainer = document.getElementById('omniChatListContainer');
+  if (listContainer) {
+    const cards = listContainer.querySelectorAll('.omni-chat-card');
+    cards.forEach(function(card) {
+      const oc = card.getAttribute('onclick') || '';
+      if (oc.includes(normKey)) {
+        const badge = card.querySelector('.omni-unread-badge');
+        if (badge) badge.remove();
+      }
+    });
+  }
+
+  updateOmniUnreadCounter();
+}
+
+function updateOmniUnreadCounter() {
+  const bUnresponded = document.getElementById('omniBadgeUnresponded');
+  if (!bUnresponded) return;
+  const badges = document.querySelectorAll('#omniChatListContainer .omni-unread-badge');
+  bUnresponded.innerText = badges.length;
+}
+
+// --------------------------------------------------------------------------
 // CACHE & MEMOIZATION UNTUK KECEPATAN EKSTREM (0.1ms vs 540ms)
 // --------------------------------------------------------------------------
 let cachedOmniKeepsMap = null;
@@ -13117,6 +13163,7 @@ function getOmniPicChats() {
   const picKeepsMap = getIndexedOmniKeeps();
   const resolvedMap = getOmniResolvedChats();
   const lidMap = getLidPicMap();
+  const readMap = getOmniReadTimestamps();
 
   const result = [];
   activeKeys.forEach(function(key) {
@@ -13197,10 +13244,38 @@ function getOmniPicChats() {
       latestTimestamp = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    let effectiveReadTime = readMap[cleanKey] || readMap[key] || 0;
+    if (!effectiveReadTime) {
+      for (let i = chatMsgs.length - 1; i >= 0; i--) {
+        const m = chatMsgs[i];
+        if (m.sender === 'ADMIN' || m.sender === 'admin' || m.fromMe) {
+          effectiveReadTime = parseOmniTimestamp(m.timestamp);
+          break;
+        }
+      }
+    }
+
+    const isCurrentActive = (selectedOmniPicKey === cleanKey || selectedOmniPicKey === key);
+    let unreadCount = 0;
+    if (isCurrentActive) {
+      unreadCount = 0;
+      if (lastMsg && parseOmniTimestamp(lastMsg.timestamp) > (readMap[cleanKey] || 0)) {
+        readMap[cleanKey] = parseOmniTimestamp(lastMsg.timestamp);
+        saveOmniReadTimestamps(readMap);
+      }
+    } else {
+      chatMsgs.forEach(function(m) {
+        const isIncoming = (m.sender !== 'ADMIN' && m.sender !== 'admin' && !m.fromMe);
+        if (isIncoming && parseOmniTimestamp(m.timestamp) > effectiveReadTime) {
+          unreadCount++;
+        }
+      });
+    }
+
     const isResolved = !!resolvedMap[cleanKey] || !!resolvedMap[picWA];
     const lastSender = lastMsg ? (lastMsg.sender || 'PIC') : '';
     const isUnreplied = lastSender !== 'ADMIN';
-    const isUnresponded = !isResolved && (isUnreplied || pendingCount > 0);
+    const isUnresponded = !isResolved && unreadCount > 0;
 
     let snippet = 'Percakapan baru';
     if (lastMsg) {
@@ -13228,6 +13303,7 @@ function getOmniPicChats() {
       resolvedCount: resolvedCount,
       isResolved: isResolved,
       isUnresponded: isUnresponded,
+      unreadCount: unreadCount,
       lastSender: lastSender,
       latestEpochMs: latestEpochMs,
       latestTimestamp: latestTimestamp,
@@ -13385,10 +13461,12 @@ function renderOmniInboxModule() {
         '<div class="omni-card-bottom-row">' +
           '<span class="omni-channel-tag">' + (pic.cabang && pic.cabang !== '-' ? escapeHtml(pic.cabang) + ' &middot; ' : '') + formatWhatsAppPhoneDisplay(pic.picWA || pic.key) + '</span>' +
           '<div class="omni-card-badges-right">' +
-            (pic.pendingCount > 0 ? '<span class="omni-red-badge" title="' + pic.pendingCount + ' format keep belum ada feedback">' + pic.pendingCount + '</span>' : '') +
-            '<span class="omni-status-tag-assigned" style="color: ' + (pic.isResolved ? '#059669' : '#b91c1c') + '; font-weight:700;">' +
-              (pic.isResolved ? 'Resolved' : 'Pending') +
-            '</span>' +
+            (pic.unreadCount > 0 && !isSelected
+              ? '<span class="omni-unread-badge" title="' + pic.unreadCount + ' pesan belum dibaca">' + (pic.unreadCount > 99 ? '99+' : pic.unreadCount) + '</span>'
+              : (pic.isResolved
+                  ? '<span class="omni-status-tag-assigned" style="color: #059669; font-weight:700;">Resolved</span>'
+                  : '')
+            ) +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -13422,6 +13500,10 @@ function renderOmniInboxModule() {
 function selectOmniPic(key) {
   const normKey = normalizeWhatsAppPhone(key) || key;
   selectedOmniPicKey = normKey;
+  
+  // Tandai sudah dibaca dan hilangkan bubble unread secara instan
+  markOmniChatAsRead(normKey);
+
   const allPics = getOmniPicChats();
   let pic = allPics.find(function(p) {
     return p.key === normKey || normalizeWhatsAppPhone(p.picWA) === normKey || (p.key && p.key.endsWith(normKey.slice(-9)));
@@ -13441,21 +13523,25 @@ function selectOmniPic(key) {
       pendingCount: keeps.filter(function(k) { return k.isPending; }).length,
       resolvedCount: keeps.filter(function(k) { return !k.isPending; }).length,
       isResolved: false,
-      isUnresponded: true
+      isUnresponded: false,
+      unreadCount: 0
     };
   }
 
-  // Highlight kartu aktif secara instan (0ms)
+  // Highlight kartu aktif dan hilangkan badge unread di kartu yang dibuka
   const cards = document.querySelectorAll('.omni-chat-card');
   cards.forEach(function(c) {
     const oc = c.getAttribute('onclick') || '';
     if (oc.includes(normKey)) {
       c.classList.add('active');
+      const badge = c.querySelector('.omni-unread-badge');
+      if (badge) badge.remove();
     } else {
       c.classList.remove('active');
     }
   });
 
+  updateOmniUnreadCounter();
   renderOmniActiveChat(pic);
   renderOmniKeepPanel(pic);
 }
@@ -14057,6 +14143,31 @@ function updateOmniCardInSidebar(picKey, lastMsg, picName, picCabang) {
     if (snippetEl) snippetEl.innerText = snippet;
     const timeEl = targetCard.querySelector('.omni-card-time');
     if (timeEl) timeEl.innerText = timeStr;
+
+    // Kelola bubble jumlah chat unread
+    const isCurrent = (selectedOmniPicKey === normKey);
+    const isIncoming = lastMsg && (lastMsg.sender !== 'ADMIN' && lastMsg.sender !== 'admin' && !lastMsg.fromMe);
+    if (!isCurrent && isIncoming) {
+      const badgesWrap = targetCard.querySelector('.omni-card-badges-right');
+      if (badgesWrap) {
+        let unreadBadge = badgesWrap.querySelector('.omni-unread-badge');
+        if (!unreadBadge) {
+          unreadBadge = document.createElement('span');
+          unreadBadge.className = 'omni-unread-badge';
+          unreadBadge.innerText = '1';
+          badgesWrap.appendChild(unreadBadge);
+        } else {
+          const currentCount = parseInt(unreadBadge.innerText, 10) || 1;
+          unreadBadge.innerText = currentCount + 1;
+        }
+      }
+      updateOmniUnreadCounter();
+    } else if (isCurrent) {
+      const unreadBadge = targetCard.querySelector('.omni-unread-badge');
+      if (unreadBadge) unreadBadge.remove();
+      updateOmniUnreadCounter();
+    }
+
     // Pindahkan ke paling atas secara halus (posisi #1)
     if (listContainer.firstChild !== targetCard) {
       listContainer.insertBefore(targetCard, listContainer.firstChild);
@@ -14337,6 +14448,7 @@ async function pollWatzapIncomingMessages() {
 
           if (isCurrentChat) {
             appendOmniBubbleToStream(newMsgObj, matched.picName);
+            markOmniChatAsRead(picKey);
           }
 
           // Perbarui kartu di sidebar kiri

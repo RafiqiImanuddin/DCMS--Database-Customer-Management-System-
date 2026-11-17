@@ -6114,6 +6114,23 @@ body.tab9-mode-active #tabContent9.active {
   box-sizing: border-box;
 }
 
+.omni-unread-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #25D366;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  line-height: 1;
+}
+
 .omni-status-tag-assigned {
   font-size: 0.66rem;
   font-weight: 700;
