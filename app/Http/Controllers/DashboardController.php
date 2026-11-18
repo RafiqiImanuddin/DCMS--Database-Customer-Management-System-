@@ -170,12 +170,37 @@ class DashboardController extends Controller
             ->groupBy('classification')
             ->pluck('total', 'classification');
 
+        // Cache summary counters when no filters are active to prevent high CPU / 500 timeout
+        $isDefaultView = ($selectedBrand === '' && $selectedPhoneStatus === '');
+        if ($isDefaultView) {
+            $stats = cache()->remember('dashboard_default_stats_v1', now()->addMinutes(10), function () use ($crossSellingQuery, $predictionQuery) {
+                return [
+                    'totalTransactions' => (clone $crossSellingQuery)->count(),
+                    'totalCustomers' => (clone $predictionQuery)->distinct('customer_vendor_code')->count('customer_vendor_code'),
+                    'totalPredictions' => (clone $predictionQuery)->count(),
+                    'highPotentials' => (clone $predictionQuery)->where('classification', 'tinggi')->count(),
+                    'broadcastSent' => BroadcastReport::where('status', 'sent')->count(),
+                ];
+            });
+            $totalTransactions = $stats['totalTransactions'];
+            $totalCustomers = $stats['totalCustomers'];
+            $totalPredictions = $stats['totalPredictions'];
+            $highPotentials = $stats['highPotentials'];
+            $broadcastSent = $stats['broadcastSent'];
+        } else {
+            $totalTransactions = (clone $crossSellingQuery)->count();
+            $totalCustomers = (clone $predictionQuery)->distinct('customer_vendor_code')->count('customer_vendor_code');
+            $totalPredictions = (clone $predictionQuery)->count();
+            $highPotentials = (clone $predictionQuery)->where('classification', 'tinggi')->count();
+            $broadcastSent = BroadcastReport::where('status', 'sent')->count();
+        }
+
         return view('dashboard.index', [
-            'totalTransactions' => (clone $crossSellingQuery)->count(),
-            'totalCustomers' => (clone $predictionQuery)->distinct('customer_vendor_code')->count('customer_vendor_code'),
-            'totalPredictions' => (clone $predictionQuery)->count(),
-            'highPotentials' => (clone $predictionQuery)->where('classification', 'tinggi')->count(),
-            'broadcastSent' => BroadcastReport::where('status', 'sent')->count(),
+            'totalTransactions' => $totalTransactions,
+            'totalCustomers' => $totalCustomers,
+            'totalPredictions' => $totalPredictions,
+            'highPotentials' => $highPotentials,
+            'broadcastSent' => $broadcastSent,
             'latestImports' => CrossSellingImport::latest()->take(5)->get(),
             'topPredictions' => (clone $predictionQuery)->whereNotNull('predicted_repeat_date')->orderBy('predicted_repeat_date')->take(10)->get(),
             'periods' => $periods,
