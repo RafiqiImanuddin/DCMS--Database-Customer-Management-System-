@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ trim($__env->yieldContent('tab_title')) ?: (trim($__env->yieldContent('title')) ? trim($__env->yieldContent('title')) . ' - DCMS - SOSMED' : 'DCMS - SOSMED') }}</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-square.png') }}?v={{ @filemtime(public_path('favicon-square.png')) ?: '1.0' }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-square.png') }}?v={{ @filemtime(public_path('favicon-square.png')) ?: '1.0' }}">
-    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v={{ @filemtime(public_path('favicon.ico')) ?: '1.0' }}">
-    <link rel="apple-touch-icon" href="{{ asset('favicon-square.png') }}?v={{ @filemtime(public_path('favicon-square.png')) ?: '1.0' }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/gadgetmart-logo.png') }}?v={{ @filemtime(public_path('images/gadgetmart-logo.png')) ?: '1.0' }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/gadgetmart-logo.png') }}?v={{ @filemtime(public_path('images/gadgetmart-logo.png')) ?: '1.0' }}">
+    <link rel="shortcut icon" href="{{ asset('images/gadgetmart-logo.png') }}?v={{ @filemtime(public_path('images/gadgetmart-logo.png')) ?: '1.0' }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/gadgetmart-logo.png') }}?v={{ @filemtime(public_path('images/gadgetmart-logo.png')) ?: '1.0' }}">
     @yield('head')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script>

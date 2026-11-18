@@ -214,25 +214,103 @@ function formatDisplayDate(pd) {
   return `${String(day).padStart(2, '0')}/${String(activeMonth).padStart(2, '0')}/${activeYear}`;
 }
 
-// Normal Date Formatter for Google Sheets / Croselling rows
+// Normal Date Formatter for Google Sheets / Croselling rows (DD/MM/YYYY)
 function formatCrosellingDate(pd) {
   if (!pd) return '-';
+  if (pd instanceof Date && !isNaN(pd.getTime())) {
+    const d = String(pd.getDate()).padStart(2, '0');
+    const m = String(pd.getMonth() + 1).padStart(2, '0');
+    return `${d}/${m}/${pd.getFullYear()}`;
+  }
   if (typeof pd === 'number') {
-    const d = XLSX.SSF.parse_date_code(pd);
-    if (d) {
-      return `${String(d.d).padStart(2, '0')}/${String(d.m).padStart(2, '0')}/${d.y}`;
+    if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+      const d = XLSX.SSF.parse_date_code(pd);
+      if (d) {
+        return `${String(d.d).padStart(2, '0')}/${String(d.m).padStart(2, '0')}/${d.y}`;
+      }
     }
   }
   if (typeof pd === 'string') {
-    const parts = pd.trim().split(/[\/\-]/);
+    const trimmed = pd.trim();
+    // String panjang format JS Date: "Wed Nov 04 2026 08:00:00 GMT+0800..."
+    if (/[a-zA-Z]{3}\s+[a-zA-Z]{3}\s+\d{1,2}\s+\d{4}/.test(trimmed)) {
+      const parsed = new Date(trimmed);
+      if (!isNaN(parsed.getTime())) {
+        const d = String(parsed.getDate()).padStart(2, '0');
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        return `${d}/${m}/${parsed.getFullYear()}`;
+      }
+    }
+    // Format ISO: "2026-11-04" atau "2026-11-04T00:00:00.000Z"
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const parts = trimmed.split('T')[0].split(' ')[0].split('-');
+      return `${String(parts[2]).padStart(2, '0')}/${String(parts[1]).padStart(2, '0')}/${parts[0]}`;
+    }
+    const parts = trimmed.split(/[\/\-]/);
     if (parts.length >= 3) {
       let y = parts[2].trim().split(' ')[0];
       if (y.length === 2) y = '20' + y;
       return `${String(parts[0]).padStart(2, '0')}/${String(parts[1]).padStart(2, '0')}/${y}`;
     }
-    return pd;
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      const d = String(parsed.getDate()).padStart(2, '0');
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      return `${d}/${m}/${parsed.getFullYear()}`;
+    }
+    return trimmed;
   }
   return '-';
+}
+
+// Display Date Formatter yang rapi untuk antarmuka web (e.g. "04 Nov 2026")
+function formatCrosellingDisplayDate(pd) {
+  if (!pd) return '-';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  let dObj = null;
+
+  if (pd instanceof Date && !isNaN(pd.getTime())) {
+    dObj = pd;
+  } else if (typeof pd === 'number') {
+    if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+      const d = XLSX.SSF.parse_date_code(pd);
+      if (d) {
+        return `${String(d.d).padStart(2, '0')} ${months[(d.m - 1) % 12] || 'Jan'} ${d.y}`;
+      }
+    }
+  } else if (typeof pd === 'string') {
+    const trimmed = pd.trim();
+    if (/[a-zA-Z]{3}\s+[a-zA-Z]{3}\s+\d{1,2}\s+\d{4}/.test(trimmed)) {
+      const parsed = new Date(trimmed);
+      if (!isNaN(parsed.getTime())) dObj = parsed;
+    } else if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const parts = trimmed.split('T')[0].split(' ')[0].split('-');
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const day = parseInt(parts[2], 10);
+      if (!isNaN(day) && !isNaN(m) && m >= 1 && m <= 12) {
+        return `${String(day).padStart(2, '0')} ${months[m - 1]} ${y}`;
+      }
+    } else {
+      const parts = trimmed.split(/[\/\-]/);
+      if (parts.length >= 3) {
+        const day = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        let y = parts[2].trim().split(' ')[0];
+        if (y.length === 2) y = '20' + y;
+        if (!isNaN(day) && !isNaN(m) && m >= 1 && m <= 12) {
+          return `${String(day).padStart(2, '0')} ${months[m - 1]} ${y}`;
+        }
+      }
+      const parsed = new Date(trimmed);
+      if (!isNaN(parsed.getTime())) dObj = parsed;
+    }
+  }
+
+  if (dObj) {
+    return `${String(dObj.getDate()).padStart(2, '0')} ${months[dObj.getMonth()]} ${dObj.getFullYear()}`;
+  }
+  return formatCrosellingDate(pd);
 }
 
 // ==========================================================================
@@ -368,24 +446,48 @@ function isItemInputSosmed(row) {
   return false;
 }
 
-// Barang yang bebas dari kewajiban input sosmed (misal TAS GADGETMART 25x25 / kantong belanja)
-// Jika customer beli HP + Tas Gadgetmart, dan HP-nya sudah sosmed, faktur tetap dihitung 100% SUDAH SOSMED
+// Barang/Layanan yang bebas dari kewajiban input sosmed:
+// 1. TAS GADGETMART & KANTONG BELANJA (semua varian ukuran: 25x25, 30x40, tas spunbond, paper bag, kantong plastik)
+// 2. GMART CARE / PROTECTION PLAN & JASA SERVICE (garansi tambahan / perlindungan unit)
+// Jika customer beli HP + Gmart Care + Tas Gadgetmart, dan HP-nya sudah sosmed, faktur tetap dihitung 100% SUDAH SOSMED
 function isItemExemptFromSosmed(row) {
   if (!row) return false;
-  const desc = String(row['Dscription'] || row['Item/Service Description'] || '').trim().toUpperCase();
-  const code = String(row['Item No.'] || row['Item Code'] || '').trim().toUpperCase();
+  const desc = String(row['Dscription'] || row['Item/Service Description'] || row['Item Name'] || row['Nama Barang'] || '').trim().toUpperCase();
+  const code = String(row['Item No.'] || row['Item Code'] || row['ItemCode'] || '').trim().toUpperCase();
 
-  if (desc.includes('TAS GADGETMART') || 
-      desc.includes('TAS GADGET MART') || 
-      desc.includes('TAS 25X25') || 
-      desc.includes('TAS 25 X 25') || 
-      desc.includes('KANTONG GADGETMART') ||
-      desc.includes('KANTONG 25X25') ||
-      desc.includes('KANTONG 25 X 25')) {
+  // 1. Tas Gadgetmart, Kantong Belanja, Paper Bag, Spunbond
+  if (
+    desc.includes('TAS GADGETMART') || 
+    desc.includes('TAS GADGET MART') || 
+    desc.includes('TAS GMART') ||
+    desc.includes('TAS SPUNBOND') ||
+    desc.includes('PAPER BAG') ||
+    desc.includes('PAPERBAG') ||
+    desc.includes('KANTONG GADGETMART') ||
+    desc.includes('KANTONG PLASTIK') ||
+    desc.includes('TAS 25X25') || 
+    desc.includes('TAS 25 X 25') || 
+    desc.includes('KANTONG 25X25') ||
+    desc.includes('KANTONG 25 X 25') ||
+    ((code.includes('TAS') || desc.includes('TAS') || code.includes('KANTONG') || desc.includes('KANTONG')) && 
+     (code.includes('25X25') || desc.includes('25X25') || desc.includes('25 X 25') || code.includes('30X40') || desc.includes('30X40')))
+  ) {
     return true;
   }
 
-  if ((code.includes('TAS') || desc.includes('TAS')) && (code.includes('25X25') || desc.includes('25X25') || desc.includes('25 X 25'))) {
+  // 2. Gmart Care, G-Mart Care, Protection Plan, Jasa Service
+  if (
+    desc.includes('GMART CARE') ||
+    desc.includes('GMARTCARE') ||
+    desc.includes('G-MART CARE') ||
+    desc.includes('GMART-CARE') ||
+    code.includes('GMARTCARE') ||
+    code.includes('GMART-CARE') ||
+    code.includes('G-CARE') ||
+    desc.startsWith('JASA SERVICE') ||
+    desc.includes('PROTECTION PLAN') ||
+    desc.includes('GARANSI TAMBAHAN')
+  ) {
     return true;
   }
 
@@ -6456,6 +6558,28 @@ function getDocBadgeInfo(docItems) {
   }
 }
 
+// Helper untuk memformat tanggal + badge cabang pada sel tabel audit secara rapi & proporsional
+function formatAuditCellDateWithBranch(rawDate, rawCabang) {
+  if (!rawDate || rawDate === '-' || String(rawDate).trim() === '') {
+    return '<span class="text-slate-400 font-medium">-</span>';
+  }
+  const formatted = (typeof formatCrosellingDisplayDate === 'function')
+    ? formatCrosellingDisplayDate(rawDate)
+    : formatCrosellingDate(rawDate);
+  const cabang = (rawCabang && rawCabang !== '-' && String(rawCabang).trim() !== '') ? String(rawCabang).trim() : '';
+
+  if (!cabang) {
+    return `<div class="font-bold text-slate-800 text-xs whitespace-nowrap">${formatted}</div>`;
+  }
+
+  return `
+    <div class="flex flex-col items-center justify-center gap-1">
+      <span class="font-bold text-slate-800 text-xs whitespace-nowrap">${formatted}</span>
+      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200/90 shadow-2xs">${cabang}</span>
+    </div>
+  `;
+}
+
 function renderAuditPage() {
   const tbody = document.getElementById('auditTableBody');
   if (!tbody) return;
@@ -6482,7 +6606,7 @@ function renderAuditPage() {
   if (btnNext) btnNext.disabled = auditCurrentPage >= maxPage;
 
   if (pageRows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" class="text-center" style="padding: 30px; color: var(--text-muted);">Tidak ada data tracking AR yang sesuai filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="text-center py-10 text-slate-400 font-medium text-xs">Tidak ada data tracking AR yang sesuai filter.</td></tr>`;
     return;
   }
 
@@ -6493,30 +6617,34 @@ function renderAuditPage() {
     const rawWA = String(keepObj['Nomor WA'] || '').replace(/\D/g, '');
     const normWA = normalizePhone(rawWA);
     const displayWA = formatPhoneDisplay(rawWA);
+    const custName = keepObj['Nama'] || '-';
 
-    const waHtml = (normWA && normWA.length >= 8) ? `
-      <div style="display:flex; align-items:center; gap:5px;">
-        <span class="font-bold">${displayWA}</span>
-        <a href="https://wa.me/${normWA}" target="_blank" class="btn-whatsapp" style="padding:1px 6px; font-size:0.68rem; border-radius:4px;" title="Chat customer ini di WhatsApp">
-          💬 WA
+    const waDisplayHtml = (normWA && normWA.length >= 8) ? `
+      <div class="flex items-center gap-1.5 mt-0.5">
+        <a href="https://wa.me/${normWA}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-emerald-700 transition" title="Chat WhatsApp Customer">
+          <span class="size-1.5 rounded-full bg-emerald-500"></span>
+          <span>${displayWA}</span>
+          <span class="rounded bg-emerald-50 px-1 py-0.5 text-[9px] font-bold text-emerald-700 border border-emerald-200">WA</span>
         </a>
       </div>
-    ` : (displayWA || '-');
+    ` : `<div class="text-[11px] text-slate-400 mt-0.5 font-medium">${displayWA || '-'}</div>`;
 
     // Notes HTML
     const keepCatatan = String(keepObj['Catatan'] || '').trim();
     const arRemarks = String((r.items && r.items[0] && r.items[0]['Remarks']) || '').trim();
 
-    let catatanHtml = '-';
+    let catatanHtml = '<span class="text-slate-400 font-medium">-</span>';
     if (keepCatatan && arRemarks && keepCatatan.toLowerCase() !== arRemarks.toLowerCase() && keepCatatan !== '-' && arRemarks !== '-') {
       catatanHtml = `
-        <div style="font-size:0.73rem; line-height:1.25; color:#0f172a; word-break:break-word;">${keepCatatan}</div>
-        <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px; word-break:break-word;"><em>Kasir: ${arRemarks}</em></div>
+        <div class="text-xs text-slate-900 leading-snug break-words font-medium">${keepCatatan}</div>
+        <div class="text-[11px] text-slate-500 mt-1 leading-snug break-words italic flex items-center gap-1">
+          <span class="font-bold text-slate-600 not-italic">Kasir:</span> ${arRemarks}
+        </div>
       `;
     } else if (keepCatatan && keepCatatan !== '-') {
-      catatanHtml = `<div style="font-size:0.73rem; line-height:1.25; color:#0f172a; word-break:break-word;">${keepCatatan}</div>`;
+      catatanHtml = `<div class="text-xs text-slate-900 leading-snug break-words font-medium">${keepCatatan}</div>`;
     } else if (arRemarks && arRemarks !== '-') {
-      catatanHtml = `<div style="font-size:0.70rem; line-height:1.25; color:var(--text-muted); word-break:break-word;"><em>Kasir: ${arRemarks}</em></div>`;
+      catatanHtml = `<div class="text-[11px] text-slate-500 leading-snug break-words italic flex items-center gap-1"><span class="font-bold text-slate-600 not-italic">Kasir:</span> ${arRemarks}</div>`;
     }
 
     // Status Keep Dropdown
@@ -6559,18 +6687,22 @@ function renderAuditPage() {
            <button type="button" class="btn-input-new-ar" onclick="startEditAuditReportAR(this.parentElement, '${rawWA}', ${auditRowIdx})" title="Klik untuk menginput nomor AR">+ Input AR</button>
          </div>`;
 
-    const reportARDateDisplay = r.reportARDate
-      ? `${formatCrosellingDate(r.reportARDate)} ${r.reportARCabang || ''}`.trim()
-      : '-';
+    const reportARDateDisplay = formatAuditCellDateWithBranch(r.reportARDate, r.reportARCabang);
 
     // Vlookup AR cell
     const vlookupARDocDisplay = (r.vlookupARDoc && r.vlookupARDoc !== '-')
       ? `<span class="badge-status-link ${vlookBadge.badgeClass}" onclick="openARDetailModal('${r.vlookupARDoc}', filteredAuditARList[${auditRowIdx}].keep, 'AR VLOOKUP')" title="Status: ${vlookBadge.statusLabel}. Klik untuk cek detail Dokumen AR VLOOKUP"><span>${vlookBadge.badgeIcon}</span> ${r.vlookupARDoc}</span>`
-      : '-';
+      : '<span class="text-slate-400 font-medium">-</span>';
 
-    const vlookupARDateDisplay = r.vlookupARDate
-      ? `${formatCrosellingDate(r.vlookupARDate)} ${r.vlookupARCabang || ''}`.trim()
-      : '-';
+    const vlookupARDateDisplay = formatAuditCellDateWithBranch(r.vlookupARDate, r.vlookupARCabang);
+
+    // Kode Sosmed Badge
+    const kodeSosmed = keepObj['Kode Sosmed'] || '-';
+    const kodeSosmedBadge = (kodeSosmed && kodeSosmed !== '-') ? `
+      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
+        ${kodeSosmed}
+      </span>
+    ` : `<span class="text-slate-400 font-medium">-</span>`;
 
     const tr = document.createElement('tr');
     tr.className = rowStatusClass;
@@ -6578,26 +6710,20 @@ function renderAuditPage() {
       tr.classList.add('row-lose-tint');
     }
     tr.innerHTML = `
-      <td class="audit-col-no" style="text-align: center;">${globalIdx}</td>
-      <td class="audit-col-keep-date" style="text-align: center; font-weight: 600; white-space: nowrap;">${formatKeepDisplayDate(keepObj['Timestamp'])}</td>
-      <td class="audit-col-cust text-left" style="color: #0f172a; word-break: break-word;">
-        <div class="font-bold">${keepObj['Nama'] || '-'}</div>
-        ${(normWA && normWA.length >= 8) ? `
-          <a href="https://wa.me/${normWA}" target="_blank" style="font-size:0.75rem; color:#64748b; text-decoration:none; display:inline-flex; align-items:center; gap:3px;">
-            📞 ${displayWA}
-          </a>
-        ` : `<div style="font-size:0.75rem; color:#64748b;">${displayWA || '-'}</div>`}
+      <td class="audit-col-no text-center font-bold text-slate-500 text-xs">${globalIdx}</td>
+      <td class="audit-col-keep-date text-center font-bold text-slate-700 whitespace-nowrap text-xs">${formatKeepDisplayDate(keepObj['Timestamp'])}</td>
+      <td class="audit-col-cust text-left">
+        <div class="font-bold text-slate-900 text-xs leading-snug">${custName}</div>
+        ${waDisplayHtml}
       </td>
-      <td class="audit-col-sosmed" style="text-align: center;">
-        <span class="badge-sosmed-pill">${keepObj['Kode Sosmed'] || '-'}</span>
-      </td>
-      <td class="audit-col-keep text-left font-bold" style="color: #1e293b; word-break: break-word;">${keepObj['Barang Keep'] || '-'}</td>
-      <td class="audit-col-notes text-left" style="word-break: break-word; font-size: 0.78rem;">${catatanHtml}</td>
-      <td class="audit-col-status-keep" style="text-align: center;">${statusDropdownHtml}</td>
-      <td class="audit-col-report-ar" style="text-align: center;">${reportARDocDisplay}</td>
-      <td class="audit-col-report-date" style="text-align: center; font-size: 0.76rem; white-space: nowrap;">${reportARDateDisplay}</td>
-      <td class="audit-col-vlookup-ar" style="text-align: center;">${vlookupARDocDisplay}</td>
-      <td class="audit-col-vlookup-date" style="text-align: center; font-size: 0.76rem; white-space: nowrap;">${vlookupARDateDisplay}</td>
+      <td class="audit-col-sosmed text-center">${kodeSosmedBadge}</td>
+      <td class="audit-col-keep text-left font-bold text-slate-800 text-xs leading-snug">${keepObj['Barang Keep'] || '-'}</td>
+      <td class="audit-col-notes text-left">${catatanHtml}</td>
+      <td class="audit-col-status-keep text-center">${statusDropdownHtml}</td>
+      <td class="audit-col-report-ar text-center">${reportARDocDisplay}</td>
+      <td class="audit-col-report-date text-center">${reportARDateDisplay}</td>
+      <td class="audit-col-vlookup-ar text-center">${vlookupARDocDisplay}</td>
+      <td class="audit-col-vlookup-date text-center">${vlookupARDateDisplay}</td>
     `;
     tbody.appendChild(tr);
   });

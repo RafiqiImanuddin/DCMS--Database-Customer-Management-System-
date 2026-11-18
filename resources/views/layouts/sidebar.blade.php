@@ -56,7 +56,6 @@
             <div class="text-lg font-black tracking-tight leading-tight">DCMS</div>
             <div class="text-[11px] font-medium text-slate-400 leading-snug truncate">Database Customer Management</div>
         </div>
-        <img src="{{ asset('images/dcms-sosmed-logo.png') }}" alt="DCMS - SOSMED" class="h-10 w-auto max-w-[4rem] shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm">
         <button type="button" 
                 onclick="if(window.toggleDcmsSidebar){window.toggleDcmsSidebar(false)}" 
                 class="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer" 
@@ -455,7 +454,13 @@
     </nav>
 
     <div class="shrink-0 p-4 border-t border-white/10 bg-white/5">
-        <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'bg-white/10 text-amber-300' : (auth()->user()?->role === 'admin' ? 'bg-white/10 text-emerald-300' : (auth()->user()?->isGuest() ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/10 text-sky-300')) }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()?->role === 'admin' ? 'Admin' : (auth()->user()?->isGuest() ? 'Tamu (Guest)' : 'Staff')) }}</span></div>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+                <span class="text-xs text-slate-400">Login sebagai</span>
+                <span class="inline-flex items-center rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 font-mono">V2.3</span>
+            </div>
+            <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'bg-white/10 text-amber-300' : (auth()->user()?->role === 'admin' ? 'bg-white/10 text-emerald-300' : (auth()->user()?->isGuest() ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/10 text-sky-300')) }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()?->role === 'admin' ? 'Admin' : (auth()->user()?->isGuest() ? 'Tamu (Guest)' : 'Staff')) }}</span>
+        </div>
         <div class="mt-1 truncate text-sm font-bold">{{ auth()->user()?->name ?? 'User' }}</div>
         <div class="truncate text-xs text-slate-400">{{ auth()->user()?->email ?? '' }}</div>
     </div>

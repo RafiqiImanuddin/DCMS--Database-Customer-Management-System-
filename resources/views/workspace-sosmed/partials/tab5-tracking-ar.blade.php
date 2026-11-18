@@ -231,23 +231,23 @@
                         <!-- 4. Table Container: Modern Tailwind Card Shell -->
                         <div class="dcms-card p-0 rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
                             <div class="overflow-x-auto">
-                                <table class="modern-tegas-table w-full text-left" id="auditTable">
+                                <table class="w-full text-left border-collapse" id="auditTable">
                                     <thead>
                                         <tr class="bg-slate-50/90 border-b border-slate-200">
-                                            <th class="audit-col-no" style="text-align: center; width: 3%;">NO</th>
-                                            <th class="audit-col-keep-date" style="text-align: center; width: 7.5%;">TANGGAL FORMAT KEEP</th>
-                                            <th class="audit-col-cust" style="text-align: left; width: 10%;">CUSTOMER</th>
-                                            <th class="audit-col-sosmed" style="text-align: center; width: 9%;">KODE SOSMED (KEEP)</th>
-                                            <th class="audit-col-keep" style="text-align: left; width: 14%;">BARANG KEEP</th>
-                                            <th class="audit-col-notes" style="text-align: left; width: 14%;">CATATAN</th>
-                                            <th class="audit-col-status-keep" style="text-align: center; width: 9.5%;">STATUS KEEP</th>
-                                            <th class="audit-col-report-ar" style="text-align: center; width: 8.5%;">REPORT AR DARI PRODUK</th>
-                                            <th class="audit-col-report-date" style="text-align: center; width: 7.5%;">TANGGAL REPORT AR</th>
-                                            <th class="audit-col-vlookup-ar" style="text-align: center; width: 8.5%;">AR VLOOKUP</th>
-                                            <th class="audit-col-vlookup-date" style="text-align: center; width: 8.5%;">TANGGAL NO AR VLOOKUP</th>
+                                            <th class="audit-col-no px-3 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 3.5%;">NO</th>
+                                            <th class="audit-col-keep-date px-3 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 8%;">TANGGAL FORMAT KEEP</th>
+                                            <th class="audit-col-cust px-3 py-3.5 text-left text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 11%;">CUSTOMER</th>
+                                            <th class="audit-col-sosmed px-3 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 8.5%;">KODE SOSMED (KEEP)</th>
+                                            <th class="audit-col-keep px-3 py-3.5 text-left text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 14%;">BARANG KEEP</th>
+                                            <th class="audit-col-notes px-3 py-3.5 text-left text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 14%;">CATATAN</th>
+                                            <th class="audit-col-status-keep px-3 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 10%;">STATUS KEEP</th>
+                                            <th class="audit-col-report-ar px-3 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 8.5%;">REPORT AR DARI PRODUK</th>
+                                            <th class="audit-col-report-date px-3 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 7.5%;">TANGGAL REPORT AR</th>
+                                            <th class="audit-col-vlookup-ar px-3 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 8.5%;">AR VLOOKUP</th>
+                                            <th class="audit-col-vlookup-date px-3 py-3.5 text-center text-[11px] font-black uppercase tracking-wider text-slate-600" style="width: 7.5%;">TANGGAL NO AR VLOOKUP</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="auditTableBody" class="divide-y divide-slate-100"></tbody>
+                                    <tbody id="auditTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
                                 </table>
                             </div>
 
