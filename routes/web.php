@@ -342,8 +342,16 @@ Route::get('/system/cron-run', function (\Illuminate\Http\Request $request) {
     }
 
     try {
-        @set_time_limit(300);
-        \Illuminate\Support\Facades\Artisan::call('keep:send-auto-fu-h1');
+        @ignore_user_abort(true);
+        @set_time_limit(180);
+        if (function_exists('apache_setenv')) {
+            @apache_setenv('no-gzip', '1');
+        }
+
+        $limit = max(1, min(20, (int) $request->query('limit', 5)));
+        \Illuminate\Support\Facades\Artisan::call('keep:send-auto-fu-h1', [
+            '--limit' => $limit,
+        ]);
         $output = \Illuminate\Support\Facades\Artisan::output();
 
         return response()->json([
@@ -351,7 +359,7 @@ Route::get('/system/cron-run', function (\Illuminate\Http\Request $request) {
             'message' => 'Cron Auto Follow-Up H+1 berhasil dijalankan.',
             'time' => now()->toDateTimeString(),
             'output' => $output,
-        ]);
+        ])->header('X-Accel-Buffering', 'no');
     } catch (\Throwable $e) {
         return response()->json([
             'success' => false,

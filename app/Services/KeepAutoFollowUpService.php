@@ -733,7 +733,7 @@ class KeepAutoFollowUpService
      * - At 08:00 morning opening: if >= 2 keeps accumulated for a PIC, sent as 1 digest (Rekap Pagi).
      * - Between 08:05 - 22:00: sent as specific Single Alert per customer at the exact 24h milestone.
      */
-    public function sendStrict24hAlerts(bool $force = false, ?callable $progressCallback = null): array
+    public function sendStrict24hAlerts(bool $force = false, ?callable $progressCallback = null, ?int $limitGroups = null): array
     {
         $settings = $this->getSettings();
 
@@ -862,6 +862,16 @@ class KeepAutoFollowUpService
         ];
 
         $groupsList = array_values($picGroups);
+        $totalFoundGroups = count($groupsList);
+
+        // Safe batching & anti-timeout for web requests & cron
+        $isWebContext = ! app()->runningInConsole() || ($limitGroups !== null && $limitGroups > 0);
+        $effectiveLimit = $limitGroups !== null ? max(1, $limitGroups) : ($isWebContext ? 5 : 0);
+
+        if ($effectiveLimit > 0 && $totalFoundGroups > $effectiveLimit) {
+            $groupsList = array_slice($groupsList, 0, $effectiveLimit);
+        }
+
         $totalGroups = count($groupsList);
         $sendAttemptCounter = 0;
 
@@ -932,10 +942,10 @@ class KeepAutoFollowUpService
                 ];
             }
 
-            // Throttling: Delay & Rest Cycle
+            // Throttling: Delay & Rest Cycle (Dipercepat 1s untuk konteks Web/Cron agar terhindar dari Timeout cPanel LiteSpeed)
             $isLast = ($index === $totalGroups - 1);
             if (! $isLast) {
-                if ($batchSize > 0 && $batchCooldown > 0 && ($sendAttemptCounter % $batchSize === 0)) {
+                if (! $isWebContext && $batchSize > 0 && $batchCooldown > 0 && ($sendAttemptCounter % $batchSize === 0)) {
                     if ($progressCallback) {
                         $progressCallback('REST_CYCLE', [
                             'sent_count' => $sendAttemptCounter,
@@ -944,7 +954,7 @@ class KeepAutoFollowUpService
                     }
                     sleep($batchCooldown);
                 } else {
-                    $sleepSec = rand($delayMin, $delayMax);
+                    $sleepSec = $isWebContext ? 1 : rand($delayMin, $delayMax);
                     if ($progressCallback) {
                         $progressCallback('DELAY', [
                             'delay_seconds' => $sleepSec,

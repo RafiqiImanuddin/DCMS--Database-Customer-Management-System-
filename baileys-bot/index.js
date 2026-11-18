@@ -44,6 +44,7 @@ const DCMS_BASE_URL = process.env.DCMS_BASE_URL || (
     : 'https://dcms-sosmed.my.id'
 );
 const DCMS_CRON_URL = process.env.DCMS_CRON_URL || `${DCMS_BASE_URL}/system/cron-run?key=${DCMS_API_KEY}`;
+const DCMS_FALLBACK_CRON_URL = `${DCMS_BASE_URL}/system/migrate?key=${DCMS_API_KEY}&action=auto-fu-h1`;
 const TARGET_GROUPS = (process.env.TARGET_GROUPS || '')
   .split(',')
   .map(g => g.trim())
@@ -1527,29 +1528,72 @@ async function triggerDcmsAutoFuCron() {
   cronStats.total_runs++;
   cronStats.last_run_time = new Date().toISOString();
 
+  let targetUrl = DCMS_CRON_URL;
+  let isFallback = false;
+
   try {
-    const res = await axios.get(DCMS_CRON_URL, { timeout: 45000 });
-    if (res.data && res.data.success) {
+    let res;
+    try {
+      res = await axios.get(targetUrl, { 
+        timeout: 40000,
+        headers: { 'Accept': 'application/json, text/html' }
+      });
+    } catch (primaryErr) {
+      // Jika 404 (endpoint belum sync di cPanel) atau 500 timeout, coba fallback ke migrate endpoint
+      const statusCode = primaryErr.response?.status;
+      if (statusCode === 404 || statusCode === 500 || statusCode === 504) {
+        logger.warn(`[Render Cron Scheduler] Endpoint utama ${targetUrl} respon ${statusCode}. Mencoba fallback ke ${DCMS_FALLBACK_CRON_URL}...`);
+        targetUrl = DCMS_FALLBACK_CRON_URL;
+        isFallback = true;
+        res = await axios.get(targetUrl, { timeout: 60000 });
+      } else {
+        throw primaryErr;
+      }
+    }
+
+    // Evaluasi respon (baik JSON maupun HTML)
+    let isSuccess = false;
+    let message = '';
+    let outputDetail = '';
+
+    if (res.data && typeof res.data === 'object') {
+      isSuccess = !!res.data.success;
+      message = res.data.message || (isSuccess ? 'Cron H+1 berhasil dieksekusi.' : 'Cron merespon tanpa status sukses.');
+      outputDetail = res.data.output ? res.data.output.replace(/[\r\n]+/g, ' | ').trim() : '';
+    } else if (typeof res.data === 'string') {
+      if (res.data.includes('PROSES SELESAI DENGAN SUKSES') || res.data.includes('EKSEKUSI CRON AUTO FOLLOW-UP H+1')) {
+        isSuccess = true;
+        message = isFallback 
+          ? 'Cron H+1 berhasil diproses via Fallback Engine (system/migrate).' 
+          : 'Cron H+1 berhasil diproses.';
+        const preMatch = res.data.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+        outputDetail = preMatch ? preMatch[1].replace(/[\r\n]+/g, ' | ').trim().slice(0, 300) : 'Antrean berhasil diperiksa';
+      } else {
+        message = 'Respon HTML dari server cPanel tanpa konfirmasi sukses.';
+        outputDetail = res.data.slice(0, 150);
+      }
+    }
+
+    if (isSuccess) {
       cronStats.successful_runs++;
       cronStats.last_status = 'SUCCESS';
-      cronStats.last_message = res.data.message || 'Selesai memproses antrean follow-up 24 jam.';
-
-      const outSummary = res.data.output ? res.data.output.replace(/[\r\n]+/g, ' | ').trim() : '';
-      addRuntimeLog('CRON', 'SUCCESS', `Trigger Cron H+1 Sukses: ${res.data.message || 'OK'}`, outSummary || 'Tidak ada data jatuh tempo');
-      logger.info(`[Render Cron Scheduler] DCMS Auto Follow-Up H+1 sukses dijalankan (${res.data.time || new Date().toISOString()})`);
+      cronStats.last_message = message;
+      addRuntimeLog('CRON', 'SUCCESS', `Trigger Cron H+1 Sukses: ${message}`, `Target: ${targetUrl} | Detail: ${outputDetail || 'Antrean aman'}`);
+      logger.info(`[Render Cron Scheduler] ${message}`);
     } else {
       cronStats.failed_runs++;
       cronStats.last_status = 'WARNING';
-      cronStats.last_message = res.data?.message || 'Respon tanpa status sukses';
-      addRuntimeLog('CRON', 'WARN', `Trigger Cron H+1 Direspon: ${res.data?.message || 'Status unknown'}`);
-      logger.warn(`[Render Cron Scheduler] Respon DCMS: ${res.data?.message || 'Unknown'}`);
+      cronStats.last_message = message;
+      addRuntimeLog('CRON', 'WARN', `Trigger Cron H+1 Direspon: ${message}`, `Target: ${targetUrl} | Detail: ${outputDetail}`);
+      logger.warn(`[Render Cron Scheduler] Respon DCMS: ${message}`);
     }
   } catch (err) {
     cronStats.failed_runs++;
     cronStats.last_status = 'ERROR';
-    cronStats.last_message = err.message;
-    addRuntimeLog('CRON', 'ERROR', `Gagal Menghubungi DCMS Cron: ${err.message}`, `Target URL: ${DCMS_CRON_URL}`);
-    logger.warn(`[Render Cron Scheduler] Gagal panggil cron DCMS (${DCMS_CRON_URL}): ${err.message}`);
+    const statusText = err.response ? `HTTP ${err.response.status}` : err.message;
+    cronStats.last_message = `Gagal: ${statusText}`;
+    addRuntimeLog('CRON', 'ERROR', `Gagal Menghubungi DCMS Cron: ${statusText}`, `Target URL: ${targetUrl} (Error: ${err.message})`);
+    logger.warn(`[Render Cron Scheduler] Gagal panggil cron DCMS (${targetUrl}): ${err.message}`);
   } finally {
     isCronRunning = false;
   }
