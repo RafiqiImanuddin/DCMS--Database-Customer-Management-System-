@@ -7,7 +7,7 @@
     window.WORKSPACE_ACTIVE_TAB = {{ (int) ($activeTab ?? 1) }};
     window.WORKSPACE_INITIAL_SETTINGS = @json($initialWorkspaceSettings ?? []);
   </script>
-  <script src="{{ asset('workspace-sosmed/client.js') }}?v={{ @filemtime(public_path('workspace-sosmed/client.js')) ?: '7.3' }}"></script>
+  <script src="{{ asset('workspace-sosmed/client.js') }}?v={{ @filemtime(public_path('workspace-sosmed/client.js')) ?: '8.9' }}-v89"></script>
     <!-- Omnichannel Image Lightbox Modal with Full-Screen Stage & Free Zoom/Pan -->
     <div id="omniImageModal" class="omni-img-modal" style="display:none;">
         <!-- Close Button (Fixed Top-Right) -->
@@ -43,7 +43,7 @@
   <script>
     function updateSidebarActiveTab(tabIndex) {
         const numTab = parseInt(tabIndex, 10);
-        const isKeepGroup = [3, 4, 5, 6, 10].includes(numTab);
+        const isKeepGroup = [3, 4, 5, 6, 10, 11, 12].includes(numTab);
 
         document.querySelectorAll('.workspace-sidebar-link').forEach(link => {
             const linkTab = parseInt(link.getAttribute('data-tab'), 10);
@@ -132,18 +132,14 @@
 
         const headerWrapper = document.getElementById('workspaceHeaderWrapper') || document.querySelector('.workspace-header-wrapper');
         if (headerWrapper) {
-            headerWrapper.style.display = (tabIndex === 4 || tabIndex === 10) ? 'none' : '';
+            headerWrapper.style.display = (tabIndex === 4 || tabIndex === 9 || tabIndex === 10 || tabIndex === 11 || tabIndex === 12) ? 'none' : '';
         }
 
         try {
             if (window.WORKSPACE_ENCRYPTED_URLS && window.WORKSPACE_ENCRYPTED_URLS[tabIndex]) {
                 window.history.replaceState({}, '', window.WORKSPACE_ENCRYPTED_URLS[tabIndex]);
-            } else {
-                const token = (window.WORKSPACE_ROUTING_TOKENS && window.WORKSPACE_ROUTING_TOKENS[tabIndex]) ? window.WORKSPACE_ROUTING_TOKENS[tabIndex] : tabIndex;
-                const url = new URL(window.location);
-                url.searchParams.delete('v');
-                url.searchParams.set('tab', token);
-                window.history.replaceState({}, '', url);
+            } else if (window.WORKSPACE_ROUTING_TOKENS && window.WORKSPACE_ROUTING_TOKENS[tabIndex]) {
+                window.history.replaceState({}, '', '/r/' + window.WORKSPACE_ROUTING_TOKENS[tabIndex]);
             }
         } catch(e) {}
     };

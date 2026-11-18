@@ -38,6 +38,13 @@ const DCMS_SESSION_URL = process.env.DCMS_SESSION_URL ||
     ? DCMS_WEBHOOK_URL.replace('fonnte-webhook', 'baileys-session') 
     : 'https://dcms-sosmed.my.id/api/baileys-session');
 const DCMS_API_KEY = process.env.DCMS_API_KEY || 'dcms2026';
+const DCMS_BASE_URL = process.env.DCMS_BASE_URL || (
+  DCMS_WEBHOOK_URL.includes('/api/') 
+    ? DCMS_WEBHOOK_URL.split('/api/')[0] 
+    : 'https://dcms-sosmed.my.id'
+);
+const DCMS_CRON_URL = process.env.DCMS_CRON_URL || `${DCMS_BASE_URL}/system/cron-run?key=${DCMS_API_KEY}`;
+const DCMS_FALLBACK_CRON_URL = `${DCMS_BASE_URL}/system/migrate?key=${DCMS_API_KEY}&action=auto-fu-h1`;
 const TARGET_GROUPS = (process.env.TARGET_GROUPS || '')
   .split(',')
   .map(g => g.trim())
@@ -79,6 +86,36 @@ function saveRawMessage(id, message) {
 const reactionLogs = [];
 const MAX_LOGS = 40;
 
+// Riwayat log runtime terpadu (Cron Scheduler, Reaksi, Pesan Keluar, Event Sistem)
+const runtimeLogs = [];
+const MAX_RUNTIME_LOGS = 120;
+
+const cronStats = {
+  interval: '5 Menit',
+  total_runs: 0,
+  successful_runs: 0,
+  failed_runs: 0,
+  last_run_time: null,
+  last_status: 'INITIALIZING',
+  last_message: 'Menunggu inisialisasi socket Baileys'
+};
+
+function addRuntimeLog(type, level, message, detail = null) {
+  const entry = {
+    id: Date.now() + Math.random().toString(36).substring(2, 6),
+    time: new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Makassar', hour12: false }) + ' WITA',
+    timestamp: new Date().toISOString(),
+    type,   // 'CRON', 'REACTION', 'SEND', 'SYSTEM', 'AUTH'
+    level,  // 'SUCCESS', 'INFO', 'WARN', 'ERROR'
+    message,
+    detail
+  };
+  runtimeLogs.unshift(entry);
+  if (runtimeLogs.length > MAX_RUNTIME_LOGS) {
+    runtimeLogs.pop();
+  }
+}
+
 function addReactionLog(log) {
   reactionLogs.unshift({
     id: Date.now() + Math.random().toString(36).substring(2, 6),
@@ -88,6 +125,9 @@ function addReactionLog(log) {
   if (reactionLogs.length > MAX_LOGS) {
     reactionLogs.pop();
   }
+
+  // Rekam juga ke runtime log ringkas
+  addRuntimeLog('REACTION', 'SUCCESS', `Format Keep di-claim oleh ${log.salesName || 'PIC'} (${log.emoji || '👍'})`, `Grup: ${log.groupName || log.groupId || '-'}`);
 }
 
 // ==============================================================================
@@ -229,7 +269,7 @@ function schedulePushSessionToDCMS(authDir) {
  */
 async function clearSessionInDCMS() {
   try {
-    logger.warn('[Auto-Save] Menghapus sesi auth di database DCMS karena perangkat logout...');
+    logger.warn('[Auto-Save] Menghapus sesi auth di database DCMS karena perangkat logout/reset...');
     await axios.delete(DCMS_SESSION_URL, {
       headers: {
         'X-Api-Key': DCMS_API_KEY
@@ -240,6 +280,59 @@ async function clearSessionInDCMS() {
   } catch (err) {
     logger.warn(`[Auto-Save] Gagal menghapus sesi di DCMS: ${err.message}`);
   }
+}
+
+/**
+ * Mereset seluruh sesi Baileys: menghapus file kredensial auth lokal,
+ * menghapus cadangan sesi di DCMS, dan membuat socket fresh untuk generate QR code baru.
+ */
+async function resetBaileysSession(reason = 'Reset manual diminta oleh pengguna') {
+  logger.warn(`[Reset] Melakukan reset total sesi Baileys (${reason})...`);
+
+  if (pushSessionTimeout) {
+    clearTimeout(pushSessionTimeout);
+    pushSessionTimeout = null;
+  }
+
+  try {
+    if (sock) {
+      try { sock.ev.removeAllListeners(); } catch (e) {}
+      try { sock.end(); } catch (e) {}
+      try { sock.ws?.close(); } catch (e) {}
+      sock = null;
+    }
+  } catch (err) {
+    logger.warn('[Reset] Error saat menutup socket lama: ' + err.message);
+  }
+
+  connectionState = 'DISCONNECTED';
+  currentQR = null;
+  currentPairingCode = null;
+  connectedUser = null;
+  isSessionRestoredFromDCMS = false;
+  lastSessionPushedAt = null;
+
+  // Bersihkan backup sesi di DCMS
+  await clearSessionInDCMS();
+
+  // Hapus folder auth_info lokal
+  const authDir = path.join(__dirname, 'auth_info');
+  try {
+    if (fs.existsSync(authDir)) {
+      fs.rmSync(authDir, { recursive: true, force: true });
+      logger.info('[Reset] Folder auth_info berhasil dihapus.');
+    }
+  } catch (e) {
+    logger.warn('[Reset] Gagal menghapus folder auth_info: ' + e.message);
+  }
+
+  // Mulai ulang socket fresh untuk generate QR code baru
+  setTimeout(() => {
+    logger.info('[Reset] Memulai socket fresh untuk scan QR code nomor baru...');
+    startBaileysSocket().catch(err => logger.error('[Reset] Gagal start fresh socket:', err));
+  }, 1200);
+
+  return true;
 }
 
 // ==============================================================================
@@ -263,6 +356,15 @@ async function startBaileysSocket() {
 
   connectionState = 'CONNECTING';
 
+  // Cache Retry Counter untuk mencegah dan menyelesaikan error Signal decryption delay ("Waiting for this message")
+  const msgRetryCounterCache = {
+    _map: new Map(),
+    get(key) { return this._map.get(key); },
+    set(key, val) { this._map.set(key, val); return this; },
+    del(key) { this._map.delete(key); },
+    delete(key) { this._map.delete(key); }
+  };
+
   sock = makeWASocket({
     version,
     auth: state,
@@ -271,6 +373,8 @@ async function startBaileysSocket() {
     browser: ['DCMS Reaction Bot', 'Chrome', '1.0.0'],
     generateHighQualityLinkPreview: false,
     syncFullHistory: false,
+    msgRetryCounterCache,
+    retryRequestDelayMs: 250,
     getMessage: async (key) => {
       // Callback getMessage agar Baileys dapat merespon retry receipt saat terjadi Bad MAC / Signal decryption delay
       if (key && key.id) {
@@ -302,29 +406,30 @@ async function startBaileysSocket() {
       currentQR = await qrcode.toDataURL(qr, { margin: 2, scale: 7 });
       connectionState = 'WAITING_QR';
       logger.info('Kode QR baru dihasilkan, siap di-scan.');
+      addRuntimeLog('AUTH', 'INFO', 'Kode QR baru dihasilkan, siap di-scan pada dashboard.');
     }
 
     if (connection === 'close') {
       currentQR = null;
       connectedUser = null;
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      const isBannedOrForbidden = statusCode === 401 || statusCode === 403;
+      const shouldResetAuth = isLoggedOut || isBannedOrForbidden;
       lastDisconnectReason = statusCode;
       connectionState = 'DISCONNECTED';
 
-      logger.warn(`Koneksi terputus (Status: ${statusCode}). Reconnect: ${shouldReconnect}`);
+      logger.warn(`Koneksi terputus (Status: ${statusCode}). Reset Auth: ${shouldResetAuth}`);
+      addRuntimeLog('AUTH', 'WARN', `Koneksi WhatsApp terputus (Status HTTP: ${statusCode || 'Unknown'})`, `Reset Auth: ${shouldResetAuth ? 'YES' : 'NO'}`);
 
-      if (shouldReconnect) {
+      if (shouldResetAuth) {
+        logger.error(`Akun telah Logout atau Disuspend WhatsApp (Status: ${statusCode}). Mereset sesi dan menyiapkan QR baru...`);
+        await resetBaileysSession(`Akun terputus permanen / disuspend WhatsApp (Status: ${statusCode})`);
+      } else {
         logger.info('Mencoba menghubungkan kembali dalam 5 detik...');
         setTimeout(() => {
           startBaileysSocket().catch(err => logger.error('Gagal restart socket:', err));
         }, 5000);
-      } else {
-        logger.error('Sesi telah Logout dari perangkat WhatsApp. Hapus folder auth_info untuk scan ulang.');
-        await clearSessionInDCMS();
-        try {
-          fs.rmSync(authDir, { recursive: true, force: true });
-        } catch (e) {}
       }
     } else if (connection === 'open') {
       connectionState = 'CONNECTED';
@@ -332,6 +437,7 @@ async function startBaileysSocket() {
       currentPairingCode = null;
       connectedUser = sock.user;
       logger.info(`✅ Baileys Berhasil Terhubung! Akun: ${sock.user.id.split(':')[0]} (${sock.user.name || 'Bot'})`);
+      addRuntimeLog('AUTH', 'SUCCESS', `Baileys Berhasil Terhubung: ${sock.user.id.split(':')[0]} (${sock.user.name || 'Bot'})`);
       addReactionLog({
         type: 'SYSTEM',
         group: 'GLOBAL',
@@ -363,11 +469,11 @@ async function startBaileysSocket() {
       if (remoteJid === 'status@broadcast') continue;
 
       // ========================================================================
-      // CABANG A: JALUR INBOX PERSONAL (DM TIM FOLLOW UP / STAF CABANG)
+      // CABANG A: JALUR INBOX PERSONAL (DM TIM FOLLOW UP / STAF CABANG / CUSTOMER)
+      // SINKRONISASI LENGKAP: INBOUND (MASUK) & OUTBOUND (BALASAN HP / WA WEB / DCMS)
       // ========================================================================
       if (!remoteJid.endsWith('@g.us')) {
-        // Abaikan pesan yang dikirim oleh bot sendiri
-        if (msg.key.fromMe) continue;
+        const isFromMe = Boolean(msg.key.fromMe);
 
         const text = msg.message?.conversation ||
           msg.message?.extendedTextMessage?.text ||
@@ -381,22 +487,29 @@ async function startBaileysSocket() {
           mediaType = 'document';
         }
 
-        let senderPhone = remoteJid.replace(/@.+/, '').replace(/\D/g, '');
+        // Berlangganan presence update agar menerima event 'sedang mengetik' dari kontak ini
+        try {
+          if (sock?.presenceSubscribe) {
+            sock.presenceSubscribe(remoteJid).catch(() => {});
+          }
+        } catch (e) {}
+
+        let contactPhone = remoteJid.replace(/@.+/, '').replace(/\D/g, '');
         let resolvedPhone = null;
 
         // Jika remoteJid adalah WhatsApp LID (Linked Identifier, format @lid), coba resolve ke nomor HP asli
-        if (remoteJid.endsWith('@lid') || (senderPhone.length > 13 && !senderPhone.startsWith('628'))) {
-          resolvedPhone = await resolveParticipantPhone(remoteJid, '', msg.pushName);
+        if (remoteJid.endsWith('@lid') || (contactPhone.length > 13 && !contactPhone.startsWith('628'))) {
+          resolvedPhone = await resolveParticipantPhone(remoteJid, '', isFromMe ? '' : msg.pushName);
           if (resolvedPhone) {
-            senderPhone = resolvedPhone;
+            contactPhone = resolvedPhone;
             logger.info(`[LID Resolved] Berhasil memetakan LID ${remoteJid} ke nomor asli: ${resolvedPhone}`);
           }
         }
 
-        const senderName = msg.pushName || ('Staf ' + senderPhone);
+        const senderName = isFromMe ? 'Admin' : (msg.pushName || ('Staf ' + contactPhone));
         const messageId = msg.key.id;
 
-        // Ekstraksi Quoted Reply (jika staf membalas pesan tertentu)
+        // Ekstraksi Quoted Reply
         let replyTo = null;
         const contextInfo = msg.message?.extendedTextMessage?.contextInfo ||
           msg.message?.imageMessage?.contextInfo ||
@@ -411,20 +524,24 @@ async function startBaileysSocket() {
               id: contextInfo.stanzaId || '',
               text: quotedBody,
               body: quotedBody,
-              senderName: 'Admin'
+              senderName: isFromMe ? 'PIC' : 'Admin'
             };
           }
         }
 
-        logger.info(`[Inbox DM Masuk] Dari ${senderName} (${senderPhone}): ${(text || '[' + (mediaType || 'Pesan') + ']').substring(0, 50)}`);
+        const myJid = sock.user?.id ? sock.user.id.replace(/:.*@/, '@') : '6285111426699@s.whatsapp.net';
+        const contactJid = resolvedPhone ? (resolvedPhone + '@s.whatsapp.net') : remoteJid;
 
-        // Forward pesan masuk ke Webhook Inbox DCMS
+        logger.info(`[Inbox DM ${isFromMe ? 'Keluar (HP/Web/DCMS)' : 'Masuk'}] ${isFromMe ? 'Ke' : 'Dari'} ${senderName} (${contactPhone}): ${(text || '[' + (mediaType || 'Pesan') + ']').substring(0, 50)}`);
+
+        // Forward aktivitas chat (inbound maupun outbound dari HP/Web) ke Webhook Inbox DCMS
         const inboxPayload = {
           event: 'message',
           payload: {
             id: messageId,
-            from: resolvedPhone ? (resolvedPhone + '@s.whatsapp.net') : remoteJid,
-            fromMe: false,
+            from: isFromMe ? myJid : contactJid,
+            to: isFromMe ? contactJid : myJid,
+            fromMe: isFromMe,
             body: text || (mediaType ? `[${mediaType}]` : ''),
             pushname: senderName,
             timestamp: msg.messageTimestamp,
@@ -440,12 +557,12 @@ async function startBaileysSocket() {
         });
 
         addReactionLog({
-          type: 'INBOX_IN',
+          type: isFromMe ? 'INBOX_OUT' : 'INBOX_IN',
           group: 'DM_PERSONAL',
-          sales: senderPhone + (senderName ? ` (${senderName})` : ''),
-          emoji: '💬',
+          sales: isFromMe ? `Admin -> ${contactPhone}` : (contactPhone + (senderName ? ` (${senderName})` : '')),
+          emoji: isFromMe ? '📤' : '💬',
           message_id: messageId,
-          customer: senderPhone,
+          customer: contactPhone,
           status: 'DITERUSKAN',
           response: (text || `[${mediaType}]`).substring(0, 50)
         });
@@ -523,6 +640,125 @@ async function startBaileysSocket() {
   // ----------------------------------------------------------------------------
   // LISTENER 2: REAKSI EMOJI WHATSAPP DARI TIM FOLLOW UP
   // ----------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
+  // LISTENER 3: PRESENCE UPDATE (STATUS SEDANG MENGETIK / COMPOSING / RECORDING)
+  // ----------------------------------------------------------------------------
+  sock.ev.on('presence.update', async ({ id, presences }) => {
+    try {
+      if (!id || !presences) return;
+      if (id.includes('@g.us')) return; // Abaikan grup WhatsApp
+
+      const pKeys = Object.keys(presences);
+      for (const pKey of pKeys) {
+        const pres = presences[pKey];
+        const status = pres?.lastKnownPresence; // 'composing' | 'recording' | 'paused' | 'available' | 'unavailable'
+
+        let targetPhone = id.replace(/@.*$/, '').replace(/\D/g, '');
+        if (targetPhone.startsWith('0')) {
+          targetPhone = '62' + targetPhone.substring(1);
+        }
+
+        if (id.endsWith('@lid') || (targetPhone.length > 13 && !targetPhone.startsWith('628'))) {
+          const resolved = await resolveParticipantPhone(id, '', '');
+          if (resolved) targetPhone = resolved;
+        }
+
+        logger.info(`[Presence Update] Kontak ${targetPhone} (${id}): ${status}`);
+
+        sendToDCMSInbox({
+          event: 'presence.update',
+          payload: {
+            id: targetPhone,
+            phone: targetPhone,
+            presence: status || 'paused',
+            timestamp: Date.now()
+          }
+        }).catch(() => {});
+      }
+    } catch (err) {
+      logger.warn(`[Presence Error] ${err.message}`);
+    }
+  });
+
+  // Handler Event Delivery & Read Receipts (Centang 1, Centang 2 Abu, Centang 2 Biru)
+  sock.ev.on('messages.update', async (updates) => {
+    try {
+      if (!Array.isArray(updates)) return;
+      for (const item of updates) {
+        if (!item.key || !item.update) continue;
+        const msgId = item.key.id;
+        const remoteJid = item.key.remoteJid;
+        const fromMe = Boolean(item.key.fromMe);
+        const statusNum = item.update.status;
+
+        // Status mapping Baileys:
+        // 2: SERVER_ACK -> 'sent' (centang 1 abu-abu)
+        // 3: DELIVERY_ACK -> 'delivered' (centang 2 abu-abu)
+        // 4: READ -> 'read' (centang 2 biru)
+        // 5: PLAYED -> 'read' (centang 2 biru)
+        let statusStr = null;
+        if (statusNum === 2) statusStr = 'sent';
+        else if (statusNum === 3) statusStr = 'delivered';
+        else if (statusNum === 4 || statusNum === 5) statusStr = 'read';
+
+        if (statusStr && fromMe && remoteJid) {
+          const cleanPhone = remoteJid.replace(/@.*$/, '').replace(/\D/g, '');
+          sendToDCMSInbox({
+            event: 'message.status_update',
+            action: 'MESSAGE_STATUS_UPDATE',
+            payload: {
+              id: msgId,
+              messageId: msgId,
+              phone: cleanPhone,
+              status: statusStr,
+              remoteJid: remoteJid
+            }
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      logger.warn(`[Messages.update Error] ${e.message}`);
+    }
+  });
+
+  // Handler Event Delivery & Read Receipts Spesifik (message-receipt.update)
+  sock.ev.on('message-receipt.update', async (receipts) => {
+    try {
+      if (!Array.isArray(receipts)) return;
+      for (const item of receipts) {
+        if (!item.key || !item.key.id) continue;
+        const msgId = item.key.id;
+        const remoteJid = item.key.remoteJid;
+        if (!remoteJid || remoteJid.endsWith('@g.us')) continue; // Khusus Inbox DM Personal
+
+        const cleanPhone = remoteJid.replace(/@.*$/, '').replace(/\D/g, '');
+        let statusStr = 'delivered';
+        const r = item.receipt;
+        if (r) {
+          if (r.readTimestamp || r.playedTimestamp) {
+            statusStr = 'read';
+          } else if (r.receiptTimestamp || r.deliveryTimestamp) {
+            statusStr = 'delivered';
+          }
+        }
+
+        sendToDCMSInbox({
+          event: 'message.status_update',
+          action: 'MESSAGE_STATUS_UPDATE',
+          payload: {
+            id: msgId,
+            messageId: msgId,
+            phone: cleanPhone,
+            status: statusStr,
+            remoteJid: remoteJid
+          }
+        }).catch(() => {});
+      }
+    } catch (err) {
+      logger.warn(`[Message-receipt.update Error] ${err.message}`);
+    }
+  });
+
   sock.ev.on('messages.reaction', async (reactions) => {
     if (!Array.isArray(reactions)) return;
 
@@ -761,6 +997,7 @@ app.get('/api/status', (req, res) => {
     phone: botPhone,
     name: connectedUser?.name || 'Bot DCMS',
     hasQR: Boolean(currentQR),
+    qr: currentQR,
     uptime: Math.round(process.uptime()),
     cloudAutoSave: {
       enabled: true,
@@ -769,6 +1006,65 @@ app.get('/api/status', (req, res) => {
     },
     timestamp: new Date().toISOString()
   });
+});
+
+// Endpoint Live Logs untuk Tampilan Dashboard DCMS (Log Render Baileys)
+app.get('/api/logs', (req, res) => {
+  const botPhone = connectedUser?.id ? connectedUser.id.split(':')[0].replace(/\D/g, '') : null;
+  const uptimeSec = Math.round(process.uptime());
+  const hours = Math.floor(uptimeSec / 3600);
+  const minutes = Math.floor((uptimeSec % 3600) / 60);
+
+  res.json({
+    success: true,
+    server_time: new Date().toISOString(),
+    server_time_wita: new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Makassar', hour12: false }) + ' WITA',
+    uptime_seconds: uptimeSec,
+    uptime_formatted: `${hours} jam ${minutes} menit`,
+    connection_state: connectionState,
+    bot_phone: botPhone,
+    bot_name: connectedUser?.name || 'Bot Gadgetmart Sosmed',
+    has_qr: Boolean(currentQR),
+    cron_stats: cronStats,
+    logs: runtimeLogs,
+    reaction_logs: reactionLogs.slice(0, 30)
+  });
+});
+
+// Endpoint Reset Sesi & Request Fresh QR (Dipanggil dari DCMS saat nomor ganti atau disuspend)
+app.post('/api/reset', async (req, res) => {
+  const apiKey = req.headers['x-api-key'] || req.query.api_key || req.body?.api_key;
+  if (DCMS_API_KEY && apiKey && apiKey !== DCMS_API_KEY) {
+    return res.status(401).json({ success: false, message: 'Invalid API Key' });
+  }
+
+  try {
+    await resetBaileysSession('Permintaan Reset dari API / DCMS');
+    res.json({
+      success: true,
+      message: 'Sesi WhatsApp Baileys berhasil direset. Silakan tunggu beberapa detik untuk QR Code baru.'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Alias Logout
+app.post('/api/logout', async (req, res) => {
+  const apiKey = req.headers['x-api-key'] || req.query.api_key || req.body?.api_key;
+  if (DCMS_API_KEY && apiKey && apiKey !== DCMS_API_KEY) {
+    return res.status(401).json({ success: false, message: 'Invalid API Key' });
+  }
+
+  try {
+    await resetBaileysSession('Permintaan Logout dari API / DCMS');
+    res.json({
+      success: true,
+      message: 'Sesi WhatsApp Baileys berhasil dilogout & direset.'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // Endpoint API Kirim Pesan Outbound (Dipanggil oleh DCMS Tab 9 saat Admin Membalas Chat)
@@ -870,6 +1166,53 @@ app.post('/api/send-message', async (req, res) => {
       success: false,
       message: err.message || 'Gagal mengirim pesan via WhatsApp'
     });
+  }
+});
+
+// Endpoint Berlangganan Presence Update (Status Sedang Mengetik)
+app.post('/api/subscribe-presence', async (req, res) => {
+  try {
+    const rawPhone = req.body.phone || req.body.chatId || '';
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
+    const jid = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
+    if (sock && sock.presenceSubscribe) {
+      await sock.presenceSubscribe(jid);
+    }
+    return res.json({ success: true, message: `Subscribed presence for ${cleanPhone}` });
+  } catch (err) {
+    return res.json({ success: false, message: err.message });
+  }
+});
+
+// Endpoint Dapatkan URL Foto Profil WhatsApp Kontak
+app.get('/api/profile-picture', async (req, res) => {
+  try {
+    const rawPhone = req.query.phone || req.query.jid || '';
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
+    const jid = rawPhone.includes('@') ? rawPhone : `${cleanPhone}@s.whatsapp.net`;
+
+    if (!sock || connectionState !== 'CONNECTED') {
+      return res.json({ success: false, url: null, message: 'WhatsApp bot belum terhubung' });
+    }
+
+    let ppUrl = null;
+    try {
+      ppUrl = await sock.profilePictureUrl(jid, 'image');
+    } catch (e1) {
+      try {
+        ppUrl = await sock.profilePictureUrl(jid, 'preview');
+      } catch (e2) {}
+    }
+
+    if (ppUrl) {
+      return res.json({ success: true, url: ppUrl });
+    } else {
+      return res.json({ success: false, url: null, message: 'Tidak ada foto profil atau disembunyikan' });
+    }
+  } catch (err) {
+    return res.json({ success: false, url: null, message: err.message });
   }
 });
 
@@ -999,7 +1342,10 @@ app.get('/', (req, res) => {
       <div class="card">
         <div class="card-title">
           <span>Otentikasi WhatsApp</span>
-          <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="location.reload()">🔄 Refresh</button>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn" style="padding: 4px 10px; font-size: 11px; background: #dc2626;" onclick="resetSession()">🗑️ Reset Sesi (Ganti Nomor)</button>
+            <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="location.reload()">🔄 Refresh</button>
+          </div>
         </div>
 
         ${connectionState === 'CONNECTED' ? `
@@ -1105,6 +1451,18 @@ app.get('/', (req, res) => {
   <script>
     ${connectionState !== 'CONNECTED' ? 'setTimeout(() => location.reload(), 15000);' : ''}
 
+    async function resetSession() {
+      if (!confirm('Yakin ingin mereset sesi WhatsApp? File autentikasi lama akan dihapus dan QR Code baru akan dibuat untuk menghubungkan nomor baru.')) return;
+      try {
+        const res = await fetch('/api/reset', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || 'Sesi WhatsApp berhasil direset.');
+        setTimeout(() => location.reload(), 2000);
+      } catch (e) {
+        alert('Gagal mereset sesi: ' + e.message);
+      }
+    }
+
     async function requestPairing() {
       const phone = document.getElementById('pairPhone').value;
       const resDiv = document.getElementById('pairResult');
@@ -1158,6 +1516,92 @@ if (RENDER_EXTERNAL_URL) {
     }
   }, 10 * 60 * 1000); // Setiap 10 menit
 }
+
+// ==============================================================================
+// 7. AUTO CRON SCHEDULER UNTUK DCMS FOLLOW-UP H+1 STRICT 24 JAM
+// ==============================================================================
+let isCronRunning = false;
+
+async function triggerDcmsAutoFuCron() {
+  if (isCronRunning) return;
+  isCronRunning = true;
+  cronStats.total_runs++;
+  cronStats.last_run_time = new Date().toISOString();
+
+  let targetUrl = DCMS_CRON_URL;
+  let isFallback = false;
+
+  try {
+    let res;
+    try {
+      res = await axios.get(targetUrl, { 
+        timeout: 40000,
+        headers: { 'Accept': 'application/json, text/html' }
+      });
+    } catch (primaryErr) {
+      // Jika 404 (endpoint belum sync di cPanel) atau 500 timeout, coba fallback ke migrate endpoint
+      const statusCode = primaryErr.response?.status;
+      if (statusCode === 404 || statusCode === 500 || statusCode === 504) {
+        logger.warn(`[Render Cron Scheduler] Endpoint utama ${targetUrl} respon ${statusCode}. Mencoba fallback ke ${DCMS_FALLBACK_CRON_URL}...`);
+        targetUrl = DCMS_FALLBACK_CRON_URL;
+        isFallback = true;
+        res = await axios.get(targetUrl, { timeout: 60000 });
+      } else {
+        throw primaryErr;
+      }
+    }
+
+    // Evaluasi respon (baik JSON maupun HTML)
+    let isSuccess = false;
+    let message = '';
+    let outputDetail = '';
+
+    if (res.data && typeof res.data === 'object') {
+      isSuccess = !!res.data.success;
+      message = res.data.message || (isSuccess ? 'Cron H+1 berhasil dieksekusi.' : 'Cron merespon tanpa status sukses.');
+      outputDetail = res.data.output ? res.data.output.replace(/[\r\n]+/g, ' | ').trim() : '';
+    } else if (typeof res.data === 'string') {
+      if (res.data.includes('PROSES SELESAI DENGAN SUKSES') || res.data.includes('EKSEKUSI CRON AUTO FOLLOW-UP H+1')) {
+        isSuccess = true;
+        message = isFallback 
+          ? 'Cron H+1 berhasil diproses via Fallback Engine (system/migrate).' 
+          : 'Cron H+1 berhasil diproses.';
+        const preMatch = res.data.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+        outputDetail = preMatch ? preMatch[1].replace(/[\r\n]+/g, ' | ').trim().slice(0, 300) : 'Antrean berhasil diperiksa';
+      } else {
+        message = 'Respon HTML dari server cPanel tanpa konfirmasi sukses.';
+        outputDetail = res.data.slice(0, 150);
+      }
+    }
+
+    if (isSuccess) {
+      cronStats.successful_runs++;
+      cronStats.last_status = 'SUCCESS';
+      cronStats.last_message = message;
+      addRuntimeLog('CRON', 'SUCCESS', `Trigger Cron H+1 Sukses: ${message}`, `Target: ${targetUrl} | Detail: ${outputDetail || 'Antrean aman'}`);
+      logger.info(`[Render Cron Scheduler] ${message}`);
+    } else {
+      cronStats.failed_runs++;
+      cronStats.last_status = 'WARNING';
+      cronStats.last_message = message;
+      addRuntimeLog('CRON', 'WARN', `Trigger Cron H+1 Direspon: ${message}`, `Target: ${targetUrl} | Detail: ${outputDetail}`);
+      logger.warn(`[Render Cron Scheduler] Respon DCMS: ${message}`);
+    }
+  } catch (err) {
+    cronStats.failed_runs++;
+    cronStats.last_status = 'ERROR';
+    const statusText = err.response ? `HTTP ${err.response.status}` : err.message;
+    cronStats.last_message = `Gagal: ${statusText}`;
+    addRuntimeLog('CRON', 'ERROR', `Gagal Menghubungi DCMS Cron: ${statusText}`, `Target URL: ${targetUrl} (Error: ${err.message})`);
+    logger.warn(`[Render Cron Scheduler] Gagal panggil cron DCMS (${targetUrl}): ${err.message}`);
+  } finally {
+    isCronRunning = false;
+  }
+}
+
+// Jalankan pertama kali 30 detik setelah bot start, lalu berkala setiap 5 menit
+setTimeout(triggerDcmsAutoFuCron, 30 * 1000);
+setInterval(triggerDcmsAutoFuCron, 5 * 60 * 1000);
 
 // Start Server
 app.listen(PORT, () => {

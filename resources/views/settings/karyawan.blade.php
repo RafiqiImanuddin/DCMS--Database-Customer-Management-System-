@@ -98,7 +98,7 @@
                 <!-- Search Input -->
                 <div class="relative min-w-[200px] flex-1">
                     <svg class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
-                    <input type="text" name="search" value="{{ $search }}" placeholder="Cari nama, NIK, atau no WA..." class="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                    <input type="text" name="search" value="{{ $search }}" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="Cari nama, NIK, atau no WA..." class="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/10">
                 </div>
 
                 <!-- Cabang Filter -->
@@ -737,7 +737,7 @@
 </div>
 
 <!-- MODAL TAMBAH / EDIT KARYAWAN -->
-<div id="employeeModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+<div id="employeeModal" class="fixed inset-0 z-[99999] hidden items-center justify-center p-4">
     <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onclick="closeEmployeeModal()"></div>
     <div class="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl transition">
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -827,7 +827,7 @@
 </div>
 
 <!-- MODAL TAMBAH KRITERIA KUSTOM -->
-<div id="criterionModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+<div id="criterionModal" class="fixed inset-0 z-[99999] hidden items-center justify-center p-4">
     <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onclick="closeAddCriterionModal()"></div>
     <div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl transition">
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -896,46 +896,75 @@ function onEmpTargetDisplayInput(input) {
 }
 
 function openCreateEmployeeModal() {
-    document.getElementById('employeeModalTitle').innerText = 'Tambah Data Karyawan Sales';
+    const titleEl = document.getElementById('employeeModalTitle');
+    if (titleEl) titleEl.innerText = 'Tambah Data Karyawan Sales';
     const form = document.getElementById('employeeForm');
-    form.action = "{{ route('settings.karyawan.store') }}";
-    document.getElementById('methodContainer').innerHTML = '';
-    document.getElementById('empNik').value = '';
-    document.getElementById('empCabang').value = 'Head Office';
-    document.getElementById('empName').value = '';
-    document.getElementById('empLevel').value = 'Karyawan';
-    document.getElementById('empRole').value = 'Admin Sales';
+    if (form) form.action = "{{ route('settings.karyawan.store') }}";
+    const methodContainer = document.getElementById('methodContainer');
+    if (methodContainer) methodContainer.innerHTML = '';
+    
+    if (document.getElementById('empNik')) document.getElementById('empNik').value = '';
+    if (document.getElementById('empCabang')) {
+        const cabangSelect = document.getElementById('empCabang');
+        let found = false;
+        for (let i = 0; i < cabangSelect.options.length; i++) {
+            if (cabangSelect.options[i].value === 'Head Office') {
+                cabangSelect.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found && cabangSelect.options.length > 0) cabangSelect.selectedIndex = 0;
+    }
+    if (document.getElementById('empName')) document.getElementById('empName').value = '';
+    if (document.getElementById('empLevel')) document.getElementById('empLevel').value = 'Karyawan';
+    if (document.getElementById('empRole')) document.getElementById('empRole').value = 'Admin Sales';
     setEmployeeTargetValue(867261886);
-    document.getElementById('empPhone').value = '';
-    document.getElementById('empEmail').value = '';
-    document.getElementById('empStatus').value = 'active';
-    document.getElementById('empNotes').value = '';
-    document.getElementById('employeeModal').classList.remove('hidden');
-    document.getElementById('employeeModal').classList.add('flex');
+    if (document.getElementById('empPhone')) document.getElementById('empPhone').value = '';
+    if (document.getElementById('empEmail')) document.getElementById('empEmail').value = '';
+    if (document.getElementById('empStatus')) document.getElementById('empStatus').value = 'active';
+    if (document.getElementById('empNotes')) document.getElementById('empNotes').value = '';
+    
+    const modal = document.getElementById('employeeModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
 }
 
 function openEditEmployeeModal(emp) {
-    document.getElementById('employeeModalTitle').innerText = 'Edit Data Karyawan: ' + emp.name;
+    if (!emp) return;
+    const titleEl = document.getElementById('employeeModalTitle');
+    if (titleEl) titleEl.innerText = 'Edit Data Karyawan: ' + (emp.name || '');
     const form = document.getElementById('employeeForm');
-    form.action = "/settings/karyawan/" + emp.id;
-    document.getElementById('methodContainer').innerHTML = '<input type="hidden" name="_method" value="PUT">';
-    document.getElementById('empNik').value = emp.nik || '';
-    document.getElementById('empCabang').value = emp.cabang || '';
-    document.getElementById('empName').value = emp.name || '';
-    document.getElementById('empLevel').value = emp.level || 'Karyawan';
-    document.getElementById('empRole').value = emp.role || 'Admin Sales';
+    if (form) form.action = "/settings/karyawan/" + emp.id;
+    const methodContainer = document.getElementById('methodContainer');
+    if (methodContainer) methodContainer.innerHTML = '<input type="hidden" name="_method" value="PUT">';
+    
+    if (document.getElementById('empNik')) document.getElementById('empNik').value = emp.nik || '';
+    if (document.getElementById('empCabang')) document.getElementById('empCabang').value = emp.cabang || '';
+    if (document.getElementById('empName')) document.getElementById('empName').value = emp.name || '';
+    if (document.getElementById('empLevel')) document.getElementById('empLevel').value = emp.level || 'Karyawan';
+    if (document.getElementById('empRole')) document.getElementById('empRole').value = emp.role || 'Admin Sales';
     setEmployeeTargetValue(emp.target || 867261886);
-    document.getElementById('empPhone').value = emp.phone || '';
-    document.getElementById('empEmail').value = emp.email || '';
-    document.getElementById('empStatus').value = emp.status || 'active';
-    document.getElementById('empNotes').value = emp.notes || '';
-    document.getElementById('employeeModal').classList.remove('hidden');
-    document.getElementById('employeeModal').classList.add('flex');
+    if (document.getElementById('empPhone')) document.getElementById('empPhone').value = emp.phone || '';
+    if (document.getElementById('empEmail')) document.getElementById('empEmail').value = emp.email || '';
+    if (document.getElementById('empStatus')) document.getElementById('empStatus').value = emp.status || 'active';
+    if (document.getElementById('empNotes')) document.getElementById('empNotes').value = emp.notes || '';
+    
+    const modal = document.getElementById('employeeModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
 }
 
 function closeEmployeeModal() {
-    document.getElementById('employeeModal').classList.add('hidden');
-    document.getElementById('employeeModal').classList.remove('flex');
+    const modal = document.getElementById('employeeModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
 }
 
 function openAddCriterionModal() {
@@ -1090,8 +1119,6 @@ function recalculateTargetSummary() {
     if (footSalesEl) footSalesEl.innerText = formatRupiahDisplay(sumSales);
     if (footGPEl) footGPEl.innerText = formatRupiahDisplay(sumSales * 0.05);
 
-    const balancePill = document.getElementById('targetBalancePill');
-    const balanceText = document.getElementById('targetBalanceText');
     if (balancePill && balanceText) {
         const diff = sumSales - teamVal;
         if (Math.abs(diff) < 1000) {

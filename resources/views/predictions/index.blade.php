@@ -321,7 +321,7 @@
 <!-- FORM PENCARIAN & FILTER TERPADU                          -->
 <!-- ======================================================== -->
 <form method="GET" class="dcms-card mb-5 grid gap-2.5 p-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-[minmax(180px,1.2fr)_140px_140px_140px_130px_130px_140px_110px_auto_auto] items-center">
-    <input name="search" value="{{ request('search') }}" placeholder="Cari pelanggan, HP, item, cabang" class="dcms-input py-2.5 text-xs">
+    <input name="search" value="{{ request('search') }}" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="Cari pelanggan, HP, item, cabang" class="dcms-input py-2.5 text-xs">
     
     <!-- Filter Cabang -->
     <select name="cabang" class="dcms-input py-2.5 text-xs font-medium">

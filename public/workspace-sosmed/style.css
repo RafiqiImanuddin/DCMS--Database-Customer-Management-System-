@@ -3715,69 +3715,59 @@ body:has(#tabContent9.active) .save-toast {
 }
 
 #auditTable {
-  border-collapse: collapse !important;
+  border-collapse: separate !important;
+  border-spacing: 0;
   width: 100% !important;
-  min-width: 1380px !important;
-  table-layout: fixed !important;
+  min-width: 1200px !important;
+  table-layout: auto !important;
 }
 
 #auditTable thead th {
   background: #f8fafc !important;
-  color: #334155 !important;
+  color: #475569 !important;
   font-weight: 800 !important;
-  font-size: 0.72rem !important;
-  letter-spacing: 0.04em;
-  padding: 12px 8px !important;
-  border-top: none !important;
+  font-size: 0.70rem !important;
+  letter-spacing: 0.05em;
+  padding: 12px 10px !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  border-top: 1px solid #e2e8f0 !important;
   border-left: none !important;
   border-right: none !important;
-  border-bottom: 1px solid #e2e8f0 !important;
   text-transform: uppercase;
   text-align: center;
   vertical-align: middle;
   line-height: 1.25;
-  white-space: normal !important;
-  word-break: break-word !important;
-  box-sizing: border-box !important;
+  white-space: nowrap !important;
 }
 
 #auditTable tbody td {
-  padding: 12px 10px !important;
+  padding: 11px 10px !important;
   font-size: 0.78rem !important;
   vertical-align: middle !important;
+  border-bottom: 1px solid #f1f5f9 !important;
   border-top: none !important;
   border-left: none !important;
   border-right: none !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-  white-space: normal !important;
-  word-break: break-word !important;
-  overflow-wrap: break-word !important;
   line-height: 1.4 !important;
   box-sizing: border-box !important;
 }
 
-#auditTable tbody tr {
-  background-color: #ffffff;
-  transition: background-color 0.15s ease;
-}
-
 #auditTable tbody tr:hover {
-  background-color: #f8fafc !important;
+  background: #f8fafc !important;
 }
 
-/* 12 Columns Width Ratios - Generous width for text content so it wraps cleanly without overlap */
-#auditTable .audit-col-no { width: 3.5%; min-width: 40px; text-align: center; }
-#auditTable .audit-col-keep-date { width: 8%; min-width: 90px; text-align: center; }
-#auditTable .audit-col-cust { width: 11%; min-width: 120px; text-align: left; }
-#auditTable .audit-col-wa { width: 8.5%; min-width: 115px; text-align: left; }
+/* 12 Columns Width Ratios - Modernized Ratios with breathing room */
+#auditTable .audit-col-no { width: 3.5%; min-width: 36px; text-align: center; }
+#auditTable .audit-col-keep-date { width: 7.5%; min-width: 85px; text-align: center; }
+#auditTable .audit-col-cust { width: 14%; min-width: 150px; text-align: left; }
 #auditTable .audit-col-sosmed { width: 8.5%; min-width: 105px; text-align: center; }
-#auditTable .audit-col-keep { width: 14%; min-width: 160px; text-align: left; }
-#auditTable .audit-col-notes { width: 14%; min-width: 160px; text-align: left; }
-#auditTable .audit-col-status-keep { width: 10%; min-width: 130px; text-align: center; }
-#auditTable .audit-col-report-ar { width: 8.5%; min-width: 100px; text-align: center; }
-#auditTable .audit-col-report-date { width: 7.5%; min-width: 95px; text-align: center; }
-#auditTable .audit-col-vlookup-ar { width: 8.5%; min-width: 100px; text-align: center; }
-#auditTable .audit-col-vlookup-date { width: 7.5%; min-width: 95px; text-align: center; }
+#auditTable .audit-col-keep { width: 15%; min-width: 150px; text-align: left; }
+#auditTable .audit-col-notes { width: 13%; min-width: 130px; text-align: left; }
+#auditTable .audit-col-status-keep { width: 10.5%; min-width: 125px; text-align: center; }
+#auditTable .audit-col-report-ar { width: 8%; min-width: 95px; text-align: center; }
+#auditTable .audit-col-report-date { width: 7%; min-width: 85px; text-align: center; }
+#auditTable .audit-col-vlookup-ar { width: 6.5%; min-width: 80px; text-align: center; }
+#auditTable .audit-col-vlookup-date { width: 6.5%; min-width: 80px; text-align: center; }
 
 /* Ensure elements inside auditTable cells wrap properly */
 #auditTable td * {
@@ -3852,15 +3842,19 @@ body:has(#tabContent9.active) .save-toast {
 
 /* Sosmed Pill Badge matching Image 2 */
 .badge-sosmed-pill {
-  display: inline-block;
-  border: 1.5px solid #f43f5e;
-  color: #be123c;
-  background: #fff1f2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  background: #f8fafc;
   border-radius: 9999px;
-  padding: 3px 10px;
-  font-size: 0.75rem;
-  font-weight: 800;
+  padding: 2.5px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* ==========================================================================
@@ -3868,115 +3862,115 @@ body:has(#tabContent9.active) .save-toast {
    ========================================================================== */
 
 /* ==========================================================================
-   STATUS KEEP MODERN ROWS (CLEAN WHITE BACKGROUND + ACCENT BORDER-LEFT INDICATOR)
+   STATUS KEEP FULL ROW BLOCKING (TERBLOK TEBAL DARI NOMOR SAMPAI TANGGAL AR VLOOKUP)
    ========================================================================== */
 
-/* 🟢 1. WIN (Hijau) */
+/* 🟢 1. WIN (Hijau Halus) */
 .audit-row-win {
-  border-left: 4px solid #10b981 !important;
-  background-color: #ffffff;
+  border-left: 4px solid #16a34a !important;
+  background-color: rgba(22, 163, 74, 0.03) !important;
 }
 .audit-row-win:hover {
-  background-color: #f0fdf4 !important;
+  background-color: rgba(22, 163, 74, 0.07) !important;
 }
 
-/* 🟡 NEED TO CHECK (Amber) */
-.audit-row-need-to-check {
-  border-left: 4px solid #f59e0b !important;
-  background-color: #ffffff;
-}
-.audit-row-need-to-check:hover {
-  background-color: #fffbeb !important;
-}
-
-/* 🔴 2. LOSE (Merah) */
+/* 🔴 2. LOSE (Merah Halus) */
 .audit-row-lose {
-  border-left: 4px solid #ef4444 !important;
-  background-color: #ffffff;
+  border-left: 4px solid #dc2626 !important;
+  background-color: rgba(220, 38, 38, 0.03) !important;
 }
 .audit-row-lose:hover {
-  background-color: #fef2f2 !important;
+  background-color: rgba(220, 38, 38, 0.07) !important;
 }
 
 /* 🔘 3. BELUM DIINPUT (Abu-abu netral) */
 .audit-row-belum-diinput {
-  border-left: 4px solid #94a3b8 !important;
-  background-color: #ffffff;
+  border-left: 4px solid #64748b !important;
+  background-color: rgba(100, 116, 139, 0.02) !important;
 }
 .audit-row-belum-diinput:hover {
-  background-color: #f8fafc !important;
+  background-color: rgba(100, 116, 139, 0.06) !important;
 }
 
-/* 🔵 4. DOUBLE KEEP (Biru) */
+/* 🔵 4. DOUBLE KEEP (Biru Halus) */
 .audit-row-double-keep {
-  border-left: 4px solid #3b82f6 !important;
-  background-color: #ffffff;
+  border-left: 4px solid #2563eb !important;
+  background-color: rgba(37, 99, 235, 0.03) !important;
 }
 .audit-row-double-keep:hover {
-  background-color: #eff6ff !important;
+  background-color: rgba(37, 99, 235, 0.07) !important;
 }
 
-/* ⚪ 5. ON PROGRESS LOW (Slate) */
+/* ⚪ 5. ON PROGRESS LOW (Abu-abu terang) */
 .audit-row-on-progress-low {
-  border-left: 4px solid #64748b !important;
-  background-color: #ffffff;
+  border-left: 4px solid #9ca3af !important;
+  background-color: rgba(156, 163, 175, 0.02) !important;
 }
 .audit-row-on-progress-low:hover {
-  background-color: #f8fafc !important;
+  background-color: rgba(156, 163, 175, 0.06) !important;
 }
 
-/* 🟡 6. ON PROGRESS MEDIUM (Lime) */
+/* 🟡 6. ON PROGRESS MEDIUM (Lime Halus) */
 .audit-row-on-progress-medium {
-  border-left: 4px solid #84cc16 !important;
-  background-color: #ffffff;
+  border-left: 4px solid #65a30d !important;
+  background-color: rgba(101, 163, 13, 0.03) !important;
 }
 .audit-row-on-progress-medium:hover {
-  background-color: #f7fee7 !important;
+  background-color: rgba(101, 163, 13, 0.07) !important;
 }
 
-/* 🟣 7. ON PROGRESS HOT (Purple) */
+/* 🟣 7. ON PROGRESS HOT (Ungu Halus) */
 .audit-row-on-progress-hot {
-  border-left: 4px solid #a855f7 !important;
-  background-color: #ffffff;
+  border-left: 4px solid #7e22ce !important;
+  background-color: rgba(126, 34, 206, 0.03) !important;
 }
 .audit-row-on-progress-hot:hover {
-  background-color: #faf5ff !important;
+  background-color: rgba(126, 34, 206, 0.07) !important;
 }
 
-/* 🟤 8. TAKE OUT (Rose / Maroon) */
+/* 🟤 8. TAKE OUT (Maroon Halus) */
 .audit-row-take-out {
-  border-left: 4px solid #e11d48 !important;
-  background-color: #ffffff;
+  border-left: 4px solid #881337 !important;
+  background-color: rgba(136, 19, 55, 0.03) !important;
 }
 .audit-row-take-out:hover {
-  background-color: #fff1f2 !important;
+  background-color: rgba(136, 19, 55, 0.07) !important;
+}
+
+/* 🟡 NEED TO CHECK (Amber Halus) */
+.audit-row-need-to-check {
+  border-left: 4px solid #f59e0b !important;
+  background-color: rgba(245, 158, 11, 0.03) !important;
+}
+.audit-row-need-to-check:hover {
+  background-color: rgba(245, 158, 11, 0.07) !important;
 }
 
 /* Hijau: Sudah Terinput Semua (100% Sosmed) */
 .audit-row-sosmed {
-  border-left: 4px solid #10b981 !important;
-  background-color: #ffffff;
+  border-left: 5px solid #16a34a !important;
+  background-color: rgba(22, 163, 74, 0.03) !important;
 }
 .audit-row-sosmed:hover {
-  background-color: #f0fdf4 !important;
+  background-color: rgba(22, 163, 74, 0.09) !important;
 }
 
 /* Orange: Terinput Sebagian */
 .audit-row-partial {
-  border-left: 4px solid #f97316 !important;
-  background-color: #ffffff;
+  border-left: 5px solid #ea580c !important;
+  background-color: rgba(234, 88, 12, 0.03) !important;
 }
 .audit-row-partial:hover {
-  background-color: #fff7ed !important;
+  background-color: rgba(234, 88, 12, 0.09) !important;
 }
 
 /* Merah: Tidak Terinput Sama Sekali */
 .audit-row-missing {
-  border-left: 4px solid #ef4444 !important;
-  background-color: #ffffff;
+  border-left: 5px solid #dc2626 !important;
+  background-color: rgba(220, 38, 38, 0.04) !important;
 }
 .audit-row-missing:hover {
-  background-color: #fef2f2 !important;
+  background-color: rgba(220, 38, 38, 0.10) !important;
 }
 
 /* Status AR Number Badges */
@@ -4033,22 +4027,24 @@ body:has(#tabContent9.active) .save-toast {
 .select-status-keep {
   font-family: inherit;
   font-size: 0.72rem !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
   border-radius: 9999px !important;
-  padding: 3px 8px !important;
+  padding: 3px 10px !important;
   cursor: pointer !important;
-  border: 1.5px solid transparent !important;
+  border: 1px solid transparent !important;
   outline: none !important;
-  transition: all 0.2s ease !important;
+  transition: all 0.15s ease !important;
   text-align: center !important;
   max-width: 100% !important;
-  display: inline-block !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   appearance: auto !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .select-status-keep:focus {
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3) !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
 }
 
 .select-status-keep.status-saving {
@@ -4062,64 +4058,81 @@ body:has(#tabContent9.active) .save-toast {
   to { opacity: 1; }
 }
 
-/* 8 Color Themes Matching Google Sheets Dropdown */
+/* Options Popup Menu: White Clean Background with High Contrast Text */
+.select-status-keep option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-family: inherit !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  padding: 8px 12px !important;
+}
+
+.select-status-keep option:hover,
+.select-status-keep option:focus,
+.select-status-keep option:checked {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* 8 Color Themes Matching Google Sheets Dropdown (Clean Executive Styling) */
 .select-status-keep.status-win {
-  background: #dcfce7 !important;
-  color: #15803d !important;
-  border-color: #86efac !important;
+  background: #f0fdf4 !important;
+  color: #166534 !important;
+  border-color: #bbf7d0 !important;
 }
 .select-status-keep.status-need-to-check {
-  background: #fef3c7 !important;
-  color: #b45309 !important;
-  border-color: #fcd34d !important;
+  background: #fffbeb !important;
+  color: #92400e !important;
+  border-color: #fde68a !important;
 }
 .badge-status-need-to-check {
-  background: #fef3c7;
-  color: #b45309;
-  border: 1.5px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
 }
 .select-status-keep.status-lose {
-  background: #fee2e2 !important;
-  color: #b91c1c !important;
-  border-color: #fca5a5 !important;
+  background: #fef2f2 !important;
+  color: #991b1b !important;
+  border-color: #fecaca !important;
 }
 .select-status-keep.status-belum-diinput {
-  background: #f1f5f9 !important;
+  background: #f8fafc !important;
   color: #475569 !important;
-  border-color: #cbd5e1 !important;
+  border-color: #e2e8f0 !important;
 }
 .select-status-keep.status-double-keep {
-  background: #dbeafe !important;
-  color: #1d4ed8 !important;
-  border-color: #93c5fd !important;
+  background: #eff6ff !important;
+  color: #1e40af !important;
+  border-color: #bfdbfe !important;
 }
 .select-status-keep.status-on-progress-low {
-  background: #f3f4f6 !important;
-  color: #4b5563 !important;
-  border-color: #d1d5db !important;
+  background: #f9fafb !important;
+  color: #374151 !important;
+  border-color: #e5e7eb !important;
 }
 .select-status-keep.status-on-progress-medium {
-  background: #ecfccb !important;
-  color: #4d7c0f !important;
-  border-color: #bef264 !important;
+  background: #f7fee7 !important;
+  color: #3f6212 !important;
+  border-color: #d9f99d !important;
 }
 .select-status-keep.status-on-progress-hot {
-  background: #f3e8ff !important;
+  background: #faf5ff !important;
   color: #6b21a8 !important;
-  border-color: #d8b4fe !important;
+  border-color: #e9d5ff !important;
 }
 .select-status-keep.status-take-out {
-  background: #ffe4e6 !important;
-  color: #881337 !important;
-  border-color: #fda4af !important;
+  background: #fff1f2 !important;
+  color: #9f1239 !important;
+  border-color: #fecdd3 !important;
 }
 .select-status-keep.status-empty {
   background: #ffffff !important;
   color: #94a3b8 !important;
-  border-color: #cbd5e1 !important;
+  border-color: #e2e8f0 !important;
 }
 .select-status-keep.status-empty:hover {
-  border-color: #94a3b8 !important;
+  border-color: #cbd5e1 !important;
   color: #475569 !important;
 }
 
@@ -4127,40 +4140,43 @@ body:has(#tabContent9.active) .save-toast {
    MODUL KLAIM AR: SUB-TABS, COUNTDOWN TIMERS & DENDA BADGES
    ========================================================================== */
 .claims-subtabs-nav {
-  padding: 10px 20px 0;
-  display: flex;
-  gap: 8px;
-  background: #ffffff;
-  border-bottom: 1.5px solid #e2e8f0;
-  overflow-x: auto;
+  padding: 6px !important;
+  display: flex !important;
+  gap: 6px !important;
+  background: rgba(241, 245, 249, 0.85) !important;
+  border-radius: 16px !important;
+  border: 1px solid #e2e8f0 !important;
+  overflow-x: auto !important;
 }
 
 .claims-subtabs-nav .btn-subtab {
-  background: transparent;
-  border: none;
-  border-radius: 12px;
-  padding: 8px 16px;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #64748b;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.15s ease;
-  white-space: nowrap;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  padding: 8px 16px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
 }
 
 .claims-subtabs-nav .btn-subtab:hover {
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.6);
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.7) !important;
 }
 
 .claims-subtabs-nav .btn-subtab.active {
-  color: #0f172a;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  color: #0f172a !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  font-weight: 800 !important;
 }
 
 .btn-subtab {
@@ -4558,6 +4574,15 @@ body:has(#tabContent9.active) .save-toast {
   max-width: 110px;
 }
 
+.select-claim-validity option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-family: inherit !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  padding: 6px 10px !important;
+}
+
 .select-claim-validity.valid {
   background: #f0fdf4 !important;
   color: #166534 !important;
@@ -4599,15 +4624,27 @@ body:has(#tabContent9.active) .save-toast {
 .claim-keep-box {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 5px 8px;
+  border-radius: 8px;
+  padding: 6px 9px;
   font-size: 0.70rem;
   line-height: 1.35;
   color: #334155;
-  white-space: pre-line;
-  max-height: 80px;
-  overflow-y: auto;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
   word-break: break-word;
+  white-space: pre-line;
+  max-height: 48px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.claim-keep-box:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 /* Modul Klaim AR Action Buttons (Anti-Slop Enterprise Flat) */
@@ -5994,6 +6031,30 @@ body.tab9-mode-active #tabContent9.active {
   font-size: 0.76rem;
   font-weight: 800;
   border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.omni-avatar-img {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  display: block !important;
+  cursor: pointer !important;
+  transition: transform 0.18s ease, filter 0.18s ease !important;
+}
+
+.omni-avatar-img:hover {
+  transform: scale(1.08) !important;
+  filter: brightness(1.05) !important;
+}
+
+.omni-header-avatar {
+  transition: transform 0.18s ease !important;
+}
+
+.omni-header-avatar:hover {
+  transform: scale(1.06) !important;
 }
 
 .omni-badge-wa-dot {
@@ -6003,8 +6064,62 @@ body.tab9-mode-active #tabContent9.active {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #22c55e;
+  background: #cbd5e1;
   border: 2px solid #ffffff;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.omni-badge-wa-dot.online {
+  background: #22c55e !important;
+  box-shadow: 0 0 0 1px #fff, 0 0 5px rgba(34, 197, 94, 0.6);
+}
+
+.omni-badge-wa-dot.offline {
+  background: #cbd5e1 !important;
+}
+
+.omni-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  font-size: 0.60rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  line-height: 1.3;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.omni-status-pill.online {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.omni-status-pill.offline {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.omni-status-pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.omni-status-pill.online .omni-status-pill-dot {
+  background: #10b981;
+  box-shadow: 0 0 5px rgba(16, 185, 129, 0.7);
+}
+
+.omni-status-pill.offline .omni-status-pill-dot {
+  background: #94a3b8;
 }
 
 .omni-card-body {
@@ -6027,6 +6142,30 @@ body.tab9-mode-active #tabContent9.active {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 145px;
+}
+
+.omni-badge-outbound {
+  display: inline-flex;
+  align-items: center;
+  padding: 1.5px 5.5px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(67, 56, 202, 0.05);
+}
+
+#fu12ProgressBar {
+  background: linear-gradient(90deg, #0d9488 0%, #10b981 100%) !important;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.4) !important;
+  min-height: 100%;
 }
 
 .omni-card-time {
@@ -6077,10 +6216,74 @@ body.tab9-mode-active #tabContent9.active {
   box-sizing: border-box;
 }
 
+.omni-unread-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #25D366;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  line-height: 1;
+}
+
 .omni-status-tag-assigned {
   font-size: 0.66rem;
   font-weight: 700;
 }
+
+/* WHATSAPP REALTIME TYPING INDICATOR */
+.omni-typing-dot-anim {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  vertical-align: middle;
+}
+.omni-typing-dot-anim span {
+  width: 4px;
+  height: 4px;
+  background-color: #059669;
+  border-radius: 50%;
+  display: inline-block;
+  animation: omniBlink 1.4s infinite ease-in-out both;
+}
+.omni-typing-dot-anim span:nth-child(1) { animation-delay: -0.32s; }
+.omni-typing-dot-anim span:nth-child(2) { animation-delay: -0.16s; }
+.omni-typing-dot-anim span:nth-child(3) { animation-delay: 0s; }
+
+@keyframes omniBlink {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.25); }
+}
+
+.omni-typing-bubble {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 8px 12px !important;
+  border-radius: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-top: 4px;
+}
+.omni-typing-bubble .omni-dot-bounce {
+  width: 6px;
+  height: 6px;
+  background-color: #64748b;
+  border-radius: 50%;
+  display: inline-block;
+  animation: omniBlink 1.4s infinite ease-in-out both;
+}
+.omni-typing-bubble .omni-dot-bounce:nth-child(1) { animation-delay: -0.32s; }
+.omni-typing-bubble .omni-dot-bounce:nth-child(2) { animation-delay: -0.16s; }
+.omni-typing-bubble .omni-dot-bounce:nth-child(3) { animation-delay: 0s; }
 
 /* 3. CENTER ACTIVE CHAT CONSOLE (100% CERMIN WHATSAPP) */
 .omni-col-chatview {
@@ -6211,13 +6414,26 @@ body.tab9-mode-active #tabContent9.active {
   text-overflow: ellipsis;
 }
 
-.omni-dot-online {
-  width: 6px;
-  height: 6px;
+.omni-dot-online,
+.omni-dot-status {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #22c55e;
+  background: #cbd5e1;
   display: inline-block;
   flex-shrink: 0;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.omni-dot-online,
+.omni-dot-status.online {
+  background: #22c55e !important;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+.omni-dot-status.offline {
+  background: #94a3b8 !important;
+  box-shadow: none !important;
 }
 
 .omni-header-actions {
@@ -6339,6 +6555,47 @@ body.tab9-mode-active #tabContent9.active {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+.omni-load-older-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0 16px;
+  width: 100%;
+}
+
+.omni-load-older-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 9999px;
+  color: #0369a1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.omni-load-older-btn:hover {
+  background: #f0f9ff;
+  border-color: #38bdf8;
+  color: #0284c7;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.15);
+  transform: translateY(-1px);
+}
+
+.omni-load-older-btn:active {
+  transform: translateY(0);
+}
+
+.omni-keep-chevron {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Chat Bubbles: Modern Tailwind & WhatsApp Web Styling */
 .omni-msg-row {
   display: flex;
@@ -6361,11 +6618,11 @@ body.tab9-mode-active #tabContent9.active {
 }
 
 .omni-bubble {
-  padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 8px 10px 8px 10px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
   position: relative;
 }
 
@@ -6373,7 +6630,7 @@ body.tab9-mode-active #tabContent9.active {
 .omni-bubble-bot {
   background: #064e3b;
   color: #ffffff;
-  border-top-left-radius: 4px;
+  border-top-left-radius: 2px;
 }
 
 .omni-bubble-bot-text {
@@ -6395,16 +6652,20 @@ body.tab9-mode-active #tabContent9.active {
 
 .omni-bubble-incoming {
   background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
-  border-top-left-radius: 4px;
+  color: #111827;
+  border: none;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  border-radius: 8px;
+  border-top-left-radius: 2px;
 }
 
 .omni-bubble-outgoing {
-  background: #dcf8c6;
+  background: #d9fdd3;
   color: #111827;
-  border: 1px solid #bbf7d0;
-  border-top-right-radius: 4px;
+  border: none;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  border-radius: 8px;
+  border-top-right-radius: 2px;
 }
 
 .omni-bubble-sender {
@@ -7095,6 +7356,7 @@ body.tab9-mode-active #tabContent9.active {
   cursor: pointer !important;
   border-radius: 50% !important;
   flex-shrink: 0 !important;
+  margin-bottom: 2px !important;
   transition: background 0.15s, color 0.15s !important;
 }
 
@@ -7109,11 +7371,12 @@ body.tab9-mode-active #tabContent9.active {
   background: #ffffff !important;
   border: 1px solid #ffffff !important;
   border-radius: 8px !important;
-  padding: 8px 14px !important;
+  padding: 10px 14px !important;
   display: flex !important;
   align-items: center !important;
   box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08) !important;
-  transition: border-color 0.15s !important;
+  transition: border-color 0.15s, box-shadow 0.15s !important;
+  box-sizing: border-box !important;
 }
 
 .omni-wa-input-pill:focus-within {
@@ -7121,32 +7384,33 @@ body.tab9-mode-active #tabContent9.active {
 }
 
 .omni-textarea-wa {
+  display: block !important;
   width: 100% !important;
   border: none !important;
   background: transparent !important;
   outline: none !important;
   resize: none !important;
   font-family: inherit !important;
-  font-size: 0.90rem !important;
-  line-height: 1.4 !important;
+  font-size: 0.95rem !important;
+  line-height: 20px !important;
   color: #111b21 !important;
   padding: 0 !important;
   margin: 0 !important;
-  height: 24px !important;
-  min-height: 24px !important;
-  max-height: 100px !important;
+  min-height: 20px !important;
+  max-height: 140px !important;
   box-sizing: border-box !important;
+  overflow-y: hidden;
 }
 
 .omni-textarea-wa::placeholder {
   color: #8696a0 !important;
-  font-size: 0.88rem !important;
+  font-size: 0.90rem !important;
 }
 
 .omni-btn-wa-send {
-  width: 38px !important;
-  height: 38px !important;
-  min-width: 38px !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -7156,6 +7420,7 @@ body.tab9-mode-active #tabContent9.active {
   cursor: pointer !important;
   border-radius: 50% !important;
   flex-shrink: 0 !important;
+  margin-bottom: 2px !important;
   transition: all 0.15s ease !important;
 }
 
@@ -7167,6 +7432,8 @@ body.tab9-mode-active #tabContent9.active {
 .omni-btn-wa-send.active {
   background: #00a884 !important;
   color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 168, 132, 0.4) !important;
+}
   box-shadow: 0 1px 3px rgba(0, 168, 132, 0.35) !important;
 }
 
@@ -7256,6 +7523,41 @@ body.tab9-mode-active #tabContent9.active {
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.01em;
+}
+
+.omni-keep-period-chip {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.omni-keep-refresh-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.omni-keep-refresh-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+  transform: rotate(45deg);
 }
 
 .omni-keep-counter-badge {
@@ -7924,28 +8226,49 @@ body.tab9-mode-active #tabContent9.active {
   background: #ffe4e6;
 }
 
-/* WhatsApp Chat Media Image */
+/* WhatsApp Chat Media Image (Official Aspect Ratio & Sizing) */
 .omni-bubble-media {
-  max-width: 260px;
-  border-radius: 6px;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 8px;
   overflow: hidden;
   margin-bottom: 6px;
   cursor: pointer;
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .omni-chat-image {
   width: 100%;
   height: auto;
-  max-height: 240px;
-  object-fit: cover;
+  max-height: 480px;
+  object-fit: contain;
   display: block;
-  border-radius: 6px;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  border-radius: 8px;
+  transition: filter 0.15s ease;
 }
 
 .omni-chat-image:hover {
-  filter: brightness(0.95);
-  transform: scale(1.02);
+  filter: brightness(0.96);
+}
+
+/* WhatsApp Official Bubble Layout with Media */
+.omni-bubble.has-media {
+  padding: 4px 4px 6px 4px !important;
+  max-width: 400px;
+}
+
+.omni-bubble.has-media .omni-bubble-media {
+  margin: 0 0 6px 0;
+  border-radius: 6px 6px 4px 4px;
+}
+
+.omni-bubble.has-media > div:not(.omni-bubble-media) {
+  padding: 0 6px;
+}
+
+.omni-bubble.has-media .omni-bubble-time {
+  padding-right: 6px;
+  margin-top: 4px;
 }
 
 /* Image Lightbox Modal with Full-Screen Stage */

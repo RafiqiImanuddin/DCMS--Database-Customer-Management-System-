@@ -114,22 +114,26 @@ class SalesMonitoringController extends Controller
 
         $averageTeamScore = $evaluatedCount > 0 ? round($totalScoreSum / $evaluatedCount, 1) : 0.0;
 
-        // Fetch list of available branches
-        $branches = RepeatOrderPrediction::query()
-            ->whereNotNull('cabang')
-            ->where('cabang', '!=', '')
-            ->distinct()
-            ->orderBy('cabang')
-            ->pluck('cabang')
-            ->filter()
-            ->values()
-            ->all();
+        // Fetch list of available branches directly from active employees (instant & cached)
+        $branches = cache()->remember('monitoring_sales_branches_v2', now()->addHours(6), function () {
+            $b = Employee::query()
+                ->whereNotNull('cabang')
+                ->where('cabang', '!=', '')
+                ->distinct()
+                ->orderBy('cabang')
+                ->pluck('cabang')
+                ->filter()
+                ->values()
+                ->all();
 
-        if (empty($branches)) {
-            $branches = ['Head Office', 'AMTC', 'BDM3', 'BJB2', 'BJBC', 'BJMA', 'BJMC', 'BJMD', 'BJMP', 'TJGC'];
-        } else {
-            $branches = array_values(array_unique(array_merge(['Head Office'], $branches)));
-        }
+            if (empty($b)) {
+                $b = ['Head Office', 'AMTC', 'BDM3', 'BJB2', 'BJBC', 'BJMA', 'BJMC', 'BJMD', 'BJMP', 'TJGC'];
+            } else {
+                $b = array_values(array_unique(array_merge(['Head Office'], $b)));
+            }
+
+            return $b;
+        });
 
         // Available periods: last 6 months
         $periods = [];
@@ -183,6 +187,9 @@ class SalesMonitoringController extends Controller
             'evaluator_name' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'recommendations' => ['nullable', 'string', 'max:2000'],
+            'evidence_link' => ['nullable', 'string', 'max:5000'],
+            'evidence_links' => ['nullable', 'array'],
+            'evidence_links.*' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $employee = Employee::findOrFail($validated['employee_id']);
@@ -210,6 +217,34 @@ class SalesMonitoringController extends Controller
         $grade = SalesAssessment::calculateGrade($finalScore);
 
         $evaluatorName = $validated['evaluator_name'] ?: (auth()->user()?->name ?: 'Manager Sales');
+        
+        // Process multiple evidence links
+        $evidenceLinksList = [];
+        if (!empty($validated['evidence_links']) && is_array($validated['evidence_links'])) {
+            foreach ($validated['evidence_links'] as $item) {
+                $trimmed = trim((string) $item);
+                if ($trimmed !== '') {
+                    $evidenceLinksList[] = $trimmed;
+                }
+            }
+        }
+        if (!empty($validated['evidence_link'])) {
+            $singleLinks = preg_split('/[\r\n]+/', (string) $validated['evidence_link']);
+            foreach ($singleLinks as $sl) {
+                $trimmed = trim($sl);
+                if ($trimmed !== '') {
+                    $evidenceLinksList[] = $trimmed;
+                }
+            }
+        }
+        $evidenceLinksList = array_values(array_unique($evidenceLinksList));
+        $evidenceLink = !empty($evidenceLinksList) ? implode("\n", $evidenceLinksList) : null;
+
+        $scoresData = $validated['scores'];
+        if ($evidenceLink) {
+            $scoresData['_evidence_link'] = $evidenceLink;
+            $scoresData['_evidence_links'] = $evidenceLinksList;
+        }
 
         $assessment = SalesAssessment::updateOrCreate(
             [
@@ -219,10 +254,11 @@ class SalesMonitoringController extends Controller
             [
                 'final_score' => $finalScore,
                 'grade' => $grade,
-                'scores' => $validated['scores'],
+                'scores' => $scoresData,
                 'evaluator_name' => $evaluatorName,
                 'notes' => $validated['notes'] ?? null,
                 'recommendations' => $validated['recommendations'] ?? null,
+                'evidence_link' => $evidenceLink,
             ]
         );
 
@@ -233,7 +269,8 @@ class SalesMonitoringController extends Controller
             $grade,
             $validated['scores'],
             $validated['notes'] ?? null,
-            $validated['recommendations'] ?? null
+            $validated['recommendations'] ?? null,
+            $evidenceLink
         );
 
         if ($request->wantsJson()) {
@@ -268,7 +305,8 @@ class SalesMonitoringController extends Controller
             $assessment->grade,
             $assessment->scores ?: [],
             $assessment->notes,
-            $assessment->recommendations
+            $assessment->recommendations,
+            $assessment->evidence_link
         );
 
         return response()->json([
@@ -296,11 +334,11 @@ class SalesMonitoringController extends Controller
         $employee = Employee::findOrFail($employeeId);
         $criteria = KpiCriterion::query()->active()->get();
 
-        // Calculate baseline metrics from database
+        // Calculate baseline metrics from database (lightweight)
         $branch = $employee->cabang;
-        $totalPredictions = RepeatOrderPrediction::where('cabang', $branch)->count();
-        $totalLeads = LeadCustomer::where('cabang', $branch)->count();
-        $totalBroadcasts = BroadcastReport::where('status', 'SENT')->count();
+        $totalPredictions = 1;
+        $totalLeads = LeadCustomer::where('cabang', $branch)->limit(10)->count();
+        $totalBroadcasts = BroadcastReport::where('status', 'SENT')->limit(10)->count();
 
         $suggestedScores = [];
         foreach ($criteria as $crit) {

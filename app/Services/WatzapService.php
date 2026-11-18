@@ -95,44 +95,255 @@ class WatzapService
      *
      * @return array{online: bool, status: string, phone: string|null, name: string|null, message: string}
      */
-    public function getBaileysStatus(): array
+    public function getBaileysStatus(bool $forceFresh = false): array
     {
+        $cacheKey = 'baileys_status_cache_v2';
+        if (! $forceFresh && cache()->has($cacheKey)) {
+            return (array) cache()->get($cacheKey);
+        }
+
         $baileysUrl = $this->getBaileysUrl();
         $apiKey = $this->getBaileysApiKey();
 
         try {
-            $res = Http::timeout(3)
+            $res = Http::timeout(2)
                 ->withHeaders(['X-Api-Key' => $apiKey])
                 ->get("{$baileysUrl}/api/status");
 
             if ($res->ok()) {
                 $data = $res->json();
-
-                return [
+                $result = [
                     'online' => ! empty($data['connected']),
                     'status' => (string) ($data['state'] ?? 'UNKNOWN'),
                     'phone' => ! empty($data['phone']) ? (string) $data['phone'] : null,
                     'name' => ! empty($data['name']) ? (string) $data['name'] : 'Bot DCMS',
                     'message' => ! empty($data['connected']) ? 'Baileys Bot Terhubung' : 'Baileys Bot Belum Terhubung (Scan QR)',
+                    'hasQR' => ! empty($data['hasQR']),
+                    'qr' => ! empty($data['qr']) ? (string) $data['qr'] : null,
                 ];
+
+                if (! empty($result['online'])) {
+                    cache()->put($cacheKey, $result, now()->addSeconds(20));
+                } else {
+                    cache()->put($cacheKey, $result, now()->addSeconds(4));
+                }
+                if (! empty($result['phone'])) {
+                    cache()->put('baileys_bot_phone', preg_replace('/\D/', '', (string) $result['phone']), now()->addHours(1));
+                }
+
+                return $result;
             }
         } catch (Throwable $e) {
-            return [
+            $result = [
                 'online' => false,
                 'status' => 'OFFLINE',
                 'phone' => null,
                 'name' => null,
                 'message' => 'Tidak dapat terhubung ke server Baileys: '.$e->getMessage(),
             ];
+            cache()->put($cacheKey, $result, now()->addSeconds(10));
+            return $result;
         }
 
-        return [
+        $result = [
             'online' => false,
             'status' => 'DISCONNECTED',
             'phone' => null,
             'name' => null,
             'message' => 'Status Baileys tidak aktif',
         ];
+        cache()->put($cacheKey, $result, now()->addSeconds(10));
+        return $result;
+    }
+
+    /**
+     * Ambil data Live Log dan Status Cron dari server Render Baileys Bot.
+     *
+     * @return array
+     */
+    public function getBaileysLogs(): array
+    {
+        $baileysUrl = $this->getBaileysUrl();
+        $apiKey = $this->getBaileysApiKey();
+
+        try {
+            $res = Http::timeout(6)
+                ->withHeaders(['X-Api-Key' => $apiKey])
+                ->get("{$baileysUrl}/api/logs");
+
+            if ($res->ok()) {
+                $data = $res->json();
+                return [
+                    'online' => true,
+                    'server_url' => $baileysUrl,
+                    'server_time' => $data['server_time'] ?? now()->toIso8601String(),
+                    'server_time_wita' => $data['server_time_wita'] ?? now()->format('H:i:s') . ' WITA',
+                    'uptime_seconds' => $data['uptime_seconds'] ?? 0,
+                    'uptime_formatted' => $data['uptime_formatted'] ?? '0 menit',
+                    'connection_state' => $data['connection_state'] ?? 'UNKNOWN',
+                    'bot_phone' => $data['bot_phone'] ?? null,
+                    'bot_name' => $data['bot_name'] ?? 'Bot Gadgetmart Sosmed',
+                    'has_qr' => ! empty($data['has_qr']),
+                    'cron_stats' => $data['cron_stats'] ?? [
+                        'interval' => '5 Menit',
+                        'total_runs' => 0,
+                        'successful_runs' => 0,
+                        'failed_runs' => 0,
+                        'last_run_time' => null,
+                        'last_status' => 'UNKNOWN',
+                        'last_message' => 'Belum ada data',
+                    ],
+                    'logs' => $data['logs'] ?? [],
+                    'reaction_logs' => $data['reaction_logs'] ?? [],
+                    'message' => 'Log realtime berhasil dimuat dari server Render.',
+                ];
+            }
+
+            return [
+                'online' => false,
+                'server_url' => $baileysUrl,
+                'message' => 'Server Render merespon status HTTP ' . $res->status(),
+                'logs' => [],
+            ];
+        } catch (Throwable $e) {
+            return [
+                'online' => false,
+                'server_url' => $baileysUrl,
+                'message' => 'Tidak dapat menghubungi server Render: ' . $e->getMessage(),
+                'logs' => [],
+            ];
+        }
+    }
+
+    /**
+     * Mereset sesi Baileys: membersihkan auth cadangan di database DCMS & memicu
+     * endpoint reset di server Baileys (Render) agar generate QR code baru untuk nomor baru.
+     */
+    public function resetBaileysSession(): array
+    {
+        // 1. Bersihkan sesi cadangan di database DCMS & cache lokal
+        try {
+            Setting::forget('baileys_auth_session');
+            Setting::forget('baileys_auth_saved_at');
+            Setting::forget('baileys_bot_phone');
+            cache()->forget('baileys_status_cache_v2');
+            cache()->forget('baileys_bot_phone');
+        } catch (Throwable $e) {
+            Log::warning('Gagal membersihkan cache setting Baileys: '.$e->getMessage());
+        }
+
+        // 2. Hubungi server Baileys bot untuk menghapus folder auth_info dan membuat fresh socket
+        $baileysUrl = $this->getBaileysUrl();
+        $apiKey = $this->getBaileysApiKey();
+
+        try {
+            $res = Http::timeout(12)
+                ->withHeaders([
+                    'X-Api-Key' => $apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post("{$baileysUrl}/api/reset", [
+                    'api_key' => $apiKey,
+                ]);
+
+            if ($res->ok()) {
+                $data = $res->json();
+                return [
+                    'success' => true,
+                    'message' => $data['message'] ?? 'Sesi WhatsApp berhasil direset. Silakan tunggu beberapa detik hingga QR Code baru muncul.',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Server Baileys merespon error: ' . ($res->json('message') ?? $res->body()),
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Tidak dapat terhubung ke server Baileys di ' . $baileysUrl . ': ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Kirim pesan WhatsApp EKSKLUSIF via Baileys Bot Gateway (+62 851-1142-6699)
+     * Tanpa fallback ke WatZap Cloud atau WAHA.
+     * Digunakan khusus untuk modul Otomasi WhatsApp / Auto Follow-Up H+1.
+     *
+     * @return array{success: bool, source: string, message_id: string, status: string, message: string, data?: array, raw?: string}
+     */
+    public function sendViaBaileys(string $rawPhone, string $message, ?string $sender = '6285111426699'): array
+    {
+        $cleanPhone = preg_replace('/\D+/', '', $rawPhone);
+        if (str_starts_with($cleanPhone, '08')) {
+            $cleanPhone = '628' . substr($cleanPhone, 2);
+        } elseif (str_starts_with($cleanPhone, '8')) {
+            $cleanPhone = '628' . substr($cleanPhone, 1);
+        }
+
+        if (strlen($cleanPhone) < 9) {
+            return [
+                'success' => false,
+                'source' => 'Baileys Bot (+62 851-1142-6699)',
+                'message_id' => '',
+                'status' => '422',
+                'message' => 'Nomor WhatsApp tujuan (' . $rawPhone . ') tidak valid.',
+            ];
+        }
+
+        $baileysUrl = $this->getBaileysUrl();
+        $apiKey = $this->getBaileysApiKey();
+        $senderNumber = $sender ?: '6285111426699';
+
+        try {
+            $response = Http::timeout(12)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'X-Api-Key' => $apiKey,
+                ])
+                ->post("{$baileysUrl}/api/send-message", [
+                    'phone' => $cleanPhone,
+                    'message' => $message,
+                    'sender' => $senderNumber,
+                ]);
+
+            if ($response->successful()) {
+                $json = $response->json();
+                $msgId = (string) ($json['message_id'] ?? $json['messageId'] ?? ('baileys_' . time()));
+
+                return [
+                    'success' => true,
+                    'source' => 'Baileys Bot (+62 851-1142-6699)',
+                    'message_id' => $msgId,
+                    'status' => '200',
+                    'message' => 'Pesan berhasil dikirim via Baileys Bot (+62 851-1142-6699).',
+                    'data' => is_array($json) ? $json : [],
+                    'raw' => $response->body(),
+                ];
+            }
+
+            $body = $response->body();
+            $json = $response->json();
+            $errMsg = $json['message'] ?? $json['error'] ?? $body;
+
+            return [
+                'success' => false,
+                'source' => 'Baileys Bot (+62 851-1142-6699)',
+                'message_id' => '',
+                'status' => (string) $response->status(),
+                'message' => 'Gagal via Baileys Bot: ' . $errMsg,
+                'raw' => $body,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'source' => 'Baileys Bot (+62 851-1142-6699)',
+                'message_id' => '',
+                'status' => '500',
+                'message' => 'Koneksi ke Baileys Bot gagal: ' . $e->getMessage(),
+            ];
+        }
     }
 
     /**

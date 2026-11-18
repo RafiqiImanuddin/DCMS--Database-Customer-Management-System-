@@ -170,6 +170,18 @@ class User extends Authenticatable
                 'category' => 'Workspace Sosmed',
                 'default_roles' => ['admin'],
             ],
+            'workspace_customer_segmentation' => [
+                'name' => 'Workspace: Customer Segmentation',
+                'description' => 'Akses Tab 11: Analisis segmentasi customer, chart item terjual based on format keep, dan komparasi kredit vs non-kredit.',
+                'category' => 'Workspace Sosmed',
+                'default_roles' => ['admin', 'user'],
+            ],
+            'workspace_auto_fu_h1' => [
+                'name' => 'Workspace: Rekap Auto Follow Up H+1',
+                'description' => 'Akses Tab 12: Rekapitulasi Auto Follow Up H+1 format keep, status broadcast WhatsApp ke PIC via Baileys Bot Gateway.',
+                'category' => 'Workspace Sosmed',
+                'default_roles' => ['admin', 'user'],
+            ],
             'workspace_inbox_fu' => [
                 'name' => 'Workspace: Inbox Follow-Up',
                 'description' => 'Akses Tab 9: Inbox interaksi pesan WhatsApp dan tindak lanjut FU.',
@@ -348,7 +360,7 @@ class User extends Authenticatable
             }
 
             // Fallback: Dashboard OLA Cabang otomatis terbuka jika Format Keep diizinkan
-            if ($feature === 'workspace_ola_cabang') {
+            if ($feature === 'workspace_ola_cabang' || $feature === 'workspace_customer_segmentation' || $feature === 'workspace_auto_fu_h1') {
                 return in_array('workspace_format_keep', $this->permissions, true);
             }
 

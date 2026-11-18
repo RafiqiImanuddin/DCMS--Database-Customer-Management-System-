@@ -10,13 +10,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- Local SheetJS, JSZip, html2canvas, and Chart.js libraries -->
-    <script src="{{ asset('workspace-sosmed/lib/xlsx.full.min.js') }}"></script>
-    <script src="{{ asset('workspace-sosmed/lib/jszip.min.js') }}"></script>
-    <script src="{{ asset('workspace-sosmed/lib/exceljs.min.js') }}"></script>
-    <script src="{{ asset('workspace-sosmed/lib/html2canvas.min.js') }}"></script>
-    <script src="{{ asset('workspace-sosmed/lib/chart.umd.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ asset('workspace-sosmed/style.css') }}?v={{ @filemtime(public_path('workspace-sosmed/style.css')) ?: '7.3' }}">
+    <!-- Local SheetJS, JSZip, html2canvas, and Chart.js libraries (defer untuk percepat initial render) -->
+    <script src="{{ asset('workspace-sosmed/lib/xlsx.full.min.js') }}" defer></script>
+    <script src="{{ asset('workspace-sosmed/lib/jszip.min.js') }}" defer></script>
+    <script src="{{ asset('workspace-sosmed/lib/exceljs.min.js') }}" defer></script>
+    <script src="{{ asset('workspace-sosmed/lib/html2canvas.min.js') }}" defer></script>
+    <script src="{{ asset('workspace-sosmed/lib/chart.umd.min.js') }}" defer></script>
+    <link rel="stylesheet" href="{{ asset('workspace-sosmed/style.css') }}?v={{ @filemtime(public_path('workspace-sosmed/style.css')) ?: '8.8' }}-v88">
 @endsection
 
 @section('content')
@@ -70,6 +70,14 @@
 
     @if ($user?->canAccessFeature('workspace_ola_cabang') || $user?->canAccessFeature('workspace_format_keep'))
         @include('workspace-sosmed.partials.tab10-ola-cabang')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_customer_segmentation') || $user?->canAccessFeature('workspace_format_keep'))
+        @include('workspace-sosmed.partials.tab11-customer-segmentation')
+    @endif
+
+    @if ($user?->canAccessFeature('workspace_auto_fu_h1') || $user?->canAccessFeature('workspace_format_keep'))
+        @include('workspace-sosmed.partials.tab12-auto-fu-h1')
     @endif
 
     @include('workspace-sosmed.partials.modals')

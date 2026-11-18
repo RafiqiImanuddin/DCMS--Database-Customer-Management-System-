@@ -301,6 +301,96 @@
     {{-- Floating Pop-up Toast Container (Pojok Kanan Atas) --}}
     <div id="dcmsTopRightToastContainer" class="fixed top-5 right-5 z-[9999999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-full pointer-events-none pr-2"></div>
 
+    {{-- Global Anti-Autofill Protection untuk Seluruh Kolom Pencarian DCMS --}}
+    <script>
+    (function initDcmsSearchAntiAutofill() {
+        const currentUserEmail = {{ auth()->check() ? json_encode(auth()->user()->email) : "''" }};
+
+        function sanitizeAllSearchInputs() {
+            const selectors = [
+                'input[type="search"]',
+                'input[name="search"]',
+                'input[name="q"]',
+                'input[name*="search" i]',
+                'input[name*="cari" i]',
+                'input[id*="search" i]',
+                'input[id*="cari" i]',
+                'input[placeholder*="cari" i]',
+                'input[placeholder*="search" i]'
+            ];
+
+            const inputs = document.querySelectorAll(selectors.join(','));
+            inputs.forEach(inp => {
+                // Pastikan bukan input di dalam modal edit user atau profil akun
+                if (inp.closest('#userFormModal, #profileFormModal, form[action*="profile"], form[action*="users"]')) {
+                    return;
+                }
+
+                // Pasang atribut keras anti-autofill
+                if (inp.getAttribute('autocomplete') !== 'new-password') {
+                    inp.setAttribute('autocomplete', 'new-password');
+                }
+                inp.setAttribute('autocorrect', 'off');
+                inp.setAttribute('autocapitalize', 'off');
+                inp.setAttribute('spellcheck', 'false');
+                inp.setAttribute('data-lpignore', 'true');
+                inp.setAttribute('data-form-type', 'other');
+
+                const val = (inp.value || '').trim();
+                // Deteksi jika terisi email akun atau password manager autofill
+                const isAutofilledEmail = currentUserEmail && val.toLowerCase() === currentUserEmail.toLowerCase();
+                const isGenericEmail = val.includes('@') && (val.includes('.com') || val.includes('.id') || val.includes('.net') || val.includes('admin'));
+
+                if (isAutofilledEmail || isGenericEmail) {
+                    inp.value = '';
+                    inp.dispatchEvent(new Event('input', { bubbles: true }));
+                    inp.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', sanitizeAllSearchInputs);
+        } else {
+            sanitizeAllSearchInputs();
+        }
+
+        // Loop interval untuk menangkal autofill Chrome yang terinjeksi setelah delay
+        [50, 150, 300, 600, 1000, 1800, 3000].forEach(delay => {
+            setTimeout(sanitizeAllSearchInputs, delay);
+        });
+    })();
+    </script>
+
+    {{-- Global DCMS Route Masker: Pastikan URL di address bar browser SELALU bertopeng xxxx-xxxx-xxxx --}}
+    <script>
+    (function enforceMaskedRouteInBrowser() {
+        const maskedToken = @json(\App\Support\RouteCipher::encode(\App\Support\RouteCipher::resolveTarget(request()), array_filter(request()->query())));
+        const currentActiveTab = {{ (int) (\App\Support\RouteCipher::resolveWorkspaceTab(request()) ?? 0) }};
+        const workspaceTokens = @json(\App\Support\WorkspaceUrlCipher::allTokens());
+
+        function sanitizeBrowserUrl() {
+            try {
+                let targetToken = maskedToken;
+                if (currentActiveTab > 0 && workspaceTokens && workspaceTokens[currentActiveTab]) {
+                    targetToken = workspaceTokens[currentActiveTab];
+                }
+
+                if (targetToken && /^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/.test(targetToken)) {
+                    const expectedPath = '/r/' + targetToken;
+                    if (window.location.pathname !== expectedPath || window.location.search.length > 0) {
+                        window.history.replaceState({}, '', expectedPath);
+                    }
+                }
+            } catch(e) {}
+        }
+
+        sanitizeBrowserUrl();
+        document.addEventListener('DOMContentLoaded', sanitizeBrowserUrl);
+        window.addEventListener('load', sanitizeBrowserUrl);
+    })();
+    </script>
+
     {{-- DCMS Background Auto-Sync & Realtime Notification Script --}}
     <script src="{{ asset('js/dcms-notification-sync.js') }}?v={{ file_exists(public_path('js/dcms-notification-sync.js')) ? filemtime(public_path('js/dcms-notification-sync.js')) : time() }}"></script>
 

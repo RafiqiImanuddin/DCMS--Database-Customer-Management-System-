@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityNotification;
 use App\Models\BroadcastMedia;
+use App\Models\BroadcastReport;
 use App\Models\Employee;
 use App\Models\Setting;
 use App\Models\SosmedKeep;
 use App\Models\WhatsAppChat;
 use App\Models\WhatsAppMessage;
+use App\Services\KeepAutoFollowUpService;
 use App\Services\WatzapService;
 use App\Support\RouteCipher;
 use App\Support\WorkspaceUrlCipher;
@@ -63,6 +65,8 @@ class WorkspaceSosmedController extends Controller
             8 => 'workspace_admin_settings',
             9 => 'workspace_inbox_fu',
             10 => 'workspace_ola_cabang',
+            11 => 'workspace_customer_segmentation',
+            12 => 'workspace_auto_fu_h1',
         ];
 
         $user = $request->user();
@@ -830,6 +834,24 @@ class WorkspaceSosmedController extends Controller
         ]);
     }
 
+    /**
+     * Berlangganan Presence Update (Status Sedang Mengetik) dari kontak WhatsApp.
+     */
+    public function watzapSubscribe(Request $request, WatzapService $watzapService): JsonResponse
+    {
+        $phone = $request->input('phone');
+        if ($phone && $watzapService->isBaileysEnabled()) {
+            try {
+                $baileysUrl = $watzapService->getBaileysUrl();
+                \Illuminate\Support\Facades\Http::timeout(1)->post("{$baileysUrl}/api/subscribe-presence", [
+                    'phone' => $phone,
+                ]);
+            } catch (\Throwable) {}
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function watzapStatus(WatzapService $watzapService): JsonResponse
     {
         $status = $watzapService->getDeviceStatus('inbox');
@@ -953,11 +975,11 @@ class WorkspaceSosmedController extends Controller
             $inboundOnly = $request->boolean('inbound_only', false);
             $forceSync = $request->boolean('sync', false);
 
-            // Sinkronisasi otomatis dari WAHA VPS jika aktif
-            if ($watzapService->isWahaEnabled()) {
-                // Throttle sinkronisasi ke WAHA VPS minimal 3 detik antar pemanggilan agar responsif & tidak flooding
+            // Sinkronisasi otomatis dari WAHA VPS hanya jika forceSync atau Baileys tidak aktif
+            if ($watzapService->isWahaEnabled() && (! $watzapService->isBaileysEnabled() || $forceSync)) {
+                // Throttle sinkronisasi ke WAHA VPS minimal 30 detik antar pemanggilan agar responsif & tidak flooding
                 $lastWahaSync = (int) cache()->get('waha_last_sync_timestamp', 0);
-                $shouldSync = $forceSync || (time() - $lastWahaSync) >= 3;
+                $shouldSync = $forceSync || (time() - $lastWahaSync) >= 30;
                 if ($shouldSync) {
                     cache()->put('waha_last_sync_timestamp', time(), 120);
                     try {
@@ -989,7 +1011,147 @@ class WorkspaceSosmedController extends Controller
                 }
             }
 
-            $filtered = array_values(array_filter($messages, function ($m) use ($since, $phone, $inboundOnly) {
+            // Sinkronkan riwayat Broadcast yang terkirim ke daftar chat Inbox & Live Widget jika belum tercatat
+            try {
+                $lastBroadcastSync = (int) cache()->get('broadcast_inbox_sync_ts', 0);
+                if ((time() - $lastBroadcastSync) >= 10 || $forceSync) {
+                    cache()->put('broadcast_inbox_sync_ts', time(), 60);
+                    $recentBroadcasts = BroadcastReport::where('status', 'sent')
+                        ->where('created_at', '>=', now()->subDays(3))
+                        ->with(['prediction', 'batch'])
+                        ->latest('id')
+                        ->take(50)
+                        ->get();
+
+                    if ($recentBroadcasts->isNotEmpty()) {
+                        $existingIds = array_column($messages, 'messageId');
+                        $existingIdMap = array_flip(array_filter($existingIds));
+                        $hasNewBroadcast = false;
+
+                        foreach ($recentBroadcasts as $br) {
+                            $cleanP = preg_replace('/\D/', '', (string) $br->phone_number);
+                            if (str_starts_with($cleanP, '0')) {
+                                $cleanP = '62'.substr($cleanP, 1);
+                            }
+                            if (! $cleanP || strlen($cleanP) < 9) {
+                                continue;
+                            }
+
+                            $bMsgId = 'bc_'.$br->id;
+                            if (isset($existingIdMap[$bMsgId])) {
+                                continue;
+                            }
+
+                            $custName = $br->prediction?->customer_vendor_name;
+                            if (preg_match('/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i', (string) $br->message, $nm)) {
+                                $custName = trim($nm[1]);
+                            } elseif (empty($custName) || strcasecmp($custName, 'No Name') === 0) {
+                                $custName = 'Customer '.$cleanP;
+                            }
+
+                            $bTimestamp = $br->sent_at ? ($br->sent_at->timestamp * 1000) : (time() * 1000);
+                            $batchTitle = $br->batch?->title ?: 'Test Baileys Broadcast';
+                            $custCode = $br->customer_vendor_code ?: ($br->prediction?->customer_vendor_code ?? '-');
+                            $custCabang = $br->prediction?->cabang ?? '-';
+
+                            $messages[] = [
+                                'messageId' => $bMsgId,
+                                'phone' => $cleanP,
+                                'message' => (string) $br->message,
+                                'media_url' => $br->image_url,
+                                'media_type' => $br->image_url ? 'image' : null,
+                                'timestamp' => $bTimestamp,
+                                'status' => 'sent',
+                                'direction' => 'outbound',
+                                'sender' => 'ADMIN',
+                                'senderName' => $custName,
+                                'gateway' => 'BAILEYS_GATEWAY',
+                                'is_broadcast' => true,
+                                'is_outbound' => true,
+                                'customer_name' => $custName,
+                                'customer_code' => $custCode,
+                                'customer_cabang' => $custCabang,
+                                'batch_title' => $batchTitle,
+                                'template_name' => $batchTitle,
+                                'sent_at' => $br->sent_at ? $br->sent_at->toDateTimeString() : null,
+                            ];
+
+                            $existingIdMap[$bMsgId] = true;
+                            $hasNewBroadcast = true;
+
+                            // Pastikan juga kontak terdaftar di tabel whatsapp_chats
+                            try {
+                                $chat = WhatsAppChat::firstOrCreate(
+                                    ['phone_number' => $cleanP],
+                                    [
+                                        'customer_name' => $custName,
+                                        'folder' => 'all',
+                                        'unread_count' => 0,
+                                    ]
+                                );
+                                $chat->update([
+                                    'customer_name' => $custName,
+                                    'last_message' => (string) $br->message ?: ($br->image_url ? '[Gambar]' : 'Pesan broadcast'),
+                                    'last_message_at' => $br->sent_at ?: now(),
+                                ]);
+                            } catch (\Throwable) {
+                            }
+                        }
+
+                        // Bersihkan juga entri lama yang terlanjur tercatat sebagai 'Broadcast DCMS' atau outbound
+                        foreach ($messages as &$exM) {
+                            $isBc = !empty($exM['is_broadcast']) || str_starts_with((string)($exM['messageId'] ?? ''), 'bc_') || ($exM['gateway'] ?? '') === 'BAILEYS_GATEWAY';
+                            if ($isBc || ($exM['senderName'] ?? '') === 'Broadcast DCMS' || str_contains((string)($exM['message'] ?? ''), 'kami dari Gadgetmart')) {
+                                $exM['is_broadcast'] = true;
+                                $exM['is_outbound'] = true;
+                                if (empty($exM['batch_title'])) {
+                                    $exM['batch_title'] = 'Test Baileys Broadcast';
+                                }
+                                if (empty($exM['template_name'])) {
+                                    $exM['template_name'] = $exM['batch_title'] ?? 'Template Promo WhatsApp';
+                                }
+                                if (($exM['senderName'] ?? '') === 'Broadcast DCMS' || empty($exM['senderName']) || str_starts_with((string)$exM['senderName'], 'Customer 62')) {
+                                    $pClean = preg_replace('/\D/', '', (string) ($exM['phone'] ?? ''));
+                                    if (preg_match('/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i', (string) ($exM['message'] ?? ''), $nm)) {
+                                        $exM['senderName'] = trim($nm[1]);
+                                        $exM['customer_name'] = trim($nm[1]);
+                                    } else {
+                                        $exM['senderName'] = 'Customer '.$pClean;
+                                        $exM['customer_name'] = 'Customer '.$pClean;
+                                    }
+                                    $hasNewBroadcast = true;
+                                }
+                            }
+                        }
+                        unset($exM);
+
+                        if ($hasNewBroadcast) {
+                            usort($messages, function ($a, $b) {
+                                $tA = is_numeric($a['timestamp'] ?? 0) ? (int) $a['timestamp'] : strtotime((string) ($a['timestamp'] ?? ''));
+                                $tB = is_numeric($b['timestamp'] ?? 0) ? (int) $b['timestamp'] : strtotime((string) ($b['timestamp'] ?? ''));
+
+                                return $tA <=> $tB;
+                            });
+                            $trimmed = array_slice($messages, -1000);
+                            @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
+                            $messages = $trimmed;
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+            }
+
+            $parseEpochMs = function ($val): int {
+                if (empty($val)) return 0;
+                if (is_numeric($val)) {
+                    $n = (int) $val;
+                    return $n < 1e11 ? $n * 1000 : $n;
+                }
+                $t = strtotime((string) $val);
+                return ($t !== false && $t > 0) ? ($t * 1000) : 0;
+            };
+
+            $filtered = array_values(array_filter($messages, function ($m) use ($since, $phone, $inboundOnly, $parseEpochMs) {
                 if ($inboundOnly && ($m['direction'] ?? '') !== 'inbound') {
                     return false;
                 }
@@ -1001,10 +1163,11 @@ class WorkspaceSosmedController extends Controller
                     }
                 }
                 if ($since) {
-                    $mTime = is_numeric($m['timestamp'] ?? null) ? (int) $m['timestamp'] : (isset($m['timestamp']) ? strtotime((string) $m['timestamp']) * 1000 : 0);
-                    $sTime = is_numeric($since) ? (int) ($since < 1e11 ? $since * 1000 : $since) : strtotime((string) $since) * 1000;
-                    // Buffer toleransi 30 detik untuk mengantisipasi perbedaan clock server vs browser
-                    if ($mTime <= ($sTime - 30000)) {
+                    $mTime = $parseEpochMs($m['timestamp'] ?? null);
+                    $statusTime = (int) ($m['status_updated_at'] ?? 0);
+                    $sTime = $parseEpochMs($since);
+                    // Loloskan jika timestamp pesan baru ATAU status receipt-nya baru diperbarui
+                    if ($mTime <= ($sTime - 30000) && $statusTime <= ($sTime - 30000)) {
                         return false;
                     }
                 }
@@ -1012,20 +1175,30 @@ class WorkspaceSosmedController extends Controller
                 return true;
             }));
 
-            $gatewayPhone = '6285111426699';
-            try {
-                if ($watzapService->isBaileysEnabled()) {
-                    $bStatus = $watzapService->getBaileysStatus();
-                    if (! empty($bStatus['phone'])) {
-                        $gatewayPhone = preg_replace('/\D/', '', (string) $bStatus['phone']);
-                    }
-                } elseif ($watzapService->isWahaEnabled()) {
-                    $wahaStatus = $watzapService->getWahaStatus();
-                    if (! empty($wahaStatus['me']['id'])) {
-                        $gatewayPhone = preg_replace('/\D/', '', (string) $wahaStatus['me']['id']);
-                    }
+            // Pastikan pesan selalu terurut secara kronologis (pesan lama di atas, terbaru di bawah)
+            usort($filtered, function ($a, $b) use ($parseEpochMs) {
+                return $parseEpochMs($a['timestamp'] ?? 0) <=> $parseEpochMs($b['timestamp'] ?? 0);
+            });
+
+            // Ambil nomor gateway dari cache untuk respon instan tanpa blocking HTTP network call
+            $gatewayPhone = cache()->get('baileys_bot_phone', '6285111426699');
+
+            // Ambil status pengguna yang sedang online & sedang mengetik (realtime presence)
+            $now = time();
+            $typingUsers = (array) cache()->get('omni_typing_users', []);
+            $activeTyping = [];
+            foreach ($typingUsers as $k => $v) {
+                if (($v['expires_at'] ?? 0) >= $now) {
+                    $activeTyping[$k] = $v['type'] ?? 'composing';
                 }
-            } catch (\Throwable) {
+            }
+
+            $onlineUsers = (array) cache()->get('omni_online_users', []);
+            $activeOnline = [];
+            foreach ($onlineUsers as $k => $exp) {
+                if ($exp >= $now) {
+                    $activeOnline[$k] = true;
+                }
             }
 
             return response()->json([
@@ -1033,11 +1206,97 @@ class WorkspaceSosmedController extends Controller
                 'gateway_phone' => $gatewayPhone,
                 'messages' => $filtered,
                 'total' => count($filtered),
+                'typing' => $activeTyping,
+                'online' => $activeOnline,
             ]);
         }
 
-        // Mode POST: Webhook masuk (WAHA VPS atau WatZap Cloud API)
+        // Mode POST: Webhook masuk (WAHA VPS atau WatZap Cloud API / Baileys Gateway)
         $data = $request->all();
+
+        // 0. Dukungan Event Presence Update (Status Sedang Mengetik & Online/Offline)
+        if (isset($data['event']) && $data['event'] === 'presence.update') {
+            $p = $data['payload'] ?? [];
+            $rawPhone = (string) ($p['phone'] ?? $p['id'] ?? '');
+            $cleanPhone = preg_replace('/\D/', '', $rawPhone);
+            $presence = (string) ($p['presence'] ?? 'paused');
+            if ($cleanPhone) {
+                $typingUsers = (array) cache()->get('omni_typing_users', []);
+                $onlineUsers = (array) cache()->get('omni_online_users', []);
+                $now = time();
+
+                // Typing Status
+                if (in_array($presence, ['composing', 'recording'], true)) {
+                    $typingUsers[$cleanPhone] = [
+                        'type' => $presence,
+                        'expires_at' => $now + 7,
+                    ];
+                    $onlineUsers[$cleanPhone] = $now + 300;
+                } else {
+                    unset($typingUsers[$cleanPhone]);
+                }
+
+                // Online/Offline Status
+                if (in_array($presence, ['available', 'composing', 'recording'], true)) {
+                    $onlineUsers[$cleanPhone] = $now + 300;
+                } elseif ($presence === 'unavailable') {
+                    unset($onlineUsers[$cleanPhone]);
+                }
+
+                foreach ($typingUsers as $k => $v) {
+                    if (($v['expires_at'] ?? 0) < $now) {
+                        unset($typingUsers[$k]);
+                    }
+                }
+                foreach ($onlineUsers as $k => $exp) {
+                    if ($exp < $now) {
+                        unset($onlineUsers[$k]);
+                    }
+                }
+
+                cache()->put('omni_typing_users', $typingUsers, now()->addMinutes(2));
+                cache()->put('omni_online_users', $onlineUsers, now()->addMinutes(10));
+            }
+
+            return response()->json(['success' => true, 'presence' => $presence]);
+        }
+
+        // 0A. Dukungan Status Pengiriman & Tanda Baca Pesan (Sent Centang 1, Delivered Centang 2 Abu, Read Centang 2 Biru)
+        if ((isset($data['event']) && in_array($data['event'], ['message.status_update', 'message.ack', 'message_ack'], true)) ||
+            (isset($data['action']) && $data['action'] === 'MESSAGE_STATUS_UPDATE')) {
+            $p = $data['payload'] ?? $data;
+            $msgId = (string) ($p['id'] ?? $p['messageId'] ?? $p['key']['id'] ?? '');
+            $status = (string) ($p['status'] ?? $p['ackName'] ?? '');
+            $rawAck = $p['ack'] ?? $p['update']['status'] ?? null;
+            if ($rawAck !== null) {
+                if ($rawAck == 2 || $rawAck == 1) $status = 'sent';
+                elseif ($rawAck == 3) $status = 'delivered';
+                elseif ($rawAck >= 4) $status = 'read';
+            }
+            if ($msgId && $status) {
+                $status = strtolower($status);
+                $updated = false;
+                $nowMs = time() * 1000;
+                foreach ($messages as &$m) {
+                    if (! empty($m['messageId']) && $m['messageId'] === $msgId) {
+                        $m['status'] = $status;
+                        $m['status_updated_at'] = $nowMs;
+                        $updated = true;
+                        break;
+                    }
+                }
+                unset($m);
+                if ($updated) {
+                    @File::put($msgFile, json_encode(array_values($messages), JSON_PRETTY_PRINT));
+                }
+
+                try {
+                    WhatsAppMessage::where('message_id', $msgId)->update(['status' => $status]);
+                } catch (\Throwable) {}
+            }
+
+            return response()->json(['success' => true, 'status' => $status, 'messageId' => $msgId]);
+        }
 
         // 1. Dukungan Webhook Resmi WAHA (WhatsApp HTTP API di VPS)
         if (isset($data['event']) && in_array($data['event'], ['message', 'message.any'], true) && isset($data['payload']) && is_array($data['payload'])) {
@@ -1063,7 +1322,19 @@ class WorkspaceSosmedController extends Controller
                 return response()->json(['status' => 200, 'message' => 'Invalid phone ignored']);
             }
 
-            $messageId = (string) ($p['id'] ?? ('waha_'.time()));
+            // Hapus status typing karena kontak sudah mengirim pesannya, dan tandai online
+            $typingUsers = (array) cache()->get('omni_typing_users', []);
+            if (isset($typingUsers[$cleanPhone])) {
+                unset($typingUsers[$cleanPhone]);
+                cache()->put('omni_typing_users', $typingUsers, now()->addMinutes(2));
+            }
+            if (! $isFromMe) {
+                $onlineUsers = (array) cache()->get('omni_online_users', []);
+                $onlineUsers[$cleanPhone] = time() + 300;
+                cache()->put('omni_online_users', $onlineUsers, now()->addMinutes(10));
+            }
+
+            $messageId = (string) ($p['id'] ?? ('baileys_'.time()));
             $senderName = $isFromMe
                 ? 'Admin'
                 : (string) ($p['_data']['notifyName'] ?? $p['pushname'] ?? $p['author'] ?? 'PIC');
@@ -1107,6 +1378,33 @@ class WorkspaceSosmedController extends Controller
                 $replyTo = $parsedQuote['replyTo'];
             }
 
+            // Deduplikasi Cerdas: Cegah pesan tercatat ganda (misal pesan outbound yang dikirim dari DCMS)
+            $isDuplicate = false;
+            foreach ($messages as $existing) {
+                if (! empty($existing['messageId']) && $existing['messageId'] === $messageId) {
+                    $isDuplicate = true;
+                    break;
+                }
+                if ($isFromMe && ($existing['direction'] ?? '') === 'outbound') {
+                    $exPhone = preg_replace('/\D/', '', (string) ($existing['phone'] ?? ''));
+                    $exText = trim((string) ($existing['message'] ?? $existing['text'] ?? ''));
+                    $exTs = is_numeric($existing['timestamp'] ?? 0) ? (int) $existing['timestamp'] : (strtotime((string) ($existing['timestamp'] ?? '')) * 1000);
+                    $curTs = time() * 1000;
+                    if ($exPhone === $cleanPhone && $exText === $rawText && abs($curTs - $exTs) < 45000) {
+                        $isDuplicate = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($isDuplicate) {
+                return response()->json([
+                    'status' => '200',
+                    'message' => 'Duplicate message ignored (already recorded)',
+                    'messageId' => $messageId,
+                ]);
+            }
+
             $entry = [
                 'messageId' => $messageId,
                 'phone' => $cleanPhone,
@@ -1115,11 +1413,11 @@ class WorkspaceSosmedController extends Controller
                 'media_type' => $mediaType,
                 'reply_to' => $replyTo,
                 'timestamp' => now()->toIso8601String(),
-                'status' => 'received',
+                'status' => $isFromMe ? 'sent' : 'received',
                 'direction' => $direction,
                 'sender' => $senderRole,
                 'senderName' => $senderName,
-                'gateway' => ($p['source'] ?? '') === 'BAILEYS_GATEWAY' ? 'BAILEYS_GATEWAY' : 'WAHA_VPS',
+                'gateway' => 'BAILEYS_GATEWAY',
                 'raw' => $data,
             ];
 
@@ -1134,7 +1432,7 @@ class WorkspaceSosmedController extends Controller
                 );
 
                 $chat->update([
-                    'last_message' => $rawText,
+                    'last_message' => $rawText ?: ($mediaType ? "[$mediaType]" : ($isFromMe ? 'Pesan keluar' : 'Pesan masuk')),
                     'last_message_at' => now(),
                     'unread_count' => $direction === 'inbound' ? ($chat->unread_count + 1) : $chat->unread_count,
                 ]);
@@ -1144,14 +1442,36 @@ class WorkspaceSosmedController extends Controller
                     'message_id' => $messageId,
                     'sender_type' => $senderType,
                     'agent_name' => $senderName,
-                    'message' => $rawText,
+                    'message' => $rawText ?: ($mediaType ? "[$mediaType]" : ''),
                     'media_url' => $mediaUrl,
                     'media_type' => $mediaType,
                     'reply_to' => $replyTo,
                     'raw_payload' => $data,
-                    'status' => 'received',
+                    'status' => $isFromMe ? 'sent' : 'received',
                 ]);
             } catch (\Throwable) {
+            }
+
+            // Smart Read Inference: Jika kontak/PIC membalas chat (inbound), tandai semua pesan outbound sebelumnya ke nomor ini sebagai 'read' (Centang 2 Biru)
+            if (! $isFromMe && $cleanPhone) {
+                $nowMs = time() * 1000;
+                foreach ($messages as &$prevM) {
+                    $mPhone = preg_replace('/\D/', '', (string) ($prevM['phone'] ?? ''));
+                    if ($mPhone === $cleanPhone && ($prevM['direction'] ?? '') === 'outbound' && ($prevM['status'] ?? '') !== 'read') {
+                        $prevM['status'] = 'read';
+                        $prevM['status_updated_at'] = $nowMs;
+                    }
+                }
+                unset($prevM);
+
+                try {
+                    if (isset($chat)) {
+                        WhatsAppMessage::where('whatsapp_chat_id', $chat->id)
+                            ->where('sender_type', 'admin')
+                            ->where('status', '!=', 'read')
+                            ->update(['status' => 'read']);
+                    }
+                } catch (\Throwable) {}
             }
 
             try {
@@ -1163,7 +1483,7 @@ class WorkspaceSosmedController extends Controller
 
             return response()->json([
                 'status' => '200',
-                'message' => 'WAHA webhook received and processed',
+                'message' => 'Baileys/WAHA webhook received and processed',
                 'entry' => $entry,
             ]);
         }
@@ -1400,6 +1720,79 @@ class WorkspaceSosmedController extends Controller
         } catch (\Throwable $e) {
             return response('Internal media proxy error: '.$e->getMessage(), 500);
         }
+    }
+
+    /**
+     * Dapatkan URL foto profil WhatsApp kontak secara non-blocking via Baileys atau WAHA
+     */
+    public function whatsappProfilePic(Request $request, WatzapService $watzapService): \Illuminate\Http\JsonResponse
+    {
+        $rawPhone = (string) $request->query('phone', '');
+        $phone = preg_replace('/\D/', '', $rawPhone);
+        if (! $phone) {
+            return response()->json(['success' => false, 'url' => null, 'message' => 'Phone required']);
+        }
+
+        if (str_starts_with($phone, '08')) {
+            $phone = '628' . substr($phone, 2);
+        } elseif (str_starts_with($phone, '8')) {
+            $phone = '62' . $phone;
+        }
+
+        $cacheKey = "wa_profile_pic_{$phone}";
+        $cachedUrl = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cachedUrl !== null) {
+            return response()->json([
+                'success' => ! empty($cachedUrl),
+                'url' => $cachedUrl ?: null,
+                'cached' => true,
+            ]);
+        }
+
+        $profilePicUrl = null;
+
+        // 1. Coba ambil via Baileys Bot Gateway jika aktif
+        if ($watzapService->isBaileysEnabled()) {
+            try {
+                $baileysUrl = $watzapService->getBaileysUrl();
+                $res = Http::timeout(4)
+                    ->withHeaders(['X-Api-Key' => $watzapService->getBaileysApiKey()])
+                    ->get("{$baileysUrl}/api/profile-picture", ['phone' => $phone]);
+
+                if ($res->successful() && ! empty($res->json('url'))) {
+                    $profilePicUrl = (string) $res->json('url');
+                }
+            } catch (\Throwable) {}
+        }
+
+        // 2. Fallback via WAHA VPS jika Baileys tidak memiliki foto
+        if (! $profilePicUrl && $watzapService->isWahaEnabled()) {
+            try {
+                $wahaUrl = $watzapService->getWahaUrl();
+                $session = $watzapService->getWahaSession();
+                $res = Http::timeout(4)
+                    ->withHeaders(['X-Api-Key' => $watzapService->getWahaApiKey()])
+                    ->get("{$wahaUrl}/api/contacts/profile-picture", [
+                        'session' => $session,
+                        'contactId' => "{$phone}@c.us",
+                    ]);
+
+                if ($res->successful() && ! empty($res->json('url') ?? $res->json('profilePictureURL'))) {
+                    $profilePicUrl = (string) ($res->json('url') ?? $res->json('profilePictureURL'));
+                }
+            } catch (\Throwable) {}
+        }
+
+        if ($profilePicUrl) {
+            // Cache foto profil selama 3 hari agar hemat kuota dan super cepat
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $profilePicUrl, now()->addDays(3));
+            return response()->json(['success' => true, 'url' => $profilePicUrl]);
+        }
+
+        // Jika tidak ada foto atau privasi disembunyikan, cache selama 1 jam agar tidak berulang-ulang query
+        \Illuminate\Support\Facades\Cache::put($cacheKey, '', now()->addHours(1));
+
+        return response()->json(['success' => false, 'url' => null]);
     }
 
     /**
@@ -1999,16 +2392,25 @@ class WorkspaceSosmedController extends Controller
                 ]);
             }
 
-            if (! is_dir(dirname($filePath))) {
-                @mkdir(dirname($filePath), 0775, true);
+            $dir = dirname($filePath);
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0775, true);
             }
 
-            // Cadangkan file sebelum overwrite
-            if (file_exists($filePath) && filesize($filePath) > 0) {
+            // Cadangkan file sebelum overwrite jika file valid & ada isi (> 10 bytes)
+            if (file_exists($filePath) && filesize($filePath) > 10) {
                 @copy($filePath, storage_path('app/ar_claims.backup.json'));
             }
 
-            @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+            // Atomic file write: tulis ke temporary file terlebih dahulu lalu rename
+            // Menggunakan compact JSON tanpa PRETTY_PRINT untuk menghemat ukuran file & I/O disk
+            $tempFile = $filePath . '.' . uniqid('tmp_', true);
+            $jsonEncoded = json_encode($data, JSON_UNESCAPED_UNICODE);
+            if (@file_put_contents($tempFile, $jsonEncoded, LOCK_EX) !== false) {
+                @rename($tempFile, $filePath);
+            } else {
+                @file_put_contents($filePath, $jsonEncoded, LOCK_EX);
+            }
 
             return response()->json([
                 'success' => true,
@@ -2033,9 +2435,131 @@ class WorkspaceSosmedController extends Controller
             return response()->json([]);
         }
 
+        // Support ETag / If-None-Match untuk efisiensi transfer data klaim AR
+        $fileMtime = filemtime($filePath);
+        $etag = '"' . md5($fileMtime . filesize($filePath)) . '"';
+        if ($request->header('If-None-Match') === $etag) {
+            return response()->noContent(304);
+        }
+
         $raw = @file_get_contents($filePath);
         $list = json_decode((string) $raw, true);
 
-        return response()->json(is_array($list) ? $list : []);
+        return response()->json(is_array($list) ? $list : [])
+            ->header('ETag', $etag)
+            ->header('Cache-Control', 'private, must-revalidate');
+    }
+
+    /**
+     * Get Auto Follow-Up H+1 Dashboard Data.
+     */
+    public function autoFuH1Data(Request $request, KeepAutoFollowUpService $service): JsonResponse
+    {
+        $date = $request->input('date');
+        $data = $service->getDashboardData($date);
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Send Auto Follow-Up H+1 WhatsApp Digest to PIC(s).
+     */
+    public function autoFuH1SendDigest(Request $request, KeepAutoFollowUpService $service): JsonResponse
+    {
+        if (! auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Sesi telah berakhir. Silakan login kembali.'], 401);
+        }
+
+        if ($request->user()?->isGuest()) {
+            return response()->json(['success' => false, 'message' => 'Akun Guest tidak diizinkan mengirim pesan WhatsApp.'], 403);
+        }
+
+        $target = strtoupper((string) $request->input('target', 'ALL'));
+        $date = $request->input('date');
+        $force = (bool) $request->boolean('force', false);
+
+        try {
+            if ($target === 'SINGLE') {
+                $picPhone = (string) $request->input('pic_phone');
+                $picName = (string) $request->input('pic_name', 'Tim Sales');
+                $keeps = (array) $request->input('items', []);
+
+                if (empty($keeps) && ! empty($picPhone)) {
+                    $dashboardData = $service->getDashboardData($date);
+                    foreach ($dashboardData['pic_groups'] as $g) {
+                        if ($g['pic_phone'] === $picPhone || $g['pic_name'] === $picName) {
+                            $keeps = $g['items'];
+                            break;
+                        }
+                    }
+                }
+
+                $res = $service->sendDigestToPic($picPhone, $picName, $keeps, $service->resolveTargetDate($date));
+                return response()->json($res);
+            }
+
+            if ($target === 'STRICT_24H') {
+                @set_time_limit(300);
+                $res = $service->sendStrict24hAlerts($force);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $res['message'] ?? 'Proses pengiriman selesai.',
+                    'data' => $res,
+                ]);
+            }
+
+            @set_time_limit(300);
+            $res = $service->sendAllPendingDigests($date, $force);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Proses pengiriman selesai: {$res['sent_count']} PIC terkirim, {$res['failed_count']} gagal, {$res['skipped_count']} dilewati.",
+                'data' => $res,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Auto FU H+1 Send Digest API Error: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan di server saat memproses pengiriman: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Save Auto Follow-Up H+1 Settings.
+     */
+    public function autoFuH1SaveSettings(Request $request, KeepAutoFollowUpService $service): JsonResponse
+    {
+        if (! auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Sesi telah berakhir. Silakan login kembali.'], 401);
+        }
+
+        if ($request->user()?->isGuest()) {
+            return response()->json(['success' => false, 'message' => 'Akun Guest tidak diizinkan mengubah konfigurasi.'], 403);
+        }
+
+        try {
+            $service->saveSettings($request->all());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pengaturan jadwal dan template pesan berhasil disimpan!',
+                'settings' => $service->getSettings(),
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Auto FU H+1 Save Settings Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan pengaturan: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

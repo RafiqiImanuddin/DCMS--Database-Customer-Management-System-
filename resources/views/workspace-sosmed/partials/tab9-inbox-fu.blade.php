@@ -92,7 +92,7 @@
                                                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                                                 </svg>
                                             </span>
-                                            <input type="text" id="omniSearchInput" name="search_chat_filter_unique" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="omni-search-input w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-slate-400 focus:bg-white transition"
+                                            <input type="text" id="omniSearchInput" name="search_chat_filter_unique" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" class="omni-search-input w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-slate-400 focus:bg-white transition"
                                                 placeholder="Search name, phone, message..." oninput="filterOmniChats()">
                                         </div>
                                     </div>
@@ -108,7 +108,7 @@
                                 </div>
 
                                 <!-- PANEL UPDATE FEEDBACK FORMAT KEEP -->
-                                <aside class="omni-col-details w-72 2xl:w-80 shrink-0 flex flex-col border-l border-slate-200 bg-white min-h-0" id="omniDetailsPanelContainer">
+                                <aside class="omni-col-details w-80 lg:w-[330px] 2xl:w-[360px] shrink-0 flex flex-col border-l border-slate-200 bg-white min-h-0" id="omniDetailsPanelContainer">
                                     <!-- Rendered via client.js -->
                                 </aside>
                             </div>
@@ -122,7 +122,7 @@
                                     </div>
                                     <div class="omni-master-actions flex items-center gap-2 flex-wrap">
                                         <div class="omni-master-search-wrap">
-                                            <input type="text" id="omniMasterSearchInput" class="omni-master-search-input text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none"
+                                            <input type="text" id="omniMasterSearchInput" name="search_master_pic_unique" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" class="omni-master-search-input text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none"
                                                 placeholder="Cari nama PIC, no WA, atau cabang..."
                                                 oninput="renderOmniMasterTable()">
                                         </div>

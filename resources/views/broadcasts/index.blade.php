@@ -129,7 +129,7 @@
             <input type="hidden" name="tab" value="{{ $tab }}">
             
             <div class="relative min-w-[240px] flex-1 sm:w-64">
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Search Broadcast..." class="dcms-input py-2 pl-9 pr-3 text-xs w-full">
+                <input type="text" name="search" value="{{ request('search') }}" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="Search Broadcast..." class="dcms-input py-2 pl-9 pr-3 text-xs w-full">
                 <svg class="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
             </div>
 

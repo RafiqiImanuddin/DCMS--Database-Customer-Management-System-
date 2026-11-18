@@ -42,9 +42,11 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    // Gateway Routing Terenkripsi (Semua modul DCMS & Workspace)
+    // Gateway Routing Terenkripsi (Semua modul DCMS & Workspace - Format xxxx-xxxx-xxxx)
     Route::get('/r/{token}', EncryptedRouteController::class)->name('encrypted.route');
     Route::get('/app/{token}', EncryptedRouteController::class);
+    Route::get('/{token}', EncryptedRouteController::class)
+        ->where('token', '^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$');
 
     Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
@@ -100,20 +102,16 @@ Route::middleware('auth')->group(function () {
     Route::delete('/broadcasts/{report}', [BroadcastReportController::class, 'destroy'])->name('broadcasts.destroy');
     Route::post('/predictions/{prediction}/broadcast', [BroadcastReportController::class, 'store'])->name('broadcasts.store');
 
-    // Setup & Pengaturan WhatsApp (WatZap Gateway)
+    // Setup & Pengaturan WhatsApp Gateway (One Gateway Baileys Bot)
     Route::get('/whatsapp', [WatzapSettingController::class, 'index'])->name('whatsapp.index');
     Route::get('/settings/watzap', [WatzapSettingController::class, 'index'])->name('settings.watzap.index');
     Route::post('/settings/watzap', [WatzapSettingController::class, 'update'])->name('settings.watzap.update');
-    Route::post('/settings/watzap/check', [WatzapSettingController::class, 'check'])->name('settings.watzap.check');
     Route::post('/settings/watzap/test-send', [WatzapSettingController::class, 'testSend'])->name('settings.watzap.test_send');
-    Route::post('/settings/watzap/register-webhook', [WatzapSettingController::class, 'registerWebhook'])->name('settings.watzap.register_webhook');
-    Route::get('/settings/watzap/get-webhook', [WatzapSettingController::class, 'getWebhookStatus'])->name('settings.watzap.get_webhook');
-    Route::post('/settings/watzap/check-waha', [WatzapSettingController::class, 'checkWaha'])->name('settings.watzap.check_waha');
     Route::post('/settings/watzap/check-baileys', [WatzapSettingController::class, 'checkBaileys'])->name('settings.watzap.check_baileys');
-    Route::post('/settings/watzap/check-fonnte', [WatzapSettingController::class, 'checkFonnte'])->name('settings.watzap.check_fonnte');
-    Route::post('/settings/watzap/register-fonnte-webhook', [WatzapSettingController::class, 'registerFonnteWebhook'])->name('settings.watzap.register_fonnte_webhook');
-    Route::post('/settings/watzap/test-send-fonnte', [WatzapSettingController::class, 'testSendFonnte'])->name('settings.watzap.test_send_fonnte');
-    Route::post('/settings/watzap/sync-google-sheet', [WatzapSettingController::class, 'syncGoogleSheetKeep'])->name('settings.watzap.sync_google_sheet');
+    Route::post('/settings/watzap/reset-baileys', [WatzapSettingController::class, 'resetBaileys'])->name('settings.watzap.reset_baileys');
+    Route::get('/settings/baileys-logs', [WatzapSettingController::class, 'baileysLogs'])->name('settings.baileys_logs.index');
+    Route::get('/api/settings/baileys-logs/data', [WatzapSettingController::class, 'baileysLogsData'])->name('api.settings.baileys_logs_data');
+    Route::post('/api/settings/baileys-logs/trigger-cron', [WatzapSettingController::class, 'triggerCron'])->name('api.settings.baileys_logs_trigger_cron');
 
     // Dashboard Manager: Monitoring Kinerja Admin Sales (Manager & Admin)
     Route::get('/monitoring/sales', [SalesMonitoringController::class, 'index'])->name('monitoring.sales.index');
@@ -172,7 +170,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // Workspace Sosmed API Endpoints (REPORT Engine)
-$registerSosmedApiRoutes = function () {
+Route::prefix('api')->group(function () {
     Route::get('/database-status', [WorkspaceSosmedController::class, 'databaseStatus'])->name('api.sosmed.database_status');
     Route::get('/workspace-settings', [WorkspaceSosmedController::class, 'workspaceSettings'])->name('api.sosmed.workspace_settings');
     Route::match(['get', 'post'], '/monthly-targets', [WorkspaceSosmedController::class, 'monthlyTargets'])->name('api.sosmed.monthly_targets');
@@ -182,24 +180,20 @@ $registerSosmedApiRoutes = function () {
     Route::match(['get', 'post'], '/update-keep-status', [WorkspaceSosmedController::class, 'updateKeepStatus'])->name('api.sosmed.update_keep_status');
     Route::match(['get', 'post'], '/update-report-ar', [WorkspaceSosmedController::class, 'updateReportAr'])->name('api.sosmed.update_report_ar');
     Route::match(['get', 'post'], '/assign-keep-fu', [WorkspaceSosmedController::class, 'assignKeepFU'])->name('api.sosmed.assign_keep_fu');
-    Route::match(['get', 'post'], '/api/assign-keep-fu', [WorkspaceSosmedController::class, 'assignKeepFU'])->name('api.sosmed.assign_keep_fu_alias');
     Route::match(['get', 'post', 'delete'], '/delete-keep', [WorkspaceSosmedController::class, 'deleteKeep'])->name('api.sosmed.delete_keep');
-    Route::match(['get', 'post', 'delete'], '/api/delete-keep', [WorkspaceSosmedController::class, 'deleteKeep'])->name('api.sosmed.delete_keep_alias');
     Route::match(['get', 'post'], '/toggle-keep-delete', [WorkspaceSosmedController::class, 'toggleKeepDeleteFeature'])->name('api.sosmed.toggle_keep_delete');
-    Route::match(['get', 'post'], '/api/toggle-keep-delete', [WorkspaceSosmedController::class, 'toggleKeepDeleteFeature'])->name('api.sosmed.toggle_keep_delete_alias');
-    Route::match(['get', 'post'], '/webhook/fonnte-keep', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.sosmed.webhook_fonnte_keep');
     Route::match(['get', 'post'], '/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook');
-    Route::match(['get', 'post'], '/api/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook_alias');
     Route::get('/sosmed-keeps', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getKeeps'])->name('api.sosmed.get_keeps');
     Route::get('/sosmed-keeps/latest', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getLatestKeeps'])->name('api.sosmed.get_latest_keeps');
-    Route::get('/api/sosmed-keeps/latest', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getLatestKeeps'])->name('api.sosmed.get_latest_keeps_alias');
     Route::post('/chat-ai', [WorkspaceSosmedController::class, 'chatAi'])->name('api.sosmed.chat_ai');
     Route::post('/watzap-send', [WorkspaceSosmedController::class, 'watzapSend'])->name('api.sosmed.watzap_send');
+    Route::post('/watzap-subscribe', [WorkspaceSosmedController::class, 'watzapSubscribe'])->name('api.sosmed.watzap_subscribe');
     Route::match(['get', 'post'], '/watzap-webhook', [WorkspaceSosmedController::class, 'watzapWebhook'])->name('api.sosmed.watzap_webhook');
     Route::match(['get', 'post', 'delete'], '/baileys-session', [WorkspaceSosmedController::class, 'baileysSession'])->name('api.sosmed.baileys_session');
     Route::get('/watzap-status', [WorkspaceSosmedController::class, 'watzapStatus'])->name('api.sosmed.watzap_status');
     Route::match(['get', 'post'], '/omni-resolve', [WorkspaceSosmedController::class, 'omniResolve'])->name('api.sosmed.omni_resolve');
     Route::get('/watzap-media', [WorkspaceSosmedController::class, 'watzapMedia'])->name('api.sosmed.watzap_media');
+    Route::get('/whatsapp-profile-pic', [WorkspaceSosmedController::class, 'whatsappProfilePic'])->name('api.sosmed.whatsapp_profile_pic');
     Route::post('/watzap-simulate-receive', [WorkspaceSosmedController::class, 'watzapSimulateReceive'])->name('api.sosmed.watzap_simulate_receive');
     Route::match(['get', 'delete'], '/get-excel', [WorkspaceSosmedController::class, 'getExcel'])->name('api.sosmed.get_excel');
     Route::post('/save-excel', [WorkspaceSosmedController::class, 'saveExcel'])->name('api.sosmed.save_excel');
@@ -208,16 +202,17 @@ $registerSosmedApiRoutes = function () {
     Route::get('/turnover-records', [WorkspaceSosmedController::class, 'turnoverRecords'])->name('api.sosmed.turnover_records');
     Route::get('/croselling-records', [WorkspaceSosmedController::class, 'crosellingRecords'])->name('api.sosmed.croselling_records');
     Route::match(['get', 'post'], '/ar-claims', [WorkspaceSosmedController::class, 'arClaims'])->name('api.sosmed.ar_claims');
+    Route::get('/auto-fu-h1', [WorkspaceSosmedController::class, 'autoFuH1Data'])->name('api.sosmed.auto_fu_h1_data');
+    Route::post('/auto-fu-h1/send-digest', [WorkspaceSosmedController::class, 'autoFuH1SendDigest'])->name('api.sosmed.auto_fu_h1_send_digest');
+    Route::post('/auto-fu-h1/settings', [WorkspaceSosmedController::class, 'autoFuH1SaveSettings'])->name('api.sosmed.auto_fu_h1_save_settings');
     Route::get('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.index');
     Route::delete('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.clear');
-};
+});
 
-Route::prefix('api')->group($registerSosmedApiRoutes);
-$registerSosmedApiRoutes();
-
-// Direct notification endpoint for global navbar
-Route::get('/api/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.direct_index');
-Route::delete('/api/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.direct_clear');
+// Backward compatibility alias jika dipanggil langsung tanpa prefix /api
+Route::match(['get', 'post'], '/watzap-webhook', [WorkspaceSosmedController::class, 'watzapWebhook']);
+Route::match(['get', 'post'], '/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle']);
+Route::match(['get', 'post'], '/webhook/fonnte-keep', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle']);
 
 // Route Helper untuk migrasi database & clear cache via browser (solusi cPanel tanpa Terminal)
 Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
@@ -250,17 +245,19 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
             $actionTitle = 'PEMBERSIHAN DUPLIKASI DATA FORMAT KEEP';
             $duplicates = \App\Models\SosmedKeep::whereNotNull('nomor_wa')
                 ->where('nomor_wa', '!=', '')
-                ->select('nomor_wa', 'barang_keep', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
-                ->groupBy('nomor_wa', 'barang_keep')
+                ->select('nomor_wa', 'barang_keep', 'grup_id', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
+                ->groupBy('nomor_wa', 'barang_keep', 'grup_id')
                 ->having('total', '>', 1)
                 ->get();
 
             $deletedCount = 0;
             foreach ($duplicates as $dup) {
-                $rows = \App\Models\SosmedKeep::where('nomor_wa', $dup->nomor_wa)
-                    ->where('barang_keep', $dup->barang_keep)
-                    ->orderByDesc('id')
-                    ->get();
+                $query = \App\Models\SosmedKeep::where('nomor_wa', $dup->nomor_wa)
+                    ->where('barang_keep', $dup->barang_keep);
+                if (! empty($dup->grup_id)) {
+                    $query->where('grup_id', $dup->grup_id);
+                }
+                $rows = $query->orderByDesc('id')->get();
 
                 // Cari baris yang paling lengkap (misal yang sudah di-claim ON PROGRESS / WIN)
                 $keepRow = $rows->first(fn ($r) => in_array(strtoupper((string) $r->status), ['ON PROGRESS', 'WIN', 'LOSE']) || ! empty($r->nomor_fu))
@@ -274,6 +271,11 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
                 }
             }
             $actionOutput = "Berhasil membersihkan {$deletedCount} baris data keep duplikat!\nData keep yang memiliki status aktif (On Progress / Win) dan nomor follow up tetap dipertahankan.";
+        } elseif ($action === 'cron' || $action === 'auto-fu-h1') {
+            $actionTitle = 'EKSEKUSI CRON AUTO FOLLOW-UP H+1 STRICT 24 JAM';
+            @set_time_limit(300);
+            \Illuminate\Support\Facades\Artisan::call('keep:send-auto-fu-h1');
+            $actionOutput = \Illuminate\Support\Facades\Artisan::output() ?: "Tidak ada format keep yang jatuh tempo saat ini.";
         } else {
             \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
             $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
@@ -308,7 +310,8 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
     <a href="?key=dcms2026&action=sync-google-sheet" style="background:#d97706; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🔄 3. Sinkronisasi Langsung dari Google Sheet</a>
     <a href="?key=dcms2026&action=match-cross-selling" style="background:#7c3aed; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🎯 4. Cocokkan Keep vs Cross-Selling</a>
     <a href="?key=dcms2026&action=clean-duplicate-keeps" style="background:#e11d48; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🧹 5. Bersihkan Data Keep Duplikat</a>
-    <a href="?key=dcms2026&action=export-core" style="background:#4b5563; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📦 6. Generate Ulang Core Dump</a>
+    <a href="?key=dcms2026&action=auto-fu-h1" style="background:#0d9488; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">⏰ 6. Eksekusi Auto Follow-Up H+1 (Strict 24h)</a>
+    <a href="?key=dcms2026&action=export-core" style="background:#4b5563; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📦 7. Generate Ulang Core Dump</a>
 </div>
 HTML;
 
@@ -332,4 +335,36 @@ HTML;
             . '</div>', 500);
     }
 })->name('system.migrate');
+
+Route::get('/system/cron-run', function (\Illuminate\Http\Request $request) {
+    if ($request->query('key') !== 'dcms2026') {
+        return response()->json(['success' => false, 'message' => 'Akses ditolak. Parameter key salah.'], 403);
+    }
+
+    try {
+        @ignore_user_abort(true);
+        @set_time_limit(180);
+        if (function_exists('apache_setenv')) {
+            @apache_setenv('no-gzip', '1');
+        }
+
+        $limit = max(1, min(20, (int) $request->query('limit', 5)));
+        \Illuminate\Support\Facades\Artisan::call('keep:send-auto-fu-h1', [
+            '--limit' => $limit,
+        ]);
+        $output = \Illuminate\Support\Facades\Artisan::output();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cron Auto Follow-Up H+1 berhasil dijalankan.',
+            'time' => now()->toDateTimeString(),
+            'output' => $output,
+        ])->header('X-Accel-Buffering', 'no');
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage(),
+        ], 500);
+    }
+})->name('system.cron_run');
 

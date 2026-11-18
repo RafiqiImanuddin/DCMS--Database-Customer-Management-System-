@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\BroadcastMedia;
 use App\Models\BroadcastReport;
 use App\Models\RepeatOrderPrediction;
 use App\Models\Setting;
+use App\Models\WhatsAppChat;
+use App\Models\WhatsAppMessage;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Throwable;
 
 class BroadcastService
@@ -53,30 +57,64 @@ class BroadcastService
             return $report;
         }
 
-        if (! $this->watzap->isConfigured()) {
+        if (! $this->watzap->isBaileysEnabled()) {
             $report->update([
                 'status' => 'logged',
-                'provider_response' => 'WatZap belum dikonfigurasi. Silakan isi API Key dan Number Key di menu Pengaturan Super Admin.',
+                'provider_response' => 'Gateway Baileys belum diaktifkan. Silakan hubungkan WhatsApp di menu Pengaturan WhatsApp.',
             ]);
 
             return $report;
         }
 
         try {
-            if ($imageUrl !== null && trim($imageUrl) !== '') {
-                $res = $this->watzap->sendImage($prediction->no_hp_customer, $imageUrl, $personalizedMessage);
-            } else {
-                $res = $this->watzap->sendMessage($prediction->no_hp_customer, $personalizedMessage);
+            // Ambil data Base64 gambar dari database jika ada untuk pengiriman langsung tanpa URL download
+            $fileData = null;
+            if ($imageUrl) {
+                if (preg_match('/\/media\/broadcasts\/(\d+)/', $imageUrl, $m)) {
+                    $bMedia = BroadcastMedia::find((int) $m[1]);
+                    if ($bMedia && ! empty($bMedia->data)) {
+                        $fileData = [
+                            'base64' => $bMedia->data,
+                            'mimetype' => $bMedia->mime_type ?: 'image/jpeg',
+                            'filename' => $bMedia->filename ?: 'broadcast.jpg',
+                        ];
+                    }
+                }
             }
+
+            $res = $this->watzap->sendOmnichannel(
+                $prediction->no_hp_customer,
+                $personalizedMessage,
+                $imageUrl,
+                $imageUrl ? 'image' : null,
+                null,
+                $fileData
+            );
+
+            $msgId = $res['message_id'] ?? ('broadcast_'.uniqid());
 
             $report->update([
                 'status' => $res['success'] ? 'sent' : 'failed',
-                'provider_response' => $res['message'].($res['raw'] ? ' | '.$res['raw'] : ''),
+                'provider_response' => $res['message'].(! empty($res['raw']) ? ' | '.(is_string($res['raw']) ? $res['raw'] : json_encode($res['raw'])) : ''),
                 'sent_at' => $res['success'] ? now() : null,
             ]);
 
             if ($res['success']) {
                 $this->recordCycleStart();
+
+                // Sinkronkan langsung ke Inbox Follow-Up (Tab 9) & Live Chat Widget DCMS
+                $batchTitle = $report->batch?->title ?: 'Test Baileys Broadcast';
+                $this->recordBroadcastToInbox(
+                    $prediction->no_hp_customer,
+                    $personalizedMessage,
+                    $imageUrl,
+                    $msgId,
+                    $userId,
+                    $prediction->customer_vendor_name,
+                    $batchTitle,
+                    $prediction->customer_vendor_code,
+                    $prediction->cabang
+                );
             }
         } catch (Throwable $exception) {
             $report->update([
@@ -86,6 +124,107 @@ class BroadcastService
         }
 
         return $report;
+    }
+
+    /**
+     * Catat pesan broadcast yang terkirim ke Inbox Chat & Database WhatsAppChat/WhatsAppMessage.
+     */
+    public function recordBroadcastToInbox(
+        string $rawPhone,
+        string $message,
+        ?string $mediaUrl,
+        string $msgId,
+        int $userId,
+        ?string $customerName = null,
+        ?string $batchTitle = null,
+        ?string $customerCode = null,
+        ?string $cabang = null
+    ): void {
+        try {
+            $cleanPhone = preg_replace('/\D/', '', $rawPhone);
+            if (str_starts_with($cleanPhone, '0')) {
+                $cleanPhone = '62'.substr($cleanPhone, 1);
+            }
+
+            if (! $cleanPhone || strlen($cleanPhone) < 9) {
+                return;
+            }
+
+            $now = now();
+            $displayName = ($customerName && strcasecmp($customerName, 'No Name') !== 0)
+                ? $customerName
+                : ('Customer '.$cleanPhone);
+
+            if (preg_match('/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i', $message, $nm)) {
+                $displayName = trim($nm[1]);
+            }
+
+            // 1. Catat ke tabel whatsapp_chats
+            $chat = WhatsAppChat::firstOrCreate(
+                ['phone_number' => $cleanPhone],
+                [
+                    'customer_name' => $displayName,
+                    'folder' => 'all',
+                    'unread_count' => 0,
+                ]
+            );
+
+            $chat->update([
+                'customer_name' => $displayName,
+                'last_message' => $message ?: ($mediaUrl ? '[Gambar]' : 'Pesan keluar'),
+                'last_message_at' => $now,
+            ]);
+
+            // 2. Catat ke tabel whatsapp_messages
+            WhatsAppMessage::create([
+                'whatsapp_chat_id' => $chat->id,
+                'message_id' => $msgId,
+                'sender_type' => 'admin',
+                'user_id' => $userId,
+                'agent_name' => 'Admin',
+                'message' => $message,
+                'media_url' => $mediaUrl,
+                'media_type' => $mediaUrl ? 'image' : null,
+                'status' => 'sent',
+            ]);
+
+            // 3. Catat ke file cache live watzap_messages.json
+            $storageDir = public_path('workspace-sosmed');
+            if (! File::isDirectory($storageDir)) {
+                @File::makeDirectory($storageDir, 0755, true);
+            }
+            $msgFile = $storageDir.DIRECTORY_SEPARATOR.'watzap_messages.json';
+            $messages = File::exists($msgFile) ? (json_decode(File::get($msgFile), true) ?? []) : [];
+
+            $resolvedBatch = $batchTitle ?: 'Test Baileys Broadcast';
+            $entry = [
+                'messageId' => $msgId,
+                'phone' => $cleanPhone,
+                'message' => $message,
+                'media_url' => $mediaUrl,
+                'media_type' => $mediaUrl ? 'image' : null,
+                'timestamp' => time() * 1000,
+                'status' => 'sent',
+                'direction' => 'outbound',
+                'sender' => 'ADMIN',
+                'senderName' => $displayName,
+                'gateway' => 'BAILEYS_GATEWAY',
+                'is_broadcast' => true,
+                'is_outbound' => true,
+                'customer_name' => $displayName,
+                'customer_code' => $customerCode ?? '-',
+                'customer_cabang' => $cabang ?? '-',
+                'batch_title' => $resolvedBatch,
+                'template_name' => $resolvedBatch,
+                'sent_at' => now()->toDateTimeString(),
+            ];
+
+            $messages[] = $entry;
+            $trimmed = array_slice($messages, -1000);
+            @File::put($msgFile, json_encode($trimmed, JSON_PRETTY_PRINT));
+        } catch (\Throwable) {
+            // Ignore error agar tidak menggagalkan broadcast flow
+        }
     }
 
     /**

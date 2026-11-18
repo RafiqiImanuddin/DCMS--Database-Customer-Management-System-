@@ -174,7 +174,7 @@
                 <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Cari Karyawan</label>
                 <div class="relative mt-1">
                     <svg class="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
-                    <input type="text" name="search" value="{{ $search }}" placeholder="Nama / NIK sales..." class="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:outline-none">
+                    <input type="text" name="search" value="{{ $search }}" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" placeholder="Nama / NIK sales..." class="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:outline-none">
                 </div>
             </div>
 
@@ -308,11 +308,29 @@
                             @endif
                         </td>
 
-                        <td class="px-5 py-4 max-w-xs truncate text-[11px] text-slate-600">
+                        <td class="px-5 py-4 max-w-xs text-[11px] text-slate-600">
                             @if ($assessment && $assessment->notes)
-                                <span title="{{ $assessment->notes }}">{{ Str::limit($assessment->notes, 40) }}</span>
+                                <div class="truncate" title="{{ $assessment->notes }}">{{ Str::limit($assessment->notes, 40) }}</div>
                             @else
-                                <span class="text-slate-400">-</span>
+                                <div class="text-slate-400">-</div>
+                            @endif
+
+                            @if ($assessment && count($assessment->evidence_links) > 0)
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    @if (count($assessment->evidence_links) === 1)
+                                        <a href="{{ $assessment->evidence_links[0] }}" target="_blank" class="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900 transition shadow-2xs" title="{{ $assessment->evidence_links[0] }}">
+                                            <svg class="size-3 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/></svg>
+                                            <span>Evidence Roomchat</span>
+                                        </a>
+                                    @else
+                                        @foreach ($assessment->evidence_links as $evIdx => $evUrl)
+                                            <a href="{{ $evUrl }}" target="_blank" class="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900 transition shadow-2xs" title="{{ $evUrl }}">
+                                                <svg class="size-3 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/></svg>
+                                                <span>Bukti #{{ $evIdx + 1 }}</span>
+                                            </a>
+                                        @endforeach
+                                    @endif
+                                </div>
                             @endif
                         </td>
 
@@ -547,6 +565,26 @@
                 <textarea name="recommendations" id="assessRecommendations" rows="2" placeholder="Langkah perbaikan esok hari (misal: ingatkan flyer promo, pasang notifikasi suara)..." class="dcms-input mt-1"></textarea>
             </div>
 
+            <!-- Evidence Link Roomchat (Multiple Support) -->
+            <div class="rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5 space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-800">🔗 Evidence Link Roomchat</label>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Tautan bukti percakapan WhatsApp / Google Drive (bisa tambah multiple link)</p>
+                    </div>
+                    <button type="button" 
+                            onclick="addEvidenceRow('')" 
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+                            title="Tambah kolom tautan evidence baru">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                        <span>+ Tambah Kolom</span>
+                    </button>
+                </div>
+                <div id="evidenceLinksContainer" class="space-y-2">
+                    <!-- Dynamic Evidence Rows rendered here -->
+                </div>
+            </div>
+
             <!-- Modal Action Buttons -->
             <div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
                 <button type="button" onclick="closeAssessModal()" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Batal</button>
@@ -626,6 +664,36 @@ function openAssessModal(employee, assessment) {
 
     document.getElementById('assessNotes').value = assessment ? (assessment.notes || '') : '';
     document.getElementById('assessRecommendations').value = assessment ? (assessment.recommendations || '') : '';
+    // Populate dynamic evidence rows
+    const container = document.getElementById('evidenceLinksContainer');
+    if (container) {
+        container.innerHTML = '';
+        let links = [];
+        if (assessment) {
+            if (Array.isArray(assessment.evidence_links) && assessment.evidence_links.length > 0) {
+                links = assessment.evidence_links;
+            } else if (assessment.scores && Array.isArray(assessment.scores._evidence_links) && assessment.scores._evidence_links.length > 0) {
+                links = assessment.scores._evidence_links;
+            } else if (assessment.evidence_link) {
+                const raw = String(assessment.evidence_link).trim();
+                if (raw.startsWith('[') && raw.endsWith(']')) {
+                    try { links = JSON.parse(raw); } catch (e) {}
+                }
+                if (!links || links.length === 0) {
+                    links = raw.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+                }
+            } else if (assessment.scores && assessment.scores._evidence_link) {
+                links = String(assessment.scores._evidence_link).split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+            }
+        }
+
+        if (links && links.length > 0) {
+            links.forEach(l => addEvidenceRow(l));
+        } else {
+            addEvidenceRow('');
+        }
+    }
+
     if (assessment && assessment.evaluator_name) {
         document.getElementById('assessEvaluatorName').value = assessment.evaluator_name;
     }
@@ -634,6 +702,70 @@ function openAssessModal(employee, assessment) {
 
     document.getElementById('assessModal').classList.remove('hidden');
     document.getElementById('assessModal').classList.add('flex');
+}
+
+function updateEvidenceIndices() {
+    const container = document.getElementById('evidenceLinksContainer');
+    if (!container) return;
+    const rows = container.querySelectorAll('.evidence-row');
+    rows.forEach((row, idx) => {
+        const badge = row.querySelector('.evidence-index-badge');
+        if (badge) badge.textContent = '#' + (idx + 1);
+        const delBtn = row.querySelector('.evidence-del-btn');
+        if (delBtn) {
+            if (rows.length === 1) {
+                delBtn.title = 'Kosongkan link ini';
+            } else {
+                delBtn.title = 'Hapus kolom link ini';
+            }
+        }
+    });
+}
+
+function addEvidenceRow(val = '') {
+    const container = document.getElementById('evidenceLinksContainer');
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'evidence-row flex items-center gap-2 transition-all';
+    
+    row.innerHTML = `
+        <span class="evidence-index-badge shrink-0 size-7 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-[11px] flex items-center justify-center">#1</span>
+        <div class="relative flex-1">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/></svg>
+            </span>
+            <input type="url" 
+                   name="evidence_links[]" 
+                   value="${val ? String(val).replace(/"/g, '&quot;') : ''}" 
+                   placeholder="https://chat.whatsapp.com/... atau tautan drive / bukti percakapan" 
+                   class="dcms-input pl-9 text-xs">
+        </div>
+        <button type="button" 
+                onclick="removeEvidenceRow(this)" 
+                class="evidence-del-btn size-9 shrink-0 flex items-center justify-center rounded-xl border border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition cursor-pointer" 
+                title="Hapus kolom link ini">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    `;
+    container.appendChild(row);
+    updateEvidenceIndices();
+}
+
+function removeEvidenceRow(btn) {
+    const container = document.getElementById('evidenceLinksContainer');
+    if (!container) return;
+    const rows = container.querySelectorAll('.evidence-row');
+    if (rows.length <= 1) {
+        const input = rows[0].querySelector('input');
+        if (input) input.value = '';
+        return;
+    }
+    const row = btn.closest('.evidence-row');
+    if (row) {
+        row.remove();
+        updateEvidenceIndices();
+    }
 }
 
 function closeAssessModal() {
@@ -958,6 +1090,53 @@ function renderReportCard(data) {
             <div class="mt-1 text-slate-700">${ass.recommendations}</div>
         </div>
         ` : ''}
+
+        ${(() => {
+            let evLinks = [];
+            if (Array.isArray(ass.evidence_links) && ass.evidence_links.length > 0) {
+                evLinks = ass.evidence_links;
+            } else if (ass.evidence_link) {
+                const raw = String(ass.evidence_link).trim();
+                if (raw.startsWith('[') && raw.endsWith(']')) {
+                    try { evLinks = JSON.parse(raw); } catch (e) {}
+                }
+                if (!evLinks || evLinks.length === 0) {
+                    evLinks = raw.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+                }
+            } else if (ass.scores && ass.scores._evidence_link) {
+                evLinks = String(ass.scores._evidence_link).split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+            }
+
+            if (!evLinks || evLinks.length === 0) return '';
+
+            let linksRows = '';
+            evLinks.forEach((link, idx) => {
+                linksRows += `
+                    <div class="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-white border border-indigo-100 shadow-2xs">
+                        <div class="min-w-0 flex-1 flex items-center gap-2">
+                            <span class="size-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center">#${idx + 1}</span>
+                            <a href="${link}" target="_blank" class="font-bold text-indigo-700 hover:text-indigo-900 hover:underline truncate max-w-full text-xs" title="${link}">
+                                ${link}
+                            </a>
+                        </div>
+                        <a href="${link}" target="_blank" class="shrink-0 inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-700 transition shadow-2xs">
+                            <span>Buka Roomchat ↗</span>
+                        </a>
+                    </div>
+                `;
+            });
+
+            return `
+                <div class="rounded-xl border border-indigo-200 p-3.5 bg-indigo-50/50 text-xs space-y-2">
+                    <div class="text-[10px] uppercase font-bold text-indigo-700 flex items-center justify-between">
+                        <span>🔗 Evidence Link Roomchat (${evLinks.length} Tautan):</span>
+                    </div>
+                    <div class="space-y-1.5">
+                        ${linksRows}
+                    </div>
+                </div>
+            `;
+        })()}
 
         ${historyHtml}
 
