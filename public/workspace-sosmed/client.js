@@ -2426,6 +2426,108 @@ function renderKeepTable() {
 }
 window.renderKeepTable = renderKeepTable;
 
+async function exportKeepDataXlsx() {
+  const rowsToExport = (typeof filteredKeepRows !== 'undefined' && filteredKeepRows.length > 0)
+    ? filteredKeepRows
+    : (typeof rawKeepRows !== 'undefined' ? rawKeepRows : []);
+
+  if (!rowsToExport || rowsToExport.length === 0) {
+    alert('Tidak ada data Format Keep yang dapat diexport.');
+    return;
+  }
+
+  const btn = document.getElementById('btnExportKeepXlsx');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><span class="size-3.5 rounded-full border-2 border-white border-t-transparent animate-spin"></span><span>Memproses...</span></span>';
+  }
+
+  try {
+    if (typeof XLSX === 'undefined') {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = '/workspace-sosmed/lib/xlsx.full.min.js';
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Library XLSX belum termuat.'));
+        document.head.appendChild(s);
+      });
+    }
+
+    const headers = [
+      'No', 'Tanggal Keep', 'Timestamp Keep', 'Nama Customer', 'Nomor WhatsApp',
+      'Barang Keep', 'Tanggal Ambil', 'Catatan Customer', 'Kode Sosmed', 'Cabang',
+      'Report No. AR', 'Nama Tim Follow Up', 'Nomor WhatsApp Tim FU', 'Status Follow Up',
+      'Feedback Tim Follow Up', 'Nama Grup WhatsApp', 'Nomor Sender'
+    ];
+
+    const data = [headers];
+
+    rowsToExport.forEach((r, idx) => {
+      const rawWA = String(r['Nomor WA'] || r['nomor_wa'] || '').replace(/'/g, '').trim();
+      const rawFUWA = String(r['Nomor FU'] || r['nomor_fu'] || r['Nomor Follow Up'] || '').replace(/'/g, '').trim();
+      const statusText = String(r['Status'] || r['status'] || 'UNASSIGN').toUpperCase();
+      const cab = String(r['Cabang'] || r['cabang'] || (r['Grup ID'] && typeof KEEP_GROUP_CABANG_MAP !== 'undefined' && KEEP_GROUP_CABANG_MAP[r['Grup ID']] ? KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang : '') || '-');
+
+      const phoneStr = rawWA ? (rawWA.startsWith('0') || rawWA.startsWith('62') ? "'" + rawWA : rawWA) : '-';
+      const fuPhoneStr = rawFUWA ? (rawFUWA.startsWith('0') || rawFUWA.startsWith('62') ? "'" + rawFUWA : rawFUWA) : '-';
+
+      data.push([
+        idx + 1,
+        r['Tanggal Keep'] || r['tanggal'] || (r['Timestamp'] ? String(r['Timestamp']).split(' ')[0] : '-'),
+        r['Timestamp'] || r['keep_timestamp'] || '-',
+        r['Nama'] || r['nama'] || '-',
+        phoneStr,
+        r['Barang Keep'] || r['barang_keep'] || '-',
+        r['Tanggal Ambil'] || r['tanggal_ambil'] || '-',
+        r['Catatan'] || r['catatan'] || '-',
+        r['Kode Sosmed'] || r['kode_sosmed'] || '-',
+        cab,
+        r['REPORT AR'] || r['report_ar'] || '-',
+        r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || '-',
+        fuPhoneStr,
+        statusText,
+        r['Feedback Tim FU'] || r['feedback'] || r['feedback_tim_fu'] || '-',
+        r['GRUP'] || r['grup'] || '-',
+        r['Nomor Sender'] || r['nomor_sender'] || '-'
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 15 }, { wch: 20 }, { wch: 24 }, { wch: 18 },
+      { wch: 34 }, { wch: 15 }, { wch: 30 }, { wch: 14 }, { wch: 15 },
+      { wch: 16 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 30 },
+      { wch: 24 }, { wch: 18 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Format Keep Customer');
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    const filterStatus = (document.getElementById('keepFilterStatus')?.value || 'ALL').replace(/[^A-Za-z0-9]/g, '_');
+    const filename = `Format_Keep_Customer_${filterStatus}_${dateStr}.xlsx`;
+
+    XLSX.writeFile(wb, filename);
+
+    if (typeof showToast === 'function') {
+      showToast(`✅ Berhasil mendownload ${rowsToExport.length} data Format Keep ke Excel!`, 'success');
+    } else {
+      alert(`✅ Berhasil mendownload ${rowsToExport.length} data Format Keep ke Excel!`);
+    }
+  } catch (err) {
+    console.error('Export Excel error:', err);
+    alert('Gagal membuat file Excel: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  }
+}
+window.exportKeepDataXlsx = exportKeepDataXlsx;
+
 async function syncLiveKeepData() {
   const btn = document.getElementById('btnSyncKeepData');
   const headerBtn = document.getElementById('headerBtnSyncSheets');

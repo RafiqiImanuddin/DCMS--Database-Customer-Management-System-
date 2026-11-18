@@ -13,6 +13,18 @@
                 </div>
                 <h1 class="mt-1 text-2xl font-black text-slate-900">Format Keep Customer</h1>
             </div>
+
+            <!-- Export XLSX Button -->
+            <div class="flex items-center gap-2">
+                <button type="button" 
+                        onclick="exportKeepDataXlsx()" 
+                        id="btnExportKeepXlsx" 
+                        class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-2.5 text-xs font-bold shadow-sm shadow-emerald-600/20 transition cursor-pointer"
+                        title="Export data Format Keep yang tampil ke file Excel (.xlsx)">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    <span>Export Excel (.xlsx)</span>
+                </button>
+            </div>
         </div>
 
         <!-- 2. Metric Cards: Color Palette & Border-L Selaras Customer & Outreach (Clickable Filters) -->
@@ -206,4 +218,146 @@
         </section>
     </div>
 </section>
+
+<script>
+async function ensureSheetJsLoaded() {
+    if (typeof XLSX !== 'undefined') return true;
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '/workspace-sosmed/lib/xlsx.full.min.js';
+        script.onload = () => resolve(true);
+        script.onerror = () => {
+            const cdn = document.createElement('script');
+            cdn.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+            cdn.onload = () => resolve(true);
+            cdn.onerror = () => reject(new Error('Gagal memuat library Excel (XLSX).'));
+            document.head.appendChild(cdn);
+        };
+        document.head.appendChild(script);
+    });
+}
+
+async function exportKeepDataXlsx() {
+    const rowsToExport = (typeof filteredKeepRows !== 'undefined' && filteredKeepRows.length > 0)
+        ? filteredKeepRows
+        : (typeof rawKeepRows !== 'undefined' ? rawKeepRows : []);
+
+    if (!rowsToExport || rowsToExport.length === 0) {
+        alert('Tidak ada data Format Keep yang dapat diexport saat ini.');
+        return;
+    }
+
+    const btn = document.getElementById('btnExportKeepXlsx');
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><span class="size-3.5 rounded-full border-2 border-white border-t-transparent animate-spin"></span><span>Memproses...</span></span>';
+    }
+
+    try {
+        await ensureSheetJsLoaded();
+
+        const headers = [
+            'No',
+            'Tanggal Keep',
+            'Timestamp Keep',
+            'Nama Customer',
+            'Nomor WhatsApp',
+            'Barang Keep',
+            'Tanggal Ambil',
+            'Catatan Customer',
+            'Kode Sosmed',
+            'Cabang',
+            'Report No. AR',
+            'Nama Tim Follow Up',
+            'Nomor WhatsApp Tim FU',
+            'Status Follow Up',
+            'Feedback Tim Follow Up',
+            'Nama Grup WhatsApp',
+            'Nomor Sender'
+        ];
+
+        const data = [headers];
+
+        rowsToExport.forEach((r, idx) => {
+            const rawWA = String(r['Nomor WA'] || r['nomor_wa'] || '').replace(/'/g, '').trim();
+            const rawFUWA = String(r['Nomor FU'] || r['nomor_fu'] || r['Nomor Follow Up'] || '').replace(/'/g, '').trim();
+            const statusText = String(r['Status'] || r['status'] || 'UNASSIGN').toUpperCase();
+            const cab = String(r['Cabang'] || r['cabang'] || (r['Grup ID'] && typeof KEEP_GROUP_CABANG_MAP !== 'undefined' && KEEP_GROUP_CABANG_MAP[r['Grup ID']] ? KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang : '') || '-');
+
+            // Format phone with leading single quote so Excel displays full numbers properly
+            const phoneStr = rawWA ? (rawWA.startsWith('0') || rawWA.startsWith('62') ? "'" + rawWA : rawWA) : '-';
+            const fuPhoneStr = rawFUWA ? (rawFUWA.startsWith('0') || rawFUWA.startsWith('62') ? "'" + rawFUWA : rawFUWA) : '-';
+
+            data.push([
+                idx + 1,
+                r['Tanggal Keep'] || r['tanggal'] || (r['Timestamp'] ? String(r['Timestamp']).split(' ')[0] : '-'),
+                r['Timestamp'] || r['keep_timestamp'] || '-',
+                r['Nama'] || r['nama'] || '-',
+                phoneStr,
+                r['Barang Keep'] || r['barang_keep'] || '-',
+                r['Tanggal Ambil'] || r['tanggal_ambil'] || '-',
+                r['Catatan'] || r['catatan'] || '-',
+                r['Kode Sosmed'] || r['kode_sosmed'] || '-',
+                cab,
+                r['REPORT AR'] || r['report_ar'] || '-',
+                r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || '-',
+                fuPhoneStr,
+                statusText,
+                r['Feedback Tim FU'] || r['feedback'] || r['feedback_tim_fu'] || '-',
+                r['GRUP'] || r['grup'] || '-',
+                r['Nomor Sender'] || r['nomor_sender'] || '-'
+            ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Styling: Lebar kolom terukur rapi
+        ws['!cols'] = [
+            { wch: 6 },  // No
+            { wch: 15 }, // Tanggal Keep
+            { wch: 20 }, // Timestamp Keep
+            { wch: 24 }, // Nama Customer
+            { wch: 18 }, // Nomor WhatsApp
+            { wch: 34 }, // Barang Keep
+            { wch: 15 }, // Tanggal Ambil
+            { wch: 30 }, // Catatan Customer
+            { wch: 14 }, // Kode Sosmed
+            { wch: 15 }, // Cabang
+            { wch: 16 }, // Report No. AR
+            { wch: 22 }, // Nama Tim Follow Up
+            { wch: 18 }, // Nomor WhatsApp Tim FU
+            { wch: 18 }, // Status Follow Up
+            { wch: 30 }, // Feedback Tim Follow Up
+            { wch: 24 }, // Nama Grup WhatsApp
+            { wch: 18 }  // Nomor Sender
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Format Keep Customer');
+
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10);
+        const filterStatus = (document.getElementById('keepFilterStatus')?.value || 'ALL').replace(/[^A-Za-z0-9]/g, '_');
+        const filename = `Format_Keep_Customer_${filterStatus}_${dateStr}.xlsx`;
+
+        XLSX.writeFile(wb, filename);
+
+        if (typeof showToast === 'function') {
+            showToast(`✅ Berhasil mendownload ${rowsToExport.length} data Format Keep ke Excel!`, 'success');
+        } else {
+            alert(`✅ Berhasil mendownload ${rowsToExport.length} data Format Keep ke file Excel (${filename})!`);
+        }
+    } catch (err) {
+        console.error('Error export XLSX:', err);
+        alert('Gagal mengekspor file Excel: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+}
+window.exportKeepDataXlsx = exportKeepDataXlsx;
+</script>
 
