@@ -157,6 +157,65 @@ class WatzapService
     }
 
     /**
+     * Ambil data Live Log dan Status Cron dari server Render Baileys Bot.
+     *
+     * @return array
+     */
+    public function getBaileysLogs(): array
+    {
+        $baileysUrl = $this->getBaileysUrl();
+        $apiKey = $this->getBaileysApiKey();
+
+        try {
+            $res = Http::timeout(6)
+                ->withHeaders(['X-Api-Key' => $apiKey])
+                ->get("{$baileysUrl}/api/logs");
+
+            if ($res->ok()) {
+                $data = $res->json();
+                return [
+                    'online' => true,
+                    'server_url' => $baileysUrl,
+                    'server_time' => $data['server_time'] ?? now()->toIso8601String(),
+                    'server_time_wita' => $data['server_time_wita'] ?? now()->format('H:i:s') . ' WITA',
+                    'uptime_seconds' => $data['uptime_seconds'] ?? 0,
+                    'uptime_formatted' => $data['uptime_formatted'] ?? '0 menit',
+                    'connection_state' => $data['connection_state'] ?? 'UNKNOWN',
+                    'bot_phone' => $data['bot_phone'] ?? null,
+                    'bot_name' => $data['bot_name'] ?? 'Bot Gadgetmart Sosmed',
+                    'has_qr' => ! empty($data['has_qr']),
+                    'cron_stats' => $data['cron_stats'] ?? [
+                        'interval' => '5 Menit',
+                        'total_runs' => 0,
+                        'successful_runs' => 0,
+                        'failed_runs' => 0,
+                        'last_run_time' => null,
+                        'last_status' => 'UNKNOWN',
+                        'last_message' => 'Belum ada data',
+                    ],
+                    'logs' => $data['logs'] ?? [],
+                    'reaction_logs' => $data['reaction_logs'] ?? [],
+                    'message' => 'Log realtime berhasil dimuat dari server Render.',
+                ];
+            }
+
+            return [
+                'online' => false,
+                'server_url' => $baileysUrl,
+                'message' => 'Server Render merespon status HTTP ' . $res->status(),
+                'logs' => [],
+            ];
+        } catch (Throwable $e) {
+            return [
+                'online' => false,
+                'server_url' => $baileysUrl,
+                'message' => 'Tidak dapat menghubungi server Render: ' . $e->getMessage(),
+                'logs' => [],
+            ];
+        }
+    }
+
+    /**
      * Mereset sesi Baileys: membersihkan auth cadangan di database DCMS & memicu
      * endpoint reset di server Baileys (Render) agar generate QR code baru untuk nomor baru.
      */

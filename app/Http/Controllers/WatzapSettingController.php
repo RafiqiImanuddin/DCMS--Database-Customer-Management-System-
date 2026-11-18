@@ -131,4 +131,62 @@ class WatzapSettingController extends Controller
 
         return response()->json($result, $result['success'] ? 200 : 500);
     }
+
+    /**
+     * Tampilan Menu "Log Render Baileys" di Pengaturan.
+     */
+    public function baileysLogs(Request $request, WatzapService $watzap): View
+    {
+        abort_unless($request->user()->canAccessFeature('watzap_settings') || $request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $logsData = $watzap->getBaileysLogs();
+        $isSuperAdmin = $request->user()->isSuperAdmin();
+
+        return view('settings.baileys-logs', [
+            'logsData' => $logsData,
+            'isSuperAdmin' => $isSuperAdmin,
+            'baileysBotUrl' => $watzap->getBaileysUrl(),
+        ]);
+    }
+
+    /**
+     * AJAX endpoint untuk fetch live logs data secara realtime.
+     */
+    public function baileysLogsData(Request $request, WatzapService $watzap): JsonResponse
+    {
+        abort_unless($request->user()->canAccessFeature('watzap_settings') || $request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        $logsData = $watzap->getBaileysLogs();
+
+        return response()->json($logsData);
+    }
+
+    /**
+     * AJAX endpoint pemicu instan (Manual Trigger) Cron Follow-Up H+1.
+     */
+    public function triggerCron(Request $request, \App\Services\KeepAutoFollowUpService $service): JsonResponse
+    {
+        abort_unless($request->user()->canAccessFeature('watzap_settings') || $request->user()->isSuperAdmin(), 403, 'Akses terbatas.');
+
+        if ($request->user()->isGuest()) {
+            return response()->json(['success' => false, 'message' => 'Akun Guest tidak diizinkan memicu cron.'], 403);
+        }
+
+        try {
+            @set_time_limit(300);
+            $results = $service->sendStrict24hAlerts(force: $request->boolean('force', false));
+
+            return response()->json([
+                'success' => true,
+                'message' => $results['message'] ?? 'Cron berhasil dipicu.',
+                'data' => $results,
+                'executed_at' => now()->format('d/m/Y H:i:s') . ' WITA',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memicu cron: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

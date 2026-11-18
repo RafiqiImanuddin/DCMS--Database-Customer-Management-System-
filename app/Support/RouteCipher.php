@@ -85,6 +85,10 @@ class RouteCipher
             'controller' => \App\Http\Controllers\WatzapSettingController::class,
             'method' => 'index',
         ],
+        'settings.baileys_logs.index' => [
+            'controller' => \App\Http\Controllers\WatzapSettingController::class,
+            'method' => 'baileysLogs',
+        ],
         'settings.karyawan.index' => [
             'controller' => \App\Http\Controllers\EmployeeSettingController::class,
             'method' => 'index',
@@ -161,6 +165,7 @@ class RouteCipher
         'f75c-eb16-c76b' => ['route' => 'guidance.index', 'params' => []],
         '72a4-239c-bc58' => ['route' => 'imports.index', 'params' => []],
         '5938-494d-edc4' => ['route' => 'settings.watzap.index', 'params' => []],
+        '8e4b-91c2-7f30' => ['route' => 'settings.baileys_logs.index', 'params' => []],
         '431f-17a4-4ae5' => ['route' => 'settings.karyawan.index', 'params' => []],
         '713e-bc6c-5ff4' => ['route' => 'settings.karyawan.index', 'params' => ['tab' => 'monthly_targets']],
         '23dc-bdeb-6b25' => ['route' => 'settings.users.index', 'params' => []],
@@ -401,6 +406,7 @@ class RouteCipher
         if ($request->routeIs('settings.karyawan.*')) return 'settings.karyawan.index';
         if ($request->routeIs('settings.users.*')) return 'settings.users.index';
         if ($request->routeIs('settings.watzap.*', 'whatsapp.*')) return 'settings.watzap.index';
+        if ($request->routeIs('settings.baileys_logs.*')) return 'settings.baileys_logs.index';
         if ($request->routeIs('profile.*')) return 'profile.edit';
         if ($request->routeIs('workspace-sosmed.*')) return 'workspace-sosmed.index';
 

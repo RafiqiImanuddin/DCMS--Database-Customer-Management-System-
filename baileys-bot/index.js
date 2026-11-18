@@ -85,6 +85,36 @@ function saveRawMessage(id, message) {
 const reactionLogs = [];
 const MAX_LOGS = 40;
 
+// Riwayat log runtime terpadu (Cron Scheduler, Reaksi, Pesan Keluar, Event Sistem)
+const runtimeLogs = [];
+const MAX_RUNTIME_LOGS = 120;
+
+const cronStats = {
+  interval: '5 Menit',
+  total_runs: 0,
+  successful_runs: 0,
+  failed_runs: 0,
+  last_run_time: null,
+  last_status: 'INITIALIZING',
+  last_message: 'Menunggu inisialisasi socket Baileys'
+};
+
+function addRuntimeLog(type, level, message, detail = null) {
+  const entry = {
+    id: Date.now() + Math.random().toString(36).substring(2, 6),
+    time: new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Makassar', hour12: false }) + ' WITA',
+    timestamp: new Date().toISOString(),
+    type,   // 'CRON', 'REACTION', 'SEND', 'SYSTEM', 'AUTH'
+    level,  // 'SUCCESS', 'INFO', 'WARN', 'ERROR'
+    message,
+    detail
+  };
+  runtimeLogs.unshift(entry);
+  if (runtimeLogs.length > MAX_RUNTIME_LOGS) {
+    runtimeLogs.pop();
+  }
+}
+
 function addReactionLog(log) {
   reactionLogs.unshift({
     id: Date.now() + Math.random().toString(36).substring(2, 6),
@@ -94,6 +124,9 @@ function addReactionLog(log) {
   if (reactionLogs.length > MAX_LOGS) {
     reactionLogs.pop();
   }
+
+  // Rekam juga ke runtime log ringkas
+  addRuntimeLog('REACTION', 'SUCCESS', `Format Keep di-claim oleh ${log.salesName || 'PIC'} (${log.emoji || '👍'})`, `Grup: ${log.groupName || log.groupId || '-'}`);
 }
 
 // ==============================================================================
@@ -372,6 +405,7 @@ async function startBaileysSocket() {
       currentQR = await qrcode.toDataURL(qr, { margin: 2, scale: 7 });
       connectionState = 'WAITING_QR';
       logger.info('Kode QR baru dihasilkan, siap di-scan.');
+      addRuntimeLog('AUTH', 'INFO', 'Kode QR baru dihasilkan, siap di-scan pada dashboard.');
     }
 
     if (connection === 'close') {
@@ -385,6 +419,7 @@ async function startBaileysSocket() {
       connectionState = 'DISCONNECTED';
 
       logger.warn(`Koneksi terputus (Status: ${statusCode}). Reset Auth: ${shouldResetAuth}`);
+      addRuntimeLog('AUTH', 'WARN', `Koneksi WhatsApp terputus (Status HTTP: ${statusCode || 'Unknown'})`, `Reset Auth: ${shouldResetAuth ? 'YES' : 'NO'}`);
 
       if (shouldResetAuth) {
         logger.error(`Akun telah Logout atau Disuspend WhatsApp (Status: ${statusCode}). Mereset sesi dan menyiapkan QR baru...`);
@@ -401,6 +436,7 @@ async function startBaileysSocket() {
       currentPairingCode = null;
       connectedUser = sock.user;
       logger.info(`✅ Baileys Berhasil Terhubung! Akun: ${sock.user.id.split(':')[0]} (${sock.user.name || 'Bot'})`);
+      addRuntimeLog('AUTH', 'SUCCESS', `Baileys Berhasil Terhubung: ${sock.user.id.split(':')[0]} (${sock.user.name || 'Bot'})`);
       addReactionLog({
         type: 'SYSTEM',
         group: 'GLOBAL',
@@ -971,6 +1007,29 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Endpoint Live Logs untuk Tampilan Dashboard DCMS (Log Render Baileys)
+app.get('/api/logs', (req, res) => {
+  const botPhone = connectedUser?.id ? connectedUser.id.split(':')[0].replace(/\D/g, '') : null;
+  const uptimeSec = Math.round(process.uptime());
+  const hours = Math.floor(uptimeSec / 3600);
+  const minutes = Math.floor((uptimeSec % 3600) / 60);
+
+  res.json({
+    success: true,
+    server_time: new Date().toISOString(),
+    server_time_wita: new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Makassar', hour12: false }) + ' WITA',
+    uptime_seconds: uptimeSec,
+    uptime_formatted: `${hours} jam ${minutes} menit`,
+    connection_state: connectionState,
+    bot_phone: botPhone,
+    bot_name: connectedUser?.name || 'Bot Gadgetmart Sosmed',
+    has_qr: Boolean(currentQR),
+    cron_stats: cronStats,
+    logs: runtimeLogs,
+    reaction_logs: reactionLogs.slice(0, 30)
+  });
+});
+
 // Endpoint Reset Sesi & Request Fresh QR (Dipanggil dari DCMS saat nomor ganti atau disuspend)
 app.post('/api/reset', async (req, res) => {
   const apiKey = req.headers['x-api-key'] || req.query.api_key || req.body?.api_key;
@@ -1465,15 +1524,31 @@ let isCronRunning = false;
 async function triggerDcmsAutoFuCron() {
   if (isCronRunning) return;
   isCronRunning = true;
+  cronStats.total_runs++;
+  cronStats.last_run_time = new Date().toISOString();
 
   try {
     const res = await axios.get(DCMS_CRON_URL, { timeout: 45000 });
     if (res.data && res.data.success) {
+      cronStats.successful_runs++;
+      cronStats.last_status = 'SUCCESS';
+      cronStats.last_message = res.data.message || 'Selesai memproses antrean follow-up 24 jam.';
+
+      const outSummary = res.data.output ? res.data.output.replace(/[\r\n]+/g, ' | ').trim() : '';
+      addRuntimeLog('CRON', 'SUCCESS', `Trigger Cron H+1 Sukses: ${res.data.message || 'OK'}`, outSummary || 'Tidak ada data jatuh tempo');
       logger.info(`[Render Cron Scheduler] DCMS Auto Follow-Up H+1 sukses dijalankan (${res.data.time || new Date().toISOString()})`);
     } else {
+      cronStats.failed_runs++;
+      cronStats.last_status = 'WARNING';
+      cronStats.last_message = res.data?.message || 'Respon tanpa status sukses';
+      addRuntimeLog('CRON', 'WARN', `Trigger Cron H+1 Direspon: ${res.data?.message || 'Status unknown'}`);
       logger.warn(`[Render Cron Scheduler] Respon DCMS: ${res.data?.message || 'Unknown'}`);
     }
   } catch (err) {
+    cronStats.failed_runs++;
+    cronStats.last_status = 'ERROR';
+    cronStats.last_message = err.message;
+    addRuntimeLog('CRON', 'ERROR', `Gagal Menghubungi DCMS Cron: ${err.message}`, `Target URL: ${DCMS_CRON_URL}`);
     logger.warn(`[Render Cron Scheduler] Gagal panggil cron DCMS (${DCMS_CRON_URL}): ${err.message}`);
   } finally {
     isCronRunning = false;
