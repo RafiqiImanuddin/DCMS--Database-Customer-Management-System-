@@ -38,6 +38,12 @@ const DCMS_SESSION_URL = process.env.DCMS_SESSION_URL ||
     ? DCMS_WEBHOOK_URL.replace('fonnte-webhook', 'baileys-session') 
     : 'https://dcms-sosmed.my.id/api/baileys-session');
 const DCMS_API_KEY = process.env.DCMS_API_KEY || 'dcms2026';
+const DCMS_BASE_URL = process.env.DCMS_BASE_URL || (
+  DCMS_WEBHOOK_URL.includes('/api/') 
+    ? DCMS_WEBHOOK_URL.split('/api/')[0] 
+    : 'https://dcms-sosmed.my.id'
+);
+const DCMS_CRON_URL = process.env.DCMS_CRON_URL || `${DCMS_BASE_URL}/system/cron-run?key=${DCMS_API_KEY}`;
 const TARGET_GROUPS = (process.env.TARGET_GROUPS || '')
   .split(',')
   .map(g => g.trim())
@@ -1450,6 +1456,33 @@ if (RENDER_EXTERNAL_URL) {
     }
   }, 10 * 60 * 1000); // Setiap 10 menit
 }
+
+// ==============================================================================
+// 7. AUTO CRON SCHEDULER UNTUK DCMS FOLLOW-UP H+1 STRICT 24 JAM
+// ==============================================================================
+let isCronRunning = false;
+
+async function triggerDcmsAutoFuCron() {
+  if (isCronRunning) return;
+  isCronRunning = true;
+
+  try {
+    const res = await axios.get(DCMS_CRON_URL, { timeout: 45000 });
+    if (res.data && res.data.success) {
+      logger.info(`[Render Cron Scheduler] DCMS Auto Follow-Up H+1 sukses dijalankan (${res.data.time || new Date().toISOString()})`);
+    } else {
+      logger.warn(`[Render Cron Scheduler] Respon DCMS: ${res.data?.message || 'Unknown'}`);
+    }
+  } catch (err) {
+    logger.warn(`[Render Cron Scheduler] Gagal panggil cron DCMS (${DCMS_CRON_URL}): ${err.message}`);
+  } finally {
+    isCronRunning = false;
+  }
+}
+
+// Jalankan pertama kali 30 detik setelah bot start, lalu berkala setiap 5 menit
+setTimeout(triggerDcmsAutoFuCron, 30 * 1000);
+setInterval(triggerDcmsAutoFuCron, 5 * 60 * 1000);
 
 // Start Server
 app.listen(PORT, () => {
