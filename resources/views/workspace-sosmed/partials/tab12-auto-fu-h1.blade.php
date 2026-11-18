@@ -665,10 +665,10 @@
                 <div class="space-y-2">
                     <div class="flex items-center justify-between text-xs font-bold">
                         <span id="fu12ProgressCounter" class="text-slate-700">Memulai pengiriman...</span>
-                        <span id="fu12ProgressPercent" class="text-teal-600 font-mono">0%</span>
+                        <span id="fu12ProgressPercent" class="text-teal-600 font-mono" style="color: #0d9488;">0%</span>
                     </div>
-                    <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
-                        <div id="fu12ProgressBar" class="bg-gradient-to-r from-teal-500 to-emerald-500 h-full rounded-full transition-all duration-300 w-0"></div>
+                    <div class="w-full rounded-full h-3.5 overflow-hidden border p-0.5" style="background-color: #f1f5f9; border-color: #cbd5e1;">
+                        <div id="fu12ProgressBar" class="h-full rounded-full transition-all duration-300" style="width: 0%; background: linear-gradient(90deg, #0d9488 0%, #10b981 100%); box-shadow: 0 1px 3px rgba(16, 185, 129, 0.4);"></div>
                     </div>
                 </div>
 

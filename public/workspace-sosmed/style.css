@@ -6162,6 +6162,12 @@ body.tab9-mode-active #tabContent9.active {
   box-shadow: 0 1px 2px rgba(67, 56, 202, 0.05);
 }
 
+#fu12ProgressBar {
+  background: linear-gradient(90deg, #0d9488 0%, #10b981 100%) !important;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.4) !important;
+  min-height: 100%;
+}
+
 .omni-card-time {
   font-size: 0.68rem;
   color: #64748b;
