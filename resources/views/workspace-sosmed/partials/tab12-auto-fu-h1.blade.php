@@ -79,7 +79,7 @@
                            onfocus="this.removeAttribute('readonly');" 
                            placeholder="Cari PIC, Customer, Barang..." 
                            class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-1.5 text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:outline-none transition" 
-                           oninput="toggleFu12ClearBtn(); applyAutoFuFilter()">
+                           oninput="toggleFu12ClearBtn(); if(window.debouncedApplyAutoFuFilter){window.debouncedApplyAutoFuFilter();}else if(window.applyAutoFuFilter){applyAutoFuFilter();}">
                     <button type="button" 
                             id="btnFu12ClearSearch" 
                             onclick="clearFu12Search()" 

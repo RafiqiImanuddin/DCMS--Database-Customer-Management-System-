@@ -2704,6 +2704,29 @@ function updateKeepActiveCardStyle(currentStatus) {
   }
 }
 
+// =========================================================================
+// FRONTEND PERFORMANCE OPTIMIZATION: UNIVERSAL DEBOUNCE
+// =========================================================================
+function dcmsDebounce(func, wait = 250) {
+  let timeout;
+  return function(...args) {
+    const context = this;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(context, args), wait);
+  };
+}
+window.dcmsDebounce = dcmsDebounce;
+
+const debouncedApplyKeepFilters = dcmsDebounce(() => {
+  if (typeof applyKeepFilters === 'function') applyKeepFilters();
+}, 250);
+window.debouncedApplyKeepFilters = debouncedApplyKeepFilters;
+
+const debouncedApplyAutoFuFilter = dcmsDebounce(() => {
+  if (typeof applyAutoFuFilter === 'function') applyAutoFuFilter();
+}, 250);
+window.debouncedApplyAutoFuFilter = debouncedApplyAutoFuFilter;
+
 function applyKeepFilters() {
   if (!rawKeepRows || rawKeepRows.length === 0) return;
 
@@ -5285,15 +5308,39 @@ async function pollLatestKeepData() {
 }
 window.pollLatestKeepData = pollLatestKeepData;
 
-function startKeepRealtimePolling() {
+function startKeepRealtimePolling(intervalMs = 3000) {
   if (keepRealtimePollingInterval) {
     clearInterval(keepRealtimePollingInterval);
   }
-  // Polling setiap 3 detik
-  keepRealtimePollingInterval = setInterval(pollLatestKeepData, 3000);
-  console.log('⚡ Keep Realtime Polling Engine aktif (Interval 3 detik)');
+  // Polling setiap 3 detik saat tab aktif
+  keepRealtimePollingInterval = setInterval(pollLatestKeepData, intervalMs);
+  console.log(`⚡ Keep Realtime Polling Engine aktif (Interval ${intervalMs / 1000} detik)`);
 }
 window.startKeepRealtimePolling = startKeepRealtimePolling;
+
+// Page Visibility API: Smart Polling untuk hemat CPU server & baterai client saat tab di-minimize/background
+if (typeof document !== 'undefined' && !window._keepVisibilityListenerRegistered) {
+  window._keepVisibilityListenerRegistered = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Tab di background: polling diperlambat ke 45 detik
+      if (keepRealtimePollingInterval) clearInterval(keepRealtimePollingInterval);
+      keepRealtimePollingInterval = setInterval(pollLatestKeepData, 45000);
+      if (typeof syncEngineInterval !== 'undefined' && syncEngineInterval) {
+        clearInterval(syncEngineInterval);
+        syncEngineInterval = setInterval(pollServerSyncStatus, 60000);
+      }
+    } else {
+      // Tab kembali aktif dilihat: langsung fetch seketika dan kembalikan interval normal
+      startKeepRealtimePolling(3000);
+      if (typeof pollLatestKeepData === 'function') pollLatestKeepData();
+      if (typeof syncEngineInterval !== 'undefined' && syncEngineInterval) {
+        clearInterval(syncEngineInterval);
+        syncEngineInterval = setInterval(pollServerSyncStatus, 10000);
+      }
+    }
+  });
+}
 
 async function saveKeepFeedbackInline(inputEl, rawWA, keepRowIdx) {
   if (!inputEl) return;
