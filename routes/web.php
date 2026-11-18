@@ -167,7 +167,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // Workspace Sosmed API Endpoints (REPORT Engine)
-$registerSosmedApiRoutes = function () {
+Route::prefix('api')->group(function () {
     Route::get('/database-status', [WorkspaceSosmedController::class, 'databaseStatus'])->name('api.sosmed.database_status');
     Route::get('/workspace-settings', [WorkspaceSosmedController::class, 'workspaceSettings'])->name('api.sosmed.workspace_settings');
     Route::match(['get', 'post'], '/monthly-targets', [WorkspaceSosmedController::class, 'monthlyTargets'])->name('api.sosmed.monthly_targets');
@@ -177,17 +177,11 @@ $registerSosmedApiRoutes = function () {
     Route::match(['get', 'post'], '/update-keep-status', [WorkspaceSosmedController::class, 'updateKeepStatus'])->name('api.sosmed.update_keep_status');
     Route::match(['get', 'post'], '/update-report-ar', [WorkspaceSosmedController::class, 'updateReportAr'])->name('api.sosmed.update_report_ar');
     Route::match(['get', 'post'], '/assign-keep-fu', [WorkspaceSosmedController::class, 'assignKeepFU'])->name('api.sosmed.assign_keep_fu');
-    Route::match(['get', 'post'], '/api/assign-keep-fu', [WorkspaceSosmedController::class, 'assignKeepFU'])->name('api.sosmed.assign_keep_fu_alias');
     Route::match(['get', 'post', 'delete'], '/delete-keep', [WorkspaceSosmedController::class, 'deleteKeep'])->name('api.sosmed.delete_keep');
-    Route::match(['get', 'post', 'delete'], '/api/delete-keep', [WorkspaceSosmedController::class, 'deleteKeep'])->name('api.sosmed.delete_keep_alias');
     Route::match(['get', 'post'], '/toggle-keep-delete', [WorkspaceSosmedController::class, 'toggleKeepDeleteFeature'])->name('api.sosmed.toggle_keep_delete');
-    Route::match(['get', 'post'], '/api/toggle-keep-delete', [WorkspaceSosmedController::class, 'toggleKeepDeleteFeature'])->name('api.sosmed.toggle_keep_delete_alias');
-    Route::match(['get', 'post'], '/webhook/fonnte-keep', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.sosmed.webhook_fonnte_keep');
     Route::match(['get', 'post'], '/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook');
-    Route::match(['get', 'post'], '/api/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle'])->name('api.fonnte_webhook_alias');
     Route::get('/sosmed-keeps', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getKeeps'])->name('api.sosmed.get_keeps');
     Route::get('/sosmed-keeps/latest', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getLatestKeeps'])->name('api.sosmed.get_latest_keeps');
-    Route::get('/api/sosmed-keeps/latest', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'getLatestKeeps'])->name('api.sosmed.get_latest_keeps_alias');
     Route::post('/chat-ai', [WorkspaceSosmedController::class, 'chatAi'])->name('api.sosmed.chat_ai');
     Route::post('/watzap-send', [WorkspaceSosmedController::class, 'watzapSend'])->name('api.sosmed.watzap_send');
     Route::post('/watzap-subscribe', [WorkspaceSosmedController::class, 'watzapSubscribe'])->name('api.sosmed.watzap_subscribe');
@@ -210,14 +204,12 @@ $registerSosmedApiRoutes = function () {
     Route::post('/auto-fu-h1/settings', [WorkspaceSosmedController::class, 'autoFuH1SaveSettings'])->name('api.sosmed.auto_fu_h1_save_settings');
     Route::get('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.index');
     Route::delete('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.clear');
-};
+});
 
-Route::prefix('api')->group($registerSosmedApiRoutes);
-$registerSosmedApiRoutes();
-
-// Direct notification endpoint for global navbar
-Route::get('/api/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.direct_index');
-Route::delete('/api/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.direct_clear');
+// Backward compatibility alias jika dipanggil langsung tanpa prefix /api
+Route::match(['get', 'post'], '/watzap-webhook', [WorkspaceSosmedController::class, 'watzapWebhook']);
+Route::match(['get', 'post'], '/fonnte-webhook', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle']);
+Route::match(['get', 'post'], '/webhook/fonnte-keep', [\App\Http\Controllers\Api\SosmedKeepWebhookController::class, 'handle']);
 
 // Route Helper untuk migrasi database & clear cache via browser (solusi cPanel tanpa Terminal)
 Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
