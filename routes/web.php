@@ -268,6 +268,11 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
                 }
             }
             $actionOutput = "Berhasil membersihkan {$deletedCount} baris data keep duplikat!\nData keep yang memiliki status aktif (On Progress / Win) dan nomor follow up tetap dipertahankan.";
+        } elseif ($action === 'cron' || $action === 'auto-fu-h1') {
+            $actionTitle = 'EKSEKUSI CRON AUTO FOLLOW-UP H+1 STRICT 24 JAM';
+            @set_time_limit(300);
+            \Illuminate\Support\Facades\Artisan::call('keep:send-auto-fu-h1');
+            $actionOutput = \Illuminate\Support\Facades\Artisan::output() ?: "Tidak ada format keep yang jatuh tempo saat ini.";
         } else {
             \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
             $migrateOutput = \Illuminate\Support\Facades\Artisan::output();
@@ -302,7 +307,8 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
     <a href="?key=dcms2026&action=sync-google-sheet" style="background:#d97706; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🔄 3. Sinkronisasi Langsung dari Google Sheet</a>
     <a href="?key=dcms2026&action=match-cross-selling" style="background:#7c3aed; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🎯 4. Cocokkan Keep vs Cross-Selling</a>
     <a href="?key=dcms2026&action=clean-duplicate-keeps" style="background:#e11d48; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">🧹 5. Bersihkan Data Keep Duplikat</a>
-    <a href="?key=dcms2026&action=export-core" style="background:#4b5563; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📦 6. Generate Ulang Core Dump</a>
+    <a href="?key=dcms2026&action=auto-fu-h1" style="background:#0d9488; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">⏰ 6. Eksekusi Auto Follow-Up H+1 (Strict 24h)</a>
+    <a href="?key=dcms2026&action=export-core" style="background:#4b5563; color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px;">📦 7. Generate Ulang Core Dump</a>
 </div>
 HTML;
 
@@ -326,4 +332,28 @@ HTML;
             . '</div>', 500);
     }
 })->name('system.migrate');
+
+Route::get('/system/cron-run', function (\Illuminate\Http\Request $request) {
+    if ($request->query('key') !== 'dcms2026') {
+        return response()->json(['success' => false, 'message' => 'Akses ditolak. Parameter key salah.'], 403);
+    }
+
+    try {
+        @set_time_limit(300);
+        \Illuminate\Support\Facades\Artisan::call('keep:send-auto-fu-h1');
+        $output = \Illuminate\Support\Facades\Artisan::output();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cron Auto Follow-Up H+1 berhasil dijalankan.',
+            'time' => now()->toDateTimeString(),
+            'output' => $output,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage(),
+        ], 500);
+    }
+})->name('system.cron_run');
 
