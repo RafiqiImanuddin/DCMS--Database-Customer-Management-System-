@@ -35,55 +35,6 @@
                         <div><div class="text-sm font-bold text-slate-900">@yield('title')</div><div class="hidden text-xs text-slate-400 sm:block">DCMS - SOSMED</div></div>
                     </div>
                     <div class="flex items-center gap-2 sm:gap-3">
-                        <!-- Notification Bell & Auto-Sync Center -->
-                        <div class="relative" id="dcmsNotificationWrapper">
-                            <button type="button" id="dcmsNotificationBtn" onclick="window.toggleDcmsNotificationDropdown()" class="relative grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs cursor-pointer focus:outline-none" aria-label="Pusat Notifikasi & Auto-Sync" title="Pusat Notifikasi & Auto-Sync Google Sheets">
-                                <svg class="size-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                                </svg>
-                                <!-- Pulsing Notification Badge Indicator -->
-                                <span id="dcmsNotificationBadge" class="absolute -top-1 -right-1 flex size-3.5">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span class="relative inline-flex rounded-full size-3.5 bg-emerald-500 border-2 border-white"></span>
-                                </span>
-                            </button>
-
-                            <!-- Dropdown Panel (Modern Glassmorphism Card) -->
-                            <div id="dcmsNotificationMenu" class="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-4 z-[999999] hidden transition-all duration-200 transform origin-top-right scale-95 opacity-0">
-                                <!-- Header -->
-                                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                                    <div class="flex items-center gap-2.5">
-                                        <div class="size-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                                            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h4 class="text-xs font-black text-slate-900 tracking-tight">Pusat Notifikasi</h4>
-                                            <span class="text-[10px] text-slate-400 font-medium">Aktivitas & Pemberitahuan Sistem</span>
-                                        </div>
-                                    </div>
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        Realtime
-                                    </span>
-                                </div>
-
-                                <!-- Notification Activity Feed -->
-                                <div class="mt-3">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Notifikasi Aktivitas</span>
-                                        <button type="button" onclick="window.clearDcmsNotifications()" class="text-[10px] font-semibold text-slate-400 hover:text-rose-600 transition cursor-pointer">Bersihkan</button>
-                                    </div>
-                                    <div id="dcmsNotificationList" class="max-h-72 overflow-y-auto space-y-2 pr-1 custom-scrollbar text-xs">
-                                        <!-- Items will be dynamically inserted here -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
                             <button class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 17l5-5-5-5m5 5H3m11 9h4a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3h-4"/></svg><span class="hidden sm:inline">Keluar</span></button>
@@ -298,9 +249,6 @@
         @include('layouts.live-chat-widget')
     @endif
 
-    {{-- Floating Pop-up Toast Container (Pojok Kanan Atas) --}}
-    <div id="dcmsTopRightToastContainer" class="fixed top-5 right-5 z-[9999999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-full pointer-events-none pr-2"></div>
-
     {{-- Global Anti-Autofill Protection untuk Seluruh Kolom Pencarian DCMS --}}
     <script>
     (function initDcmsSearchAntiAutofill() {
@@ -390,9 +338,6 @@
         window.addEventListener('load', sanitizeBrowserUrl);
     })();
     </script>
-
-    {{-- DCMS Background Auto-Sync & Realtime Notification Script --}}
-    <script src="{{ asset('js/dcms-notification-sync.js') }}?v={{ file_exists(public_path('js/dcms-notification-sync.js')) ? filemtime(public_path('js/dcms-notification-sync.js')) : time() }}"></script>
 
 </body>
 </html>

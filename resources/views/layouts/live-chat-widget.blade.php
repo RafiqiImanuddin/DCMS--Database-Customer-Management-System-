@@ -716,10 +716,6 @@ body:has(#tabContent9.active) #dcmsLiveWidgetContainer {
 
         dcmsLwIsOpen = (typeof force === 'boolean') ? force : !dcmsLwIsOpen;
 
-        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-            Notification.requestPermission().catch(() => {});
-        }
-
         if (dcmsLwIsOpen) {
             win.style.display = 'flex';
             if (iconChat) iconChat.style.display = 'none';
@@ -874,72 +870,8 @@ body:has(#tabContent9.active) #dcmsLiveWidgetContainer {
     }
 
     function triggerDcmsLwPopup(msg) {
-        if (!msg) return;
-
-        const normPhone = normalizePhone(msg.phone);
-        const win = document.getElementById('dcmsLwWindow');
-        const isWinOpen = win && win.style.display === 'flex';
-
-        // Jika room chat dengan pengirim ini sedang dibuka langsung, jangan tampilkan popup agar tidak mengganggu
-        if (isWinOpen && dcmsLwActivePhone === normPhone) {
-            return;
-        }
-
-        dcmsLwLastPopupMsg = msg;
-
-        const popup = document.getElementById('dcmsLwNotifyPopup');
-        const senderEl = document.getElementById('dcmsLwNotifySender');
-        const textEl = document.getElementById('dcmsLwNotifyText');
-        const avatarEl = document.getElementById('dcmsLwNotifyAvatar');
-        const timeEl = document.getElementById('dcmsLwNotifyTime');
-        const progressEl = document.getElementById('dcmsLwNotifyProgress');
-        if (!popup) return;
-
-        const senderName = msg.senderName || ('PIC ' + (msg.phone || 'WhatsApp'));
-        const cleanMsg = (msg.message || (msg.media_type ? ('[' + msg.media_type.toUpperCase() + ' Foto/Dokumen]') : 'Pesan baru masuk'))
-            .replace(/[\r\n]+/g, ' ')
-            .replace(/[*_~`]/g, '');
-
-        if (senderEl) senderEl.innerText = senderName;
-        if (textEl) textEl.innerText = cleanMsg;
-        if (avatarEl) avatarEl.innerText = (senderName || 'WA').slice(0, 2).toUpperCase();
-        if (timeEl) timeEl.innerText = formatTime(msg.timestamp) || 'Baru saja';
-
-        // Sesuaikan posisi jika window chat sedang terbuka
-        if (isWinOpen) {
-            popup.style.right = '440px';
-        } else {
-            popup.style.right = '24px';
-        }
-
-        // Reset progress bar animation
-        if (progressEl) {
-            progressEl.style.animation = 'none';
-            void progressEl.offsetWidth; // trigger reflow
-            progressEl.style.animation = 'dcmsLwProgress 7s linear forwards';
-        }
-
-        popup.style.display = 'block';
-
-        // Auto close setelah 7 detik
-        if (dcmsLwPopupTimeout) clearTimeout(dcmsLwPopupTimeout);
-        dcmsLwPopupTimeout = setTimeout(() => {
-            closeDcmsLwNotifyPopup();
-        }, 7000);
-
-        // Web Notification browser jika diizinkan
-        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            try {
-                const notif = new Notification('Chat Masuk: ' + senderName, {
-                    body: cleanMsg,
-                    icon: '/favicon.ico'
-                });
-                notif.onclick = function() {
-                    window.focus();
-                    handleDcmsLwPopupClick();
-                };
-            } catch (e) {}
-        }
+        // Pop-up notifikasi chat masuk dinonaktifkan agar tampilan web lebih ringan dan bersih
+        return;
     }
 
     window.closeDcmsLwNotifyPopup = function(e) {
