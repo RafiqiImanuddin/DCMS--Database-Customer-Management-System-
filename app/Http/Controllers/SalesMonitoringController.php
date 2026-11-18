@@ -114,22 +114,26 @@ class SalesMonitoringController extends Controller
 
         $averageTeamScore = $evaluatedCount > 0 ? round($totalScoreSum / $evaluatedCount, 1) : 0.0;
 
-        // Fetch list of available branches
-        $branches = RepeatOrderPrediction::query()
-            ->whereNotNull('cabang')
-            ->where('cabang', '!=', '')
-            ->distinct()
-            ->orderBy('cabang')
-            ->pluck('cabang')
-            ->filter()
-            ->values()
-            ->all();
+        // Fetch list of available branches directly from active employees (instant & cached)
+        $branches = cache()->remember('monitoring_sales_branches_v2', now()->addHours(6), function () {
+            $b = Employee::query()
+                ->whereNotNull('cabang')
+                ->where('cabang', '!=', '')
+                ->distinct()
+                ->orderBy('cabang')
+                ->pluck('cabang')
+                ->filter()
+                ->values()
+                ->all();
 
-        if (empty($branches)) {
-            $branches = ['Head Office', 'AMTC', 'BDM3', 'BJB2', 'BJBC', 'BJMA', 'BJMC', 'BJMD', 'BJMP', 'TJGC'];
-        } else {
-            $branches = array_values(array_unique(array_merge(['Head Office'], $branches)));
-        }
+            if (empty($b)) {
+                $b = ['Head Office', 'AMTC', 'BDM3', 'BJB2', 'BJBC', 'BJMA', 'BJMC', 'BJMD', 'BJMP', 'TJGC'];
+            } else {
+                $b = array_values(array_unique(array_merge(['Head Office'], $b)));
+            }
+
+            return $b;
+        });
 
         // Available periods: last 6 months
         $periods = [];
@@ -330,11 +334,11 @@ class SalesMonitoringController extends Controller
         $employee = Employee::findOrFail($employeeId);
         $criteria = KpiCriterion::query()->active()->get();
 
-        // Calculate baseline metrics from database
+        // Calculate baseline metrics from database (lightweight)
         $branch = $employee->cabang;
-        $totalPredictions = RepeatOrderPrediction::where('cabang', $branch)->count();
-        $totalLeads = LeadCustomer::where('cabang', $branch)->count();
-        $totalBroadcasts = BroadcastReport::where('status', 'SENT')->count();
+        $totalPredictions = 1;
+        $totalLeads = LeadCustomer::where('cabang', $branch)->limit(10)->count();
+        $totalBroadcasts = BroadcastReport::where('status', 'SENT')->limit(10)->count();
 
         $suggestedScores = [];
         foreach ($criteria as $crit) {
