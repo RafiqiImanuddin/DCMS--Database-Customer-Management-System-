@@ -3554,11 +3554,39 @@ function filterKeepByBranch(branchName) {
 window.filterKeepByBranch = filterKeepByBranch;
 
 // =========================================================================
-// TAB 10: DEDICATED DASHBOARD TOP PERFORMANCE OLA / SLA CABANG
+// TAB 10: DEDICATED DASHBOARD TOP PERFORMANCE OLA / SLA CABANG & PIC
 // =========================================================================
 let tab10OlaChartInstance = null;
 let tab10DonutChartInstance = null;
 let currentTab10Scope = 'PERIOD';
+let currentTab10LeaderboardView = 'BRANCH'; // 'BRANCH' | 'PIC'
+
+function setTab10LeaderboardView(view) {
+  currentTab10LeaderboardView = view;
+  const btnBranch = document.getElementById('tab10BtnViewBranch');
+  const btnPic = document.getElementById('tab10BtnViewPic');
+  const branchWrapper = document.getElementById('tab10BranchTableWrapper');
+  const picWrapper = document.getElementById('tab10PicTableWrapper');
+  const titleEl = document.getElementById('tab10LeaderboardTitle');
+  const subtitleEl = document.getElementById('tab10LeaderboardSubtitle');
+
+  if (view === 'PIC') {
+    if (btnPic) btnPic.className = 'rounded-lg px-3 py-1.5 text-xs font-bold transition bg-white text-brand-700 shadow-xs cursor-pointer';
+    if (btnBranch) btnBranch.className = 'rounded-lg px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-800 cursor-pointer';
+    if (branchWrapper) branchWrapper.classList.add('hidden');
+    if (picWrapper) picWrapper.classList.remove('hidden');
+    if (titleEl) titleEl.innerHTML = '👤 Leaderboard Disiplin &amp; Performa PIC Cabang';
+    if (subtitleEl) subtitleEl.innerText = 'Rincian kecepatan respon follow up keep (≤15 menit) & rasio closing deal per PIC Sales cabang';
+  } else {
+    if (btnBranch) btnBranch.className = 'rounded-lg px-3 py-1.5 text-xs font-bold transition bg-white text-brand-700 shadow-xs cursor-pointer';
+    if (btnPic) btnPic.className = 'rounded-lg px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-800 cursor-pointer';
+    if (branchWrapper) branchWrapper.classList.remove('hidden');
+    if (picWrapper) picWrapper.classList.add('hidden');
+    if (titleEl) titleEl.innerHTML = '🏆 Peringkat &amp; Evaluasi Lengkap Cabang Toko';
+    if (subtitleEl) subtitleEl.innerText = 'Rincian performa kedisiplinan dan rasio keberhasilan closing keep per cabang toko';
+  }
+}
+window.setTab10LeaderboardView = setTab10LeaderboardView;
 
 function setTab10Scope(scope) {
   currentTab10Scope = scope;
@@ -3598,6 +3626,250 @@ function jumpToKeepWithBranchFilter(branchName) {
 }
 window.jumpToKeepWithBranchFilter = jumpToKeepWithBranchFilter;
 
+function jumpToKeepWithPicFilter(picName) {
+  if (typeof switchTab === 'function') switchTab(4);
+  setTimeout(() => {
+    const searchInput = document.getElementById('keepSearchInput');
+    if (!searchInput || !picName) return;
+    searchInput.value = picName.trim();
+    if (typeof toggleKeepClearBtn === 'function') toggleKeepClearBtn();
+    if (typeof applyKeepFilters === 'function') applyKeepFilters();
+  }, 100);
+}
+window.jumpToKeepWithPicFilter = jumpToKeepWithPicFilter;
+
+function populateTab10BranchOptions(sourceRows) {
+  const select = document.getElementById('tab10FilterCabang');
+  if (!select) return;
+
+  const currentVal = select.value || 'ALL';
+  const branchCounts = {};
+
+  (sourceRows || []).forEach(r => {
+    let cab = String(r['Cabang'] || '').trim();
+    if (!cab && r['Grup ID'] && typeof KEEP_GROUP_CABANG_MAP !== 'undefined' && KEEP_GROUP_CABANG_MAP[r['Grup ID']]) {
+      cab = KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang;
+    }
+    if (!cab || cab === '-' || cab === '""') cab = 'LAINNYA';
+    cab = cab.toUpperCase();
+    branchCounts[cab] = (branchCounts[cab] || 0) + 1;
+  });
+
+  const sortedBranches = Object.keys(branchCounts).sort();
+  let html = `<option value="ALL">Semua Cabang Toko (${(sourceRows || []).length})</option>`;
+  sortedBranches.forEach(b => {
+    html += `<option value="${escapeHtml(b)}">${escapeHtml(b)} (${branchCounts[b]})</option>`;
+  });
+
+  select.innerHTML = html;
+  if (currentVal && (currentVal === 'ALL' || branchCounts[currentVal])) {
+    select.value = currentVal;
+  } else {
+    select.value = 'ALL';
+  }
+}
+
+function getPicOLASummary(sourceRows, scope = 'PERIOD') {
+  if (!Array.isArray(sourceRows) || sourceRows.length === 0) return [];
+
+  let rows = sourceRows;
+  if (scope === 'TODAY') {
+    const today = new Date();
+    rows = sourceRows.filter(r => {
+      const ts = r['Timestamp'] || r['keep_timestamp'] || r.created_at;
+      const d = parseKeepDateObj(ts);
+      if (!d) return false;
+      return d.toDateString() === today.toDateString();
+    });
+  }
+
+  const picMap = {};
+
+  rows.forEach(r => {
+    const fuName = String(r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || '').replace(/^["']|["']$/g, '').trim();
+    const rawFU = String(r['Nomor Follow Up'] || r['nomor_follow_up'] || r['Nomor FU'] || r['nomor_fu'] || '').replace(/^["']|["']$/g, '').trim();
+    const cleanDigits = rawFU.replace(/\D/g, '');
+    const unassigned = isKeepUnassigned(r);
+
+    let picKey = 'UNASSIGNED';
+    let picDisplayName = 'Belum Ditugaskan (Unassigned)';
+
+    if (!unassigned) {
+      if (fuName && fuName !== '-' && fuName !== '""') {
+        picKey = fuName.toUpperCase();
+        picDisplayName = fuName;
+      } else if (cleanDigits.length >= 8) {
+        picKey = cleanDigits;
+        picDisplayName = rawFU;
+      }
+    }
+
+    let cab = String(r['Cabang'] || '').trim();
+    if (!cab && r['Grup ID'] && typeof KEEP_GROUP_CABANG_MAP !== 'undefined' && KEEP_GROUP_CABANG_MAP[r['Grup ID']]) {
+      cab = KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang;
+    }
+    if (!cab || cab === '-' || cab === '""') cab = 'LAINNYA';
+    cab = cab.toUpperCase();
+
+    if (!picMap[picKey]) {
+      picMap[picKey] = {
+        key: picKey,
+        name: picDisplayName,
+        phone: rawFU,
+        cabang: cab,
+        isUnassigned: unassigned,
+        total: 0,
+        claimed: 0,
+        onTime: 0,
+        overdue: 0,
+        pending: 0,
+        win: 0,
+        lose: 0
+      };
+    }
+
+    const p = picMap[picKey];
+    p.total++;
+    if (cab !== 'LAINNYA' && p.cabang === 'LAINNYA') {
+      p.cabang = cab;
+    }
+
+    const rawSt = String(r['Status'] || '').trim().toUpperCase();
+    if (rawSt === 'WIN') p.win++;
+    if (rawSt === 'LOSE' || rawSt === 'TAKE OUT' || rawSt.includes('CANCEL') || rawSt.includes('BATAL')) p.lose++;
+
+    const ola = getKeepOLAMeta(r, 15);
+    if (ola.isClaimed) {
+      p.claimed++;
+      p.onTime++;
+    } else {
+      p.pending++;
+      if (ola.isOverdue) {
+        p.overdue++;
+      } else {
+        p.onTime++;
+      }
+    }
+  });
+
+  const list = Object.values(picMap).map(p => {
+    const complianceRate = p.total > 0 ? Math.round((p.onTime / p.total) * 100) : 0;
+    const winRate = p.total > 0 ? Math.round((p.win / p.total) * 100) : 0;
+    return {
+      ...p,
+      complianceRate,
+      winRate
+    };
+  });
+
+  list.sort((a, b) => {
+    if (a.isUnassigned && !b.isUnassigned) return 1;
+    if (!a.isUnassigned && b.isUnassigned) return -1;
+    if (b.complianceRate !== a.complianceRate) return b.complianceRate - a.complianceRate;
+    if (a.overdue !== b.overdue) return a.overdue - b.overdue;
+    if (b.win !== a.win) return b.win - a.win;
+    return b.total - a.total;
+  });
+
+  return list;
+}
+
+function renderTab10PicLeaderboard(pics) {
+  const tbody = document.getElementById('tab10LeaderboardPicBody');
+  if (!tbody) return;
+
+  if (!pics || pics.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-8 text-center text-slate-400">Tidak ada data PIC follow up untuk filter yang dipilih.</td></tr>`;
+    return;
+  }
+
+  let html = '';
+  pics.forEach((p, idx) => {
+    const rank = idx + 1;
+    let rankBadge = '';
+    if (p.isUnassigned) {
+      rankBadge = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold text-[11px]">-</span>`;
+    } else if (rank === 1) {
+      rankBadge = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-black text-xs shadow-2xs">🥇 1</span>`;
+    } else if (rank === 2) {
+      rankBadge = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-black text-xs shadow-2xs">🥈 2</span>`;
+    } else if (rank === 3) {
+      rankBadge = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-700/10 text-amber-800 font-black text-xs shadow-2xs">🥉 3</span>`;
+    } else {
+      rankBadge = `<span class="font-bold text-slate-500 font-mono text-xs">#${rank}</span>`;
+    }
+
+    let barColor = 'bg-emerald-500';
+    let textColor = 'text-emerald-700';
+    if (p.complianceRate < 70) {
+      barColor = 'bg-rose-500';
+      textColor = 'text-rose-700';
+    } else if (p.complianceRate < 85) {
+      barColor = 'bg-amber-500';
+      textColor = 'text-amber-700';
+    }
+
+    const cleanInitial = p.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || 'PIC';
+
+    html += `
+      <tr class="hover:bg-slate-50/80 transition cursor-pointer select-none" onclick="jumpToKeepWithPicFilter('${escapeHtml(p.name)}')">
+        <td class="px-4 py-3 text-center align-middle whitespace-nowrap">${rankBadge}</td>
+        <td class="px-4 py-3 text-left align-middle whitespace-nowrap">
+          <div class="flex items-center gap-2.5">
+            <div class="size-8 rounded-full ${p.isUnassigned ? 'bg-amber-100 text-amber-700' : 'bg-brand-50 text-brand-700'} font-bold flex items-center justify-center shrink-0 border border-slate-200 text-xs">
+              ${p.isUnassigned ? '⚠️' : cleanInitial}
+            </div>
+            <div>
+              <div class="font-bold text-slate-900 tracking-tight text-xs">${escapeHtml(p.name)}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${escapeHtml(p.phone || '-')}</div>
+            </div>
+          </div>
+        </td>
+        <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+          <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200/80 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+            <span class="size-1 rounded-full bg-slate-400"></span>
+            ${escapeHtml(p.cabang)}
+          </span>
+        </td>
+        <td class="px-3 py-3 text-center align-middle font-bold text-slate-800 whitespace-nowrap">${p.total.toLocaleString('id-ID')}</td>
+        <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+          <span class="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-xs">
+            <span class="text-emerald-500 font-bold">✓</span>
+            ${p.onTime.toLocaleString('id-ID')}
+          </span>
+        </td>
+        <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+          ${p.overdue > 0 
+            ? `<span class="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded text-xs shadow-2xs animate-pulse"><span class="size-1.5 rounded-full bg-rose-500"></span>${p.overdue}</span>`
+            : `<span class="text-slate-400 font-mono text-xs">0</span>`}
+        </td>
+        <td class="px-4 py-3 text-left align-middle min-w-[150px]">
+          <div class="flex items-center gap-2">
+            <div class="w-20 bg-slate-100 rounded-full h-2.5 overflow-hidden shrink-0">
+              <div class="${barColor} h-2.5 rounded-full transition-all duration-300" style="width: ${p.complianceRate}%;"></div>
+            </div>
+            <span class="inline-flex items-center text-xs font-bold ${textColor}">
+              ${p.complianceRate}%
+            </span>
+          </div>
+        </td>
+        <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+          <div class="text-xs font-bold text-slate-900">${p.win} Deal</div>
+          <div class="text-[10px] text-slate-400">${p.winRate}% Closing</div>
+        </td>
+        <td class="px-3 py-3 text-center align-middle whitespace-nowrap">
+          <button type="button" class="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50 transition shadow-2xs cursor-pointer" onclick="event.stopPropagation(); jumpToKeepWithPicFilter('${escapeHtml(p.name)}')" title="Buka data keep untuk PIC ${escapeHtml(p.name)}">
+            <span>Cek</span>
+            <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
+}
+
 function renderTab10OLADashboard() {
   const container = document.getElementById('tabContent10');
   if (!container) return;
@@ -3614,24 +3886,57 @@ function renderTab10OLADashboard() {
   const periodSelect = document.getElementById('tab10FilterPeriode');
   const periodVal = periodSelect ? periodSelect.value : 'November-26';
 
-  let sourceRows = rawKeepRows;
+  let periodRows = rawKeepRows;
   if (periodVal !== 'ALL') {
-    sourceRows = rawKeepRows.filter(r => {
+    periodRows = rawKeepRows.filter(r => {
       const p = String(r['PERIODE'] || '').trim().toLowerCase();
       return p === periodVal.toLowerCase();
     });
   }
 
-  const { branches, totals } = getBranchOLASummary(sourceRows, currentTab10Scope);
+  // Populate opsi cabang dari data periode yang aktif
+  populateTab10BranchOptions(periodRows);
 
-  // 0. Update 7 Banner KPI Cards (Total Keep, Unassign, On Progress, Need to Check, Closing WIN, Lose, Closing Rate)
+  const branchSelect = document.getElementById('tab10FilterCabang');
+  const selectedBranch = branchSelect ? branchSelect.value : 'ALL';
+
+  // Filter baris jika cabang tertentu dipilih
+  let displayRows = periodRows;
+  if (selectedBranch && selectedBranch !== 'ALL') {
+    displayRows = periodRows.filter(r => {
+      let cab = String(r['Cabang'] || '').trim();
+      if (!cab && r['Grup ID'] && typeof KEEP_GROUP_CABANG_MAP !== 'undefined' && KEEP_GROUP_CABANG_MAP[r['Grup ID']]) {
+        cab = KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang;
+      }
+      if (!cab || cab === '-' || cab === '""') cab = 'LAINNYA';
+      return cab.toUpperCase() === selectedBranch.toUpperCase();
+    });
+  }
+
+  // Update badge dan subtitle donat chart sesuai cabang yang difilter
+  const badgeDonut = document.getElementById('tab10DonutBranchBadge');
+  const subTitleDonut = document.getElementById('tab10DonutSubTitle');
+  if (selectedBranch !== 'ALL') {
+    if (badgeDonut) {
+      badgeDonut.classList.remove('hidden');
+      badgeDonut.innerText = selectedBranch;
+    }
+    if (subTitleDonut) {
+      subTitleDonut.innerText = `Komposisi keep cabang ${selectedBranch}`;
+    }
+  } else {
+    if (badgeDonut) badgeDonut.classList.add('hidden');
+    if (subTitleDonut) subTitleDonut.innerText = 'Total keep, unassign & follow up';
+  }
+
+  // 0. Update 7 Banner KPI Cards dari displayRows
   let tab10Win = 0;
   let tab10Progress = 0;
   let tab10NeedToCheck = 0;
   let tab10Lose = 0;
   let tab10Unassign = 0;
 
-  sourceRows.forEach(r => {
+  displayRows.forEach(r => {
     const st = String(r['Status'] || '').toUpperCase();
     if (isKeepUnassigned(r)) tab10Unassign++;
     if (st === 'WIN') tab10Win++;
@@ -3640,7 +3945,7 @@ function renderTab10OLADashboard() {
     else if (st === 'LOSE' || st === 'TAKE OUT' || st.includes('CANCEL') || st.includes('BATAL')) tab10Lose++;
   });
 
-  const tab10Total = sourceRows.length;
+  const tab10Total = displayRows.length;
   const tab10ClosingRate = tab10Total > 0 ? Math.round((tab10Win / tab10Total) * 100) : 0;
 
   const elKpiTotal = document.getElementById('tab10KpiTotalKeep');
@@ -3660,36 +3965,62 @@ function renderTab10OLADashboard() {
   if (elKpiRate) elKpiRate.innerText = `${tab10ClosingRate}%`;
 
   // 1. Update 4 Metric KPI Cards OLA
-  const topBranch = branches[0];
-  const elTopName = document.getElementById('tab10TopBranchName');
-  const elTopMeta = document.getElementById('tab10TopBranchMeta');
-  if (elTopName) elTopName.innerText = topBranch ? topBranch.name : '-';
-  if (elTopMeta) elTopMeta.innerText = topBranch ? `Kepatuhan SLA ${topBranch.complianceRate}% (${topBranch.onTime}/${topBranch.total} Tepat Waktu)` : 'Belum ada data';
+  const { branches, totals } = getBranchOLASummary(periodRows, currentTab10Scope);
 
-  const elNetRate = document.getElementById('tab10NetworkRate');
-  const elNetMeta = document.getElementById('tab10NetworkMeta');
-  if (elNetRate) elNetRate.innerText = `${totals.networkComplianceRate}%`;
-  if (elNetMeta) elNetMeta.innerText = `${totals.totalOnTime.toLocaleString('id-ID')} dari ${totals.totalKeep.toLocaleString('id-ID')} lead tepat waktu (≤15m)`;
+  if (selectedBranch !== 'ALL') {
+    const targetBranch = branches.find(b => b.name === selectedBranch);
+    const elTopName = document.getElementById('tab10TopBranchName');
+    const elTopMeta = document.getElementById('tab10TopBranchMeta');
+    if (elTopName) elTopName.innerText = targetBranch ? targetBranch.name : selectedBranch;
+    if (elTopMeta) elTopMeta.innerText = targetBranch ? `Kepatuhan SLA ${targetBranch.complianceRate}% (${targetBranch.onTime}/${targetBranch.total} Tepat Waktu)` : 'Belum ada data';
 
-  const elOverdue = document.getElementById('tab10OverdueCount');
-  if (elOverdue) elOverdue.innerText = totals.totalOverdue.toLocaleString('id-ID');
+    const elNetRate = document.getElementById('tab10NetworkRate');
+    const elNetMeta = document.getElementById('tab10NetworkMeta');
+    if (elNetRate) elNetRate.innerText = targetBranch ? `${targetBranch.complianceRate}%` : '0%';
+    if (elNetMeta) elNetMeta.innerText = targetBranch ? `${targetBranch.onTime} dari ${targetBranch.total} lead tepat waktu (≤15m)` : '-';
 
-  const elTotalWin = document.getElementById('tab10TotalWin');
-  const elWinMeta = document.getElementById('tab10WinMeta');
-  if (elTotalWin) elTotalWin.innerText = totals.totalWin.toLocaleString('id-ID');
-  if (elWinMeta) {
-    const winRate = totals.totalKeep > 0 ? Math.round((totals.totalWin / totals.totalKeep) * 100) : 0;
-    elWinMeta.innerText = `Closing rate: ${winRate}% (${totals.totalWin} transaksi deal)`;
+    const elOverdue = document.getElementById('tab10OverdueCount');
+    if (elOverdue) elOverdue.innerText = targetBranch ? targetBranch.overdue.toLocaleString('id-ID') : '0';
+
+    const elTotalWin = document.getElementById('tab10TotalWin');
+    const elWinMeta = document.getElementById('tab10WinMeta');
+    if (elTotalWin) elTotalWin.innerText = targetBranch ? targetBranch.win.toLocaleString('id-ID') : '0';
+    if (elWinMeta && targetBranch) {
+      elWinMeta.innerText = `Closing rate: ${targetBranch.winRate}% (${targetBranch.win} transaksi deal)`;
+    }
+  } else {
+    const topBranch = branches[0];
+    const elTopName = document.getElementById('tab10TopBranchName');
+    const elTopMeta = document.getElementById('tab10TopBranchMeta');
+    if (elTopName) elTopName.innerText = topBranch ? topBranch.name : '-';
+    if (elTopMeta) elTopMeta.innerText = topBranch ? `Kepatuhan SLA ${topBranch.complianceRate}% (${topBranch.onTime}/${topBranch.total} Tepat Waktu)` : 'Belum ada data';
+
+    const elNetRate = document.getElementById('tab10NetworkRate');
+    const elNetMeta = document.getElementById('tab10NetworkMeta');
+    if (elNetRate) elNetRate.innerText = `${totals.networkComplianceRate}%`;
+    if (elNetMeta) elNetMeta.innerText = `${totals.totalOnTime.toLocaleString('id-ID')} dari ${totals.totalKeep.toLocaleString('id-ID')} lead tepat waktu (≤15m)`;
+
+    const elOverdue = document.getElementById('tab10OverdueCount');
+    if (elOverdue) elOverdue.innerText = totals.totalOverdue.toLocaleString('id-ID');
+
+    const elTotalWin = document.getElementById('tab10TotalWin');
+    const elWinMeta = document.getElementById('tab10WinMeta');
+    if (elTotalWin) elTotalWin.innerText = totals.totalWin.toLocaleString('id-ID');
+    if (elWinMeta) {
+      const winRate = totals.totalKeep > 0 ? Math.round((totals.totalWin / totals.totalKeep) * 100) : 0;
+      elWinMeta.innerText = `Closing rate: ${winRate}% (${totals.totalWin} transaksi deal)`;
+    }
   }
 
-  // 2. Render Leaderboard Matrix Table
+  // 2. Render Leaderboard Matrix Table Cabang
   const tbody = document.getElementById('tab10LeaderboardBody');
   if (tbody) {
-    if (branches.length === 0) {
+    const displayBranches = selectedBranch !== 'ALL' ? branches.filter(b => b.name === selectedBranch) : branches;
+    if (displayBranches.length === 0) {
       tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-8 text-center text-slate-400">Tidak ada data cabang untuk filter yang dipilih.</td></tr>`;
     } else {
       let tbodyHtml = '';
-      branches.forEach((b, idx) => {
+      displayBranches.forEach((b, idx) => {
         const rank = idx + 1;
         let rankBadge = '';
         if (rank === 1) {
@@ -3761,11 +4092,21 @@ function renderTab10OLADashboard() {
     }
   }
 
-  // 3. Render Chart.js Bar Chart (matching user reference screenshot!)
+  // 3. Render Leaderboard Matrix Table PIC Cabang
+  const picSummary = getPicOLASummary(displayRows, currentTab10Scope);
+  renderTab10PicLeaderboard(picSummary);
+
+  // 4. Render Chart.js Bar Chart
   renderTab10BarChart(branches);
 
-  // 4. Render Chart.js Donut Chart
-  renderTab10DonutChart(totals);
+  // 5. Render Chart.js Donut Chart (Komposisi Format Keep: Total di Tengah, Unassign, Progress, WIN, Lose)
+  renderTab10DonutChart({
+    total: tab10Total,
+    unassign: tab10Unassign,
+    progress: tab10Progress + tab10NeedToCheck,
+    win: tab10Win,
+    lose: tab10Lose
+  });
 }
 window.renderTab10OLADashboard = renderTab10OLADashboard;
 
@@ -3898,7 +4239,7 @@ function renderTab10BarChart(branches) {
   });
 }
 
-function renderTab10DonutChart(totals) {
+function renderTab10DonutChart(keepStatus) {
   const canvas = document.getElementById('tab10DonutChartCanvas');
   if (!canvas || typeof Chart === 'undefined') return;
 
@@ -3907,25 +4248,47 @@ function renderTab10DonutChart(totals) {
     tab10DonutChartInstance = null;
   }
 
-  const elOnTime = document.getElementById('tab10DonutStatOnTime');
-  const elOverdue = document.getElementById('tab10DonutStatOverdue');
-  const elPending = document.getElementById('tab10DonutStatPending');
-  if (elOnTime) elOnTime.innerText = totals.totalOnTime.toLocaleString('id-ID');
-  if (elOverdue) elOverdue.innerText = totals.totalOverdue.toLocaleString('id-ID');
-  if (elPending) elPending.innerText = totals.totalPending.toLocaleString('id-ID');
+  const total = keepStatus ? (keepStatus.total || 0) : 0;
+  const unassign = keepStatus ? (keepStatus.unassign || 0) : 0;
+  const progress = keepStatus ? (keepStatus.progress || 0) : 0;
+  const win = keepStatus ? (keepStatus.win || 0) : 0;
+  const lose = keepStatus ? (keepStatus.lose || 0) : 0;
+
+  // Center text total keep
+  const elCenterTotal = document.getElementById('tab10DonutCenterTotal');
+  if (elCenterTotal) elCenterTotal.innerText = total.toLocaleString('id-ID');
+
+  // Legend mini stats
+  const elUnassign = document.getElementById('tab10DonutStatUnassign');
+  const elProgress = document.getElementById('tab10DonutStatProgress');
+  const elWin = document.getElementById('tab10DonutStatWin');
+  const elLose = document.getElementById('tab10DonutStatLose');
+
+  if (elUnassign) elUnassign.innerText = unassign.toLocaleString('id-ID');
+  if (elProgress) elProgress.innerText = progress.toLocaleString('id-ID');
+  if (elWin) elWin.innerText = win.toLocaleString('id-ID');
+  if (elLose) elLose.innerText = lose.toLocaleString('id-ID');
 
   const ctx = canvas.getContext('2d');
+  const chartData = (total === 0) ? [1] : [unassign, progress, win, lose];
+  const chartColors = (total === 0) ? ['#e2e8f0'] : ['#f59e0b', '#0284c7', '#10b981', '#f43f5e'];
+  const chartHoverColors = (total === 0) ? ['#cbd5e1'] : ['#d97706', '#0369a1', '#059669', '#e11d48'];
+  const chartLabels = (total === 0) 
+    ? ['Tidak Ada Data'] 
+    : ['Unassign', 'Sedang Di-Follow Up', 'Closing WIN', 'Lose / Cancel'];
+
   tab10DonutChartInstance = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Tepat Waktu (≤15m)', 'Overdue (>15m)', 'Pending Belum Claim'],
+      labels: chartLabels,
       datasets: [
         {
-          data: [totals.totalOnTime, totals.totalOverdue, totals.totalPending],
-          backgroundColor: ['#10b981', '#f43f5e', '#cbd5e1'],
+          data: chartData,
+          backgroundColor: chartColors,
+          hoverBackgroundColor: chartHoverColors,
           borderWidth: 2,
           borderColor: '#ffffff',
-          hoverOffset: 4
+          hoverOffset: 6
         }
       ]
     },
@@ -3939,9 +4302,19 @@ function renderTab10DonutChart(totals) {
         tooltip: {
           backgroundColor: '#1e293b',
           titleColor: '#ffffff',
-          titleFont: { weight: 'bold' },
+          titleFont: { weight: 'bold', size: 12 },
+          bodyColor: '#f8fafc',
+          bodyFont: { size: 11 },
           padding: 10,
-          cornerRadius: 8
+          cornerRadius: 8,
+          callbacks: {
+            label: function(item) {
+              if (total === 0) return ' 0 data';
+              const val = item.raw || 0;
+              const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+              return ` ${item.label}: ${val.toLocaleString('id-ID')} (${pct}%)`;
+            }
+          }
         }
       },
       cutout: '72%'

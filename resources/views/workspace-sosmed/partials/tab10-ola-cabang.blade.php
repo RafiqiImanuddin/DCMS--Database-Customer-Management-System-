@@ -35,7 +35,7 @@
                     <!-- Dropdown Periode Bulan -->
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-slate-500 whitespace-nowrap">Periode:</span>
-                        <select id="tab10FilterPeriode" class="dcms-input py-2 text-xs font-bold text-slate-700 w-48" onchange="renderTab10OLADashboard()">
+                        <select id="tab10FilterPeriode" class="dcms-input py-2 text-xs font-bold text-slate-700 w-44" onchange="renderTab10OLADashboard()">
                             <option value="ALL">Semua Periode</option>
                             <option value="November-26" selected>November 2026 (Terbaru)</option>
                             <option value="Oktober-26">Oktober 2026</option>
@@ -43,6 +43,14 @@
                             <option value="Agustus-26">Agustus 2026</option>
                             <option value="Juli-26">Juli 2026</option>
                             <option value="Juni-26">Juni 2026</option>
+                        </select>
+                    </div>
+
+                    <!-- Dropdown Filter Cabang Toko -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-500 whitespace-nowrap">Cabang:</span>
+                        <select id="tab10FilterCabang" class="dcms-input py-2 text-xs font-bold text-slate-700 w-48" onchange="renderTab10OLADashboard()">
+                            <option value="ALL">Semua Cabang Toko</option>
                         </select>
                     </div>
 
@@ -207,59 +215,85 @@
                 </div>
             </div>
 
-            <!-- Chart 2: Komposisi Respon Lead Jaringan (1 Kolom di Desktop) -->
+            <!-- Chart 2: Donut Chart Total Format Keep & Status (1 Kolom di Desktop) -->
             <div class="dcms-card p-5 border border-slate-200/90 shadow-sm rounded-2xl bg-white flex flex-col justify-between">
                 <div>
-                    <div class="flex items-center gap-2 pb-3 mb-4 border-b border-slate-100">
-                        <span class="text-base">🥧</span>
-                        <div>
-                            <h3 class="text-sm sm:text-base font-black text-slate-900 tracking-tight">Komposisi Respon Lead</h3>
-                            <p class="text-xs text-slate-500 mt-0.5">Proporsi status kecepatan tindak lanjut tim FU</p>
+                    <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">🍩</span>
+                            <div>
+                                <h3 class="text-sm sm:text-base font-black text-slate-900 tracking-tight">Komposisi Format Keep</h3>
+                                <p class="text-xs text-slate-500 mt-0.5" id="tab10DonutSubTitle">Total keep, unassign &amp; follow up</p>
+                            </div>
                         </div>
+                        <span id="tab10DonutBranchBadge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-200"></span>
                     </div>
 
-                    <div class="relative w-full flex items-center justify-center my-3" style="height: 220px;">
+                    <!-- Donut Chart Container dengan Center Text Total Keep -->
+                    <div class="relative w-full flex items-center justify-center my-2" style="height: 220px;">
                         <canvas id="tab10DonutChartCanvas"></canvas>
+                        <div id="tab10DonutCenterLabel" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                            <span class="text-3xl font-black text-slate-900 leading-none tracking-tight" id="tab10DonutCenterTotal">0</span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Total Keep</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Donut Legend Mini Stats -->
+                <!-- Donut Legend Mini Stats (Unassign, Progress, WIN, Lose) -->
                 <div class="space-y-2 pt-3 border-t border-slate-100 text-xs">
                     <div class="flex items-center justify-between text-slate-600">
                         <div class="flex items-center gap-2">
-                            <span class="size-2.5 rounded-full bg-emerald-500"></span>
-                            <span class="font-medium">Tepat Waktu (&le;15m)</span>
+                            <span class="size-2.5 rounded-full bg-amber-500"></span>
+                            <span class="font-medium">Unassign (Belum Claim)</span>
                         </div>
-                        <span class="font-bold text-slate-900" id="tab10DonutStatOnTime">0</span>
+                        <span class="font-bold text-amber-700" id="tab10DonutStatUnassign">0</span>
+                    </div>
+                    <div class="flex items-center justify-between text-slate-600">
+                        <div class="flex items-center gap-2">
+                            <span class="size-2.5 rounded-full bg-sky-500"></span>
+                            <span class="font-medium">Di Follow Up (Progress)</span>
+                        </div>
+                        <span class="font-bold text-sky-700" id="tab10DonutStatProgress">0</span>
+                    </div>
+                    <div class="flex items-center justify-between text-slate-600">
+                        <div class="flex items-center gap-2">
+                            <span class="size-2.5 rounded-full bg-emerald-500"></span>
+                            <span class="font-medium">Closing WIN</span>
+                        </div>
+                        <span class="font-bold text-emerald-700" id="tab10DonutStatWin">0</span>
                     </div>
                     <div class="flex items-center justify-between text-slate-600">
                         <div class="flex items-center gap-2">
                             <span class="size-2.5 rounded-full bg-rose-500"></span>
-                            <span class="font-medium">Overdue (&gt;15m)</span>
+                            <span class="font-medium">Lose / Cancel</span>
                         </div>
-                        <span class="font-bold text-rose-600" id="tab10DonutStatOverdue">0</span>
-                    </div>
-                    <div class="flex items-center justify-between text-slate-600">
-                        <div class="flex items-center gap-2">
-                            <span class="size-2.5 rounded-full bg-slate-300"></span>
-                            <span class="font-medium">Pending Belum Claim</span>
-                        </div>
-                        <span class="font-bold text-slate-600" id="tab10DonutStatPending">0</span>
+                        <span class="font-bold text-rose-600" id="tab10DonutStatLose">0</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 5. LEADERBOARD MATRIX TABLE: Lengkap per Cabang -->
-        <div class="dcms-card p-5 border border-slate-200/90 shadow-sm rounded-2xl bg-white space-y-3">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2">
+        <!-- 5. LEADERBOARD MATRIX TABLE: View Switcher (Per Cabang vs Per PIC Sales Cabang) -->
+        <div class="dcms-card p-5 border border-slate-200/90 shadow-sm rounded-2xl bg-white space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-100">
                 <div>
-                    <h3 class="text-sm sm:text-base font-black text-slate-900 tracking-tight">🏆 Peringkat &amp; Evaluasi Lengkap Cabang Toko</h3>
-                    <p class="text-xs text-slate-500">Rincian performa kedisiplinan dan rasio keberhasilan closing keep per cabang toko</p>
+                    <h3 class="text-sm sm:text-base font-black text-slate-900 tracking-tight" id="tab10LeaderboardTitle">🏆 Peringkat &amp; Evaluasi Lengkap Cabang Toko</h3>
+                    <p class="text-xs text-slate-500" id="tab10LeaderboardSubtitle">Rincian performa kedisiplinan dan rasio keberhasilan closing keep per cabang toko</p>
+                </div>
+
+                <!-- Leaderboard Switcher Buttons -->
+                <div class="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold text-slate-600">
+                    <button type="button" id="tab10BtnViewBranch" class="rounded-lg px-3 py-1.5 text-xs font-bold transition bg-white text-brand-700 shadow-xs cursor-pointer" onclick="setTab10LeaderboardView('BRANCH')">
+                        🏢 Peringkat per Cabang
+                    </button>
+                    <button type="button" id="tab10BtnViewPic" class="rounded-lg px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-800 cursor-pointer" onclick="setTab10LeaderboardView('PIC')">
+                        👤 Leaderboard SLA per PIC Cabang
+                    </button>
                 </div>
             </div>
 
-            <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+            <!-- TAMPILAN 1: TABEL LEADERBOARD PER CABANG -->
+            <div id="tab10BranchTableWrapper" class="overflow-x-auto rounded-xl border border-slate-200/80">
                 <table class="w-full min-w-[850px] text-left text-xs" id="tab10LeaderboardTable">
                     <thead class="bg-slate-50/90 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                         <tr>
@@ -276,6 +310,28 @@
                     </thead>
                     <tbody id="tab10LeaderboardBody" class="divide-y divide-slate-100">
                         <tr><td colspan="9" class="px-4 py-8 text-center text-xs text-slate-400">Memuat data performa OLA cabang...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TAMPILAN 2: TABEL LEADERBOARD SLA / OLA PER PIC CABANG -->
+            <div id="tab10PicTableWrapper" class="overflow-x-auto rounded-xl border border-slate-200/80 hidden">
+                <table class="w-full min-w-[880px] text-left text-xs" id="tab10LeaderboardPicTable">
+                    <thead class="bg-slate-50/90 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-3 text-center" style="width: 7%;">Rank</th>
+                            <th class="px-4 py-3 text-left" style="width: 25%;">PIC Sales (Follow Up)</th>
+                            <th class="px-3 py-3 text-center" style="width: 14%;">Cabang Toko</th>
+                            <th class="px-3 py-3 text-center" style="width: 10%;">Total Keep</th>
+                            <th class="px-3 py-3 text-center" style="width: 11%;">Tepat Waktu (&le;15m)</th>
+                            <th class="px-3 py-3 text-center" style="width: 10%;">Overdue</th>
+                            <th class="px-4 py-3 text-left" style="width: 15%;">Kepatuhan SLA</th>
+                            <th class="px-3 py-3 text-center" style="width: 10%;">Closing WIN</th>
+                            <th class="px-3 py-3 text-center" style="width: 8%;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tab10LeaderboardPicBody" class="divide-y divide-slate-100">
+                        <tr><td colspan="9" class="px-4 py-8 text-center text-xs text-slate-400">Memuat data performa PIC sales...</td></tr>
                     </tbody>
                 </table>
             </div>
