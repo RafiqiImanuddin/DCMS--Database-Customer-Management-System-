@@ -1550,12 +1550,10 @@ function switchTab(tabIndex) {
     renderOmniInboxModule();
   }
   
-  // Sembunyikan Floating Live Chat Widget di Tab 9 (Inbox Follow-Up) agar tidak menindih layar & toast notifikasi
-  const lwWidget = document.getElementById('dcmsLiveWidgetContainer');
-  if (lwWidget) {
-    lwWidget.style.display = (tabIndex === 9) ? 'none' : '';
-  }
   if (tabIndex === 10) {
+    if (typeof initOLADashboardState === 'function') {
+      try { initOLADashboardState(); } catch (e) {}
+    }
     if (rawKeepRows.length === 0) {
       loadKeepData(() => {
         if (typeof renderTab10OLADashboard === 'function') renderTab10OLADashboard();
@@ -1578,6 +1576,11 @@ function switchTab(tabIndex) {
     if (typeof renderTab12AutoFollowUpH1 === 'function') {
       renderTab12AutoFollowUpH1();
     }
+  }
+
+  // Lazy-Load dataset sesuai tab yang sedang dibuka agar halaman ringan & cepat
+  if (typeof ensureWorkspaceDataForTab === 'function') {
+    ensureWorkspaceDataForTab(tabIndex);
   }
 }
 window.switchTab = switchTab;
@@ -5505,35 +5508,54 @@ async function pollLatestKeepData() {
 }
 window.pollLatestKeepData = pollLatestKeepData;
 
-function startKeepRealtimePolling(intervalMs = 3000) {
+const KEEP_POLL_INTERVAL_MS = 30000; // 30 detik (hemat CPU cPanel; sebelumnya 3 detik)
+const SYNC_STATUS_INTERVAL_MS = 5 * 60 * 1000; // 5 menit (sebelumnya 10 detik)
+
+function shouldPollKeepForCurrentTab() {
+  return !document.hidden && [4, 5, 6, 10].includes(Number(currentActiveTab));
+}
+
+function shouldPollSyncStatusForCurrentTab() {
+  return !document.hidden && [1, 2, 3, 5, 6].includes(Number(currentActiveTab));
+}
+
+function startKeepRealtimePolling(intervalMs = KEEP_POLL_INTERVAL_MS) {
   if (keepRealtimePollingInterval) {
     clearInterval(keepRealtimePollingInterval);
   }
-  // Polling setiap 3 detik saat tab aktif
-  keepRealtimePollingInterval = setInterval(pollLatestKeepData, intervalMs);
-  console.log(`⚡ Keep Realtime Polling Engine aktif (Interval ${intervalMs / 1000} detik)`);
+  keepRealtimePollingInterval = setInterval(() => {
+    if (shouldPollKeepForCurrentTab()) {
+      pollLatestKeepData();
+    }
+  }, intervalMs);
 }
 window.startKeepRealtimePolling = startKeepRealtimePolling;
 
-// Page Visibility API: Smart Polling untuk hemat CPU server & baterai client saat tab di-minimize/background
+// Page Visibility API: Hentikan seluruh polling saat tab browser tidak aktif (0 request background)
 if (typeof document !== 'undefined' && !window._keepVisibilityListenerRegistered) {
   window._keepVisibilityListenerRegistered = true;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      // Tab di background: polling diperlambat ke 45 detik
-      if (keepRealtimePollingInterval) clearInterval(keepRealtimePollingInterval);
-      keepRealtimePollingInterval = setInterval(pollLatestKeepData, 45000);
+      if (keepRealtimePollingInterval) {
+        clearInterval(keepRealtimePollingInterval);
+        keepRealtimePollingInterval = null;
+      }
       if (typeof syncEngineInterval !== 'undefined' && syncEngineInterval) {
         clearInterval(syncEngineInterval);
-        syncEngineInterval = setInterval(pollServerSyncStatus, 60000);
+        syncEngineInterval = null;
       }
     } else {
-      // Tab kembali aktif dilihat: langsung fetch seketika dan kembalikan interval normal
-      startKeepRealtimePolling(3000);
-      if (typeof pollLatestKeepData === 'function') pollLatestKeepData();
-      if (typeof syncEngineInterval !== 'undefined' && syncEngineInterval) {
-        clearInterval(syncEngineInterval);
-        syncEngineInterval = setInterval(pollServerSyncStatus, 10000);
+      startKeepRealtimePolling(KEEP_POLL_INTERVAL_MS);
+      if (shouldPollKeepForCurrentTab() && typeof pollLatestKeepData === 'function') {
+        pollLatestKeepData();
+      }
+      if (typeof startRealtimeSyncEngine === 'function') {
+        if (syncEngineInterval) clearInterval(syncEngineInterval);
+        syncEngineInterval = setInterval(() => {
+          if (shouldPollSyncStatusForCurrentTab()) {
+            pollServerSyncStatus();
+          }
+        }, SYNC_STATUS_INTERVAL_MS);
       }
     }
   });
@@ -10118,143 +10140,30 @@ async function pollServerSyncStatus() {
 }
 
 // ==========================================
-// SERVER-SENT EVENTS (SSE) LIVE SEAMLESS PUSH
+// REALTIME SYNC ENGINE (OPTIMIZED FOR CPANEL)
 // ==========================================
+// Catatan: SSE /api/events legacy telah dihapus untuk mencegah reconnect loop 404 setiap 3 detik.
 let liveEventsSource = null;
 
 function initLiveEventsSSE() {
-  if (typeof EventSource === 'undefined') {
-    console.warn('Browser tidak mendukung EventSource SSE');
-    return;
-  }
+  // Dinonaktifkan: endpoint /api/events legacy tidak dipakai di produksi Laravel cPanel.
   if (liveEventsSource) {
     try { liveEventsSource.close(); } catch (e) {}
-  }
-
-  try {
-    liveEventsSource = new EventSource('/api/events');
-
-    liveEventsSource.onopen = () => {
-      console.log('⚡ [SSE Live Push] Terhubung ke siaran real-time server lokal!');
-    };
-
-    liveEventsSource.addEventListener('REPORT_AR_UPDATED', (e) => {
-      try {
-        const data = JSON.parse(e.data || '{}');
-        if (!data.nomorWA) return;
-        const cleanWA = String(data.nomorWA).replace(/\D/g, '');
-        const newAR = String(data.arDoc || '').trim();
-
-        console.log(`⚡ [SSE Broadcast] REPORT AR Diperbarui secara live: WA=${cleanWA} -> AR=${newAR}`);
-
-        // 1. Update memory rawKeepRows
-        if (typeof rawKeepRows !== 'undefined' && Array.isArray(rawKeepRows)) {
-          rawKeepRows.forEach(k => {
-            if (String(k['Nomor WA'] || '').replace(/\D/g, '') === cleanWA) {
-              k['REPORT AR'] = newAR;
-            }
-          });
-        }
-
-        // 2. Update memory rawAuditARList & filteredAuditARList
-        if (typeof rawAuditARList !== 'undefined' && Array.isArray(rawAuditARList)) {
-          rawAuditARList.forEach(a => {
-            if (a.keep && String(a.keep['Nomor WA'] || '').replace(/\D/g, '') === cleanWA) {
-              a.reportARDoc = newAR;
-              a.keep['REPORT AR'] = newAR;
-              if (newAR && typeof docMap !== 'undefined' && docMap.has(newAR)) {
-                a.reportARItems = docMap.get(newAR);
-                a.reportARDate = a.reportARItems[0]['Posting Date'];
-                a.reportARCabang = a.reportARItems[0]['Cabang'];
-              }
-            }
-          });
-        }
-
-        // 3. Highlight efek visual live update pada sel
-        const targetCells = document.querySelectorAll(`.cell-report-ar-wrapper[data-wa="${cleanWA}"]`);
-        targetCells.forEach(cell => {
-          cell.classList.add('cell-live-updated');
-          setTimeout(() => cell.classList.remove('cell-live-updated'), 2500);
-        });
-
-        // 4. Re-render tampilan yang aktif tanpa reload halaman
-        const activeTab = document.querySelector('.tab-content.active');
-        if (activeTab && activeTab.id === 'tab-audit-ar') {
-          renderAuditPage();
-        } else if (activeTab && activeTab.id === 'tab-keep-data') {
-          renderKeepPage();
-        }
-      } catch (err) {
-        console.warn('Gagal memproses event REPORT_AR_UPDATED:', err);
-      }
-    });
-
-    liveEventsSource.addEventListener('KEEP_STATUS_UPDATED', (e) => {
-      try {
-        const data = JSON.parse(e.data || '{}');
-        if (!data.nomorWA) return;
-        const cleanWA = String(data.nomorWA).replace(/\D/g, '');
-        const newStatus = String(data.status || '').trim().toUpperCase();
-
-        console.log(`⚡ [SSE Broadcast] Status Keep Diperbarui secara live: WA=${cleanWA} -> Status=${newStatus}`);
-
-        if (typeof rawKeepRows !== 'undefined' && Array.isArray(rawKeepRows)) {
-          rawKeepRows.forEach(k => {
-            if (String(k['Nomor WA'] || '').replace(/\D/g, '') === cleanWA) {
-              k['Status'] = newStatus;
-            }
-          });
-        }
-
-        if (typeof rawAuditARList !== 'undefined' && Array.isArray(rawAuditARList)) {
-          rawAuditARList.forEach(a => {
-            if (a.keep && String(a.keep['Nomor WA'] || '').replace(/\D/g, '') === cleanWA) {
-              a.keep['Status'] = newStatus;
-            }
-          });
-        }
-
-        const selects = document.querySelectorAll(`select.select-status-keep`);
-        selects.forEach(sel => {
-          const tr = sel.closest('tr');
-          if (tr && tr.innerHTML.includes(cleanWA)) {
-            sel.value = newStatus;
-            sel.setAttribute('data-prev', newStatus);
-            sel.className = `select-status-keep ${getKeepStatusClass(newStatus)}`;
-            tr.className = getAuditRowClassByKeepStatus(newStatus);
-            tr.classList.add('cell-live-updated');
-            setTimeout(() => tr.classList.remove('cell-live-updated'), 2500);
-          }
-        });
-      } catch (err) {
-        console.warn('Gagal memproses event KEEP_STATUS_UPDATED:', err);
-      }
-    });
-
-    liveEventsSource.addEventListener('KEEP_CSV_SYNCED', () => {
-      console.log('📡 [SSE Broadcast] File keep-data.csv disinkronkan di server.');
-      loadKeepData(true);
-    });
-
-    liveEventsSource.onerror = (err) => {
-      // EventSource otomatis mencoba reconnect secara berkala
-    };
-  } catch (e) {
-    console.warn('Inisialisasi SSE gagal:', e);
+    liveEventsSource = null;
   }
 }
 
 let syncEngineInterval = null;
 function startRealtimeSyncEngine() {
   if (syncEngineInterval) clearInterval(syncEngineInterval);
-  // Mulai siaran live SSE ke server
-  initLiveEventsSSE();
-  // Polling fallback status server setiap 10 detik
-  syncEngineInterval = setInterval(pollServerSyncStatus, 10000);
-  console.log('📡 Realtime Cross-Device SSE & Fallback Sync Engine aktif');
+  // Cek pembaruan file Excel/DB berkala setiap 5 menit (hanya saat tab aktif & di modul relevan)
+  syncEngineInterval = setInterval(() => {
+    if (typeof shouldPollSyncStatusForCurrentTab === 'function' ? shouldPollSyncStatusForCurrentTab() : !document.hidden) {
+      pollServerSyncStatus();
+    }
+  }, typeof SYNC_STATUS_INTERVAL_MS !== 'undefined' ? SYNC_STATUS_INTERVAL_MS : 300000);
 
-  // Mulai engine realtime polling format keep & pop-up toast notifikasi
+  // Mulai polling format keep terkontrol (30 detik, hanya saat tab Keep/AR aktif & tidak di-minimize)
   try {
     startKeepRealtimePolling();
   } catch (e) {
@@ -12204,7 +12113,101 @@ function changeClaimsPage(delta) {
   }
 }
 
-// Auto init on page load with state resilience (Super fast priority rendering for Report Matrix)
+// ==========================================================================
+// LAZY-LOAD COORDINATOR PER TAB (MENCEGAH LOADING SEMUA DATASET SEKALIGUS)
+// ==========================================================================
+let _wsMetaLoadedPromise = null;
+let _wsARClaimsLoadedPromise = null;
+let _wsSalesFilesLoadedPromise = null;
+let _wsKeepLoadedPromise = null;
+
+function ensureWorkspaceMetaLoaded() {
+  if (!_wsMetaLoadedPromise) {
+    _wsMetaLoadedPromise = Promise.allSettled([
+      loadMonthlyTargets(),
+      loadSalesPhotos(),
+      loadMonthlyArchives()
+    ]).then(() => {
+      try { populateAdminPanel(getMasterSales()); } catch (e) {}
+      try { onAdminTargetMonthChange(); } catch (e) {}
+      try { renderArchiveGrid(); } catch (e) {}
+    });
+  }
+  return _wsMetaLoadedPromise;
+}
+
+function ensureARClaimsLoaded() {
+  if (!_wsARClaimsLoadedPromise) {
+    _wsARClaimsLoadedPromise = Promise.resolve(loadARClaimsData()).catch((e) => {
+      console.warn('loadARClaimsData lazy error:', e);
+    });
+  }
+  return _wsARClaimsLoadedPromise;
+}
+
+function ensureDefaultSalesFilesLoaded() {
+  if (!_wsSalesFilesLoadedPromise) {
+    _wsSalesFilesLoadedPromise = (async () => {
+      try { await loadAllDefaultFiles(); } catch (e) { console.error('loadAllDefaultFiles error:', e); }
+      try { populateDashboardFilterDropdowns(); } catch (e) {}
+      try { applyDashboardFilters(); } catch (e) {}
+    })();
+  }
+  return _wsSalesFilesLoadedPromise;
+}
+
+function ensureKeepDataLoaded(silent = true) {
+  if (Array.isArray(rawKeepRows) && rawKeepRows.length > 0) {
+    return Promise.resolve();
+  }
+  if (!_wsKeepLoadedPromise) {
+    _wsKeepLoadedPromise = Promise.resolve(loadKeepData(silent)).catch((e) => {
+      console.warn('loadKeepData lazy error:', e);
+      _wsKeepLoadedPromise = null;
+    });
+  }
+  return _wsKeepLoadedPromise;
+}
+
+async function ensureWorkspaceDataForTab(tabIndex) {
+  const idx = Number(tabIndex);
+  const needsSalesFiles = [1, 2, 3, 5, 6].includes(idx);
+  const needsMeta = [1, 2, 7, 8].includes(idx);
+  const needsClaims = [5, 6].includes(idx);
+  const needsKeep = [4, 5, 6, 9, 10, 11].includes(idx);
+
+  const tasks = [];
+  if (needsMeta) tasks.push(ensureWorkspaceMetaLoaded());
+  if (needsClaims) tasks.push(ensureARClaimsLoaded());
+  if (needsSalesFiles) tasks.push(ensureDefaultSalesFilesLoaded());
+  if (needsKeep) tasks.push(ensureKeepDataLoaded(true));
+
+  if (tasks.length === 0) return;
+
+  await Promise.allSettled(tasks);
+
+  // Render ulang tab aktif bila dataset yang dibutuhkan baru selesai dimuat
+  if (Number(currentActiveTab) === 1) {
+    try { populateDashboardFilterDropdowns(); } catch (e) {}
+    try { applyDashboardFilters(); } catch (e) {}
+  } else if (Number(currentActiveTab) === 5 && typeof runARMissingSosmedAudit === 'function') {
+    runARMissingSosmedAudit();
+  } else if (Number(currentActiveTab) === 6) {
+    if (rawAuditARList.length === 0 && typeof runARMissingSosmedAudit === 'function') {
+      runARMissingSosmedAudit();
+    }
+    if (typeof renderARClaimsModule === 'function') renderARClaimsModule();
+  } else if (Number(currentActiveTab) === 7 && typeof renderArchiveGrid === 'function') {
+    renderArchiveGrid();
+  } else if (Number(currentActiveTab) === 8) {
+    try { populateAdminPanel(getMasterSales()); } catch (e) {}
+    try { onAdminTargetMonthChange(); } catch (e) {}
+    try { renderAdminPhotoTable(); } catch (e) {}
+  }
+}
+window.ensureWorkspaceDataForTab = ensureWorkspaceDataForTab;
+
+// Auto init on page load with state resilience (Lazy-Loaded per active tab)
 async function initSosmedApp() {
   // 1. Tampilkan tab target segera tanpa menunggu network
   const initialActiveTab = (typeof window.WORKSPACE_ACTIVE_TAB === 'number') ? window.WORKSPACE_ACTIVE_TAB : 1;
@@ -12226,29 +12229,13 @@ async function initSosmedApp() {
 
   try { initLiveClock(); } catch (e) { console.warn('initLiveClock error:', e); }
 
-  // 2. Muat metadata esensial secara paralel (non-blocking)
-  await Promise.allSettled([
-    loadMonthlyTargets(),
-    loadSalesPhotos(),
-    loadMonthlyArchives(),
-    loadARClaimsData()
-  ]);
+  // 2. Lazy-Load per Tab: hanya muat dataset yang dibutuhkan tab aktif (bukan seluruh 12 tab sekaligus)
+  await ensureWorkspaceDataForTab(initialActiveTab);
 
-  try { populateAdminPanel(getMasterSales()); } catch (e) { console.warn('populateAdminPanel error:', e); }
-  try { onAdminTargetMonthChange(); } catch (e) { console.warn('onAdminTargetMonthChange error:', e); }
-  try { renderArchiveGrid(); } catch (e) { console.warn('renderArchiveGrid error:', e); }
-  try { initOLADashboardState(); } catch (e) {}
-
-  // 3. Muat data turnover SQL (cepat ~50ms) & langsung render Report 1 dan 2
-  try { await loadAllDefaultFiles(); } catch (e) { console.error('loadAllDefaultFiles error:', e); }
-  try { populateDashboardFilterDropdowns(); } catch (e) { console.warn('populateDashboardFilterDropdowns error:', e); }
-  try { applyDashboardFilters(); } catch (e) { console.warn('applyDashboardFilters error:', e); }
-
-  // 4. Muat data sekunder berukuran besar (Keep Google Sheets & Realtime Poller) di background
+  // 3. Jalankan Realtime Sync Engine terkontrol (tanpa SSE 404, 0 request saat tab hidden)
   setTimeout(() => {
-    try { loadKeepData(true); } catch (e) { console.warn('loadKeepData background error:', e); }
     try { startRealtimeSyncEngine(); } catch (e) { console.warn('startRealtimeSyncEngine error:', e); }
-  }, 100);
+  }, 500);
 
   // 5. Anti-Autofill Guard: Bersihkan credential (superadmin@gmail.com dsb) yang salah diinjeksi oleh password manager browser ke kolom search
   window._userExplicitTypedSearchMap = window._userExplicitTypedSearchMap || {};
