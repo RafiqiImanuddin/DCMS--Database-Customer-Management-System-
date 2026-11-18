@@ -157,6 +157,57 @@ class WatzapService
     }
 
     /**
+     * Mereset sesi Baileys: membersihkan auth cadangan di database DCMS & memicu
+     * endpoint reset di server Baileys (Render) agar generate QR code baru untuk nomor baru.
+     */
+    public function resetBaileysSession(): array
+    {
+        // 1. Bersihkan sesi cadangan di database DCMS & cache lokal
+        try {
+            Setting::forget('baileys_auth_session');
+            Setting::forget('baileys_auth_saved_at');
+            Setting::forget('baileys_bot_phone');
+            cache()->forget('baileys_status_cache_v2');
+            cache()->forget('baileys_bot_phone');
+        } catch (Throwable $e) {
+            Log::warning('Gagal membersihkan cache setting Baileys: '.$e->getMessage());
+        }
+
+        // 2. Hubungi server Baileys bot untuk menghapus folder auth_info dan membuat fresh socket
+        $baileysUrl = $this->getBaileysUrl();
+        $apiKey = $this->getBaileysApiKey();
+
+        try {
+            $res = Http::timeout(12)
+                ->withHeaders([
+                    'X-Api-Key' => $apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post("{$baileysUrl}/api/reset", [
+                    'api_key' => $apiKey,
+                ]);
+
+            if ($res->ok()) {
+                $data = $res->json();
+                return [
+                    'success' => true,
+                    'message' => $data['message'] ?? 'Sesi WhatsApp berhasil direset. Silakan tunggu beberapa detik hingga QR Code baru muncul.',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Server Baileys merespon error: ' . ($res->json('message') ?? $res->body()),
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Tidak dapat terhubung ke server Baileys di ' . $baileysUrl . ': ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Kirim pesan WhatsApp EKSKLUSIF via Baileys Bot Gateway (+62 851-1142-6699)
      * Tanpa fallback ke WatZap Cloud atau WAHA.
      * Digunakan khusus untuk modul Otomasi WhatsApp / Auto Follow-Up H+1.

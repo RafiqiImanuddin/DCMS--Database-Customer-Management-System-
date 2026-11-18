@@ -108,6 +108,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/watzap', [WatzapSettingController::class, 'update'])->name('settings.watzap.update');
     Route::post('/settings/watzap/test-send', [WatzapSettingController::class, 'testSend'])->name('settings.watzap.test_send');
     Route::post('/settings/watzap/check-baileys', [WatzapSettingController::class, 'checkBaileys'])->name('settings.watzap.check_baileys');
+    Route::post('/settings/watzap/reset-baileys', [WatzapSettingController::class, 'resetBaileys'])->name('settings.watzap.reset_baileys');
 
     // Dashboard Manager: Monitoring Kinerja Admin Sales (Manager & Admin)
     Route::get('/monitoring/sales', [SalesMonitoringController::class, 'index'])->name('monitoring.sales.index');

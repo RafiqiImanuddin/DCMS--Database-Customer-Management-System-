@@ -16,7 +16,13 @@
             Satu gateway unifikasi (Baileys Bot) untuk <strong>WA Broadcast (Outreach)</strong>, <strong>Inbox Follow-Up</strong>, dan <strong>Reaksi Keep PIC</strong>.
         </p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+        @if($isSuperAdmin)
+        <button type="button" id="btn-reset-session" onclick="resetBaileysSession()" class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 shadow-xs transition hover:bg-rose-100">
+            <svg id="reset-icon" class="size-4 text-rose-600 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            <span id="reset-text">Reset Sesi / Scan Nomor Baru</span>
+        </button>
+        @endif
         <button type="button" id="btn-manual-refresh" onclick="checkStatusBaileys(true)" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50">
             <svg id="refresh-icon" class="size-4 text-emerald-600 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             <span id="refresh-text">Periksa Status</span>
@@ -89,14 +95,14 @@
                 <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
                     <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Nomor WhatsApp Bot</p>
                     <p id="info-phone" class="mt-1 font-mono text-sm font-extrabold text-slate-900">
-                        {{ $baileysStatus['phone'] ?? '+62 851-1142-6699' }}
+                        {{ $baileysStatus['phone'] ?? '(Belum Terhubung)' }}
                     </p>
                 </div>
 
                 <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
                     <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Nama Perangkat</p>
                     <p id="info-name" class="mt-1 text-sm font-bold text-slate-900">
-                        {{ $baileysStatus['name'] ?? 'DCMS Bot (+62 851-1142-6699)' }}
+                        {{ $baileysStatus['name'] ?? 'DCMS WhatsApp Gateway' }}
                     </p>
                 </div>
 
@@ -170,7 +176,7 @@
                             Cara Memindai QR Code:
                         </h4>
                         <ol class="list-decimal pl-4 space-y-1 text-xs text-indigo-900/80 leading-relaxed font-medium">
-                            <li>Buka aplikasi <strong>WhatsApp</strong> di ponsel dengan nomor <strong>+62 851-1142-6699</strong>.</li>
+                            <li>Buka aplikasi <strong>WhatsApp</strong> di ponsel dengan nomor yang ingin Anda jadikan Gateway.</li>
                             <li>Ketuk menu titik tiga <span class="font-bold">⋮</span> (Android) atau <strong>Pengaturan</strong> (iOS).</li>
                             <li>Pilih <strong>Perangkat Tertaut (Linked Devices)</strong> &gt; ketuk <strong>Tautkan Perangkat</strong>.</li>
                             <li>Arahkan kamera ponsel Anda ke gambar QR Code di atas.</li>
@@ -178,6 +184,29 @@
                         <p class="mt-3 text-[11px] text-indigo-700/90 font-medium italic">
                             * QR code akan otomatis berganti jika kedaluwarsa. Setelah discan, status akan langsung berubah hijau tanpa perlu refresh halaman.
                         </p>
+                    </div>
+
+                    <!-- BANNER BANTUAN GANTI NOMOR / NOMOR SUSPEND -->
+                    <div class="mt-4 w-full max-w-md rounded-xl border border-amber-200 bg-amber-50/90 p-4 text-amber-950">
+                        <div class="flex items-start gap-3">
+                            <div class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            </div>
+                            <div class="flex-1 text-xs">
+                                <h5 class="font-bold text-amber-900">Nomor Lama Terlogout atau Kena Suspend?</h5>
+                                <p class="mt-1 text-[11px] leading-relaxed text-amber-800">
+                                    Jika nomor WhatsApp sebelumnya terkena suspend/banned dari WhatsApp dan QR Code di atas tidak muncul, klik tombol reset di bawah untuk menghapus sesi lama dari server Baileys dan membuat QR Code baru.
+                                </p>
+                                @if($isSuperAdmin)
+                                <div class="mt-3">
+                                    <button type="button" onclick="resetBaileysSession()" class="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700">
+                                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                        <span>Reset Sesi & Generate QR Baru</span>
+                                    </button>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -423,6 +452,66 @@ async function checkStatusBaileys(isManual = false) {
             refreshIcon.classList.remove('animate-spin');
             if (refreshText) refreshText.textContent = 'Periksa Status';
         }
+    }
+}
+
+let isResetting = false;
+async function resetBaileysSession() {
+    if (isResetting) return;
+
+    const konfirmasi = confirm(
+        "Apakah Anda yakin ingin mereset sesi WhatsApp Gateway?\n\n" +
+        "Gunakan fitur ini jika nomor WhatsApp sebelumnya terkena suspend/banned atau Anda ingin menghubungkan nomor ponsel baru.\n\n" +
+        "Folder autentikasi lama di server Baileys akan dihapus dan server akan segera membuat QR Code baru."
+    );
+    if (!konfirmasi) return;
+
+    isResetting = true;
+    const btnReset = document.getElementById('btn-reset-session');
+    const resetText = document.getElementById('reset-text');
+    const resetIcon = document.getElementById('reset-icon');
+    const qrLoadingSpinner = document.getElementById('qr-loading-spinner');
+    const qrBadgeText = document.getElementById('qr-badge-text');
+
+    if (btnReset) btnReset.disabled = true;
+    if (resetText) resetText.textContent = 'Mereset Sesi...';
+    if (resetIcon) resetIcon.classList.add('animate-spin');
+    if (qrLoadingSpinner) qrLoadingSpinner.classList.remove('hidden');
+    if (qrBadgeText) qrBadgeText.textContent = 'Mereset Sesi...';
+
+    try {
+        const res = await fetch('{{ route('settings.watzap.reset_baileys') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            alert(data.message || 'Sesi WhatsApp berhasil direset! Tunggu beberapa detik, QR Code baru sedang dimuat.');
+            // Polling cepat tiap 2 detik untuk menangkap QR baru
+            let retries = 0;
+            const fastInterval = setInterval(async () => {
+                retries++;
+                await checkStatusBaileys(true);
+                const qrImage = document.getElementById('qr-image');
+                if ((qrImage && !qrImage.classList.contains('invisible')) || retries >= 15) {
+                    clearInterval(fastInterval);
+                }
+            }, 2000);
+        } else {
+            alert('Gagal mereset sesi: ' + (data.message || 'Terjadi kesalahan sistem.'));
+        }
+    } catch (err) {
+        alert('Gagal terhubung ke server DCMS untuk mereset sesi: ' + err.message);
+    } finally {
+        isResetting = false;
+        if (btnReset) btnReset.disabled = false;
+        if (resetText) resetText.textContent = 'Reset Sesi / Scan Nomor Baru';
+        if (resetIcon) resetIcon.classList.remove('animate-spin');
+        checkStatusBaileys(true);
     }
 }
 

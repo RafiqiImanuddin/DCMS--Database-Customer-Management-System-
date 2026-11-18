@@ -229,7 +229,7 @@ function schedulePushSessionToDCMS(authDir) {
  */
 async function clearSessionInDCMS() {
   try {
-    logger.warn('[Auto-Save] Menghapus sesi auth di database DCMS karena perangkat logout...');
+    logger.warn('[Auto-Save] Menghapus sesi auth di database DCMS karena perangkat logout/reset...');
     await axios.delete(DCMS_SESSION_URL, {
       headers: {
         'X-Api-Key': DCMS_API_KEY
@@ -240,6 +240,59 @@ async function clearSessionInDCMS() {
   } catch (err) {
     logger.warn(`[Auto-Save] Gagal menghapus sesi di DCMS: ${err.message}`);
   }
+}
+
+/**
+ * Mereset seluruh sesi Baileys: menghapus file kredensial auth lokal,
+ * menghapus cadangan sesi di DCMS, dan membuat socket fresh untuk generate QR code baru.
+ */
+async function resetBaileysSession(reason = 'Reset manual diminta oleh pengguna') {
+  logger.warn(`[Reset] Melakukan reset total sesi Baileys (${reason})...`);
+
+  if (pushSessionTimeout) {
+    clearTimeout(pushSessionTimeout);
+    pushSessionTimeout = null;
+  }
+
+  try {
+    if (sock) {
+      try { sock.ev.removeAllListeners(); } catch (e) {}
+      try { sock.end(); } catch (e) {}
+      try { sock.ws?.close(); } catch (e) {}
+      sock = null;
+    }
+  } catch (err) {
+    logger.warn('[Reset] Error saat menutup socket lama: ' + err.message);
+  }
+
+  connectionState = 'DISCONNECTED';
+  currentQR = null;
+  currentPairingCode = null;
+  connectedUser = null;
+  isSessionRestoredFromDCMS = false;
+  lastSessionPushedAt = null;
+
+  // Bersihkan backup sesi di DCMS
+  await clearSessionInDCMS();
+
+  // Hapus folder auth_info lokal
+  const authDir = path.join(__dirname, 'auth_info');
+  try {
+    if (fs.existsSync(authDir)) {
+      fs.rmSync(authDir, { recursive: true, force: true });
+      logger.info('[Reset] Folder auth_info berhasil dihapus.');
+    }
+  } catch (e) {
+    logger.warn('[Reset] Gagal menghapus folder auth_info: ' + e.message);
+  }
+
+  // Mulai ulang socket fresh untuk generate QR code baru
+  setTimeout(() => {
+    logger.info('[Reset] Memulai socket fresh untuk scan QR code nomor baru...');
+    startBaileysSocket().catch(err => logger.error('[Reset] Gagal start fresh socket:', err));
+  }, 1200);
+
+  return true;
 }
 
 // ==============================================================================
@@ -319,23 +372,22 @@ async function startBaileysSocket() {
       currentQR = null;
       connectedUser = null;
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      const isBannedOrForbidden = statusCode === 401 || statusCode === 403;
+      const shouldResetAuth = isLoggedOut || isBannedOrForbidden;
       lastDisconnectReason = statusCode;
       connectionState = 'DISCONNECTED';
 
-      logger.warn(`Koneksi terputus (Status: ${statusCode}). Reconnect: ${shouldReconnect}`);
+      logger.warn(`Koneksi terputus (Status: ${statusCode}). Reset Auth: ${shouldResetAuth}`);
 
-      if (shouldReconnect) {
+      if (shouldResetAuth) {
+        logger.error(`Akun telah Logout atau Disuspend WhatsApp (Status: ${statusCode}). Mereset sesi dan menyiapkan QR baru...`);
+        await resetBaileysSession(`Akun terputus permanen / disuspend WhatsApp (Status: ${statusCode})`);
+      } else {
         logger.info('Mencoba menghubungkan kembali dalam 5 detik...');
         setTimeout(() => {
           startBaileysSocket().catch(err => logger.error('Gagal restart socket:', err));
         }, 5000);
-      } else {
-        logger.error('Sesi telah Logout dari perangkat WhatsApp. Hapus folder auth_info untuk scan ulang.');
-        await clearSessionInDCMS();
-        try {
-          fs.rmSync(authDir, { recursive: true, force: true });
-        } catch (e) {}
       }
     } else if (connection === 'open') {
       connectionState = 'CONNECTED';
@@ -913,6 +965,42 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Endpoint Reset Sesi & Request Fresh QR (Dipanggil dari DCMS saat nomor ganti atau disuspend)
+app.post('/api/reset', async (req, res) => {
+  const apiKey = req.headers['x-api-key'] || req.query.api_key || req.body?.api_key;
+  if (DCMS_API_KEY && apiKey && apiKey !== DCMS_API_KEY) {
+    return res.status(401).json({ success: false, message: 'Invalid API Key' });
+  }
+
+  try {
+    await resetBaileysSession('Permintaan Reset dari API / DCMS');
+    res.json({
+      success: true,
+      message: 'Sesi WhatsApp Baileys berhasil direset. Silakan tunggu beberapa detik untuk QR Code baru.'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Alias Logout
+app.post('/api/logout', async (req, res) => {
+  const apiKey = req.headers['x-api-key'] || req.query.api_key || req.body?.api_key;
+  if (DCMS_API_KEY && apiKey && apiKey !== DCMS_API_KEY) {
+    return res.status(401).json({ success: false, message: 'Invalid API Key' });
+  }
+
+  try {
+    await resetBaileysSession('Permintaan Logout dari API / DCMS');
+    res.json({
+      success: true,
+      message: 'Sesi WhatsApp Baileys berhasil dilogout & direset.'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Endpoint API Kirim Pesan Outbound (Dipanggil oleh DCMS Tab 9 saat Admin Membalas Chat)
 app.post('/api/send-message', async (req, res) => {
   const apiKey = req.headers['x-api-key'] || req.query.api_key;
@@ -1188,7 +1276,10 @@ app.get('/', (req, res) => {
       <div class="card">
         <div class="card-title">
           <span>Otentikasi WhatsApp</span>
-          <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="location.reload()">🔄 Refresh</button>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn" style="padding: 4px 10px; font-size: 11px; background: #dc2626;" onclick="resetSession()">🗑️ Reset Sesi (Ganti Nomor)</button>
+            <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="location.reload()">🔄 Refresh</button>
+          </div>
         </div>
 
         ${connectionState === 'CONNECTED' ? `
@@ -1293,6 +1384,18 @@ app.get('/', (req, res) => {
 
   <script>
     ${connectionState !== 'CONNECTED' ? 'setTimeout(() => location.reload(), 15000);' : ''}
+
+    async function resetSession() {
+      if (!confirm('Yakin ingin mereset sesi WhatsApp? File autentikasi lama akan dihapus dan QR Code baru akan dibuat untuk menghubungkan nomor baru.')) return;
+      try {
+        const res = await fetch('/api/reset', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || 'Sesi WhatsApp berhasil direset.');
+        setTimeout(() => location.reload(), 2000);
+      } catch (e) {
+        alert('Gagal mereset sesi: ' + e.message);
+      }
+    }
 
     async function requestPairing() {
       const phone = document.getElementById('pairPhone').value;

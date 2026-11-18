@@ -119,4 +119,16 @@ class WatzapSettingController extends Controller
             'updated_at' => now()->format('H:i:s'),
         ]);
     }
+
+    /**
+     * AJAX endpoint untuk mereset sesi WhatsApp Baileys dan memunculkan QR Code baru.
+     */
+    public function resetBaileys(Request $request, WatzapService $watzap): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Akses terbatas: Hanya Superadmin yang dapat mereset sesi WhatsApp.');
+
+        $result = $watzap->resetBaileysSession();
+
+        return response()->json($result, $result['success'] ? 200 : 500);
+    }
 }
