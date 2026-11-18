@@ -292,14 +292,14 @@
                     </div>
                 </div>
 
-                <!-- Box 1: Jadwal Pengiriman Otomatis -->
+                <!-- Box 1: Jadwal Pengiriman Otomatis & Jam Operasional (Strict 1x24 Jam) -->
                 <div class="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                         <div class="flex items-center gap-2.5">
                             <span class="text-xl">⏰</span>
                             <div>
-                                <h4 class="text-sm font-black text-slate-900">Jadwal Pengiriman Otomatis (Cron Job)</h4>
-                                <p class="text-[11px] text-slate-400">Tentukan jam bot Baileys otomatis menjapri rekap follow-up ke WhatsApp PIC setiap hari.</p>
+                                <h4 class="text-sm font-black text-slate-900">Jadwal &amp; Jam Operasional (Strict 1x24 Jam)</h4>
+                                <p class="text-[11px] text-slate-400">Pengiriman reminder strict 24 jam presisi sejak keep masuk (berjalan tiap 5 menit di jam kerja).</p>
                             </div>
                         </div>
                         <span id="fu12ScheduleStatusBadge" class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -308,12 +308,12 @@
                         </span>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <!-- Toggle Aktifkan Cron -->
                         <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
                             <div>
-                                <label for="fu12SettingEnabled" class="text-xs font-bold text-slate-800 block cursor-pointer">Status Auto Follow-Up</label>
-                                <span class="text-[11px] text-slate-500">Kirim otomatis via scheduler</span>
+                                <label for="fu12SettingEnabled" class="text-xs font-bold text-slate-800 block cursor-pointer">Auto Follow-Up</label>
+                                <span class="text-[11px] text-slate-500">Scheduler cron aktif</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="fu12SettingEnabled" class="sr-only peer" checked onchange="onFu12SettingChange()">
@@ -321,20 +321,30 @@
                             </label>
                         </div>
 
-                        <!-- Jam Pengiriman (Time Input) -->
+                        <!-- Jam Mulai Kerja (Buka Toko) -->
                         <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
-                            <label for="fu12SettingTime" class="text-xs font-bold text-slate-800 block">Jam Pengiriman (WIB)</label>
+                            <label for="fu12SettingWorkStart" class="text-xs font-bold text-slate-800 block">Jam Buka Toko (WITA)</label>
                             <div class="flex items-center gap-2">
-                                <input type="time" id="fu12SettingTime" value="09:00" class="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-900 focus:border-brand-500 focus:outline-none transition cursor-pointer" oninput="onFu12SettingChange()">
-                                <span class="text-[11px] text-slate-500 font-medium">Setiap Pagi</span>
+                                <input type="time" id="fu12SettingWorkStart" value="08:00" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-black text-slate-900 focus:border-brand-500 focus:outline-none transition cursor-pointer" oninput="onFu12SettingChange()">
+                                <span class="text-[11px] text-slate-500 font-medium">Mulai Kerja</span>
+                            </div>
+                        </div>
+
+                        <!-- Jam Selesai Kerja (Tutup Toko) -->
+                        <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
+                            <label for="fu12SettingWorkEnd" class="text-xs font-bold text-slate-800 block">Jam Tutup Toko (WITA)</label>
+                            <div class="flex items-center gap-2">
+                                <input type="time" id="fu12SettingWorkEnd" value="22:00" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-black text-slate-900 focus:border-brand-500 focus:outline-none transition cursor-pointer" oninput="onFu12SettingChange()">
+                                <span class="text-[11px] text-slate-500 font-medium">Batas Malam</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="p-3 rounded-xl bg-blue-50/70 border border-blue-200/70 text-xs text-blue-900 leading-relaxed flex items-start gap-2.5">
                         <span class="text-base shrink-0">💡</span>
-                        <div class="text-[11px]">
-                            <strong>Mekanisme Cron:</strong> Cron cPanel akan mengeksekusi perintah <code>php artisan keep:send-auto-fu-h1</code> pada jam di atas. Bot hanya akan mengirim ke PIC yang memiliki keep kemarin dengan status <em>On Progress</em>.
+                        <div class="text-[11px] space-y-1">
+                            <div><strong>Sistem Strict 1x24 Jam Presisi:</strong> Cron scheduler mengecek antrean setiap 5 menit (<code>php artisan keep:send-auto-fu-h1</code>). Jika format keep masuk kemarin jam 09:32, reminder terkirim tepat jam 09:32 hari ini.</div>
+                            <div class="text-slate-600">🌙 <strong>Proteksi Malam Hari:</strong> Di luar jam operasional (22:00 - 07:59 WITA), bot <strong>TIDAK</strong> akan mengirim pesan agar tidak mengganggu istirahat. Keep yang jatuh tempo malam hari akan tertahan dan dikirimkan saat toko buka pukul 08:00 pagi (dirangkum jika &ge; 2 keep).</div>
                         </div>
                     </div>
                 </div>
@@ -428,14 +438,14 @@
                     </div>
                 </div>
 
-                <!-- Box 2: Template Teks Pesan WhatsApp (Opsi 2) -->
-                <div class="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+                <!-- Box 2: Template Teks Pesan WhatsApp -->
+                <div class="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-5 shadow-xs">
                     <div class="pb-3 border-b border-slate-100 flex items-center justify-between">
                         <div class="flex items-center gap-2.5">
                             <span class="text-xl">✍️</span>
                             <div>
                                 <h4 class="text-sm font-black text-slate-900">Kustomisasi Template Pesan WhatsApp</h4>
-                                <p class="text-[11px] text-slate-400">Sesuaikan kalimat pembuka, format rincian produk customer, dan motivasi penutup.</p>
+                                <p class="text-[11px] text-slate-400">Atur pesan reminder 24 jam per customer dan rekap pagi bila ada beberapa keep tertahan.</p>
                             </div>
                         </div>
                         <button type="button" onclick="resetFu12TemplateDefault()" class="text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200/70 transition cursor-pointer" title="Kembalikan semua teks ke default">
@@ -443,42 +453,89 @@
                         </button>
                     </div>
 
-                    <!-- 1. Header Template -->
-                    <div class="space-y-1.5">
+                    <!-- MODEL A: Template Pesan 24 Jam Presisi (Single Alert per Customer) -->
+                    <div class="p-4 rounded-xl border border-brand-200/80 bg-brand-50/30 space-y-3">
                         <div class="flex items-center justify-between">
-                            <label for="fu12TplHeader" class="text-xs font-bold text-slate-800">1. Teks Pembuka / Header Rekap:</label>
-                            <div class="flex items-center gap-1">
-                                <span class="text-[10px] text-slate-400">Variabel:</span>
-                                <button type="button" onclick="insertFu12Tag('fu12TplHeader', '{pic_name}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{pic_name}</button>
-                                <button type="button" onclick="insertFu12Tag('fu12TplHeader', '{target_date}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{target_date}</button>
-                                <button type="button" onclick="insertFu12Tag('fu12TplHeader', '{total_items}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{total_items}</button>
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">⏰</span>
+                                <h5 class="text-xs font-black text-brand-900 uppercase tracking-wide">Model A: Pesan Presisi 24 Jam (Single Alert per Customer)</h5>
                             </div>
+                            <span class="rounded bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">08:05 - 22:00 WITA</span>
                         </div>
-                        <textarea id="fu12TplHeader" rows="4" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 focus:bg-white focus:border-brand-500 focus:outline-none transition leading-relaxed resize-y" oninput="updateFu12LivePreview()"></textarea>
+                        <p class="text-[11px] text-slate-500 leading-relaxed">
+                            Format pesan ini dikirimkan otomatis tepat saat keep mencapai 24 jam (misal masuk kemarin 09:32, dikirim hari ini 09:32).
+                        </p>
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between flex-wrap gap-1">
+                                <label for="fu12TplSingleAlert" class="text-xs font-bold text-slate-800">Isi Teks Template Model A:</label>
+                                <div class="flex items-center gap-1 flex-wrap">
+                                    <span class="text-[10px] text-slate-400">Variabel:</span>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{pic_name}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{pic_name}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{customer_name}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{customer_name}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{customer_phone}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{customer_phone}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{barang_keep}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{barang_keep}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{cabang}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{cabang}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{kode_sosmed}')" class="px-1.5 py-0.5 rounded bg-brand-100 hover:bg-brand-200 border border-brand-300 text-[10px] font-mono font-bold text-brand-900">{kode_sosmed}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{catatan}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{catatan}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{jam_masuk}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{jam_masuk}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplSingleAlert', '{chat_link}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{chat_link}</button>
+                                </div>
+                            </div>
+                            <textarea id="fu12TplSingleAlert" rows="6" class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-mono text-slate-800 focus:border-brand-500 focus:outline-none transition leading-relaxed resize-y" oninput="updateFu12LivePreview()"></textarea>
+                        </div>
                     </div>
 
-                    <!-- 2. Item Template -->
-                    <div class="space-y-1.5">
-                        <div class="flex items-center justify-between flex-wrap gap-1">
-                            <label for="fu12TplItem" class="text-xs font-bold text-slate-800">2. Format Tiap Baris Customer (Diulang Otomatis):</label>
-                            <div class="flex items-center gap-1 flex-wrap">
-                                <span class="text-[10px] text-slate-400">Variabel:</span>
-                                <button type="button" onclick="insertFu12Tag('fu12TplItem', '{num}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{num}</button>
-                                <button type="button" onclick="insertFu12Tag('fu12TplItem', '{customer_name}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{customer_name}</button>
-                                <button type="button" onclick="insertFu12Tag('fu12TplItem', '{customer_phone}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{customer_phone}</button>
-                                <button type="button" onclick="insertFu12Tag('fu12TplItem', '{barang_keep}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{barang_keep}</button>
-                                <button type="button" onclick="insertFu12Tag('fu12TplItem', '{cabang}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{cabang}</button>
-                                <button type="button" onclick="insertFu12Tag('fu12TplItem', '{catatan}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{catatan}</button>
-                                <button type="button" onclick="insertFu12Tag('fu12TplItem', '{chat_link}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{chat_link}</button>
+                    <!-- MODEL B: Template Rekap Pagi (Jika >= 2 Keep Tertahan Semalam) -->
+                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">📋</span>
+                                <h5 class="text-xs font-black text-slate-800 uppercase tracking-wide">Model B: Rekap Pagi (Jika ≥ 2 Keep Tertahan Semalam)</h5>
                             </div>
+                            <span class="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800">Buka Toko 08:00 WITA</span>
                         </div>
-                        <textarea id="fu12TplItem" rows="5" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 focus:bg-white focus:border-brand-500 focus:outline-none transition leading-relaxed resize-y" oninput="updateFu12LivePreview()"></textarea>
-                    </div>
+                        <p class="text-[11px] text-slate-500 leading-relaxed">
+                            Bila dalam 1 PIC terdapat 2 atau lebih customer keep yang tertahan semalam, dikirimkan dalam 1 pesan rekap ringkas ini agar WhatsApp PIC tidak banjir chat.
+                        </p>
 
-                    <!-- 3. Footer Template -->
-                    <div class="space-y-1.5">
-                        <label for="fu12TplFooter" class="text-xs font-bold text-slate-800 block">3. Teks Penutup / Motivasi Closing:</label>
-                        <textarea id="fu12TplFooter" rows="3" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 focus:bg-white focus:border-brand-500 focus:outline-none transition leading-relaxed resize-y" oninput="updateFu12LivePreview()"></textarea>
+                        <!-- 1. Header Template -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <label for="fu12TplHeader" class="text-xs font-bold text-slate-800">1. Teks Pembuka / Header Rekap:</label>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-[10px] text-slate-400">Variabel:</span>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplHeader', '{pic_name}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{pic_name}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplHeader', '{target_date}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{target_date}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplHeader', '{total_items}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{total_items}</button>
+                                </div>
+                            </div>
+                            <textarea id="fu12TplHeader" rows="3" class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-mono text-slate-800 focus:border-brand-500 focus:outline-none transition leading-relaxed resize-y" oninput="updateFu12LivePreview()"></textarea>
+                        </div>
+
+                        <!-- 2. Item Template -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between flex-wrap gap-1">
+                                <label for="fu12TplItem" class="text-xs font-bold text-slate-800">2. Format Tiap Baris Customer (Diulang Otomatis):</label>
+                                <div class="flex items-center gap-1 flex-wrap">
+                                    <span class="text-[10px] text-slate-400">Variabel:</span>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplItem', '{num}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{num}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplItem', '{customer_name}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{customer_name}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplItem', '{customer_phone}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{customer_phone}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplItem', '{barang_keep}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{barang_keep}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplItem', '{cabang}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{cabang}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplItem', '{kode_sosmed}')" class="px-1.5 py-0.5 rounded bg-brand-100 hover:bg-brand-200 border border-brand-300 text-[10px] font-mono font-bold text-brand-900">{kode_sosmed}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplItem', '{catatan}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{catatan}</button>
+                                    <button type="button" onclick="insertFu12Tag('fu12TplItem', '{chat_link}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-700">{chat_link}</button>
+                                </div>
+                            </div>
+                            <textarea id="fu12TplItem" rows="4" class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-mono text-slate-800 focus:border-brand-500 focus:outline-none transition leading-relaxed resize-y" oninput="updateFu12LivePreview()"></textarea>
+                        </div>
+
+                        <!-- 3. Footer Template -->
+                        <div class="space-y-1.5">
+                            <label for="fu12TplFooter" class="text-xs font-bold text-slate-800 block">3. Teks Penutup / Motivasi Closing:</label>
+                            <textarea id="fu12TplFooter" rows="2" class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-mono text-slate-800 focus:border-brand-500 focus:outline-none transition leading-relaxed resize-y" oninput="updateFu12LivePreview()"></textarea>
+                        </div>
                     </div>
 
                     <!-- 4. Draft Greeting Customer for wa.me -->
@@ -488,6 +545,8 @@
                             <div class="flex items-center gap-1">
                                 <button type="button" onclick="insertFu12Tag('fu12GreetingCustomer', '{customer_name}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{customer_name}</button>
                                 <button type="button" onclick="insertFu12Tag('fu12GreetingCustomer', '{barang_keep}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{barang_keep}</button>
+                                <button type="button" onclick="insertFu12Tag('fu12GreetingCustomer', '{cabang}')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-mono text-slate-700">{cabang}</button>
+                                <button type="button" onclick="insertFu12Tag('fu12GreetingCustomer', '{kode_sosmed}')" class="px-1.5 py-0.5 rounded bg-brand-100 hover:bg-brand-200 border border-brand-300 text-[10px] font-mono font-bold text-brand-900">{kode_sosmed}</button>
                             </div>
                         </div>
                         <textarea id="fu12GreetingCustomer" rows="2" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 focus:bg-white focus:border-brand-500 focus:outline-none transition leading-relaxed resize-y" oninput="updateFu12LivePreview()"></textarea>
@@ -509,9 +568,13 @@
                 <div class="flex items-center justify-between px-1">
                     <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                         <span class="size-2 rounded-full bg-emerald-500"></span>
-                        <span>Pratinjau Pesan WhatsApp (Live Preview)</span>
+                        <span>Pratinjau Pesan WhatsApp</span>
                     </span>
-                    <span class="text-[10px] font-semibold text-slate-400">Simulasi Tampilan di HP PIC</span>
+                    <!-- Switch Preview Mode -->
+                    <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200 text-[10px] font-bold">
+                        <button type="button" id="fu12BtnPreviewSingle" onclick="setFu12PreviewMode('single')" class="px-2.5 py-0.5 rounded-md bg-white text-slate-900 shadow-2xs transition">Pesan 24 Jam</button>
+                        <button type="button" id="fu12BtnPreviewDigest" onclick="setFu12PreviewMode('digest')" class="px-2.5 py-0.5 rounded-md text-slate-600 hover:text-slate-900 transition">Rekap Pagi</button>
+                    </div>
                 </div>
 
                 <!-- Smartphone Mock Container -->
@@ -532,7 +595,7 @@
                         <div class="relative max-w-full rounded-2xl rounded-tl-xs bg-white text-slate-900 p-4 shadow-sm border border-slate-200/60 text-xs font-mono leading-relaxed whitespace-pre-wrap break-words" id="fu12LivePreviewBox">
                             Memuat pratinjau pesan...
                         </div>
-                        <span class="text-[10px] text-slate-400 mt-1 self-end font-mono">09:00 WIB ✓✓</span>
+                        <span class="text-[10px] text-slate-400 mt-1 self-end font-mono" id="fu12LivePreviewTime">09:32 WITA ✓✓</span>
                     </div>
                 </div>
             </div>
@@ -768,13 +831,16 @@ async function safeParseJsonResponse(res) {
 
 const FU12_DEFAULTS = {
     enabled: true,
+    work_start: '08:00',
+    work_end: '22:00',
     time: '09:00',
     delay_min: 3,
     delay_max: 8,
     batch_size: 10,
     batch_cooldown: 30,
-    header: "☀️ *REMINDER AUTO FOLLOW-UP H+1 KEEP SOSMED*\nHalo Kak *{pic_name}*! 👋\n\nBerikut daftar *{total_items} Customer Keep* kamu dari kemarin (*{target_date}*) yang masih berstatus *ON PROGRESS* dan perlu kamu follow-up hari ini:\n-----------------------------------------",
-    item: "{num}. *{customer_name}* ({customer_phone})\n   📦 Barang: {barang_keep}\n   🏢 Cabang: {cabang}\n   📝 Catatan: {catatan}\n   👉 *Klik Chat Customer:* {chat_link}",
+    template_single_alert: "⏰ *REMINDER 24 JAM KEEP SOSMED*\nHalo Kak *{pic_name}*! 👋\n\nCustomer berikut sudah 24 jam sejak keep tercatat (*{jam_masuk}*) dan masih berstatus *ON PROGRESS*:\n\n👤 *{customer_name}* ({customer_phone})\n📦 Barang: {barang_keep}\n🏢 Cabang: {cabang}\n🏷️ Admin Sosmed: {kode_sosmed}\n📝 Catatan: {catatan}\n\n👉 *Langsung Chat Customer:* {chat_link}\n\nYuk follow-up sekarang dan kabari update-nya di dashboard! Semangat! 🚀💪",
+    header: "☀️ *REKAP AUTO FOLLOW-UP H+1 KEEP SOSMED*\nHalo Kak *{pic_name}*! 👋\n\nBerikut daftar *{total_items} Customer Keep* kamu kemarin (*{target_date}*) yang masih berstatus *ON PROGRESS* dan perlu kamu follow-up pagi ini:\n-----------------------------------------",
+    item: "{num}. *{customer_name}* ({customer_phone})\n   📦 Barang: {barang_keep}\n   🏢 Cabang: {cabang}\n   🏷️ Admin Sosmed: {kode_sosmed}\n   📝 Catatan: {catatan}\n   👉 *Klik Chat Customer:* {chat_link}",
     footer: "-----------------------------------------\nYuk follow-up sekarang dan giring jadi *WIN* hari ini! Jangan lupa update statusnya di Dashboard ya! Semangat! 🚀💪",
     greeting: "Halo Kak {customer_name}, kami dari Gadgetmart ingin menanyakan perihal keep barang {barang_keep} kemarin, apakah jadi diambil hari ini? Terima kasih 🙏"
 };
@@ -1563,6 +1629,12 @@ function initFu12SettingsForm() {
     const elEnabled = document.getElementById('fu12SettingEnabled');
     if (elEnabled) elEnabled.checked = (s.enabled !== false && s.enabled !== '0');
 
+    const elWorkStart = document.getElementById('fu12SettingWorkStart');
+    if (elWorkStart) elWorkStart.value = s.work_start || FU12_DEFAULTS.work_start;
+
+    const elWorkEnd = document.getElementById('fu12SettingWorkEnd');
+    if (elWorkEnd) elWorkEnd.value = s.work_end || FU12_DEFAULTS.work_end;
+
     const elTime = document.getElementById('fu12SettingTime');
     if (elTime) elTime.value = s.time || FU12_DEFAULTS.time;
 
@@ -1577,6 +1649,9 @@ function initFu12SettingsForm() {
 
     const elBatchCooldown = document.getElementById('fu12BatchCooldown');
     if (elBatchCooldown) elBatchCooldown.value = (s.batch_cooldown !== undefined) ? s.batch_cooldown : FU12_DEFAULTS.batch_cooldown;
+
+    const elSingle = document.getElementById('fu12TplSingleAlert');
+    if (elSingle) elSingle.value = s.template_single_alert || FU12_DEFAULTS.template_single_alert;
 
     const elHeader = document.getElementById('fu12TplHeader');
     if (elHeader) elHeader.value = s.template_header || FU12_DEFAULTS.header;
@@ -1596,13 +1671,14 @@ function initFu12SettingsForm() {
 
 function onFu12SettingChange() {
     const isEnabled = document.getElementById('fu12SettingEnabled')?.checked;
-    const timeVal = document.getElementById('fu12SettingTime')?.value || '09:00';
+    const workStart = document.getElementById('fu12SettingWorkStart')?.value || '08:00';
+    const workEnd = document.getElementById('fu12SettingWorkEnd')?.value || '22:00';
     const statusBadge = document.getElementById('fu12ScheduleStatusBadge');
 
     if (statusBadge) {
         if (isEnabled) {
             statusBadge.className = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
-            statusBadge.innerHTML = `<span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span><span>Aktif (${timeVal} WIB)</span>`;
+            statusBadge.innerHTML = `<span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span><span>Aktif (${workStart} - ${workEnd} WITA)</span>`;
         } else {
             statusBadge.className = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200';
             statusBadge.innerHTML = `<span class="size-2 rounded-full bg-slate-400"></span><span>Nonaktif</span>`;
@@ -1624,18 +1700,44 @@ function insertFu12Tag(elementId, tag) {
 }
 
 function resetFu12TemplateDefault() {
-    if (!confirm('Kembalikan template pesan pembuka, rincian customer, penutup, dan jeda pengiriman ke teks bawaan?')) return;
+    if (!confirm('Kembalikan konfigurasi jam kerja, jeda pengiriman, template pesan 24 jam presisi, dan rekap pagi ke format bawaan?')) return;
 
+    if (document.getElementById('fu12SettingWorkStart')) document.getElementById('fu12SettingWorkStart').value = FU12_DEFAULTS.work_start;
+    if (document.getElementById('fu12SettingWorkEnd')) document.getElementById('fu12SettingWorkEnd').value = FU12_DEFAULTS.work_end;
     if (document.getElementById('fu12DelayMin')) document.getElementById('fu12DelayMin').value = FU12_DEFAULTS.delay_min;
     if (document.getElementById('fu12DelayMax')) document.getElementById('fu12DelayMax').value = FU12_DEFAULTS.delay_max;
     if (document.getElementById('fu12BatchSize')) document.getElementById('fu12BatchSize').value = FU12_DEFAULTS.batch_size;
     if (document.getElementById('fu12BatchCooldown')) document.getElementById('fu12BatchCooldown').value = FU12_DEFAULTS.batch_cooldown;
 
+    if (document.getElementById('fu12TplSingleAlert')) document.getElementById('fu12TplSingleAlert').value = FU12_DEFAULTS.template_single_alert;
     document.getElementById('fu12TplHeader').value = FU12_DEFAULTS.header;
     document.getElementById('fu12TplItem').value = FU12_DEFAULTS.item;
     document.getElementById('fu12TplFooter').value = FU12_DEFAULTS.footer;
     document.getElementById('fu12GreetingCustomer').value = FU12_DEFAULTS.greeting;
 
+    onFu12SettingChange();
+    updateFu12LivePreview();
+}
+
+let fu12PreviewMode = 'single'; // 'single' or 'digest'
+
+function setFu12PreviewMode(mode) {
+    fu12PreviewMode = mode;
+    const btnSingle = document.getElementById('fu12BtnPreviewSingle');
+    const btnDigest = document.getElementById('fu12BtnPreviewDigest');
+    const timeBadge = document.getElementById('fu12LivePreviewTime');
+
+    if (btnSingle && btnDigest) {
+        if (mode === 'single') {
+            btnSingle.className = 'px-2.5 py-0.5 rounded-md bg-white text-slate-900 shadow-2xs transition';
+            btnDigest.className = 'px-2.5 py-0.5 rounded-md text-slate-600 hover:text-slate-900 transition';
+            if (timeBadge) timeBadge.innerText = '09:32 WITA ✓✓';
+        } else {
+            btnDigest.className = 'px-2.5 py-0.5 rounded-md bg-white text-slate-900 shadow-2xs transition';
+            btnSingle.className = 'px-2.5 py-0.5 rounded-md text-slate-600 hover:text-slate-900 transition';
+            if (timeBadge) timeBadge.innerText = '08:00 WITA ✓✓';
+        }
+    }
     updateFu12LivePreview();
 }
 
@@ -1643,6 +1745,7 @@ function updateFu12LivePreview() {
     const box = document.getElementById('fu12LivePreviewBox');
     if (!box) return;
 
+    const singleTpl = document.getElementById('fu12TplSingleAlert')?.value || FU12_DEFAULTS.template_single_alert;
     const headerTpl = document.getElementById('fu12TplHeader')?.value || FU12_DEFAULTS.header;
     const itemTpl = document.getElementById('fu12TplItem')?.value || FU12_DEFAULTS.item;
     const footerTpl = document.getElementById('fu12TplFooter')?.value || FU12_DEFAULTS.footer;
@@ -1650,46 +1753,78 @@ function updateFu12LivePreview() {
 
     // Dummy sample items
     const sampleItems = [
-        { num: 1, name: 'Bpk. Hendra Saputra', phone: '0812-3456-7890', normWA: '6281234567890', barang: 'SAMSUNG GALAXY S25 8/256GB', cabang: 'Head Office', catatan: 'Minta keep sampai siang' },
-        { num: 2, name: 'Ibu Siti Aisyah', phone: '0852-9876-5432', normWA: '6285298765432', barang: 'OPPO A60 8/128GB', cabang: 'Head Office', catatan: 'Tanya promo cicilan 0%' }
+        { num: 1, name: 'Bpk. Hendra Saputra', phone: '0812-3456-7890', normWA: '6281234567890', barang: 'SAMSUNG GALAXY S25 8/256GB', cabang: 'Head Office', kode_sosmed: 'ADM-SBY-01', catatan: 'Minta keep sampai siang', jam: 'Kemarin, 09:32 WITA' },
+        { num: 2, name: 'Ibu Siti Aisyah', phone: '0852-9876-5432', normWA: '6285298765432', barang: 'OPPO A60 8/128GB', cabang: 'Head Office', kode_sosmed: 'ADM-MTP-02', catatan: 'Tanya promo cicilan 0%', jam: 'Kemarin, 14:15 WITA' }
     ];
 
-    // Render header
-    const headerRendered = headerTpl
-        .replace(/{pic_name}/g, 'Daniel')
-        .replace(/{target_date}/g, '15 November 2026')
-        .replace(/{total_items}/g, '2');
-
-    // Render items
-    const renderedItemsList = sampleItems.map(it => {
+    if (fu12PreviewMode === 'single') {
+        const it = sampleItems[0];
         const rawGreeting = greetingTpl
             .replace(/{customer_name}/g, it.name)
             .replace(/{barang_keep}/g, it.barang)
-            .replace(/{cabang}/g, it.cabang);
+            .replace(/{cabang}/g, it.cabang)
+            .replace(/{kode_sosmed}/g, it.kode_sosmed)
+            .replace(/{kode}/g, it.kode_sosmed);
         const encodedGreeting = encodeURIComponent(rawGreeting);
         const link = `https://wa.me/${it.normWA}?text=${encodedGreeting}`;
 
-        return itemTpl
-            .replace(/{num}/g, it.num)
+        const renderedSingle = singleTpl
+            .replace(/{pic_name}/g, 'Daniel')
             .replace(/{customer_name}/g, it.name)
             .replace(/{customer_phone}/g, it.phone)
             .replace(/{barang_keep}/g, it.barang)
             .replace(/{cabang}/g, it.cabang)
+            .replace(/{kode_sosmed}/g, it.kode_sosmed)
+            .replace(/{kode}/g, it.kode_sosmed)
             .replace(/{catatan}/g, it.catatan)
+            .replace(/{jam_masuk}/g, it.jam)
             .replace(/{chat_link}/g, link);
-    });
 
-    const fullPreview = headerRendered.trim() + '\n\n' + renderedItemsList.join('\n\n') + '\n\n' + footerTpl.trim();
-    box.innerText = fullPreview;
+        box.innerText = renderedSingle.trim();
+    } else {
+        // Render header
+        const headerRendered = headerTpl
+            .replace(/{pic_name}/g, 'Daniel')
+            .replace(/{target_date}/g, '17 November 2026')
+            .replace(/{total_items}/g, '2');
+
+        // Render items
+        const renderedItemsList = sampleItems.map(it => {
+            const rawGreeting = greetingTpl
+                .replace(/{customer_name}/g, it.name)
+                .replace(/{barang_keep}/g, it.barang)
+                .replace(/{cabang}/g, it.cabang)
+                .replace(/{kode_sosmed}/g, it.kode_sosmed)
+                .replace(/{kode}/g, it.kode_sosmed);
+            const encodedGreeting = encodeURIComponent(rawGreeting);
+            const link = `https://wa.me/${it.normWA}?text=${encodedGreeting}`;
+
+            return itemTpl
+                .replace(/{num}/g, it.num)
+                .replace(/{customer_name}/g, it.name)
+                .replace(/{customer_phone}/g, it.phone)
+                .replace(/{barang_keep}/g, it.barang)
+                .replace(/{cabang}/g, it.cabang)
+                .replace(/{kode_sosmed}/g, it.kode_sosmed)
+                .replace(/{kode}/g, it.kode_sosmed)
+                .replace(/{catatan}/g, it.catatan)
+                .replace(/{chat_link}/g, link);
+        });
+
+        const fullPreview = headerRendered.trim() + '\n\n' + renderedItemsList.join('\n\n') + '\n\n' + footerTpl.trim();
+        box.innerText = fullPreview;
+    }
 }
 
 async function saveFu12Settings(btn) {
     const isEnabled = document.getElementById('fu12SettingEnabled')?.checked;
-    const timeVal = document.getElementById('fu12SettingTime')?.value || '09:00';
+    const workStartVal = document.getElementById('fu12SettingWorkStart')?.value || '08:00';
+    const workEndVal = document.getElementById('fu12SettingWorkEnd')?.value || '22:00';
     const delayMinVal = parseInt(document.getElementById('fu12DelayMin')?.value, 10) || FU12_DEFAULTS.delay_min;
     const delayMaxVal = parseInt(document.getElementById('fu12DelayMax')?.value, 10) || FU12_DEFAULTS.delay_max;
     const batchSizeVal = parseInt(document.getElementById('fu12BatchSize')?.value, 10) || FU12_DEFAULTS.batch_size;
     const batchCooldownVal = parseInt(document.getElementById('fu12BatchCooldown')?.value, 10) || FU12_DEFAULTS.batch_cooldown;
+    const singleAlertVal = document.getElementById('fu12TplSingleAlert')?.value || '';
     const headerVal = document.getElementById('fu12TplHeader')?.value || '';
     const itemVal = document.getElementById('fu12TplItem')?.value || '';
     const footerVal = document.getElementById('fu12TplFooter')?.value || '';
@@ -1711,11 +1846,13 @@ async function saveFu12Settings(btn) {
             },
             body: JSON.stringify({
                 enabled: isEnabled ? '1' : '0',
-                time: timeVal,
+                work_start: workStartVal,
+                work_end: workEndVal,
                 delay_min: delayMinVal,
                 delay_max: delayMaxVal,
                 batch_size: batchSizeVal,
                 batch_cooldown: batchCooldownVal,
+                template_single_alert: singleAlertVal,
                 template_header: headerVal,
                 template_item: itemVal,
                 template_footer: footerVal,
@@ -1951,6 +2088,7 @@ window.sanitizeFu12Autofill = sanitizeFu12Autofill;
 window.confirmSendAllH1Reminders = confirmSendAllH1Reminders;
 window.insertFu12Tag = insertFu12Tag;
 window.updateFu12LivePreview = updateFu12LivePreview;
+window.setFu12PreviewMode = setFu12PreviewMode;
 window.resetFu12TemplateDefault = resetFu12TemplateDefault;
 window.saveFu12Settings = saveFu12Settings;
 

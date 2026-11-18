@@ -13,9 +13,11 @@ use Throwable;
 
 class KeepAutoFollowUpService
 {
-    public const DEFAULT_HEADER = "☀️ *REMINDER AUTO FOLLOW-UP H+1 KEEP SOSMED*\nHalo Kak *{pic_name}*! 👋\n\nBerikut daftar *{total_items} Customer Keep* kamu dari kemarin (*{target_date}*) yang masih berstatus *ON PROGRESS* dan perlu kamu follow-up hari ini:\n-----------------------------------------";
+    public const DEFAULT_HEADER = "☀️ *REKAP AUTO FOLLOW-UP H+1 KEEP SOSMED*\nHalo Kak *{pic_name}*! 👋\n\nBerikut daftar *{total_items} Customer Keep* kamu kemarin (*{target_date}*) yang masih berstatus *ON PROGRESS* dan perlu kamu follow-up pagi ini:\n-----------------------------------------";
 
-    public const DEFAULT_ITEM = "{num}. *{customer_name}* ({customer_phone})\n   📦 Barang: {barang_keep}\n   🏢 Cabang: {cabang}\n   📝 Catatan: {catatan}\n   👉 *Klik Chat Customer:* {chat_link}";
+    public const DEFAULT_ITEM = "{num}. *{customer_name}* ({customer_phone})\n   📦 Barang: {barang_keep}\n   🏢 Cabang: {cabang}\n   🏷️ Admin Sosmed: {kode_sosmed}\n   📝 Catatan: {catatan}\n   👉 *Klik Chat Customer:* {chat_link}";
+
+    public const DEFAULT_SINGLE_ALERT = "⏰ *REMINDER 24 JAM KEEP SOSMED*\nHalo Kak *{pic_name}*! 👋\n\nCustomer berikut sudah 24 jam sejak keep tercatat (*{jam_masuk}*) dan masih berstatus *ON PROGRESS*:\n\n👤 *{customer_name}* ({customer_phone})\n📦 Barang: {barang_keep}\n🏢 Cabang: {cabang}\n🏷️ Admin Sosmed: {kode_sosmed}\n📝 Catatan: {catatan}\n\n👉 *Langsung Chat Customer:* {chat_link}\n\nYuk follow-up sekarang dan kabari update-nya di dashboard! Semangat! 🚀💪";
 
     public const DEFAULT_FOOTER = "-----------------------------------------\nYuk follow-up sekarang dan giring jadi *WIN* hari ini! Jangan lupa update statusnya di Dashboard ya! Semangat! 🚀💪";
 
@@ -54,16 +56,37 @@ class KeepAutoFollowUpService
     {
         return [
             'enabled' => Setting::get('keep_auto_fu_h1_enabled', '1') === '1',
+            'work_start' => Setting::get('keep_auto_fu_h1_work_start', '08:00'),
+            'work_end' => Setting::get('keep_auto_fu_h1_work_end', '22:00'),
             'time' => Setting::get('keep_auto_fu_h1_time', '09:00'),
             'delay_min' => (int) Setting::get('keep_auto_fu_h1_delay_min', 3),
             'delay_max' => (int) Setting::get('keep_auto_fu_h1_delay_max', 8),
             'batch_size' => (int) Setting::get('keep_auto_fu_h1_batch_size', 10),
             'batch_cooldown' => (int) Setting::get('keep_auto_fu_h1_batch_cooldown', 30),
+            'template_single_alert' => Setting::get('keep_auto_fu_h1_template_single_alert', self::DEFAULT_SINGLE_ALERT),
             'template_header' => Setting::get('keep_auto_fu_h1_template_header', self::DEFAULT_HEADER),
             'template_item' => Setting::get('keep_auto_fu_h1_template_item', self::DEFAULT_ITEM),
             'template_footer' => Setting::get('keep_auto_fu_h1_template_footer', self::DEFAULT_FOOTER),
             'greeting_customer' => Setting::get('keep_auto_fu_h1_greeting_customer', self::DEFAULT_GREETING),
         ];
+    }
+
+    /**
+     * Check if current time is within operational work hours (default 08:00 - 22:00 WITA).
+     */
+    public function isWithinWorkHours(?Carbon $now = null): bool
+    {
+        $settings = $this->getSettings();
+        if (! $settings['enabled']) {
+            return false;
+        }
+
+        $now = $now ? $now->copy() : Carbon::now();
+        $currentTime = $now->format('H:i');
+        $workStart = $settings['work_start'] ?? '08:00';
+        $workEnd = $settings['work_end'] ?? '22:00';
+
+        return $currentTime >= $workStart && $currentTime <= $workEnd;
     }
 
     /**
@@ -73,6 +96,12 @@ class KeepAutoFollowUpService
     {
         if (isset($data['enabled'])) {
             Setting::set('keep_auto_fu_h1_enabled', ! empty($data['enabled']) ? '1' : '0');
+        }
+        if (! empty($data['work_start'])) {
+            Setting::set('keep_auto_fu_h1_work_start', trim((string) $data['work_start']));
+        }
+        if (! empty($data['work_end'])) {
+            Setting::set('keep_auto_fu_h1_work_end', trim((string) $data['work_end']));
         }
         if (! empty($data['time'])) {
             Setting::set('keep_auto_fu_h1_time', trim((string) $data['time']));
@@ -89,6 +118,9 @@ class KeepAutoFollowUpService
         }
         if (isset($data['batch_cooldown'])) {
             Setting::set('keep_auto_fu_h1_batch_cooldown', (string) max(0, (int) $data['batch_cooldown']));
+        }
+        if (isset($data['template_single_alert'])) {
+            Setting::set('keep_auto_fu_h1_template_single_alert', (string) $data['template_single_alert']);
         }
         if (isset($data['template_header'])) {
             Setting::set('keep_auto_fu_h1_template_header', (string) $data['template_header']);
@@ -312,16 +344,17 @@ class KeepAutoFollowUpService
             $catatan = $item['catatan'] ? trim((string) $item['catatan']) : '-';
 
             $rawGreeting = str_replace(
-                ['{customer_name}', '{barang_keep}', '{cabang}'],
-                [$custName, $barang, $cabang],
+                ['{customer_name}', '{barang_keep}', '{cabang}', '{kode_sosmed}', '{kode}'],
+                [$custName, $barang, $cabang, $item['kode_sosmed'] ?? '-', $item['kode_sosmed'] ?? '-'],
                 $greetingTpl
             );
             $encodedGreeting = rawurlencode($rawGreeting);
             $waLink = $normCust ? "https://wa.me/{$normCust}?text={$encodedGreeting}" : '-';
 
+            $kodeSosmed = $item['kode_sosmed'] ?? '-';
             $renderedItem = str_replace(
-                ['{num}', '{customer_name}', '{customer_phone}', '{barang_keep}', '{cabang}', '{catatan}', '{chat_link}'],
-                [$num, $custName, $custPhone, $barang, $cabang, $catatan, $waLink],
+                ['{num}', '{customer_name}', '{customer_phone}', '{barang_keep}', '{cabang}', '{kode_sosmed}', '{kode}', '{catatan}', '{chat_link}'],
+                [$num, $custName, $custPhone, $barang, $cabang, $kodeSosmed, $kodeSosmed, $catatan, $waLink],
                 $itemTpl
             );
 
@@ -333,6 +366,136 @@ class KeepAutoFollowUpService
         $footerTpl = $settings['template_footer'] ?: self::DEFAULT_FOOTER;
 
         return trim($header) . "\n\n" . implode("\n\n", $itemsTextList) . "\n\n" . trim($footerTpl);
+    }
+
+    /**
+     * Build WhatsApp Single Alert Message for a specific Customer Keep (Strict 24h Model A).
+     */
+    public function buildSingleAlertMessage(string $picName, array $item): string
+    {
+        $settings = $this->getSettings();
+        $tpl = $settings['template_single_alert'] ?: self::DEFAULT_SINGLE_ALERT;
+        $greetingTpl = $settings['greeting_customer'] ?: self::DEFAULT_GREETING;
+
+        $nameDisplay = ! empty($picName) ? $picName : 'Tim Sales';
+        $custName = $item['nama'] ?: 'Customer';
+        $custPhone = $item['nomor_wa'] ?: '-';
+        $normCust = $this->normalizePhone($custPhone);
+        $barang = $item['barang_keep'] ?: '-';
+        $cabang = $item['cabang'] ?: 'Gadgetmart';
+        $catatan = $item['catatan'] ? trim((string) $item['catatan']) : '-';
+        $kodeSosmed = $item['kode_sosmed'] ?: '-';
+        $jamMasuk = $item['timestamp'] ?: '-';
+
+        $rawGreeting = str_replace(
+            ['{customer_name}', '{barang_keep}', '{cabang}', '{kode_sosmed}', '{kode}'],
+            [$custName, $barang, $cabang, $kodeSosmed, $kodeSosmed],
+            $greetingTpl
+        );
+        $encodedGreeting = rawurlencode($rawGreeting);
+        $waLink = $normCust ? "https://wa.me/{$normCust}?text={$encodedGreeting}" : '-';
+
+        return str_replace(
+            ['{pic_name}', '{customer_name}', '{customer_phone}', '{barang_keep}', '{cabang}', '{kode_sosmed}', '{kode}', '{catatan}', '{jam_masuk}', '{chat_link}'],
+            [$nameDisplay, $custName, $custPhone, $barang, $cabang, $kodeSosmed, $kodeSosmed, $catatan, $jamMasuk, $waLink],
+            $tpl
+        );
+    }
+
+    /**
+     * Send Single 24h Alert to a PIC for one specific Keep item.
+     */
+    public function sendSingleAlertToPic(string $picPhone, string $picName, array $item): array
+    {
+        $cleanPhone = $this->normalizePhone($picPhone);
+        if ($this->isLidPhone($cleanPhone)) {
+            $resolved = $this->resolvePicRealPhone($cleanPhone, $picName);
+            if ($resolved) {
+                $cleanPhone = $resolved;
+            }
+        }
+
+        $keepId = $item['id'] ?? null;
+
+        if (! $cleanPhone || strlen($cleanPhone) < 9 || $this->isLidPhone($cleanPhone)) {
+            $invalidReason = $this->isLidPhone($picPhone)
+                ? "Format nomor terdeteksi LID WhatsApp Multi-Device ('{$picPhone}'), bukan nomor HP seluler"
+                : "Nomor WhatsApp PIC tidak valid ('{$picPhone}')";
+
+            if ($keepId) {
+                try {
+                    SosmedKeep::where('id', $keepId)->update([
+                        'fu_h1_status' => 'FAILED',
+                        'fu_h1_note' => $invalidReason,
+                    ]);
+                } catch (Throwable) {}
+            }
+
+            return [
+                'success' => false,
+                'error_type' => 'INVALID_PHONE',
+                'message' => "Nomor WhatsApp PIC ({$picName}) belum valid: {$invalidReason}.",
+            ];
+        }
+
+        $message = $this->buildSingleAlertMessage($picName, $item);
+
+        try {
+            $res = $this->watzapService->sendViaBaileys($cleanPhone, $message, '6285111426699');
+
+            if (! empty($res['success'])) {
+                if ($keepId) {
+                    try {
+                        SosmedKeep::where('id', $keepId)->update([
+                            'fu_h1_sent_at' => now(),
+                            'fu_h1_status' => 'SENT',
+                            'fu_h1_note' => 'Dikirim via Baileys Bot (24h Alert)',
+                        ]);
+                    } catch (Throwable $dbErr) {
+                        Log::warning('Gagal update status keep di DB: ' . $dbErr->getMessage());
+                    }
+                }
+
+                return [
+                    'success' => true,
+                    'pic_name' => $picName,
+                    'pic_phone' => $cleanPhone,
+                    'item' => $item,
+                    'message' => "Reminder 24 jam berhasil dikirim ke WhatsApp Kak {$picName} ({$cleanPhone}) via Baileys Bot.",
+                    'data' => $res,
+                ];
+            }
+
+            if ($keepId) {
+                try {
+                    SosmedKeep::where('id', $keepId)->update([
+                        'fu_h1_status' => 'FAILED',
+                        'fu_h1_note' => 'Gagal via Baileys Bot: ' . ($res['message'] ?? 'Error'),
+                    ]);
+                } catch (Throwable) {}
+            }
+
+            return [
+                'success' => false,
+                'pic_name' => $picName,
+                'pic_phone' => $cleanPhone,
+                'message' => 'Gagal via Baileys Bot: ' . ($res['message'] ?? 'Unknown error'),
+            ];
+        } catch (Throwable $e) {
+            Log::error('Send H+1 Single Alert via Baileys Error', [
+                'pic_phone' => $cleanPhone,
+                'pic_name' => $picName,
+                'keep_id' => $keepId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'pic_name' => $picName,
+                'pic_phone' => $cleanPhone,
+                'message' => 'Exception koneksi Baileys Bot: ' . $e->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -546,6 +709,241 @@ class KeepAutoFollowUpService
                     sleep($batchCooldown);
                 } else {
                     // Jeda acak antar pesan (Humanized Jitter)
+                    $sleepSec = rand($delayMin, $delayMax);
+                    if ($progressCallback) {
+                        $progressCallback('DELAY', [
+                            'delay_seconds' => $sleepSec,
+                            'sent_count' => $sendAttemptCounter,
+                        ]);
+                    }
+                    sleep($sleepSec);
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Scan and Send Strict 1x24 Hour Follow-Up Alerts (Runs every 5 minutes).
+     *
+     * Operational Rules:
+     * - Only runs between work hours (default: 08:00 - 22:00 WITA).
+     * - Outside work hours, messages are safely held and postponed.
+     * - At 08:00 morning opening: if >= 2 keeps accumulated for a PIC, sent as 1 digest (Rekap Pagi).
+     * - Between 08:05 - 22:00: sent as specific Single Alert per customer at the exact 24h milestone.
+     */
+    public function sendStrict24hAlerts(bool $force = false, ?callable $progressCallback = null): array
+    {
+        $settings = $this->getSettings();
+
+        if (! $settings['enabled']) {
+            return [
+                'success' => false,
+                'message' => 'Auto Follow-Up H+1 dinonaktifkan di pengaturan.',
+                'sent_count' => 0,
+                'failed_count' => 0,
+                'skipped_count' => 0,
+                'details' => [],
+            ];
+        }
+
+        if (! $this->isWithinWorkHours()) {
+            $now = Carbon::now();
+            $start = $settings['work_start'] ?? '08:00';
+            $end = $settings['work_end'] ?? '22:00';
+            return [
+                'success' => true,
+                'message' => "Di luar jam operasional ({$start} - {$end} WITA). Waktu saat ini: {$now->format('H:i')} WITA. Pengiriman ditunda hingga jam kerja.",
+                'sent_count' => 0,
+                'failed_count' => 0,
+                'skipped_count' => 0,
+                'details' => [],
+            ];
+        }
+
+        $now = Carbon::now();
+        $twentyFourHoursAgo = $now->copy()->subHours(24);
+        $sevenDaysAgo = $now->copy()->subDays(7);
+
+        $query = SosmedKeep::query()
+            ->where(function ($q) use ($twentyFourHoursAgo, $sevenDaysAgo) {
+                $q->where(function ($sub) use ($twentyFourHoursAgo, $sevenDaysAgo) {
+                    $sub->whereNotNull('keep_timestamp')
+                        ->where('keep_timestamp', '<=', $twentyFourHoursAgo)
+                        ->where('keep_timestamp', '>=', $sevenDaysAgo);
+                })->orWhere(function ($sub) use ($twentyFourHoursAgo, $sevenDaysAgo) {
+                    $sub->whereNull('keep_timestamp')
+                        ->where('created_at', '<=', $twentyFourHoursAgo)
+                        ->where('created_at', '>=', $sevenDaysAgo);
+                });
+            })
+            ->whereNotNull('nomor_wa')
+            ->where('nomor_wa', '!=', '')
+            ->whereRaw("UPPER(TRIM(COALESCE(status, ''))) NOT IN ('WIN', 'LOSE', 'BATAL', 'CANCEL', 'TAKE OUT')");
+
+        if (! $force) {
+            $query->where(function ($q) {
+                $q->whereNull('fu_h1_sent_at')
+                    ->where(function ($sub) {
+                        $sub->whereNull('fu_h1_status')
+                            ->orWhere('fu_h1_status', '!=', 'SENT');
+                    });
+            });
+        }
+
+        $eligibleKeeps = $query->orderBy('keep_timestamp', 'asc')->get();
+
+        if ($eligibleKeeps->isEmpty()) {
+            return [
+                'success' => true,
+                'message' => 'Tidak ada format keep yang jatuh tempo 24 jam saat ini.',
+                'total_eligible' => 0,
+                'sent_count' => 0,
+                'failed_count' => 0,
+                'skipped_count' => 0,
+                'details' => [],
+            ];
+        }
+
+        // Group keeps by PIC
+        $picGroups = [];
+        foreach ($eligibleKeeps as $k) {
+            $rawPicPhone = $k->nomor_fu ?: $k->nomor_follow_up;
+            $cleanPicPhone = $this->normalizePhone($rawPicPhone);
+            $picName = trim((string) ($k->nama_tim_follow_up ?: ''));
+
+            $resolvedRealPhone = $this->resolvePicRealPhone($cleanPicPhone, $picName);
+            if ($resolvedRealPhone) {
+                $cleanPicPhone = $resolvedRealPhone;
+            } elseif ($this->isLidPhone($cleanPicPhone)) {
+                $cleanPicPhone = null;
+            }
+
+            if (! $cleanPicPhone && ! $picName) {
+                continue; // Skip unassigned
+            }
+
+            $groupKey = $cleanPicPhone ?: ('NAME_' . strtoupper(preg_replace('/[^A-Z0-9]/', '', $picName)));
+
+            if (! isset($picGroups[$groupKey])) {
+                $resolvedPicName = $picName ?: $this->resolvePicNameByPhone($cleanPicPhone);
+                $isLid = $this->isLidPhone($rawPicPhone);
+                $isValidPhone = ! empty($cleanPicPhone) && ! $this->isLidPhone($cleanPicPhone) && strlen($cleanPicPhone) >= 9;
+
+                $picGroups[$groupKey] = [
+                    'group_key' => $groupKey,
+                    'pic_name' => $resolvedPicName,
+                    'pic_phone' => $cleanPicPhone,
+                    'raw_pic_phone' => $rawPicPhone,
+                    'is_valid_phone' => $isValidPhone,
+                    'is_lid' => $isLid,
+                    'items' => [],
+                ];
+            }
+
+            $picGroups[$groupKey]['items'][] = $this->transformKeepItem($k);
+        }
+
+        $delayMin = max(1, (int) ($settings['delay_min'] ?? 3));
+        $delayMax = max($delayMin, (int) ($settings['delay_max'] ?? 8));
+        $batchSize = max(2, (int) ($settings['batch_size'] ?? 10));
+        $batchCooldown = max(0, (int) ($settings['batch_cooldown'] ?? 30));
+
+        $results = [
+            'success' => true,
+            'message' => 'Selesai memproses antrean follow-up 24 jam.',
+            'total_eligible' => $eligibleKeeps->count(),
+            'total_pics' => count($picGroups),
+            'sent_count' => 0,
+            'failed_count' => 0,
+            'skipped_count' => 0,
+            'details' => [],
+        ];
+
+        $groupsList = array_values($picGroups);
+        $totalGroups = count($groupsList);
+        $sendAttemptCounter = 0;
+
+        foreach ($groupsList as $index => $group) {
+            $picName = $group['pic_name'];
+            $picPhone = $group['pic_phone'];
+            $items = $group['items'];
+            $itemsCount = count($items);
+
+            if (! $group['is_valid_phone']) {
+                $invalidReason = $group['is_lid']
+                    ? "Format nomor terdeteksi LID WhatsApp Multi-Device ('{$group['raw_pic_phone']}'), bukan nomor HP seluler"
+                    : "Nomor WhatsApp PIC tidak valid ('{$group['raw_pic_phone']}')";
+
+                $keepIds = array_column($items, 'id');
+                if (! empty($keepIds)) {
+                    try {
+                        SosmedKeep::whereIn('id', $keepIds)->update([
+                            'fu_h1_status' => 'FAILED',
+                            'fu_h1_note' => $invalidReason,
+                        ]);
+                    } catch (Throwable) {}
+                }
+
+                $results['failed_count'] += $itemsCount;
+                $results['details'][] = [
+                    'pic_name' => $picName,
+                    'pic_phone' => $picPhone,
+                    'items_count' => $itemsCount,
+                    'mode' => $itemsCount > 1 ? 'DIGEST' : 'SINGLE',
+                    'status' => 'FAILED',
+                    'message' => "Nomor WhatsApp PIC tidak valid: {$invalidReason}",
+                ];
+                continue;
+            }
+
+            // Decide model: If >= 2 keeps (e.g. overnight batch at morning opening) -> Send Digest. If 1 -> Send Single Alert.
+            if ($itemsCount >= 2) {
+                $targetDate = Carbon::yesterday()->toDateString();
+                $sendRes = $this->sendDigestToPic($picPhone, $picName, $items, $targetDate);
+                $mode = 'DIGEST';
+            } else {
+                $sendRes = $this->sendSingleAlertToPic($picPhone, $picName, $items[0]);
+                $mode = 'SINGLE';
+            }
+
+            $sendAttemptCounter++;
+
+            if (! empty($sendRes['success'])) {
+                $results['sent_count'] += $itemsCount;
+                $results['details'][] = [
+                    'pic_name' => $picName,
+                    'pic_phone' => $picPhone,
+                    'items_count' => $itemsCount,
+                    'mode' => $mode,
+                    'status' => 'SENT',
+                    'message' => $sendRes['message'],
+                ];
+            } else {
+                $results['failed_count'] += $itemsCount;
+                $results['details'][] = [
+                    'pic_name' => $picName,
+                    'pic_phone' => $picPhone,
+                    'items_count' => $itemsCount,
+                    'mode' => $mode,
+                    'status' => 'FAILED',
+                    'message' => $sendRes['message'],
+                ];
+            }
+
+            // Throttling: Delay & Rest Cycle
+            $isLast = ($index === $totalGroups - 1);
+            if (! $isLast) {
+                if ($batchSize > 0 && $batchCooldown > 0 && ($sendAttemptCounter % $batchSize === 0)) {
+                    if ($progressCallback) {
+                        $progressCallback('REST_CYCLE', [
+                            'sent_count' => $sendAttemptCounter,
+                            'cooldown_seconds' => $batchCooldown,
+                        ]);
+                    }
+                    sleep($batchCooldown);
+                } else {
                     $sleepSec = rand($delayMin, $delayMax);
                     if ($progressCallback) {
                         $progressCallback('DELAY', [

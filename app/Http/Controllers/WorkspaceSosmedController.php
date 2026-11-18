@@ -2470,6 +2470,17 @@ class WorkspaceSosmedController extends Controller
                 return response()->json($res);
             }
 
+            if ($target === 'STRICT_24H') {
+                @set_time_limit(300);
+                $res = $service->sendStrict24hAlerts($force);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $res['message'] ?? 'Proses pengiriman selesai.',
+                    'data' => $res,
+                ]);
+            }
+
             @set_time_limit(300);
             $res = $service->sendAllPendingDigests($date, $force);
 
