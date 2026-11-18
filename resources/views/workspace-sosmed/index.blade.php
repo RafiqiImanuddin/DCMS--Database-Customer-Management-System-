@@ -6,10 +6,6 @@
 @section('container-class', 'w-full px-4 py-4 md:px-8 md:py-6')
 
 @section('head')
-    <!-- Fonts: Inter for text, Plus Jakarta Sans 700-800 for titles and numbers -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Local SheetJS, JSZip, html2canvas, and Chart.js libraries (defer untuk percepat initial render) -->
     <script src="{{ asset('workspace-sosmed/lib/xlsx.full.min.js') }}" defer></script>
     <script src="{{ asset('workspace-sosmed/lib/jszip.min.js') }}" defer></script>

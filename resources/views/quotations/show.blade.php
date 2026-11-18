@@ -231,9 +231,8 @@
 }
 </style>
 
-<!-- Image Export Libraries (Local primary with fallback) -->
+<!-- Image Export Library (Local html-to-image, Tailwind v4 OKLCH compatible) -->
 <script src="{{ asset('js/html-to-image.min.js') }}"></script>
-<script src="{{ asset('js/html2canvas.min.js') }}"></script>
 <script>
 async function downloadLetterImage() {
     const btn = document.getElementById('btnDownloadImage');
