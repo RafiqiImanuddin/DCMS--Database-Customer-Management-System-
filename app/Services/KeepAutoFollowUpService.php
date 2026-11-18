@@ -764,18 +764,22 @@ class KeepAutoFollowUpService
 
         $now = Carbon::now();
         $twentyFourHoursAgo = $now->copy()->subHours(24);
-        $sevenDaysAgo = $now->copy()->subDays(7);
+        $yesterdayStart = $now->copy()->subDay()->startOfDay();
+        $yesterdayEnd = $now->copy()->subDay()->endOfDay();
+        $yesterdayDateStr = $yesterdayStart->toDateString();
+        $upperBound = $twentyFourHoursAgo->lt($yesterdayEnd) ? $twentyFourHoursAgo : $yesterdayEnd;
 
+        // Ketat H-1 (hanya tanggal kemarin) & sudah genap >= 24 jam sejak jam keep tercatat
         $query = SosmedKeep::query()
-            ->where(function ($q) use ($twentyFourHoursAgo, $sevenDaysAgo) {
-                $q->where(function ($sub) use ($twentyFourHoursAgo, $sevenDaysAgo) {
+            ->where(function ($q) use ($yesterdayStart, $upperBound) {
+                $q->where(function ($sub) use ($yesterdayStart, $upperBound) {
                     $sub->whereNotNull('keep_timestamp')
-                        ->where('keep_timestamp', '<=', $twentyFourHoursAgo)
-                        ->where('keep_timestamp', '>=', $sevenDaysAgo);
-                })->orWhere(function ($sub) use ($twentyFourHoursAgo, $sevenDaysAgo) {
+                        ->where('keep_timestamp', '>=', $yesterdayStart)
+                        ->where('keep_timestamp', '<=', $upperBound);
+                })->orWhere(function ($sub) use ($yesterdayStart, $upperBound) {
                     $sub->whereNull('keep_timestamp')
-                        ->where('created_at', '<=', $twentyFourHoursAgo)
-                        ->where('created_at', '>=', $sevenDaysAgo);
+                        ->where('created_at', '>=', $yesterdayStart)
+                        ->where('created_at', '<=', $upperBound);
                 });
             })
             ->whereNotNull('nomor_wa')
@@ -797,7 +801,7 @@ class KeepAutoFollowUpService
         if ($eligibleKeeps->isEmpty()) {
             return [
                 'success' => true,
-                'message' => 'Tidak ada format keep yang jatuh tempo 24 jam saat ini.',
+                'message' => "Tidak ada format keep tanggal {$yesterdayDateStr} yang jatuh tempo 24 jam saat ini.",
                 'total_eligible' => 0,
                 'sent_count' => 0,
                 'failed_count' => 0,
@@ -858,7 +862,7 @@ class KeepAutoFollowUpService
 
         $results = [
             'success' => true,
-            'message' => 'Selesai memproses antrean follow-up 24 jam.',
+            'message' => "Selesai memproses antrean follow-up 24 jam (Keep H-1 tanggal {$yesterdayDateStr}).",
             'total_eligible' => $eligibleKeeps->count(),
             'total_pics' => count($picGroups),
             'sent_count' => 0,
