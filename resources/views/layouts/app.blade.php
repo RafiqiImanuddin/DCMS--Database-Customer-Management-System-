@@ -244,11 +244,6 @@
         @include('guidance._login_modal')
     @endif
 
-    {{-- Live WhatsApp Floating Chat Widget (Dapat dinonaktifkan via Checklist Hak Akses / Pengaturan Akun) --}}
-    @if (auth()->check() && auth()->user()->canAccessFeature('workspace_live_chat_widget'))
-        @include('layouts.live-chat-widget')
-    @endif
-
     {{-- Global Anti-Autofill Protection untuk Seluruh Kolom Pencarian DCMS --}}
     <script>
     (function initDcmsSearchAntiAutofill() {
