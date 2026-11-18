@@ -466,6 +466,10 @@ function renderTable(filtered) {
         if (type === 'CRON') badgeTypeClass = 'bg-indigo-50 text-indigo-700 border border-indigo-200';
         if (type === 'REACTION') badgeTypeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
         if (type === 'AUTH') badgeTypeClass = 'bg-teal-50 text-teal-700 border border-teal-200';
+        if (type === 'SEND') badgeTypeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        if (type === 'CHAT') badgeTypeClass = 'bg-sky-50 text-sky-700 border border-sky-200';
+
+        const detailText = log.detail ? String(log.detail).trim() : '';
 
         return `
             <tr class="hover:bg-slate-50/70 transition" style="border-bottom: 1px solid #f1f5f9;">
@@ -485,11 +489,7 @@ function renderTable(filtered) {
                 </td>
                 <td class="py-3 px-4 text-slate-800 align-top" style="padding: 12px 16px; color: #1e293b;">
                     <div class="font-bold text-xs text-slate-900" style="font-weight: 700; color: #0f172a; font-size: 12px;">${escapeHtml(log.message || '-')}</div>
-                    ${log.detail ? `
-                        <div class="mt-1 text-[11px] font-mono text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-200/80 whitespace-pre-wrap break-all" style="margin-top: 4px; font-family: monospace; font-size: 11px; color: #64748b; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px;">
-                            ${escapeHtml(log.detail)}
-                        </div>
-                    ` : ''}
+                    ${detailText ? `<div class="mt-1.5 text-[11px] font-mono text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80 whitespace-pre-wrap break-words text-left" style="margin-top: 6px; font-family: monospace; font-size: 11px; color: #475569; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; text-align: left;">${escapeHtml(detailText)}</div>` : ''}
                 </td>
             </tr>
         `;

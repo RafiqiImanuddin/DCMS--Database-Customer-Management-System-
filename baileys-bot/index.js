@@ -126,8 +126,55 @@ function addReactionLog(log) {
     reactionLogs.pop();
   }
 
-  // Rekam juga ke runtime log ringkas
-  addRuntimeLog('REACTION', 'SUCCESS', `Format Keep di-claim oleh ${log.salesName || 'PIC'} (${log.emoji || '👍'})`, `Grup: ${log.groupName || log.groupId || '-'}`);
+  // Rekam ke runtime log terpadu sesuai jenis event sebenarnya (bukan semuanya dilabeli REACTION)
+  const evType = String(log.type || '').toUpperCase();
+  const salesLabel = log.sales || log.salesName || 'PIC';
+  const groupLabel = log.group || log.groupName || log.groupId || '-';
+  const custLabel = log.customer || '-';
+  const respLabel = log.response ? String(log.response).trim() : '-';
+
+  if (evType === 'SYSTEM') {
+    return; // Sudah dicatat oleh addRuntimeLog('AUTH', ...)
+  }
+
+  if (evType === 'CLAIM') {
+    const level = log.status === 'BERHASIL' ? 'SUCCESS' : (log.status === 'DITOLAK_LATE' ? 'WARN' : 'ERROR');
+    addRuntimeLog(
+      'REACTION',
+      level,
+      `Format Keep di-claim oleh ${salesLabel} (${log.emoji || '👍'})`,
+      `Grup: ${groupLabel} | Customer: ${custLabel} | Status: ${log.status || '-'} | Respon: ${respLabel}`
+    );
+  } else if (evType === 'UNCLAIM') {
+    const level = log.status === 'BERHASIL' ? 'INFO' : 'WARN';
+    addRuntimeLog(
+      'REACTION',
+      level,
+      `Claim Format Keep dibatalkan oleh ${salesLabel} (${log.emoji || '❌'})`,
+      `Grup: ${groupLabel} | Customer: ${custLabel} | Status: ${log.status || '-'} | Respon: ${respLabel}`
+    );
+  } else if (evType === 'INBOX_IN') {
+    addRuntimeLog(
+      'CHAT',
+      'INFO',
+      `Chat Masuk dari ${salesLabel} (${log.emoji || '💬'})`,
+      `Nomor: ${custLabel} | Pesan: ${respLabel}`
+    );
+  } else if (evType === 'INBOX_OUT') {
+    addRuntimeLog(
+      'SEND',
+      'SUCCESS',
+      `Pesan WA Terkirim ke ${salesLabel} (${log.emoji || '📤'})`,
+      `Tujuan: ${custLabel} | Status: ${log.status || 'TERKIRIM'} | Pesan: ${respLabel}`
+    );
+  } else {
+    addRuntimeLog(
+      'REACTION',
+      'INFO',
+      `Aktivitas ${evType || 'BOT'} oleh ${salesLabel} (${log.emoji || 'ℹ️'})`,
+      `Grup: ${groupLabel} | Info: ${respLabel}`
+    );
+  }
 }
 
 // ==============================================================================

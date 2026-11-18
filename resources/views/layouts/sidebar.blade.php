@@ -488,7 +488,7 @@
                 <span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span>Versi Web</span>
             </span>
-            <span class="font-mono font-bold text-slate-300 bg-white/10 px-2 py-0.5 rounded text-[10px]">v2.9.7</span>
+            <span class="font-mono font-bold text-slate-300 bg-white/10 px-2 py-0.5 rounded text-[10px]">v2.9.8</span>
         </div>
     </div>
 </aside>
