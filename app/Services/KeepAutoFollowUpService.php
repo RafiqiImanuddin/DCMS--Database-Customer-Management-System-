@@ -26,6 +26,28 @@ class KeepAutoFollowUpService
     ) {}
 
     /**
+     * In-memory cache for resolved PIC phones to avoid repetitive database queries.
+     *
+     * @var array<string, ?string>
+     */
+    protected array $resolvedPhonesCache = [];
+
+    /**
+     * Cached list of employees with phones.
+     */
+    protected ?\Illuminate\Support\Collection $cachedEmployees = null;
+
+    /**
+     * Cached list of users with phones.
+     */
+    protected ?\Illuminate\Support\Collection $cachedUsers = null;
+
+    /**
+     * Cached PIC phones from SosmedKeep table.
+     */
+    protected ?array $cachedSosmedKeepPhones = null;
+
+    /**
      * Get Follow-up H+1 Schedule and Template Settings.
      */
     public function getSettings(): array
@@ -103,10 +125,10 @@ class KeepAutoFollowUpService
 
         return SosmedKeep::query()
             ->where(function ($q) use ($targetDate) {
-                $q->whereDate('keep_timestamp', $targetDate)
+                $q->whereBetween('keep_timestamp', ["{$targetDate} 00:00:00", "{$targetDate} 23:59:59"])
                     ->orWhere(function ($sub) use ($targetDate) {
                         $sub->whereNull('keep_timestamp')
-                            ->whereDate('created_at', $targetDate);
+                            ->whereBetween('created_at', ["{$targetDate} 00:00:00", "{$targetDate} 23:59:59"]);
                     });
             })
             ->whereNotNull('nomor_wa')
@@ -660,6 +682,11 @@ class KeepAutoFollowUpService
             return $isLid ? null : $clean;
         }
 
+        $cacheKey = $salesName . '|' . ($clean ?: '');
+        if (array_key_exists($cacheKey, $this->resolvedPhonesCache)) {
+            return $this->resolvedPhonesCache[$cacheKey];
+        }
+
         // Ekstrak kode dan nama dari salesName (e.g. "BJM.SOS.015 - DANIEL" atau "SC.MTP.001 - IRMADAMAYANTI")
         $codePart = '';
         $namePart = trim((string) $salesName);
@@ -669,89 +696,99 @@ class KeepAutoFollowUpService
             $namePart = trim(end($parts));
         }
 
-        // 0. Check other keeps with same nama_tim_follow_up that have a real mobile phone
-        try {
-            $otherKeeps = SosmedKeep::where(function ($q) use ($salesName, $namePart) {
-                $q->where('nama_tim_follow_up', $salesName);
-                if ($namePart && strlen($namePart) >= 3) {
-                    $q->orWhere('nama_tim_follow_up', 'like', "%{$namePart}%");
-                }
-            })
-            ->whereNotNull('nomor_fu')
-            ->where('nomor_fu', '!=', '')
-            ->orderByDesc('id')
-            ->limit(25)
-            ->get(['nomor_fu']);
+        // 0. Cek mapping nomor PIC dari riwayat SosmedKeep (preload sekali saja untuk semua baris)
+        if ($this->cachedSosmedKeepPhones === null) {
+            $this->cachedSosmedKeepPhones = [];
+            try {
+                $picRecords = SosmedKeep::whereNotNull('nomor_fu')
+                    ->where('nomor_fu', '!=', '')
+                    ->whereNotNull('nama_tim_follow_up')
+                    ->where('nama_tim_follow_up', '!=', '')
+                    ->orderByDesc('id')
+                    ->limit(200)
+                    ->get(['nama_tim_follow_up', 'nomor_fu']);
 
-            foreach ($otherKeeps as $ok) {
-                $norm = $this->normalizePhone($ok->nomor_fu);
-                if ($norm && ! $this->isLidPhone($norm) && strlen($norm) >= 9 && strlen($norm) <= 14) {
-                    return $norm;
+                foreach ($picRecords as $pr) {
+                    $norm = $this->normalizePhone($pr->nomor_fu);
+                    if ($norm && ! $this->isLidPhone($norm) && strlen($norm) >= 9 && strlen($norm) <= 14) {
+                        $nmKey = strtolower(trim((string) $pr->nama_tim_follow_up));
+                        if (! isset($this->cachedSosmedKeepPhones[$nmKey])) {
+                            $this->cachedSosmedKeepPhones[$nmKey] = $norm;
+                        }
+                    }
+                }
+            } catch (\Throwable) {}
+        }
+
+        $salesKey = strtolower($salesName);
+        if (isset($this->cachedSosmedKeepPhones[$salesKey])) {
+            return $this->resolvedPhonesCache[$cacheKey] = $this->cachedSosmedKeepPhones[$salesKey];
+        }
+        if ($namePart && strlen($namePart) >= 3) {
+            $nameKey = strtolower($namePart);
+            if (isset($this->cachedSosmedKeepPhones[$nameKey])) {
+                return $this->resolvedPhonesCache[$cacheKey] = $this->cachedSosmedKeepPhones[$nameKey];
+            }
+        }
+
+        // 1 & 2. Preload Employee satu kali saja untuk semua baris
+        if ($this->cachedEmployees === null) {
+            try {
+                $this->cachedEmployees = Employee::whereNotNull('phone')
+                    ->where('phone', '!=', '')
+                    ->get(['id', 'nik', 'name', 'phone']);
+            } catch (\Throwable) {
+                $this->cachedEmployees = collect();
+            }
+        }
+
+        // Cek berdasarkan NIK/kode
+        if ($codePart) {
+            $emp = $this->cachedEmployees->first(function ($e) use ($codePart) {
+                return ! empty($e->nik) && stripos((string) $e->nik, $codePart) !== false;
+            });
+            if ($emp && ! empty($emp->phone)) {
+                $empNorm = $this->normalizePhone($emp->phone);
+                if (! $this->isLidPhone($empNorm) && strlen($empNorm) >= 9 && strlen($empNorm) <= 14) {
+                    return $this->resolvedPhonesCache[$cacheKey] = $empNorm;
                 }
             }
-        } catch (\Throwable) {}
-
-        // 1. Check if salesName contains code/nik: e.g. "BJM.SOS.015 - DANIEL"
-        if ($codePart) {
-            try {
-                $emp = Employee::where('nik', 'like', "%{$codePart}%")
-                    ->whereNotNull('phone')
-                    ->where('phone', '!=', '')
-                    ->first();
-                if ($emp && ! empty($emp->phone)) {
-                    $empNorm = $this->normalizePhone($emp->phone);
-                    if (! $this->isLidPhone($empNorm) && strlen($empNorm) >= 9 && strlen($empNorm) <= 14) {
-                        return $empNorm;
-                    }
-                }
-            } catch (\Throwable) {}
         }
 
-        // 2. Check by name in Employee
+        // Cek berdasarkan nama di Employee
         if ($namePart && strlen($namePart) >= 3) {
-            try {
-                $emp = Employee::where('name', 'like', "%{$namePart}%")
-                    ->whereNotNull('phone')
-                    ->where('phone', '!=', '')
-                    ->first();
-                if ($emp && ! empty($emp->phone)) {
-                    $empNorm = $this->normalizePhone($emp->phone);
-                    if (! $this->isLidPhone($empNorm) && strlen($empNorm) >= 9 && strlen($empNorm) <= 14) {
-                        return $empNorm;
-                    }
+            $emp = $this->cachedEmployees->first(function ($e) use ($namePart) {
+                return ! empty($e->name) && stripos((string) $e->name, $namePart) !== false;
+            });
+            if ($emp && ! empty($emp->phone)) {
+                $empNorm = $this->normalizePhone($emp->phone);
+                if (! $this->isLidPhone($empNorm) && strlen($empNorm) >= 9 && strlen($empNorm) <= 14) {
+                    return $this->resolvedPhonesCache[$cacheKey] = $empNorm;
                 }
-            } catch (\Throwable) {}
+            }
 
-            // 3. Check in User model
-            try {
-                $u = User::where('name', 'like', "%{$namePart}%")
-                    ->whereNotNull('phone')
-                    ->where('phone', '!=', '')
-                    ->first();
-                if ($u && ! empty($u->phone)) {
-                    $uNorm = $this->normalizePhone($u->phone);
-                    if (! $this->isLidPhone($uNorm) && strlen($uNorm) >= 9 && strlen($uNorm) <= 14) {
-                        return $uNorm;
-                    }
+            // 3. Preload User satu kali saja
+            if ($this->cachedUsers === null) {
+                try {
+                    $this->cachedUsers = User::whereNotNull('phone')
+                        ->where('phone', '!=', '')
+                        ->get(['id', 'name', 'phone']);
+                } catch (\Throwable) {
+                    $this->cachedUsers = collect();
                 }
-            } catch (\Throwable) {}
+            }
 
-            // 4. Check in WhatsAppChat
-            try {
-                $chat = WhatsAppChat::where('customer_name', 'like', "%{$namePart}%")
-                    ->whereNotNull('phone_number')
-                    ->where('phone_number', '!=', '')
-                    ->orderByDesc('id')
-                    ->first();
-                if ($chat && ! empty($chat->phone_number)) {
-                    $cNorm = $this->normalizePhone($chat->phone_number);
-                    if (! $this->isLidPhone($cNorm) && strlen($cNorm) >= 9 && strlen($cNorm) <= 14) {
-                        return $cNorm;
-                    }
+            $u = $this->cachedUsers->first(function ($user) use ($namePart) {
+                return ! empty($user->name) && stripos((string) $user->name, $namePart) !== false;
+            });
+            if ($u && ! empty($u->phone)) {
+                $uNorm = $this->normalizePhone($u->phone);
+                if (! $this->isLidPhone($uNorm) && strlen($uNorm) >= 9 && strlen($uNorm) <= 14) {
+                    return $this->resolvedPhonesCache[$cacheKey] = $uNorm;
                 }
-            } catch (\Throwable) {}
+            }
         }
 
-        return $isLid ? null : $clean;
+        return $this->resolvedPhonesCache[$cacheKey] = ($isLid ? null : $clean);
     }
 }

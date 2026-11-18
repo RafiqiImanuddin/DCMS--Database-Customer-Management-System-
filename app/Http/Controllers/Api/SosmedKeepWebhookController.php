@@ -408,8 +408,7 @@ class SosmedKeepWebhookController extends Controller
                 ]);
             }
 
-            $count = SosmedKeep::count();
-            if ($count === 0 && file_exists(public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'keep-data.csv'))) {
+            if (file_exists(public_path('workspace-sosmed' . DIRECTORY_SEPARATOR . 'keep-data.csv')) && ! SosmedKeep::exists()) {
                 try {
                     @set_time_limit(180);
                     \Illuminate\Support\Facades\Artisan::call('keep:import-csv');
@@ -466,8 +465,16 @@ class SosmedKeepWebhookController extends Controller
                 'feedback_tim_fu', 'nama_toko_kompetitor', 'user_kredit', 'periode', 'item', 'nomor_fu'
             ];
 
-            $existingCols = \Illuminate\Support\Facades\Schema::getColumnListing('sosmed_keeps');
-            $validFields = ! empty($existingCols) ? array_values(array_intersect($fields, $existingCols)) : ['*'];
+            static $cachedValidKeepFields = null;
+            if ($cachedValidKeepFields === null) {
+                try {
+                    $existingCols = \Illuminate\Support\Facades\Schema::getColumnListing('sosmed_keeps');
+                    $cachedValidKeepFields = ! empty($existingCols) ? array_values(array_intersect($fields, $existingCols)) : ['*'];
+                } catch (\Throwable) {
+                    $cachedValidKeepFields = ['*'];
+                }
+            }
+            $validFields = $cachedValidKeepFields;
 
             $keeps = $query->latest('id')->limit($limit)->toBase()->get($validFields);
 
