@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Employee;
 use App\Models\Setting;
 use App\Models\SosmedKeep;
+use App\Models\User;
+use App\Models\WhatsAppChat;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -656,6 +658,15 @@ class KeepAutoFollowUpService
 
         if (empty($salesName)) {
             return $isLid ? null : $clean;
+        }
+
+        // Ekstrak kode dan nama dari salesName (e.g. "BJM.SOS.015 - DANIEL" atau "SC.MTP.001 - IRMADAMAYANTI")
+        $codePart = '';
+        $namePart = trim((string) $salesName);
+        if (str_contains($salesName, '-')) {
+            $parts = explode('-', $salesName);
+            $codePart = trim($parts[0]);
+            $namePart = trim(end($parts));
         }
 
         // 0. Check other keeps with same nama_tim_follow_up that have a real mobile phone
