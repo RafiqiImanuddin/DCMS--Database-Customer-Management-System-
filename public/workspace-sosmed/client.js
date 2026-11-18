@@ -14896,7 +14896,7 @@ function renderOmniActiveChat(pic) {
       '</button>' +
       '<input type="file" id="omniFileInput" style="display:none;" onchange="handleOmniFileSelected(this)" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">' +
       '<div class="omni-wa-input-pill">' +
-        '<textarea id="omniReplyInput" class="omni-textarea-wa" rows="1" placeholder="Ketik pesan" onkeydown="handleOmniInputKey(event)" onkeyup="handleOmniInputTyping(this)" oninput="handleOmniInputTyping(this)" onpaste="setTimeout(function(){handleOmniInputTyping(document.getElementById(\'omniReplyInput\'));},10)"></textarea>' +
+        '<textarea id="omniReplyInput" class="omni-textarea-wa" rows="1" placeholder="Ketik pesan" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false" data-lpignore="true" data-form-type="other" onkeydown="handleOmniInputKey(event)" oninput="handleOmniInputTyping(this)"></textarea>' +
       '</div>' +
       '<button type="button" id="omniBtnSend" class="omni-btn-wa-send" onclick="sendOmniReply()" title="Kirim pesan (Enter)">' +
         '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">' +
@@ -14957,24 +14957,12 @@ function insertQuickReply(type) {
   }
 }
 
+let isOmniTypingResizeScheduled = false;
 function handleOmniInputTyping(el) {
   if (!el) el = document.getElementById('omniReplyInput');
   if (!el) return;
 
-  // 1. Reset height to 0px so scrollHeight measures exact text size
-  el.style.setProperty('height', '0px', 'important');
-
-  // 2. Measure scrollHeight accurately
-  const scrollH = el.scrollHeight;
-  const minHeight = 20;
-  const maxHeight = 140;
-  const targetH = Math.min(Math.max(scrollH, minHeight), maxHeight);
-
-  // 3. Set height with !important
-  el.style.setProperty('height', targetH + 'px', 'important');
-  el.style.setProperty('overflow-y', scrollH > maxHeight ? 'auto' : 'hidden', 'important');
-
-  // 4. Update Send Button Active state
+  // 1. Update Send Button Active state seketika (tanpa layout reflow)
   const sendBtn = document.getElementById('omniBtnSend');
   if (sendBtn) {
     const hasVal = el.value.trim().length > 0 || (typeof omniPendingFile !== 'undefined' && omniPendingFile);
@@ -14983,6 +14971,22 @@ function handleOmniInputTyping(el) {
     } else {
       sendBtn.classList.remove('active');
     }
+  }
+
+  // 2. Smooth Auto-resize via RequestAnimationFrame (Anti-Lag, Zero Layout Thrashing)
+  if (!isOmniTypingResizeScheduled) {
+    isOmniTypingResizeScheduled = true;
+    window.requestAnimationFrame(() => {
+      isOmniTypingResizeScheduled = false;
+      if (!el) return;
+      el.style.height = 'auto';
+      const scrollH = el.scrollHeight;
+      const minHeight = 20;
+      const maxHeight = 140;
+      const targetH = Math.min(Math.max(scrollH, minHeight), maxHeight);
+      el.style.height = targetH + 'px';
+      el.style.overflowY = scrollH > maxHeight ? 'auto' : 'hidden';
+    });
   }
 }
 
@@ -16018,13 +16022,8 @@ function handleOmniInputKey(e) {
       e.preventDefault();
       sendOmniReply();
     } else {
-      // Shift + Enter: biarkan newline terisi, lalu langsung sesuaikan tinggi secara responsif
-      setTimeout(function() {
-        handleOmniInputTyping(el);
-      }, 0);
-      setTimeout(function() {
-        handleOmniInputTyping(el);
-      }, 25);
+      // Shift + Enter: biarkan newline terisi, lalu jadwalkan resize secara halus
+      handleOmniInputTyping(el);
     }
   }
 }
