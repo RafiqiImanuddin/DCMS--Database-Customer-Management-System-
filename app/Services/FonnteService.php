@@ -430,14 +430,28 @@ class FonnteService
      *
      * @return array{cabang: string, grup: string}
      */
-    public function resolveCabangAndGroup(?string $groupId, ?string $groupName = null, ?string $remarks = null): array
+    public function resolveCabangAndGroup(?string $groupId, ?string $groupName = null, ?string $remarks = null, ?string $fullMessage = null): array
     {
         $cleanGid = trim($groupId ?? '');
+        $combinedText = ($remarks ?? '') . ' ' . ($fullMessage ?? '') . ' ' . ($groupName ?? '');
+
+        // ATURAN PRIORITAS SESQ: Jika format memuat SESQ / SES QMALL / SES Q, prioritaskan cabang = SESQ meskipun actual grup di GM BBK - QMALL
+        if (preg_match('/\b(SESQ|SES\s*QMALL|SES\s*Q|SAMSUNG\s*QMALL)\b/i', $combinedText)) {
+            $grupName = ($cleanGid !== '' && isset(self::GROUP_CABANG_MAP[$cleanGid]))
+                ? self::GROUP_CABANG_MAP[$cleanGid]['grup']
+                : ($groupName ?: 'GM BBK - QMALL');
+
+            return [
+                'cabang' => 'SESQ',
+                'grup' => $grupName,
+            ];
+        }
+
         if ($cleanGid !== '' && isset(self::GROUP_CABANG_MAP[$cleanGid])) {
             return self::GROUP_CABANG_MAP[$cleanGid];
         }
 
-        $detectedCabang = $this->detectCabangFromRemarks($remarks, $groupName, $groupId);
+        $detectedCabang = $this->detectCabangFromRemarks($remarks, $groupName, $groupId, $fullMessage);
         $detectedGrup = $groupName ?: '';
 
         if ($detectedGrup === '' && $detectedCabang !== '') {
@@ -458,8 +472,13 @@ class FonnteService
     /**
      * Deteksi kode cabang dari remarks (Kode SOSMED), Nama Grup WhatsApp, atau Group ID.
      */
-    public function detectCabangFromRemarks(?string $remarks, ?string $groupName = null, ?string $groupId = null): string
+    public function detectCabangFromRemarks(?string $remarks, ?string $groupName = null, ?string $groupId = null, ?string $fullMessage = null): string
     {
+        $combinedText = ($remarks ?? '') . ' ' . ($fullMessage ?? '') . ' ' . ($groupName ?? '');
+        if (preg_match('/\b(SESQ|SES\s*QMALL|SES\s*Q|SAMSUNG\s*QMALL)\b/i', $combinedText)) {
+            return 'SESQ';
+        }
+
         // 0. Cek dari ID Grup WhatsApp langsung
         $cleanGid = trim($groupId ?? '');
         if ($cleanGid !== '' && isset(self::GROUP_CABANG_MAP[$cleanGid])) {
@@ -472,6 +491,9 @@ class FonnteService
         }
 
         $branchMap = [
+            'SESQ' => 'SESQ',
+            'SES Q' => 'SESQ',
+            'SES QMALL' => 'SESQ',
             'BANJARMASIN' => 'Banjarmasin',
             'BJM' => 'Banjarmasin',
             'BJMC' => 'BJMC',

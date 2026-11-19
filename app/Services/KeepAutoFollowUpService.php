@@ -204,6 +204,8 @@ class KeepAutoFollowUpService
 
             // Group key by clean phone or fallback name
             $groupKey = $cleanPicPhone ?: ('NAME_'.strtoupper(preg_replace('/[^A-Z0-9]/', '', $picName)));
+            $effectiveCabang = $this->resolveKeepCabang($k);
+            $k->cabang = $effectiveCabang;
 
             if (! isset($picGroups[$groupKey])) {
                 $resolvedPicName = $picName ?: $this->resolvePicNameByPhone($cleanPicPhone);
@@ -218,7 +220,7 @@ class KeepAutoFollowUpService
                     'pic_display_phone' => $this->formatPhoneDisplay($cleanPicPhone ?: $rawPicPhone),
                     'is_valid_phone' => $isValidPhone,
                     'is_lid' => $isLid,
-                    'cabang' => $k->cabang ?? '-',
+                    'cabang' => $effectiveCabang,
                     'total_items' => 0,
                     'total_win' => 0,
                     'total_on_progress' => 0,
@@ -237,8 +239,8 @@ class KeepAutoFollowUpService
                 $picGroups[$groupKey]['total_on_progress']++;
             }
 
-            if (! empty($k->cabang) && $picGroups[$groupKey]['cabang'] === '-') {
-                $picGroups[$groupKey]['cabang'] = $k->cabang;
+            if (! empty($effectiveCabang) && ($picGroups[$groupKey]['cabang'] === '-' || $effectiveCabang === 'SESQ')) {
+                $picGroups[$groupKey]['cabang'] = $effectiveCabang;
             }
 
             if (! empty($k->fu_h1_note)) {
@@ -1023,7 +1025,7 @@ class KeepAutoFollowUpService
             'nomor_wa_norm' => $cleanCustWA,
             'barang_keep' => $k->barang_keep ?: '-',
             'catatan' => $k->catatan ?: '-',
-            'cabang' => $k->cabang ?: '-',
+            'cabang' => $this->resolveKeepCabang($k),
             'kode_sosmed' => $k->kode_sosmed ?: '-',
             'report_ar' => $k->report_ar ?: '-',
             'status' => $k->status ?: 'ON PROGRESS',
@@ -1242,5 +1244,28 @@ class KeepAutoFollowUpService
         }
 
         return $this->resolvedPhonesCache[$cacheKey] = ($isLid ? null : $clean);
+    }
+
+    /**
+     * Resolusi cabang keep dengan prioritas isi format:
+     * Jika format memuat SESQ / SES QMALL / SES Q, tetapkan cabang ke SESQ meskipun actual grup berada di BBK.
+     */
+    public function resolveKeepCabang(mixed $k): string
+    {
+        $rawCabang = trim((string) (is_array($k) ? ($k['cabang'] ?? '') : ($k->cabang ?? '')));
+        $catatan = (string) (is_array($k) ? ($k['catatan'] ?? '') : ($k->catatan ?? ''));
+        $remarks = (string) (is_array($k) ? ($k['remarks'] ?? $k['kode_sosmed'] ?? '') : ($k->remarks ?? $k->kode_sosmed ?? ''));
+        $barang = (string) (is_array($k) ? ($k['barang_keep'] ?? '') : ($k->barang_keep ?? ''));
+        $picName = (string) (is_array($k) ? ($k['nama_tim_follow_up'] ?? '') : ($k->nama_tim_follow_up ?? ''));
+        $grup = (string) (is_array($k) ? ($k['grup'] ?? '') : ($k->grup ?? ''));
+
+        $combined = "{$rawCabang} {$catatan} {$remarks} {$barang} {$picName} {$grup}";
+
+        // Prioritas SESQ: Jika format memuat teks SESQ / SES QMALL / SES Q, cabang wajib SESQ
+        if (preg_match('/\b(SESQ|SES\s*QMALL|SES\s*Q|SAMSUNG\s*QMALL)\b/i', $combined)) {
+            return 'SESQ';
+        }
+
+        return $rawCabang ?: '-';
     }
 }

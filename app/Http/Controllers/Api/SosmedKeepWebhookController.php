@@ -165,7 +165,8 @@ class SosmedKeepWebhookController extends Controller
         $resolvedCabangGroup = $this->fonnteService->resolveCabangAndGroup(
             $groupId,
             $request->input('group_name'),
-            $keep['remaks'] ?? ''
+            $keep['remaks'] ?? '',
+            $message
         );
         $cabang = $resolvedCabangGroup['cabang'] ?? '';
         $grupName = $resolvedCabangGroup['grup'] !== ''

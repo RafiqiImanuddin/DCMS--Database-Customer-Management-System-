@@ -2565,7 +2565,7 @@ async function exportKeepDataXlsx() {
       const rawWA = String(r['Nomor WA'] || r['nomor_wa'] || '').replace(/'/g, '').trim();
       const rawFUWA = String(r['Nomor FU'] || r['nomor_fu'] || r['Nomor Follow Up'] || '').replace(/'/g, '').trim();
       const statusText = String(r['Status'] || r['status'] || 'UNASSIGN').toUpperCase();
-      const cab = String(r['Cabang'] || r['cabang'] || (r['Grup ID'] && typeof KEEP_GROUP_CABANG_MAP !== 'undefined' && KEEP_GROUP_CABANG_MAP[r['Grup ID']] ? KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang : '') || '-');
+      const cab = (typeof resolveKeepRecordCabang === 'function') ? resolveKeepRecordCabang(r) : String(r['Cabang'] || r['cabang'] || '-');
 
       const phoneStr = rawWA ? (rawWA.startsWith('0') || rawWA.startsWith('62') ? "'" + rawWA : rawWA) : '-';
       const fuPhoneStr = rawFUWA ? (rawFUWA.startsWith('0') || rawFUWA.startsWith('62') ? "'" + rawFUWA : rawFUWA) : '-';
@@ -2861,6 +2861,22 @@ const KEEP_GROUP_CABANG_MAP = {
   '120363429226529886@g.us': { cabang: 'BJMC', grup: 'Tes BOT' },
 };
 
+function resolveKeepRecordCabang(r) {
+  if (!r) return '-';
+  const rawCab = String(r['Cabang'] || r['cabang'] || '').trim();
+  const text = `${rawCab} ${r['Catatan'] || r['catatan'] || ''} ${r['Remarks'] || r['remarks'] || ''} ${r['Barang Keep'] || r['barang_keep'] || ''} ${r['Grup'] || r['grup'] || ''}`;
+  if (/\b(SESQ|SES\s*QMALL|SES\s*Q|SAMSUNG\s*QMALL)\b/i.test(text)) {
+    return 'SESQ';
+  }
+  if (rawCab && rawCab !== '-' && rawCab !== '""') return rawCab;
+  const gid = r['Grup ID'] || r['grup_id'] || '';
+  if (gid && typeof KEEP_GROUP_CABANG_MAP !== 'undefined' && KEEP_GROUP_CABANG_MAP[gid]) {
+    return KEEP_GROUP_CABANG_MAP[gid].cabang;
+  }
+  return '-';
+}
+window.resolveKeepRecordCabang = resolveKeepRecordCabang;
+
 function isKeepUnassigned(r) {
   if (!r) return false;
   const fuName = String(r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || '').trim();
@@ -2965,7 +2981,7 @@ function applyKeepFilters() {
 
     // 5. Keyword search (Name, Phone, Item, AR, Notes, Cabang, Sosmed, Tim FU)
     if (keyword) {
-      const cab = String(r['Cabang'] || (r['Grup ID'] && KEEP_GROUP_CABANG_MAP[r['Grup ID']] ? KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang : '') || '');
+      const cab = resolveKeepRecordCabang(r);
       const fuName = String(r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || '');
       const fuPhone = String(r['Nomor FU'] || r['nomor_fu'] || r['Nomor Follow Up'] || '');
       const combined = `${r['Nama'] || ''} ${r['Nomor WA'] || ''} ${r['Barang Keep'] || ''} ${r['REPORT AR'] || ''} ${r['Catatan'] || ''} ${r['Feedback Tim FU'] || ''} ${cab} ${r['Kode Sosmed'] || ''} ${fuName} ${fuPhone}`.toLowerCase();
@@ -3522,10 +3538,7 @@ function getBranchOLASummary(sourceRows, scope = 'PERIOD') {
   const branchMap = {};
 
   rows.forEach(r => {
-    let cab = String(r['Cabang'] || '').trim();
-    if (!cab && r['Grup ID'] && KEEP_GROUP_CABANG_MAP[r['Grup ID']]) {
-      cab = KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang;
-    }
+    let cab = resolveKeepRecordCabang(r);
     if (!cab || cab === '-' || cab === '""') {
       cab = 'LAINNYA';
     }
@@ -5033,7 +5046,7 @@ function renderKeepPage() {
     `;
 
     // 4. CABANG BADGE (Resolusi dari field Cabang atau fallback dari Grup WhatsApp)
-    const rawCabang = String(r['Cabang'] || (r['Grup ID'] && KEEP_GROUP_CABANG_MAP[r['Grup ID']] ? KEEP_GROUP_CABANG_MAP[r['Grup ID']].cabang : '') || '').trim();
+    const rawCabang = resolveKeepRecordCabang(r);
     const cabangBadgeHtml = rawCabang ? `
       <span class="inline-flex items-center gap-1 rounded-lg bg-sky-50 border border-sky-200/80 px-2 py-0.5 text-[11px] font-bold text-sky-800 tracking-tight shadow-2xs whitespace-nowrap" title="Cabang: ${escapeHtml(rawCabang)}">
         <span class="size-1.5 rounded-full bg-sky-500 shrink-0"></span>
@@ -5724,7 +5737,7 @@ function openDcmsFollowUpLiveChatFromKeep(keepIndex) {
   const rawWA = String(row['Nomor WA'] || '').replace(/\D/g, '');
   const custWA = formatPhoneDisplay(rawWA) || '-';
   const barang = row['Barang Keep'] || row['barang_keep'] || row['Barang'] || '-';
-  const cabang = row['Cabang'] || (row['Grup ID'] && KEEP_GROUP_CABANG_MAP[row['Grup ID']] ? KEEP_GROUP_CABANG_MAP[row['Grup ID']].cabang : '') || '-';
+  const cabang = resolveKeepRecordCabang(row);
   const tglAmbil = row['Tgl. Ambil'] || row['tgl_ambil'] || row['Tanggal Ambil'] || '-';
   const catatan = row['Catatan'] || row['catatan'] || '';
 
@@ -13195,7 +13208,7 @@ function seedMasterDataFromKeepRows() {
       const waRaw = r['Nomor Follow Up'] || r['nomor_follow_up'] || r['Nomor FU'] || r['nomor_fu'] || '';
       const nameRaw = (r['Nama Tim Follow Up'] || r['nama_tim_follow_up'] || r['fu_name'] || r['Nama Tim FU'] || '').trim();
       const gid = r['Grup ID'] || r['grup_id'] || '';
-      const cabangRaw = (r['Cabang'] || r['cabang'] || (gid && KEEP_GROUP_CABANG_MAP[gid] ? KEEP_GROUP_CABANG_MAP[gid].cabang : '') || '-').trim();
+      const cabangRaw = (typeof resolveKeepRecordCabang === 'function') ? resolveKeepRecordCabang(r) : ((r['Cabang'] || r['cabang'] || (gid && KEEP_GROUP_CABANG_MAP[gid] ? KEEP_GROUP_CABANG_MAP[gid].cabang : '') || '-').trim());
       addPic(nameRaw, waRaw, cabangRaw);
     }
   }

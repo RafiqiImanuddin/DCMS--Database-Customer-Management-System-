@@ -287,6 +287,29 @@ Route::get('/system/migrate', function (\Illuminate\Http\Request $request) {
 
             $actionOutput = ($migrateOutput ?: "Semua tabel database sudah yang terbaru (Nothing to migrate).\n")
                 . "\n🧹 === CLEAR CACHE & OPTIMIZATION ===\n\n" . $clearOutput;
+
+            // Auto-Fix Cabang SESQ untuk format keep yang memuat teks SESQ tapi masih terlabeli BATAS KOTA/BBK
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable('sosmed_keeps')) {
+                    $sesqUpdated = \Illuminate\Support\Facades\DB::table('sosmed_keeps')
+                        ->where(function ($q) {
+                            $q->where('catatan', 'LIKE', '%SESQ%')
+                              ->orWhere('remarks', 'LIKE', '%SESQ%')
+                              ->orWhere('barang_keep', 'LIKE', '%SESQ%')
+                              ->orWhere('catatan', 'LIKE', '%SES Q%')
+                              ->orWhere('remarks', 'LIKE', '%SES Q%')
+                              ->orWhere('catatan', 'LIKE', '%SES QMALL%');
+                        })
+                        ->where(function ($q) {
+                            $q->whereIn('cabang', ['BATAS KOTA', 'BBK', 'GM BBK - QMALL', '-', '', null])
+                              ->orWhereNull('cabang');
+                        })
+                        ->update(['cabang' => 'SESQ']);
+                    if ($sesqUpdated > 0) {
+                        $actionOutput .= "\n✅ Auto-Fix SESQ: Berhasil memperbarui {$sesqUpdated} data keep menjadi cabang 'SESQ'.\n";
+                    }
+                }
+            } catch (\Throwable) {}
         }
 
         $totalKeeps = \Illuminate\Support\Facades\Schema::hasTable('sosmed_keeps')
