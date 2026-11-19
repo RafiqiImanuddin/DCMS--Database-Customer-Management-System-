@@ -15,7 +15,7 @@
                     <h1 class="text-2xl font-black text-slate-900 tracking-tight">Klaim AR &amp; Pengawasan Denda</h1>
                     <div class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-2xs" id="claimCycleBadge">
                         <span class="size-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                        <span>Siklus 3 Hari</span>
+                        <span>Siklus Pengawasan &amp; H+1</span>
                     </div>
                 </div>
             </div>
@@ -185,22 +185,50 @@
 
         <!-- 5. Table Container: Modern Tailwind Card Shell -->
         <div class="dcms-card p-0 rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+            <!-- Floating / Inline Bulk Action Bar -->
+            <div id="claimsBulkActionBar" class="p-3 bg-teal-50 border-b border-teal-200 flex flex-wrap items-center justify-between gap-2.5 transition-all" style="display: none;">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex size-6 items-center justify-center rounded-full bg-teal-600 text-white text-xs font-bold" id="claimsBulkCount">0</span>
+                    <span class="text-xs font-bold text-teal-900">Item Terpilih</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="bulkMarkClaimsResolved()" class="inline-flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer" title="Tandai sudah direvisi cabang (Gugurkan Denda)">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Selesaikan Revisi (Gugurkan Denda)</span>
+                    </button>
+                    <button type="button" onclick="bulkMarkClaimsInvalid()" class="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer" title="Ubah status menjadi Tidak Valid">
+                        <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                        <span>Ubah Tidak Valid</span>
+                    </button>
+                    <button type="button" onclick="bulkDeleteClaims()" class="inline-flex items-center gap-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs cursor-pointer" title="Hapus dari antrean klaim">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+                        <span>Hapus Terpilih</span>
+                    </button>
+                    <button type="button" onclick="clearClaimsSelection()" class="text-xs text-slate-500 hover:text-slate-800 underline ml-2 cursor-pointer">
+                        Batalkan Pilihan
+                    </button>
+                </div>
+            </div>
+
             <div class="overflow-x-auto">
                 <table class="modern-tegas-table w-full text-left" id="claimsTable">
                     <thead>
                         <tr class="bg-slate-50/90 border-b border-slate-200">
-                            <th style="width: 14%; text-align: left;">CUSTOMER</th>
-                            <th style="width: 8%; text-align: center;">TANGGAL</th>
-                            <th style="width: 8.5%; text-align: center;">NO. AR</th>
-                            <th style="width: 14%; text-align: left;">BARANG &amp; HARGA</th>
-                            <th style="width: 8%; text-align: center;">KODE SOSMED</th>
-                            <th style="width: 7%; text-align: center;">CABANG</th>
-                            <th style="width: 9%; text-align: center;">STATUS DENDA</th>
-                            <th style="width: 12%; text-align: left;">FORMAT KEEP</th>
+                            <th style="width: 3%; text-align: center;">
+                                <input type="checkbox" id="checkAllClaims" class="rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer" onclick="toggleSelectAllClaims(this.checked)" title="Pilih Semua di Halaman Ini">
+                            </th>
+                            <th style="width: 13%; text-align: left;">CUSTOMER</th>
+                            <th style="width: 7.5%; text-align: center;">TANGGAL</th>
+                            <th style="width: 8%; text-align: center;">NO. AR</th>
+                            <th style="width: 13.5%; text-align: left;">BARANG &amp; HARGA</th>
+                            <th style="width: 7.5%; text-align: center;">KODE SOSMED</th>
+                            <th style="width: 6.5%; text-align: center;">CABANG</th>
+                            <th style="width: 8.5%; text-align: center;">STATUS DENDA</th>
+                            <th style="width: 11.5%; text-align: left;">FORMAT KEEP</th>
                             <th style="width: 6.5%; text-align: center;">EVIDENCE</th>
-                            <th style="width: 7.5%; text-align: left;">AR SALES</th>
+                            <th style="width: 7%; text-align: left;">AR SALES</th>
                             <th style="width: 6%; text-align: center;">VALIDASI</th>
-                            <th style="width: 7%; text-align: left;">ALASAN</th>
+                            <th style="width: 6%; text-align: left;">ALASAN</th>
                             <th style="width: 5%; text-align: center;">AKSI</th>
                         </tr>
                     </thead>

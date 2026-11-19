@@ -10411,7 +10411,7 @@ async function loadARClaimsData() {
     c.keepText = c.keepText || '';
   });
 
-  checkARClaimsAutoResolution(false);
+  await checkARClaimsAutoResolution(false);
   renderARClaimsModule();
 }
 
@@ -11126,23 +11126,16 @@ async function downloadARClaimsSingleExcel(autoShare = false) {
   let doAdvanceToShared = false;
 
   if (autoShare) {
+    // Dipanggil secara sadar dari tombol "Paket & Share": Memindahkan status ke "Di Share (H+1)"
     itemsToExport = collectingItems;
     doAdvanceToShared = true;
-  } else if (currentClaimsSubTab === 'COLLECTING' && collectingItems.length > 0) {
-    const userChoice = confirm(
-      `📊 UNDUH SEMUANYA JADI 1 FILE EXCEL (.xlsx)\n\n` +
-      `Ditemukan ${collectingItems.length} item AR dalam antrean "1. Pengumpulan (Batch 3 Hari)".\n\n` +
-      `• Klik [OK] untuk mengunduh 1 file Excel Gabungan (diurutkan rapi & gambar besar) dan SEKALIGUS memindahkan status ke "Cek AR Setelah di Share (Tenggat H+1)".\n` +
-      `• Klik [Batal] jika hanya ingin mengunduh data tampilan saat ini tanpa memindahkan status klaim.`
-    );
-    if (userChoice) {
-      itemsToExport = collectingItems;
-      doAdvanceToShared = true;
-    } else {
-      itemsToExport = filteredARClaimsList.length > 0 ? filteredARClaimsList : rawARClaimsList;
-    }
   } else {
-    itemsToExport = filteredARClaimsList.length > 0 ? filteredARClaimsList : rawARClaimsList;
+    // MURNI UNDUH: 100% TIDAK PERNAH otomatis memindahkan status ke cabang / SHARED
+    // Mengunduh data yang sedang aktif terfilter atau seluruh antrean saat ini
+    itemsToExport = (filteredARClaimsList && filteredARClaimsList.length > 0)
+      ? filteredARClaimsList
+      : rawARClaimsList;
+    doAdvanceToShared = false;
   }
 
   if (itemsToExport.length === 0) {
@@ -11196,7 +11189,7 @@ async function downloadARClaimsSingleExcel(autoShare = false) {
         showSaveToast(`🚀 ${itemsToExport.length} item AR berhasil diunduh jadi 1 Excel & dipindahkan ke sub-tab "Cek AR Setelah di Share" (H+1)!`);
         setClaimsSubTab('SHARED');
       } else {
-        showSaveToast(`✅ Berhasil mengunduh 1 File Excel Gabungan (${itemsToExport.length} item AR)!`);
+        showSaveToast(`✅ Berhasil mengunduh 1 File Excel Gabungan (${itemsToExport.length} item AR) tanpa mengubah status klaim.`);
       }
       return;
     } catch (excelErr) {
@@ -11282,25 +11275,26 @@ async function downloadARClaimsSingleExcel(autoShare = false) {
     showSaveToast(`🚀 ${itemsToExport.length} item AR berhasil diunduh jadi 1 Excel & dipindahkan ke sub-tab "Cek AR Setelah di Share" (H+1)!`);
     setClaimsSubTab('SHARED');
   } else {
-    showSaveToast(`✅ Berhasil mengunduh 1 File Excel Gabungan (${itemsToExport.length} item AR)!`);
+    showSaveToast(`✅ Berhasil mengunduh 1 File Excel Gabungan (${itemsToExport.length} item AR) tanpa mengubah status klaim.`);
   }
 }
 window.downloadARClaimsSingleExcel = downloadARClaimsSingleExcel;
 
-// 2. DISTRIBUSI KLAIM HARI KE-4 (DENGAN PILIHAN 1 EXCEL ATAU PAKET ZIP)
+// 2. DISTRIBUSI KLAIM KE CABANG (MEMULAI TENGGAT H+1)
 async function shareARClaimsBatchDay4() {
   const collectingItems = rawARClaimsList.filter(c => c.status === 'COLLECTING' && c.validationStatus !== 'TIDAK VALID');
   if (collectingItems.length === 0) {
-    alert('Tidak ada item valid dalam antrean "1. Pengumpulan (Batch 3 Hari)".\nSilakan kumpulkan AR belum sosmed dari Tab 5 (Tracking AR) terlebih dahulu.');
+    alert('Tidak ada item valid dalam antrean "1. Pengumpulan".\nSilakan kumpulkan AR belum sosmed dari Tab 5 (Tracking AR) terlebih dahulu.');
     return;
   }
 
   const branchCount = new Set(collectingItems.map(c => c.cabang)).size;
-  const choiceMsg = `📦 DISTRIBUSI KLAIM AR HARI KE-4:\n\n` +
-                    `Total: ${collectingItems.length} item AR dari ${branchCount} cabang toko siap didistribusikan.\n\n` +
+  const choiceMsg = `📦 DISTRIBUSI KLAIM AR KE CABANG:\n\n` +
+                    `Ditemukan ${collectingItems.length} item AR dari ${branchCount} cabang toko yang siap dishare.\n\n` +
+                    `⚠️ Perhatian: Aksi ini akan memindahkan item ke "2. Di Share (H+1)" dan memulai hitung mundur tenggat 24 jam untuk cabang!\n\n` +
                     `Pilih format unduhan:\n` +
-                    `• Klik [OK] untuk mengunduh SEMUANYA JADI 1 FILE EXCEL GABUNGAN (.xlsx) (diurutkan rapi & gambar besar).\n` +
-                    `• Klik [Batal] untuk mengunduh PAKET ZIP FILE TERPISAH PER CABANG (.zip).`;
+                    `• Klik [OK] untuk mengunduh 1 File Excel Gabungan (.xlsx) dan mulai masa tenggang H+1.\n` +
+                    `• Klik [Batal] untuk mengunduh Paket Zip Terpisah per Cabang (.zip) dan mulai masa tenggang H+1.`;
 
   const wantSingleExcel = confirm(choiceMsg);
 
@@ -11421,7 +11415,7 @@ async function shareARClaimsBatchDay4() {
   setClaimsSubTab('SHARED');
 }
 
-function checkARClaimsAutoResolution(manualTrigger = false) {
+async function checkARClaimsAutoResolution(manualTrigger = false) {
   if (!rawARClaimsList || rawARClaimsList.length === 0) return;
 
   const now = Date.now();
@@ -11429,13 +11423,28 @@ function checkARClaimsAutoResolution(manualTrigger = false) {
   let escalatedPenaltyCount = 0;
 
   const currentSalesMap = new Map();
-  const allTx = (typeof rawTurnoverRows !== 'undefined' && rawTurnoverRows.length > 0)
+  let allTx = (typeof rawTurnoverRows !== 'undefined' && rawTurnoverRows.length > 0)
     ? rawTurnoverRows
     : ((typeof rawCrosellingRows !== 'undefined' && rawCrosellingRows.length > 0) ? rawCrosellingRows : []);
 
+  // Jika memori browser belum memuat turnover, ambil data mutakhir dari database server
+  if (allTx.length === 0) {
+    try {
+      const res = await fetch('/api/turnover-records?limit=500&sosmed_only=0');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          allTx = json.data;
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal fetch data turnover server:', e);
+    }
+  }
+
   allTx.forEach(t => {
-    const doc = String(t['Document Number'] || '').replace(/\D/g, '');
-    const slp = String(t['SlpName'] || t['Sales Employee Name'] || t['User Input'] || t['SC/HL Code'] || '').toUpperCase();
+    const doc = String(t['Document Number'] || t.doc_num || t.docNum || '').replace(/\D/g, '');
+    const slp = String(t['SlpName'] || t.slp_name || t['Sales Employee Name'] || t['User Input'] || t['SC/HL Code'] || '').toUpperCase();
     if (doc) {
       if (!currentSalesMap.has(doc)) currentSalesMap.set(doc, []);
       currentSalesMap.get(doc).push(slp);
@@ -11521,6 +11530,116 @@ function deleteARClaimItem(claimId) {
   showSaveToast('🗑️ Item berhasil dihapus dari daftar klaim.');
   renderARClaimsModule();
 }
+
+// =========================================================================
+// FITUR AKSI MASSAL (BULK ACTIONS) KLAIM AR
+// =========================================================================
+let selectedClaimIds = new Set();
+
+function toggleSelectAllClaims(isChecked) {
+  const checkboxes = document.querySelectorAll('.claim-row-check');
+  checkboxes.forEach(cb => {
+    cb.checked = isChecked;
+    if (isChecked) {
+      selectedClaimIds.add(cb.value);
+    } else {
+      selectedClaimIds.delete(cb.value);
+    }
+  });
+  updateClaimsBulkBar();
+}
+
+function updateClaimsBulkBar() {
+  selectedClaimIds.clear();
+  const checkboxes = document.querySelectorAll('.claim-row-check:checked');
+  checkboxes.forEach(cb => selectedClaimIds.add(cb.value));
+
+  const bar = document.getElementById('claimsBulkActionBar');
+  const countEl = document.getElementById('claimsBulkCount');
+  if (bar && countEl) {
+    if (selectedClaimIds.size > 0) {
+      bar.style.display = 'flex';
+      countEl.innerText = selectedClaimIds.size;
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  const checkAll = document.getElementById('checkAllClaims');
+  const allCheckboxes = document.querySelectorAll('.claim-row-check');
+  if (checkAll && allCheckboxes.length > 0) {
+    checkAll.checked = (checkboxes.length === allCheckboxes.length);
+  }
+}
+
+function clearClaimsSelection() {
+  selectedClaimIds.clear();
+  const checkboxes = document.querySelectorAll('.claim-row-check');
+  checkboxes.forEach(cb => cb.checked = false);
+  const checkAll = document.getElementById('checkAllClaims');
+  if (checkAll) checkAll.checked = false;
+  updateClaimsBulkBar();
+}
+
+async function bulkMarkClaimsResolved() {
+  if (selectedClaimIds.size === 0) return;
+  if (!confirm(`Tandai ${selectedClaimIds.size} item klaim terpilih sebagai Selesai Direvisi (Gugurkan Denda)?`)) return;
+
+  const now = Date.now();
+  let count = 0;
+  rawARClaimsList.forEach(c => {
+    if (selectedClaimIds.has(c.id)) {
+      c.status = 'RESOLVED_BY_STORE';
+      c.penaltyStatus = 'PASS';
+      c.resolvedTimestamp = now;
+      count++;
+    }
+  });
+
+  await saveARClaimsData();
+  clearClaimsSelection();
+  showSaveToast(`✅ ${count} item klaim berhasil diselesaikan dan denda digugurkan!`);
+  renderARClaimsModule();
+}
+
+async function bulkMarkClaimsInvalid() {
+  if (selectedClaimIds.size === 0) return;
+  const reason = prompt(`Masukkan alasan kenapa ${selectedClaimIds.size} item ini Tidak Valid / Dibatalkan:`, 'Faktur bukan transaksi sosmed / dianulir');
+  if (reason === null) return;
+
+  let count = 0;
+  rawARClaimsList.forEach(c => {
+    if (selectedClaimIds.has(c.id)) {
+      c.validationStatus = 'TIDAK VALID';
+      c.invalidReason = reason;
+      c.penaltyAmount = 0;
+      count++;
+    }
+  });
+
+  await saveARClaimsData();
+  clearClaimsSelection();
+  showSaveToast(`✅ ${count} item klaim ditandai Tidak Valid.`);
+  renderARClaimsModule();
+}
+
+async function bulkDeleteClaims() {
+  if (selectedClaimIds.size === 0) return;
+  if (!confirm(`Yakin ingin MENGHAPUS PERMANEN ${selectedClaimIds.size} item klaim terpilih dari antrean?`)) return;
+
+  rawARClaimsList = rawARClaimsList.filter(c => !selectedClaimIds.has(c.id));
+  await saveARClaimsData();
+  clearClaimsSelection();
+  showSaveToast(`🗑️ ${selectedClaimIds.size} item klaim berhasil dihapus.`);
+  renderARClaimsModule();
+}
+
+window.toggleSelectAllClaims = toggleSelectAllClaims;
+window.updateClaimsBulkBar = updateClaimsBulkBar;
+window.clearClaimsSelection = clearClaimsSelection;
+window.bulkMarkClaimsResolved = bulkMarkClaimsResolved;
+window.bulkMarkClaimsInvalid = bulkMarkClaimsInvalid;
+window.bulkDeleteClaims = bulkDeleteClaims;
 
 function copyBranchWAFollowupMessage(cabangCode) {
   const branchItems = rawARClaimsList.filter(c => c.cabang === cabangCode && c.validationStatus !== 'TIDAK VALID' && (c.status === 'SHARED' || c.status === 'PENALTY_REAL'));
@@ -11861,8 +11980,14 @@ function renderARClaimsTable() {
   const btnNext = document.getElementById('btnClaimsNext');
   if (btnNext) btnNext.disabled = claimsCurrentPage >= maxPage;
 
+  const checkAll = document.getElementById('checkAllClaims');
+  if (checkAll) checkAll.checked = false;
+  const bar = document.getElementById('claimsBulkActionBar');
+  if (bar) bar.style.display = 'none';
+  if (typeof selectedClaimIds !== 'undefined') selectedClaimIds.clear();
+
   if (pageRows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="13" class="text-center py-10 text-slate-400 text-xs font-medium">Tidak ada data klaim AR pada status ini.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14" class="text-center py-10 text-slate-400 text-xs font-medium">Tidak ada data klaim AR pada status ini. Silakan pilih tab status lain di atas jika ada antrean data.</td></tr>`;
     return;
   }
 
@@ -12052,6 +12177,9 @@ function renderARClaimsTable() {
     }
 
     tr.innerHTML = `
+      <td class="text-center">
+        <input type="checkbox" class="claim-row-check rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer" value="${r.id}" onchange="updateClaimsBulkBar()">
+      </td>
       <td class="text-left">${custHtml}</td>
       <td class="text-center">${dateHtml}</td>
       <td class="text-center">${arHtml}</td>
