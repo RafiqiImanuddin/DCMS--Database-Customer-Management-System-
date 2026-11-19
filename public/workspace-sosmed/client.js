@@ -13775,6 +13775,7 @@ function saveOmniThreads(threads) {
       });
     });
     _cachedOmniThreads = cleaned;
+    invalidateOmniPicChatsCache();
     try {
       localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
     } catch (e) {}
@@ -14281,14 +14282,32 @@ function getIndexedOmniKeeps() {
   return cachedOmniKeepsMap;
 }
 
-function getOmniPicChats() {
+let _cachedOmniPicChats = null;
+let _cachedOmniPicChatsTimestamp = 0;
+
+function invalidateOmniPicChatsCache() {
+  _cachedOmniPicChats = null;
+  _cachedOmniPicChatsTimestamp = 0;
+}
+window.invalidateOmniPicChatsCache = invalidateOmniPicChatsCache;
+
+function getOmniPicChats(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && _cachedOmniPicChats && (now - _cachedOmniPicChatsTimestamp) < 3000) {
+    return _cachedOmniPicChats;
+  }
+
   const threads = getOmniThreads();
   // Filter ketat: HANYA chat personal (termasuk WhatsApp LID), TOLAK grup WhatsApp
   const activeKeys = Object.keys(threads).filter(function(k) {
     return !k.includes('@g.us') && !k.startsWith('120363') && Array.isArray(threads[k]) && threads[k].length > 0;
   });
 
-  if (activeKeys.length === 0) return [];
+  if (activeKeys.length === 0) {
+    _cachedOmniPicChats = [];
+    _cachedOmniPicChatsTimestamp = now;
+    return [];
+  }
 
   const picKeepsMap = getIndexedOmniKeeps();
   const resolvedMap = getOmniResolvedChats();
@@ -14543,13 +14562,20 @@ function getOmniPicChats() {
     return (b.latestEpochMs || 0) - (a.latestEpochMs || 0);
   });
 
+  _cachedOmniPicChats = result;
+  _cachedOmniPicChatsTimestamp = Date.now();
   return result;
 }
 window.getOmniPicChats = getOmniPicChats;
 
+let isRenderingOmniInbox = false;
+
 function renderOmniInboxModule() {
-  fetchOmniResolvedStatuses();
-  startWatzapPolling();
+  if (isRenderingOmniInbox) return;
+  isRenderingOmniInbox = true;
+  try {
+    fetchOmniResolvedStatuses();
+    startWatzapPolling();
   const allChats = getOmniPicChats();
 
   // Auto-sinkronisasi awal dari WAHA VPS jika data lokal masih kosong
@@ -14726,6 +14752,9 @@ function renderOmniInboxModule() {
     }
   } else if (filtered.length > 0) {
     selectOmniPic(filtered[0].key);
+  }
+  } finally {
+    isRenderingOmniInbox = false;
   }
 }
 
@@ -16016,7 +16045,7 @@ async function pollWatzapIncomingMessages() {
   if (typeof currentActiveTab !== 'undefined' && currentActiveTab !== 9) {
     return;
   }
-  if (isPollingWatzap) return;
+  if (isPollingWatzap || isRenderingOmniInbox) return;
   isPollingWatzap = true;
 
   try {
@@ -16217,7 +16246,7 @@ let watzapPollTimer = null;
 function scheduleNextWatzapPoll(delayMs) {
   if (watzapPollTimer) clearTimeout(watzapPollTimer);
   const isHidden = typeof document !== 'undefined' && document.hidden;
-  const defaultDelay = isHidden ? 15000 : 3000;
+  const defaultDelay = isHidden ? 25000 : 7000;
   const delay = typeof delayMs === 'number' ? delayMs : defaultDelay;
   watzapPollTimer = setTimeout(async function() {
     if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
@@ -16230,13 +16259,13 @@ function scheduleNextWatzapPoll(delayMs) {
 function startWatzapPolling() {
   if (watzapPollTimer) return;
   pollWatzapIncomingMessages();
-  scheduleNextWatzapPoll(3000);
+  scheduleNextWatzapPoll(5000);
 
   // Saat user berpindah window (Alt+Tab) dan kembali, langsung sinkronkan seketika
   document.addEventListener('visibilitychange', function() {
     if (!document.hidden && typeof currentActiveTab !== 'undefined' && currentActiveTab === 9) {
       pollWatzapIncomingMessages();
-      scheduleNextWatzapPoll(3000);
+      scheduleNextWatzapPoll(7000);
     }
   });
 }
@@ -16894,9 +16923,11 @@ async function saveSingleKeepFeedback(customerWA, picKey) {
 }
 
 function clearOmniTestChats() {
-  if (confirm('Apakah Anda yakin ingin membersihkan riwayat chat uji coba dan grup?')) {
+  if (confirm('Apakah Anda yakin ingin membersihkan riwayat cache chat lokal agar inbox segar kembali (misal setelah ganti nomor WhatsApp)?')) {
     localStorage.removeItem('gadgetmart_omni_threads');
     localStorage.removeItem('omni_resolved_chats_v1');
+    _cachedOmniThreads = null;
+    invalidateOmniPicChatsCache();
     cachedOmniKeepsMap = null;
     selectedOmniPicKey = null;
     lastWatzapSyncTime = 0;
