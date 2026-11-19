@@ -13643,6 +13643,69 @@ function deletePicMaster(wa) {
 // --------------------------------------------------------------------------
 // ROOMCHAT THREAD PERSISTENCE (100% CERMIN WHATSAPP - ULTRA FAST MEMORY CACHED)
 // --------------------------------------------------------------------------
+let currentActiveGatewayPhone = localStorage.getItem('gadgetmart_current_gateway_phone') || '';
+
+function formatGatewayPhoneDisplay(p) {
+  if (!p) return 'Menunggu Koneksi...';
+  const clean = p.replace(/\D/g, '');
+  if (clean.startsWith('62')) {
+    return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 9) + '-' + clean.slice(9);
+  }
+  if (clean.startsWith('08')) {
+    return '08' + clean.slice(2, 4) + '-' + clean.slice(4, 8) + '-' + clean.slice(8);
+  }
+  return '+' + clean;
+}
+
+function updateOmniGatewayDisplay(phone) {
+  const elText = document.getElementById('omniGatewayAccountText');
+  const elTag = document.getElementById('omniGatewayAccountTag');
+  if (elText) {
+    elText.textContent = 'Akun WA: ' + formatGatewayPhoneDisplay(phone);
+  }
+  if (elTag) {
+    elTag.textContent = phone ? 'Aktif' : 'Menunggu';
+  }
+}
+
+function getOmniStorageKey(gwPhone) {
+  const g = gwPhone || currentActiveGatewayPhone;
+  if (g) {
+    const clean = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(g) : null) || g.replace(/\D/g, '');
+    if (clean) return 'gadgetmart_omni_threads_' + clean;
+  }
+  return 'gadgetmart_omni_threads';
+}
+
+function saveMessageToSpecificGatewayStorage(gwPhone, msg) {
+  try {
+    const key = getOmniStorageKey(gwPhone);
+    const raw = JSON.parse(localStorage.getItem(key) || '{}');
+    const cleanPhone = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(msg.phone) : null) || (msg.phone || '').replace(/\D/g, '');
+    if (!cleanPhone || isGroupWhatsApp(cleanPhone)) return;
+    if (!raw[cleanPhone]) raw[cleanPhone] = [];
+    const msgTs = parseOmniTimestamp(msg.timestamp);
+    const exists = raw[cleanPhone].some(function(m) {
+      return (m.id && msg.messageId && m.id === msg.messageId) ||
+        (m.messageId && msg.messageId && m.messageId === msg.messageId) ||
+        (Math.abs(parseOmniTimestamp(m.timestamp) - msgTs) < 5000 && (m.text || m.message || '').trim() === (msg.message || '').trim());
+    });
+    if (!exists) {
+      raw[cleanPhone].push({
+        id: msg.messageId || ('msg_' + Date.now()),
+        messageId: msg.messageId,
+        sender: msg.sender || (msg.is_outbound ? 'ADMIN' : 'PIC'),
+        senderName: msg.senderName || '',
+        text: msg.message || '',
+        timestamp: msg.timestamp || new Date().toISOString(),
+        status: msg.status || 'received',
+        mediaUrl: msg.media_url || null
+      });
+      localStorage.setItem(key, JSON.stringify(raw));
+    }
+  } catch (e) {}
+}
+
 let _cachedOmniThreads = null;
 
 function getOmniThreads() {
@@ -13650,7 +13713,19 @@ function getOmniThreads() {
     return _cachedOmniThreads;
   }
   try {
-    const raw = JSON.parse(localStorage.getItem('gadgetmart_omni_threads') || '{}');
+    const storageKey = getOmniStorageKey();
+    let rawJson = localStorage.getItem(storageKey);
+    // Migrasi otomatis data riwayat jika kamar ini masih kosong tapi legacy key ada
+    if (!rawJson && storageKey !== 'gadgetmart_omni_threads') {
+      const legacyJson = localStorage.getItem('gadgetmart_omni_threads');
+      if (legacyJson) {
+        rawJson = legacyJson;
+        try {
+          localStorage.setItem(storageKey, legacyJson);
+        } catch (e) {}
+      }
+    }
+    const raw = JSON.parse(rawJson || '{}');
     const cleaned = {};
     let modified = false;
 
@@ -13727,7 +13802,7 @@ function getOmniThreads() {
 
     if (modified) {
       try {
-        localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
+        localStorage.setItem(storageKey, JSON.stringify(cleaned));
       } catch (e) {}
 
       // Sinkronisasi realtime ke Live Chat Widget di pojok kanan bawah
@@ -13776,8 +13851,9 @@ function saveOmniThreads(threads) {
     });
     _cachedOmniThreads = cleaned;
     invalidateOmniPicChatsCache();
+    const storageKey = getOmniStorageKey();
     try {
-      localStorage.setItem('gadgetmart_omni_threads', JSON.stringify(cleaned));
+      localStorage.setItem(storageKey, JSON.stringify(cleaned));
     } catch (e) {}
 
     // Sinkronisasi realtime ke Live Chat Widget di pojok kanan bawah
@@ -14574,6 +14650,7 @@ function renderOmniInboxModule() {
   if (isRenderingOmniInbox) return;
   isRenderingOmniInbox = true;
   try {
+    updateOmniGatewayDisplay(currentActiveGatewayPhone);
     fetchOmniResolvedStatuses();
     startWatzapPolling();
   const allChats = getOmniPicChats();
@@ -16049,10 +16126,44 @@ async function pollWatzapIncomingMessages() {
   isPollingWatzap = true;
 
   try {
-    const res = await fetch('/api/watzap-webhook?since=' + lastWatzapSyncTime);
+    let fetchUrl = '/api/watzap-webhook?since=' + lastWatzapSyncTime;
+    if (currentActiveGatewayPhone) {
+      fetchUrl += '&gateway_phone=' + encodeURIComponent(currentActiveGatewayPhone);
+    }
+    const res = await fetch(fetchUrl);
     if (!res.ok) return;
     const data = await res.json();
     if (!data.success) return;
+
+    // SINKRONISASI AKUN WHATSAPP GATEWAY (MULTI-ACCOUNT CHAT SCOPING)
+    if (data.gateway_phone) {
+      const newGateway = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(data.gateway_phone) : null) || data.gateway_phone.replace(/\D/g, '');
+      if (newGateway) {
+        if (!currentActiveGatewayPhone) {
+          currentActiveGatewayPhone = newGateway;
+          localStorage.setItem('gadgetmart_current_gateway_phone', newGateway);
+          updateOmniGatewayDisplay(newGateway);
+        } else if (newGateway !== currentActiveGatewayPhone) {
+          console.log('[Omni Inbox] WhatsApp Gateway beralih dari', currentActiveGatewayPhone, 'ke', newGateway);
+          currentActiveGatewayPhone = newGateway;
+          localStorage.setItem('gadgetmart_current_gateway_phone', newGateway);
+          
+          // Switch in-memory cache to the new account's room
+          _cachedOmniThreads = null;
+          invalidateOmniPicChatsCache();
+          selectedOmniPicKey = null;
+          lastWatzapSyncTime = 0; // sinkronkan pesan nomor baru
+          
+          updateOmniGatewayDisplay(newGateway);
+          renderOmniInboxModule();
+          if (typeof showSaveToast === 'function') {
+            showSaveToast('WhatsApp terhubung ke akun ' + formatGatewayPhoneDisplay(newGateway));
+          }
+        } else {
+          updateOmniGatewayDisplay(newGateway);
+        }
+      }
+    }
 
     // REALTIME TYPING INDICATOR UPDATE (WHATSAPP STYLE)
     updateOmniTypingIndicators(data.typing || {});
@@ -16086,6 +16197,15 @@ async function pollWatzapIncomingMessages() {
     const threads = getOmniThreads();
 
     data.messages.forEach(function(msg) {
+      // ISOLASI CHAT PER NOMOR WHATSAPP:
+      // Jika pesan membawa gateway_phone dan nomornya bukan akun aktif saat ini,
+      // simpan secara pasif ke storage gateway pemiliknya agar tidak mencemari inbox aktif!
+      const msgGateway = msg.gateway_phone ? ((typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(msg.gateway_phone) : null) || msg.gateway_phone.replace(/\D/g, '')) : null;
+      if (msgGateway && currentActiveGatewayPhone && msgGateway !== currentActiveGatewayPhone) {
+        saveMessageToSpecificGatewayStorage(msgGateway, msg);
+        return;
+      }
+
       const ts = parseOmniTimestamp(msg.timestamp);
       if (ts > lastWatzapSyncTime) lastWatzapSyncTime = ts;
 
@@ -16278,14 +16398,32 @@ async function syncOmniChatsFromWhatsApp(isManual) {
   }
 
   try {
-    const res = await fetch('/api/watzap-webhook?sync=1&since=0');
+    let fetchUrl = '/api/watzap-webhook?sync=1&since=0';
+    if (currentActiveGatewayPhone) {
+      fetchUrl += '&gateway_phone=' + encodeURIComponent(currentActiveGatewayPhone);
+    }
+    const res = await fetch(fetchUrl);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data.success && Array.isArray(data.messages)) {
+      if (data.gateway_phone) {
+        const newGateway = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(data.gateway_phone) : null) || data.gateway_phone.replace(/\D/g, '');
+        if (newGateway && newGateway !== currentActiveGatewayPhone) {
+          currentActiveGatewayPhone = newGateway;
+          localStorage.setItem('gadgetmart_current_gateway_phone', newGateway);
+          updateOmniGatewayDisplay(newGateway);
+        }
+      }
       const threads = getOmniThreads();
       let addedCount = 0;
 
       data.messages.forEach(function(msg) {
+        const msgGateway = msg.gateway_phone ? ((typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(msg.gateway_phone) : null) || msg.gateway_phone.replace(/\D/g, '')) : null;
+        if (msgGateway && currentActiveGatewayPhone && msgGateway !== currentActiveGatewayPhone) {
+          saveMessageToSpecificGatewayStorage(msgGateway, msg);
+          return;
+        }
+
         const ts = parseOmniTimestamp(msg.timestamp);
         if (ts > lastWatzapSyncTime) lastWatzapSyncTime = ts;
 
@@ -16923,7 +17061,10 @@ async function saveSingleKeepFeedback(customerWA, picKey) {
 }
 
 function clearOmniTestChats() {
-  if (confirm('Apakah Anda yakin ingin membersihkan riwayat cache chat lokal agar inbox segar kembali (misal setelah ganti nomor WhatsApp)?')) {
+  const activeName = currentActiveGatewayPhone ? formatGatewayPhoneDisplay(currentActiveGatewayPhone) : 'nomor aktif';
+  if (confirm('Apakah Anda yakin ingin membersihkan riwayat cache chat lokal untuk ' + activeName + ' agar inbox segar kembali?')) {
+    const storageKey = getOmniStorageKey();
+    localStorage.removeItem(storageKey);
     localStorage.removeItem('gadgetmart_omni_threads');
     localStorage.removeItem('omni_resolved_chats_v1');
     _cachedOmniThreads = null;
@@ -16933,7 +17074,7 @@ function clearOmniTestChats() {
     lastWatzapSyncTime = 0;
     renderOmniInboxModule();
     if (typeof showSaveToast === 'function') {
-      showSaveToast('Riwayat chat berhasil dibersihkan.');
+      showSaveToast('Riwayat chat lokal untuk ' + activeName + ' berhasil dibersihkan.');
     }
   }
 }

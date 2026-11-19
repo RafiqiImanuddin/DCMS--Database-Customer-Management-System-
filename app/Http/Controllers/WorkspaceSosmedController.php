@@ -765,6 +765,7 @@ class WorkspaceSosmedController extends Controller
         $clientTs = $request->input('timestamp');
         $msgId = $clientMsgId ?: ($result['message_id'] ?? ('out_'.uniqid()));
         $isSuccess = ! empty($result['success']);
+        $currentGatewayPhone = cache()->get('baileys_bot_phone', '6285111426699');
 
         // Catat ke pesan keluar lokal & Database dengan messageId & timestamp persisten dari frontend
         $entry = [
@@ -783,6 +784,7 @@ class WorkspaceSosmedController extends Controller
             'direction' => 'outbound',
             'sender' => 'ADMIN',
             'gateway' => $result['source'] ?? 'WATZAP',
+            'gateway_phone' => $currentGatewayPhone,
         ];
 
         try {
@@ -1181,7 +1183,36 @@ class WorkspaceSosmedController extends Controller
             });
 
             // Ambil nomor gateway dari cache untuk respon instan tanpa blocking HTTP network call
-            $gatewayPhone = cache()->get('baileys_bot_phone', '6285111426699');
+            $gatewayPhone = cache()->get('baileys_bot_phone');
+            if (! $gatewayPhone) {
+                try {
+                    $bStatus = $watzapService->getBaileysStatus();
+                    if (! empty($bStatus['phone'])) {
+                        $gatewayPhone = preg_replace('/\D/', '', (string) $bStatus['phone']);
+                        if ($gatewayPhone) {
+                            cache()->put('baileys_bot_phone', $gatewayPhone, now()->addDays(7));
+                        }
+                    }
+                } catch (\Throwable) {}
+            }
+            if (! $gatewayPhone) {
+                $gatewayPhone = '6285111426699';
+            }
+
+            // Filter opsional berdasarkan nomor gateway aktif jika diminta client
+            $requestedGateway = $request->query('gateway_phone');
+            if ($requestedGateway) {
+                $cleanReqGw = preg_replace('/\D/', '', (string) $requestedGateway);
+                if ($cleanReqGw) {
+                    $filtered = array_values(array_filter($filtered, function ($m) use ($cleanReqGw) {
+                        if (empty($m['gateway_phone'])) {
+                            return true; // legacy message tetap diizinkan
+                        }
+                        $mGw = preg_replace('/\D/', '', (string) $m['gateway_phone']);
+                        return $mGw === $cleanReqGw;
+                    }));
+                }
+            }
 
             // Ambil status pengguna yang sedang online & sedang mengetik (realtime presence)
             $now = time();
@@ -1405,6 +1436,23 @@ class WorkspaceSosmedController extends Controller
                 ]);
             }
 
+            $myJid = $isFromMe
+                ? (string) ($p['from'] ?? '')
+                : (string) ($p['to'] ?? '');
+
+            $detectedGateway = '';
+            if ($myJid) {
+                $cleanGw = preg_replace('/@.*$/', '', $myJid);
+                $cleanGw = preg_replace('/\D/', '', $cleanGw);
+                if ($cleanGw && strlen($cleanGw) >= 9 && strlen($cleanGw) <= 15) {
+                    $detectedGateway = $cleanGw;
+                    cache()->put('baileys_bot_phone', $cleanGw, now()->addDays(7));
+                }
+            }
+            if (! $detectedGateway) {
+                $detectedGateway = cache()->get('baileys_bot_phone', '6285111426699');
+            }
+
             $entry = [
                 'messageId' => $messageId,
                 'phone' => $cleanPhone,
@@ -1418,6 +1466,7 @@ class WorkspaceSosmedController extends Controller
                 'sender' => $senderRole,
                 'senderName' => $senderName,
                 'gateway' => 'BAILEYS_GATEWAY',
+                'gateway_phone' => $detectedGateway,
                 'raw' => $data,
             ];
 

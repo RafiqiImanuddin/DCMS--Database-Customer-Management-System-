@@ -79,10 +79,19 @@
                                                     <span>Sync Nama</span>
                                                 </button>
                                                 <button type="button" class="omni-action-btn" onclick="clearOmniTestChats()"
-                                                    title="Bersihkan riwayat chat uji coba" style="padding:2px 5px; border-radius:6px;">
+                                                    title="Bersihkan riwayat chat nomor aktif ini" style="padding:2px 5px; border-radius:6px;">
                                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                                                 </button>
                                             </div>
+                                        </div>
+
+                                        <!-- Indikator Akun WhatsApp Gateway Aktif (Multi-Account Isolasi Chat) -->
+                                        <div id="omniGatewayAccountBar" class="flex items-center justify-between px-2.5 py-1 mb-2 bg-emerald-50/90 border border-emerald-200/90 rounded-lg text-xs text-emerald-800">
+                                            <div class="flex items-center gap-1.5 min-w-0">
+                                                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                                                <span class="font-bold text-slate-800 text-[11px] truncate" id="omniGatewayAccountText">Akun WA: Memuat...</span>
+                                            </div>
+                                            <span class="text-[10px] text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-bold shrink-0" id="omniGatewayAccountTag">Aktif</span>
                                         </div>
                                         <div class="omni-search-input-wrap relative">
                                             <span class="omni-search-icon absolute left-2.5 top-2 text-slate-400">
