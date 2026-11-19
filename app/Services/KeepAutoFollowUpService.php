@@ -1054,7 +1054,7 @@ class KeepAutoFollowUpService
     /**
      * Normalize phone to 628xxx.
      */
-    protected function normalizePhone(?string $phone): string
+    public function normalizePhone(?string $phone): string
     {
         if (! $phone) return '';
         $digits = preg_replace('/\D/', '', (string) $phone);
@@ -1201,10 +1201,13 @@ class KeepAutoFollowUpService
             }
         }
 
-        // Cek berdasarkan nama di Employee
+        // Cek berdasarkan nama di Employee (fleksibel dua arah)
         if ($namePart && strlen($namePart) >= 3) {
             $emp = $this->cachedEmployees->first(function ($e) use ($namePart) {
-                return ! empty($e->name) && stripos((string) $e->name, $namePart) !== false;
+                if (empty($e->name)) return false;
+                $empName = strtolower(trim((string) $e->name));
+                $searchName = strtolower(trim((string) $namePart));
+                return stripos($empName, $searchName) !== false || stripos($searchName, $empName) !== false;
             });
             if ($emp && ! empty($emp->phone)) {
                 $empNorm = $this->normalizePhone($emp->phone);
@@ -1225,7 +1228,10 @@ class KeepAutoFollowUpService
             }
 
             $u = $this->cachedUsers->first(function ($user) use ($namePart) {
-                return ! empty($user->name) && stripos((string) $user->name, $namePart) !== false;
+                if (empty($user->name)) return false;
+                $userName = strtolower(trim((string) $user->name));
+                $searchName = strtolower(trim((string) $namePart));
+                return stripos($userName, $searchName) !== false || stripos($searchName, $userName) !== false;
             });
             if ($u && ! empty($u->phone)) {
                 $uNorm = $this->normalizePhone($u->phone);

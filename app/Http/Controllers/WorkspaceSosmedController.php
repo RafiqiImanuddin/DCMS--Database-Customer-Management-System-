@@ -2562,4 +2562,73 @@ class WorkspaceSosmedController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Update/Koreksi nomor WhatsApp PIC yang terkena LID atau salah nomor
+     */
+    public function autoFuH1UpdatePicPhone(Request $request, KeepAutoFollowUpService $service): JsonResponse
+    {
+        if (! auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Sesi telah berakhir. Silakan login kembali.'], 401);
+        }
+
+        if ($request->user()?->isGuest()) {
+            return response()->json(['success' => false, 'message' => 'Akun Guest tidak diizinkan mengubah data.'], 403);
+        }
+
+        $picName = trim((string) $request->input('pic_name', ''));
+        $oldPhone = trim((string) $request->input('old_phone', ''));
+        $newPhoneRaw = trim((string) $request->input('new_phone', ''));
+
+        $cleanNewPhone = $service->normalizePhone($newPhoneRaw);
+
+        if (! $cleanNewPhone || strlen($cleanNewPhone) < 9 || strlen($cleanNewPhone) > 15 || $service->isLidPhone($cleanNewPhone)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nomor WhatsApp baru tidak valid. Pastikan format nomor seluler aktif (contoh: 0812xxxx / 62812xxxx).',
+            ], 422);
+        }
+
+        $updatedKeepsCount = 0;
+        $updatedEmployee = null;
+
+        // 1. Update di tabel sosmed_keeps
+        $query = \App\Models\SosmedKeep::query();
+        if ($picName) {
+            $query->where('nama_tim_follow_up', $picName);
+        } elseif ($oldPhone) {
+            $query->where('nomor_fu', $oldPhone);
+        }
+
+        $updatedKeepsCount = $query->update([
+            'nomor_fu' => $cleanNewPhone,
+            'fu_h1_status' => 'PENDING',
+            'fu_h1_note' => 'Nomor PIC dikoreksi manual menjadi ' . $cleanNewPhone . ' (Siap dikirim)',
+        ]);
+
+        // 2. Update atau sinkronkan ke Master Karyawan (Employee) jika nama cocok
+        if ($picName) {
+            $namePart = $picName;
+            if (str_contains($picName, '-')) {
+                $parts = explode('-', $picName);
+                $namePart = trim(end($parts));
+            }
+
+            try {
+                $emp = \App\Models\Employee::where('name', 'LIKE', '%' . $namePart . '%')->first();
+                if ($emp) {
+                    $emp->update(['phone' => $cleanNewPhone]);
+                    $updatedEmployee = $emp->name;
+                }
+            } catch (\Throwable) {}
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Nomor WhatsApp untuk {$picName} berhasil diperbarui menjadi {$cleanNewPhone}." . 
+                         ($updatedEmployee ? " Tersinkron ke Data Karyawan ({$updatedEmployee})." : '') .
+                         " {$updatedKeepsCount} data keep diperbarui dan siap dikirim.",
+            'new_phone' => $cleanNewPhone,
+        ]);
+    }
 }

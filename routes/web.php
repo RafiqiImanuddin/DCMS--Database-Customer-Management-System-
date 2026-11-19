@@ -205,6 +205,7 @@ Route::prefix('api')->group(function () {
     Route::get('/auto-fu-h1', [WorkspaceSosmedController::class, 'autoFuH1Data'])->name('api.sosmed.auto_fu_h1_data');
     Route::post('/auto-fu-h1/send-digest', [WorkspaceSosmedController::class, 'autoFuH1SendDigest'])->name('api.sosmed.auto_fu_h1_send_digest');
     Route::post('/auto-fu-h1/settings', [WorkspaceSosmedController::class, 'autoFuH1SaveSettings'])->name('api.sosmed.auto_fu_h1_save_settings');
+    Route::post('/auto-fu-h1/update-pic-phone', [WorkspaceSosmedController::class, 'autoFuH1UpdatePicPhone'])->name('api.sosmed.auto_fu_h1_update_pic_phone');
     Route::get('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'index'])->name('api.notifications.index');
     Route::delete('/notifications', [\App\Http\Controllers\ActivityNotificationController::class, 'clear'])->name('api.notifications.clear');
 });

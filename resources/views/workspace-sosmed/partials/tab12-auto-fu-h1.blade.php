@@ -797,6 +797,48 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Koreksi Nomor PIC (Atasi Nomor LID / Invalid) -->
+    <div id="fu12UpdatePhoneModal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" style="display:none;">
+        <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50">
+                <div class="flex items-center gap-2.5">
+                    <span class="flex size-9 items-center justify-center rounded-xl bg-amber-500 text-white font-black text-base shadow-xs">📱</span>
+                    <div>
+                        <h4 class="text-sm font-black text-slate-900 leading-tight">Koreksi Nomor WhatsApp PIC</h4>
+                        <p class="text-[11px] text-slate-500">Perbaiki nomor LID WhatsApp ke nomor HP seluler asli</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeFu12UpdatePhoneModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed">
+                    <span class="font-bold">ℹ️ Info WhatsApp:</span> Nomor format <em>LID</em> muncul saat staf berinteraksi di grup via WhatsApp Web (nomor asli disembunyikan WhatsApp). Masukkan nomor HP aktif staf agar bot dapat mengirimkan reminder secara japri.
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nama PIC Sales</label>
+                    <input type="text" id="fu12ModalPicName" readonly class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-bold text-slate-800 cursor-not-allowed">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Saat Ini (LID / Tidak Lengkap)</label>
+                    <input type="text" id="fu12ModalOldPhone" readonly class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-mono text-slate-600 cursor-not-allowed">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nomor WhatsApp Seluler Asli <span class="text-rose-500">*</span></label>
+                    <input type="tel" id="fu12ModalNewPhone" placeholder="Contoh: 081234567890 / 6281234567890" class="w-full rounded-xl border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-hidden">
+                    <span class="text-[10px] text-slate-500 mt-1 block">Nomor ini otomatis tersimpan ke riwayat Keep dan disinkronkan ke Master Karyawan.</span>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="closeFu12UpdatePhoneModal()" class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition cursor-pointer">
+                    Batal
+                </button>
+                <button type="button" id="btnSubmitFu12PhoneUpdate" onclick="submitFu12PhoneUpdate()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+                    <span>Simpan &amp; Jadwalkan Ulang</span>
+                </button>
+            </div>
+        </div>
+    </div>
 </section>
 
 <script>
@@ -1573,10 +1615,13 @@ function renderFu12HistoryTable() {
                 </button>
             `;
         } else if (!g.is_valid_phone) {
+            const safePicName = (g.pic_name || '').replace(/'/g, "\\'");
+            const safeOldPhone = (g.raw_pic_phone || g.pic_phone || '').replace(/'/g, "\\'");
             aksiHtml = `
-                <span class="inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400" title="Nomor tidak valid">
-                    No WA Invalid
-                </span>
+                <button type="button" onclick="openUpdatePicPhoneModal('${safePicName}', '${safeOldPhone}')" class="inline-flex items-center gap-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1.5 text-xs font-bold shadow-2xs transition cursor-pointer" title="Koreksi Nomor WhatsApp PIC (Ubah dari LID ke nomor HP)">
+                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg>
+                    <span>Koreksi No</span>
+                </button>
             `;
         } else {
             aksiHtml = `
@@ -2068,6 +2113,76 @@ function cancelFu12Broadcast() {
     }
 }
 window.cancelFu12Broadcast = cancelFu12Broadcast;
+
+// Modal Koreksi Nomor PIC (Ubah dari LID / Nomor Tidak Valid ke HP Seluler)
+function openUpdatePicPhoneModal(picName, oldPhone) {
+    const elName = document.getElementById('fu12ModalPicName');
+    const elOld = document.getElementById('fu12ModalOldPhone');
+    const elNew = document.getElementById('fu12ModalNewPhone');
+    if (elName) elName.value = picName || '';
+    if (elOld) elOld.value = oldPhone || '';
+    if (elNew) elNew.value = '';
+
+    const modal = document.getElementById('fu12UpdatePhoneModal');
+    if (modal) modal.style.display = 'flex';
+    setTimeout(() => {
+        if (elNew) elNew.focus();
+    }, 120);
+}
+
+function closeFu12UpdatePhoneModal() {
+    const modal = document.getElementById('fu12UpdatePhoneModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function submitFu12PhoneUpdate() {
+    const picName = (document.getElementById('fu12ModalPicName')?.value || '').trim();
+    const oldPhone = (document.getElementById('fu12ModalOldPhone')?.value || '').trim();
+    const newPhone = (document.getElementById('fu12ModalNewPhone')?.value || '').trim();
+
+    if (!newPhone || newPhone.length < 9) {
+        alert('Silakan masukkan nomor WhatsApp seluler yang valid (minimal 9 digit, contoh: 0812xxxx atau 62812xxxx).');
+        return;
+    }
+
+    const btn = document.getElementById('btnSubmitFu12PhoneUpdate');
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Menyimpan...</span>';
+    }
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const res = await fetch('/api/auto-fu-h1/update-pic-phone', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ pic_name: picName, old_phone: oldPhone, new_phone: newPhone })
+        });
+        const json = await res.json();
+        if (json.success) {
+            alert(json.message);
+            closeFu12UpdatePhoneModal();
+            loadAutoFuH1Data(); // Refresh UI seketika
+        } else {
+            alert(json.message || 'Gagal memperbarui nomor PIC.');
+        }
+    } catch (e) {
+        alert('Terjadi kesalahan jaringan: ' + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    }
+}
+window.openUpdatePicPhoneModal = openUpdatePicPhoneModal;
+window.closeFu12UpdatePhoneModal = closeFu12UpdatePhoneModal;
+window.submitFu12PhoneUpdate = submitFu12PhoneUpdate;
 
 // Window global exports
 window.renderTab12AutoFollowUpH1 = renderTab12AutoFollowUpH1;
