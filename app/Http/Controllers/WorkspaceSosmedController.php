@@ -1731,6 +1731,53 @@ class WorkspaceSosmedController extends Controller
         ]);
     }
 
+    public function deleteOmniChats(Request $request): JsonResponse
+    {
+        $phones = (array) $request->input('phones', []);
+        if (empty($phones)) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada nomor yang dipilih'], 422);
+        }
+
+        $cleanPhones = array_unique(array_filter(array_map(function ($p) {
+            $c = preg_replace('/\D/', '', (string) $p);
+            return $c ?: null;
+        }, $phones)));
+
+        if (empty($cleanPhones)) {
+            return response()->json(['success' => false, 'message' => 'Nomor tidak valid'], 422);
+        }
+
+        $phoneMap = array_flip($cleanPhones);
+
+        // 1. Hapus dari watzap_messages.json
+        try {
+            $msgFile = $this->storagePath.DIRECTORY_SEPARATOR.'watzap_messages.json';
+            if (File::exists($msgFile)) {
+                $messages = json_decode(File::get($msgFile), true) ?? [];
+                $filtered = array_values(array_filter($messages, function ($m) use ($phoneMap) {
+                    $p = preg_replace('/\D/', '', (string) ($m['phone'] ?? ''));
+                    return !isset($phoneMap[$p]);
+                }));
+                @File::put($msgFile, json_encode($filtered, JSON_PRETTY_PRINT));
+            }
+        } catch (\Throwable $e) {}
+
+        // 2. Hapus dari database WhatsAppChat & WhatsAppMessage
+        try {
+            $chats = WhatsAppChat::whereIn('phone_number', $cleanPhones)->get();
+            foreach ($chats as $chat) {
+                WhatsAppMessage::where('whatsapp_chat_id', $chat->id)->delete();
+                $chat->delete();
+            }
+        } catch (\Throwable $e) {}
+
+        return response()->json([
+            'success' => true,
+            'message' => count($cleanPhones).' obrolan berhasil dihapus.',
+            'deleted_count' => count($cleanPhones),
+        ]);
+    }
+
     public function watzapMedia(Request $request, WatzapService $watzapService): Response
     {
         $file = ltrim((string) $request->query('file', ''), '/\\');

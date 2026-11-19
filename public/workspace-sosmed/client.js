@@ -14644,6 +14644,122 @@ function getOmniPicChats(forceRefresh = false) {
 }
 window.getOmniPicChats = getOmniPicChats;
 
+// --------------------------------------------------------------------------
+// CHECKLIST BULK DELETE CHAT LIST (INBOX FOLLOW-UP)
+// --------------------------------------------------------------------------
+window.selectedOmniChatKeys = {};
+
+function toggleSelectOmniChat(key, isChecked) {
+  if (!window.selectedOmniChatKeys) window.selectedOmniChatKeys = {};
+  if (isChecked) {
+    window.selectedOmniChatKeys[key] = true;
+  } else {
+    delete window.selectedOmniChatKeys[key];
+  }
+  updateOmniBulkActionBar();
+}
+
+function toggleSelectAllOmniChats(isChecked) {
+  if (!window.selectedOmniChatKeys) window.selectedOmniChatKeys = {};
+  const checkboxes = document.querySelectorAll('.omni-chat-item-checkbox');
+  checkboxes.forEach(function(cb) {
+    cb.checked = isChecked;
+    const k = cb.getAttribute('data-key');
+    if (k) {
+      if (isChecked) {
+        window.selectedOmniChatKeys[k] = true;
+      } else {
+        delete window.selectedOmniChatKeys[k];
+      }
+    }
+  });
+  updateOmniBulkActionBar();
+}
+
+function updateOmniBulkActionBar() {
+  const keys = Object.keys(window.selectedOmniChatKeys || {});
+  const count = keys.length;
+  const btnGroup = document.getElementById('omniBulkActionButtons');
+  const countEl = document.getElementById('omniSelectedCount');
+  const selectAllCb = document.getElementById('omniSelectAllChats');
+  
+  if (countEl) {
+    countEl.textContent = count + ' dipilih';
+  }
+  
+  if (btnGroup) {
+    btnGroup.style.display = count > 0 ? 'flex' : 'none';
+  }
+  
+  if (selectAllCb) {
+    const totalVisible = document.querySelectorAll('.omni-chat-item-checkbox').length;
+    selectAllCb.checked = (totalVisible > 0 && count >= totalVisible);
+    selectAllCb.indeterminate = (count > 0 && count < totalVisible);
+  }
+}
+
+async function deleteSelectedOmniChats() {
+  const keys = Object.keys(window.selectedOmniChatKeys || {});
+  if (keys.length === 0) {
+    alert('Pilih minimal satu percakapan untuk dihapus.');
+    return;
+  }
+
+  const confirmMsg = 'Apakah Anda yakin ingin menghapus ' + keys.length + ' percakapan yang dicentang dari daftar Inbox? Riwayat percakapan nomor terpilih akan dibersihkan.';
+  if (!confirm(confirmMsg)) return;
+
+  const btnGroup = document.getElementById('omniBulkActionButtons');
+  if (btnGroup) {
+    btnGroup.innerHTML = '<span style="font-size:11px; font-weight:700; color:#dc2626;">Menghapus...</span>';
+  }
+
+  try {
+    // 1. Hapus dari LocalStorage (aktif gateway)
+    const threads = getOmniThreads();
+    keys.forEach(function(k) {
+      delete threads[k];
+      const normK = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(k) : null);
+      if (normK && threads[normK]) delete threads[normK];
+    });
+    saveOmniThreads(threads);
+
+    // 2. Hapus dari backend database & json
+    await fetch('/api/omni-delete-chats', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '')
+      },
+      body: JSON.stringify({ phones: keys })
+    }).catch(function(err) {
+      console.warn('API delete-chats warning:', err);
+    });
+
+    // 3. Reset pemilihan & room jika room yang dihapus sedang dibuka
+    const deletedSelected = keys.some(function(k) {
+      return k === selectedOmniPicKey || (selectedOmniPicKey && (selectedOmniPicKey.includes(k) || k.includes(selectedOmniPicKey)));
+    });
+    if (deletedSelected) {
+      selectedOmniPicKey = null;
+    }
+    window.selectedOmniChatKeys = {};
+
+    if (typeof showSaveToast === 'function') {
+      showSaveToast(keys.length + ' percakapan berhasil dihapus dari inbox!');
+    }
+
+    renderOmniInboxModule();
+  } catch (err) {
+    console.error('Gagal menghapus percakapan:', err);
+    alert('Terjadi kesalahan saat menghapus: ' + err.message);
+  }
+}
+
+window.toggleSelectOmniChat = toggleSelectOmniChat;
+window.toggleSelectAllOmniChats = toggleSelectAllOmniChats;
+window.updateOmniBulkActionBar = updateOmniBulkActionBar;
+window.deleteSelectedOmniChats = deleteSelectedOmniChats;
+
 let isRenderingOmniInbox = false;
 
 function renderOmniInboxModule() {
@@ -14749,6 +14865,7 @@ function renderOmniInboxModule() {
   if (!listContainer) return;
 
   if (filtered.length === 0) {
+    updateOmniBulkActionBar();
     listContainer.innerHTML = '<div style="padding: 36px 18px; text-align: center; color: #64748b; font-size: 0.78rem; line-height: 1.5;">Tidak ada percakapan pada folder ini.<br><span style="font-size:0.72rem; color:#94a3b8;">Chat dari PIC FU WhatsApp akan otomatis masuk ke sini tanpa grup.</span></div>';
     const chatView = document.getElementById('omniChatViewContainer');
     const detailsView = document.getElementById('omniDetailsPanelContainer');
@@ -14768,6 +14885,7 @@ function renderOmniInboxModule() {
 
   listContainer.innerHTML = filtered.map(function(pic) {
     const isSelected = pic.key === selectedOmniPicKey;
+    const isChecked = Boolean(window.selectedOmniChatKeys && (window.selectedOmniChatKeys[pic.key] || (pic.picWA && window.selectedOmniChatKeys[pic.picWA])));
     const botAvatar = getOmniAvatarHtml(pic.picWA || pic.key, 36);
     const isOnline = isOmniContactOnline(pic.picWA || pic.key);
     let timeDisplay = '';
@@ -14777,6 +14895,9 @@ function renderOmniInboxModule() {
     }
 
     return '<div class="omni-chat-card ' + (isSelected ? 'active' : '') + '" onclick="selectOmniPic(\'' + pic.key + '\')">' +
+      '<div class="omni-card-check-wrap" onclick="event.stopPropagation();" style="margin-top:7px; display:flex; align-items:center; justify-content:center; shrink:0;">' +
+        '<input type="checkbox" class="omni-card-check omni-chat-item-checkbox" data-key="' + escapeHtml(pic.key) + '" ' + (isChecked ? 'checked' : '') + ' onchange="toggleSelectOmniChat(\'' + escapeHtml(pic.key) + '\', this.checked)">' +
+      '</div>' +
       '<div class="omni-card-avatar-wrap">' +
         '<div class="omni-avatar-circle">' + botAvatar + '</div>' +
         '<span class="omni-badge-wa-dot ' + (isOnline ? 'online' : 'offline') + '" title="' + (isOnline ? 'Online' : 'Offline') + '"></span>' +
@@ -14807,6 +14928,8 @@ function renderOmniInboxModule() {
       '</div>' +
     '</div>';
   }).join('');
+
+  updateOmniBulkActionBar();
 
   if (selectedOmniPicKey) {
     const isSelectedInFiltered = filtered.some(function(p) {

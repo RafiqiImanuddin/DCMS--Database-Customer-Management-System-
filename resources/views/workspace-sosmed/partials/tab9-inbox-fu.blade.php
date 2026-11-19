@@ -104,6 +104,21 @@
                                             <input type="text" id="omniSearchInput" name="search_chat_filter_unique" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" class="omni-search-input w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-slate-400 focus:bg-white transition"
                                                 placeholder="Search name, phone, message..." oninput="filterOmniChats()">
                                         </div>
+
+                                        <!-- Bulk Action Bar untuk Checklist Hapus Chat -->
+                                        <div id="omniBulkActionBar" class="flex items-center justify-between px-2.5 py-1.5 mt-2 bg-slate-100/90 border border-slate-200 rounded-lg text-xs" style="display: flex;">
+                                            <label class="flex items-center gap-1.5 cursor-pointer text-slate-700 font-bold select-none text-[11px] mb-0">
+                                                <input type="checkbox" id="omniSelectAllChats" class="rounded text-brand-600 focus:ring-0 cursor-pointer w-3.5 h-3.5" onchange="toggleSelectAllOmniChats(this.checked)">
+                                                <span id="omniSelectAllLabel">Pilih Semua</span>
+                                            </label>
+                                            <div id="omniBulkActionButtons" class="flex items-center gap-1.5" style="display: none;">
+                                                <span class="text-[10px] font-bold text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200" id="omniSelectedCount">0 dipilih</span>
+                                                <button type="button" class="btn btn-xs text-[11px] px-2 py-0.5 rounded font-bold text-white bg-red-600 hover:bg-red-700 transition flex items-center gap-1 shadow-xs border-0 cursor-pointer" onclick="deleteSelectedOmniChats()" title="Hapus chat yang dicentang">
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                    <span>Hapus</span>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div class="omni-chatlist-items flex-1 min-h-0 overflow-y-auto" id="omniChatListContainer">

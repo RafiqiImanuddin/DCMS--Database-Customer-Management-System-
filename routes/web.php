@@ -192,6 +192,7 @@ Route::prefix('api')->group(function () {
     Route::match(['get', 'post', 'delete'], '/baileys-session', [WorkspaceSosmedController::class, 'baileysSession'])->name('api.sosmed.baileys_session');
     Route::get('/watzap-status', [WorkspaceSosmedController::class, 'watzapStatus'])->name('api.sosmed.watzap_status');
     Route::match(['get', 'post'], '/omni-resolve', [WorkspaceSosmedController::class, 'omniResolve'])->name('api.sosmed.omni_resolve');
+    Route::post('/omni-delete-chats', [WorkspaceSosmedController::class, 'deleteOmniChats'])->name('api.sosmed.omni_delete_chats');
     Route::get('/watzap-media', [WorkspaceSosmedController::class, 'watzapMedia'])->name('api.sosmed.watzap_media');
     Route::get('/whatsapp-profile-pic', [WorkspaceSosmedController::class, 'whatsappProfilePic'])->name('api.sosmed.whatsapp_profile_pic');
     Route::post('/watzap-simulate-receive', [WorkspaceSosmedController::class, 'watzapSimulateReceive'])->name('api.sosmed.watzap_simulate_receive');
