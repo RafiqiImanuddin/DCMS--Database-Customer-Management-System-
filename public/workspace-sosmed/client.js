@@ -5222,7 +5222,9 @@ function playKeepNotificationChime() {
 }
 window.playKeepNotificationChime = playKeepNotificationChime;
 
-function showKeepNewNotification(item) {
+let currentActiveKeepToastTimer = null;
+
+function showKeepNewNotification(item, batchCount = 1) {
   const container = document.getElementById('liveKeepToastContainer');
   if (!container) return;
 
@@ -5238,19 +5240,38 @@ function showKeepNewNotification(item) {
   const displayTime = (typeof formatKeepDisplayTime === 'function') ? formatKeepDisplayTime(ts) : 'Baru Saja';
   const isKredit = String(item['USER KREDIT'] || item.user_kredit || '').toUpperCase() === 'KREDIT';
 
-  // Batasi maksimal 4 toast bertumpuk
-  while (container.children.length >= 4) {
-    container.removeChild(container.firstChild);
+  // Hapus timer auto-dismiss notifikasi sebelumnya
+  if (currentActiveKeepToastTimer) {
+    clearTimeout(currentActiveKeepToastTimer);
+    currentActiveKeepToastTimer = null;
   }
+
+  // SINGLE NOTIFICATION ENFORCEMENT & SMOOTH OVERWRITE ANIMATION:
+  // Jika sudah ada notifikasi sebelumnya di layar, animasikan keluar secara mulus (slide-up & fade-out) lalu timpa
+  const existingToasts = Array.from(container.children);
+  existingToasts.forEach(oldToast => {
+    oldToast.style.transition = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+    oldToast.style.transform = 'translateY(-10px) scale(0.96)';
+    oldToast.style.opacity = '0';
+    setTimeout(() => {
+      if (oldToast && oldToast.parentNode) {
+        oldToast.parentNode.removeChild(oldToast);
+      }
+    }, 250);
+  });
 
   const toast = document.createElement('div');
   toast.id = `keepToast_${id}`;
-  toast.className = 'pointer-events-auto w-full max-w-sm sm:max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border-2 border-emerald-400/80 p-4 transition-all duration-300 transform translate-x-10 opacity-0';
+  toast.className = 'pointer-events-auto w-full max-w-sm sm:max-w-md bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border-2 border-emerald-400/80 p-4 transition-all duration-300 transform translate-x-8 scale-98 opacity-0';
   toast.style.boxShadow = '0 20px 35px -10px rgba(16, 185, 129, 0.25), 0 10px 15px -5px rgba(0, 0, 0, 0.05)';
+
+  const batchBadge = (batchCount > 1) 
+    ? `<span class="text-[9px] font-black bg-emerald-600 text-white px-1.5 py-0.5 rounded-full shadow-2xs animate-pulse">+${batchCount - 1} lainnya</span>`
+    : '';
 
   toast.innerHTML = `
     <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5 flex-wrap">
         <span class="relative flex h-2.5 w-2.5">
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -5258,6 +5279,7 @@ function showKeepNewNotification(item) {
         <span class="text-[10px] font-black tracking-wider uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
           ⚡ Format Keep Baru
         </span>
+        ${batchBadge}
         <span class="text-[11px] font-mono font-bold text-slate-500">
           ${displayTime}
         </span>
@@ -5298,29 +5320,33 @@ function showKeepNewNotification(item) {
 
   container.appendChild(toast);
 
-  // Animasi slide-in smooth
+  // Animasi smooth masuk (spring / cubic-bezier)
   requestAnimationFrame(() => {
-    toast.classList.remove('translate-x-10', 'opacity-0');
-    toast.classList.add('translate-x-0', 'opacity-100');
+    setTimeout(() => {
+      toast.style.transition = 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
+      toast.classList.remove('translate-x-8', 'scale-98', 'opacity-0');
+      toast.classList.add('translate-x-0', 'scale-100', 'opacity-100');
+    }, 20);
   });
 
-  // Otomatis dismiss setelah 9 detik
-  setTimeout(() => {
+  // Otomatis dismiss setelah 8.5 detik
+  currentActiveKeepToastTimer = setTimeout(() => {
     closeKeepToast(id);
-  }, 9000);
+  }, 8500);
 }
 window.showKeepNewNotification = showKeepNewNotification;
 
 function closeKeepToast(id) {
   const toast = document.getElementById(`keepToast_${id}`);
   if (!toast) return;
-  toast.classList.remove('translate-x-0', 'opacity-100');
-  toast.classList.add('translate-x-10', 'opacity-0');
+  toast.style.transition = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+  toast.classList.remove('translate-x-0', 'scale-100', 'opacity-100');
+  toast.classList.add('translate-x-8', 'scale-96', 'opacity-0');
   setTimeout(() => {
     if (toast && toast.parentNode) {
       toast.parentNode.removeChild(toast);
     }
-  }, 320);
+  }, 260);
 }
 window.closeKeepToast = closeKeepToast;
 
@@ -5412,6 +5438,7 @@ async function pollLatestKeepData() {
       const sortedNewItems = [...json.data].sort((a, b) => (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0));
 
       let addedCount = 0;
+      let newestRowToNotify = null;
       sortedNewItems.forEach(item => {
         const numId = parseInt(item.id, 10);
         if (numId > latestKnownKeepId) {
@@ -5484,10 +5511,7 @@ async function pollLatestKeepData() {
           rawKeepRows.unshift(newRow);
         }
         addedCount++;
-
-        // Trigger notifikasi pop-up & suara audio chime
-        showKeepNewNotification(newRow);
-        playKeepNotificationChime();
+        newestRowToNotify = newRow;
 
         // Hilangkan sorotan baris baru setelah 18 detik
         setTimeout(() => {
@@ -5497,6 +5521,13 @@ async function pollLatestKeepData() {
           }
         }, 18000);
       });
+
+      // TRIGGER SINGLE TOAST NOTIFICATION:
+      // Tampilkan 1 notifikasi tunggal format keep paling baru, menimpa notifikasi lama secara smooth
+      if (newestRowToNotify) {
+        showKeepNewNotification(newestRowToNotify, addedCount);
+        playKeepNotificationChime();
+      }
 
       if (addedCount > 0) {
         console.log(`⚡ [Realtime Keep Engine] ${addedCount} format keep baru diterima secara realtime!`);
