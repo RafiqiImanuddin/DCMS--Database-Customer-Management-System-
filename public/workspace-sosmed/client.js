@@ -18578,15 +18578,19 @@ function renderKeepAdminDashboard() {
     const finishedCount = adm.win + adm.lose;
     const finishedRateVal = finishedCount > 0 ? ((adm.win / finishedCount) * 100).toFixed(1) : '0.0';
 
-    // Cabang Dominan
+    // Cabang Dominan & Distribusi Semua Cabang
     let topCab = '-';
     let maxCabCount = 0;
-    Object.entries(adm.cabangCounts).forEach(([c, cnt]) => {
+    const sortedCabEntries = Object.entries(adm.cabangCounts).sort((a, b) => b[1] - a[1]);
+    sortedCabEntries.forEach(([c, cnt]) => {
       if (cnt > maxCabCount) {
         maxCabCount = cnt;
         topCab = c;
       }
     });
+    const cabDetails = sortedCabEntries.length > 0
+      ? sortedCabEntries.map(([c, cnt]) => `${c} (${cnt} keep)`).join(', ')
+      : 'Semua Cabang';
 
     // Medali / Rank Badge
     let rankBadge = `<span class="inline-flex size-6 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">${idx + 1}</span>`;
@@ -18646,7 +18650,7 @@ function renderKeepAdminDashboard() {
           </div>
         </td>
         <td class="py-3 px-3.5 text-center">
-          <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 cursor-help" title="Distribusi seluruh cabang: ${escapeHtml(cabDetails)}">
             ${escapeHtml(topCab)}
           </span>
         </td>
