@@ -316,7 +316,104 @@
                 </div>
             </div>
 
-            <!-- Leaderboard Kinerja Admin Sosmed Table -->
+                        <!-- Section Visualisasi Grafik & Donut Chart Admin Sosmed -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <!-- Chart 1: Bar Chart Trend Performa Admin Sosmed (2 Kolom di Desktop) -->
+                <div class="lg:col-span-2 dcms-card p-5 border border-slate-200/90 shadow-xs rounded-2xl bg-white">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 mb-4 border-b border-slate-100">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">📈</span>
+                                <h3 class="text-sm sm:text-base font-black text-slate-900 tracking-tight">Trend & Performa Format Keep per Admin</h3>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-0.5">Perbandingan Total Keep, Closing WIN, dan On Progress per Admin Sosmed Resmi</p>
+                        </div>
+
+                        <!-- Chart Legend Indicators -->
+                        <div class="flex items-center gap-3 text-xs flex-wrap">
+                            <span class="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                                <span class="size-3 rounded-xs bg-[#2563eb]"></span>
+                                <span>Total Keep</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                                <span class="size-3 rounded-xs bg-[#10b981]"></span>
+                                <span>Closing WIN</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                                <span class="size-3 rounded-xs bg-[#0ea5e9]"></span>
+                                <span>On Progress</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                                <span class="w-4 border-t-2 border-dashed border-slate-800"></span>
+                                <span>Closing Rate (%)</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Canvas Chart.js Container -->
+                    <div class="relative w-full" style="height: 320px;">
+                        <canvas id="dashAdminBarChartCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Donut Chart Komposisi Format Keep (1 Kolom di Desktop) -->
+                <div class="dcms-card p-5 border border-slate-200/90 shadow-xs rounded-2xl bg-white flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <span class="text-base">🍩</span>
+                                <div>
+                                    <h3 class="text-sm sm:text-base font-black text-slate-900 tracking-tight">Komposisi Format Keep</h3>
+                                    <p class="text-xs text-slate-500 mt-0.5" id="dashAdminDonutSubTitle">Total keep, unassign &amp; follow up</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Donut Chart Container dengan Center Text Total Keep -->
+                        <div class="relative w-full flex items-center justify-center my-2" style="height: 200px;">
+                            <canvas id="dashAdminDonutChartCanvas"></canvas>
+                            <div id="dashAdminDonutCenterLabel" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                                <span class="text-2xl sm:text-3xl font-black text-slate-900 leading-none tracking-tight" id="dashAdminDonutCenterTotal">0</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Total Keep</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Donut Legend Mini Stats (Belum FU, Progress, WIN, Lose) -->
+                    <div class="space-y-2 pt-3 border-t border-slate-100 text-xs">
+                        <div class="flex items-center justify-between text-slate-600">
+                            <div class="flex items-center gap-2">
+                                <span class="size-2.5 rounded-full bg-amber-500"></span>
+                                <span class="font-medium">Unassign (Belum Claim)</span>
+                            </div>
+                            <span class="font-bold text-amber-700" id="dashAdminDonutStatUnassign">0</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-600">
+                            <div class="flex items-center gap-2">
+                                <span class="size-2.5 rounded-full bg-sky-500"></span>
+                                <span class="font-medium">Di Follow Up (Progress)</span>
+                            </div>
+                            <span class="font-bold text-sky-700" id="dashAdminDonutStatProgress">0</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-600">
+                            <div class="flex items-center gap-2">
+                                <span class="size-2.5 rounded-full bg-emerald-500"></span>
+                                <span class="font-medium">Closing WIN</span>
+                            </div>
+                            <span class="font-bold text-emerald-700" id="dashAdminDonutStatWin">0</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-600">
+                            <div class="flex items-center gap-2">
+                                <span class="size-2.5 rounded-full bg-rose-500"></span>
+                                <span class="font-medium">Lose / Cancel</span>
+                            </div>
+                            <span class="font-bold text-rose-700" id="dashAdminDonutStatLose">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<!-- Leaderboard Kinerja Admin Sosmed Table -->
             <div class="dcms-card overflow-hidden">
                 <div class="p-4 border-b border-slate-200/80 flex items-center justify-between flex-wrap gap-2 bg-slate-50/50">
                     <div>

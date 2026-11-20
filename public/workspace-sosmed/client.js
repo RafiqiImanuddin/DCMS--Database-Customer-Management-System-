@@ -18475,6 +18475,9 @@ function renderKeepAdminDashboard() {
   const adminStatsMap = {};
   let totalFilteredKeep = filtered.length;
   let totalFilteredWin = 0;
+  let totalFilteredProgress = 0;
+  let totalFilteredLose = 0;
+  let totalFilteredPending = 0;
   let totalFilteredFinished = 0;
 
   filtered.forEach(r => {
@@ -18510,11 +18513,14 @@ function renderKeepAdminDashboard() {
       totalFilteredFinished++;
     } else if (status.startsWith('ON PROGRESS')) {
       st.progress++;
+      totalFilteredProgress++;
     } else if (status === 'LOSE' || status === 'TAKE OUT' || status === 'DOUBLE KEEP') {
       st.lose++;
+      totalFilteredLose++;
       totalFilteredFinished++;
     } else {
       st.pending++;
+      totalFilteredPending++;
     }
 
     // Komposisi Kredit vs Non Kredit
@@ -18571,7 +18577,16 @@ function renderKeepAdminDashboard() {
     elFilteredCount.textContent = `Menampilkan ${adminList.length} Admin Sosmed (${totalFilteredKeep.toLocaleString('id-ID')} format keep)`;
   }
 
-  // 6. Render Tabel Leaderboard
+  // 6. Render Charts (Bar Chart Performa & Donut Chart Komposisi)
+  renderDashAdminCharts(adminList, {
+    total: totalFilteredKeep,
+    unassign: totalFilteredPending,
+    progress: totalFilteredProgress,
+    win: totalFilteredWin,
+    lose: totalFilteredLose
+  });
+
+  // 7. Render Tabel Leaderboard
   const tbody = document.getElementById('dashAdminTableBody');
   if (!tbody) return;
 
@@ -18674,6 +18689,266 @@ function renderKeepAdminDashboard() {
       </tr>
     `;
   }).join('');
+}
+
+
+let dashAdminBarChartInstance = null;
+let dashAdminDonutChartInstance = null;
+
+function renderDashAdminCharts(adminList, keepStatus) {
+  if (typeof Chart === 'undefined') return;
+  try {
+    renderDashAdminBarChart(adminList);
+  } catch (e) {
+    console.warn('Gagal render bar chart admin sosmed:', e);
+  }
+  try {
+    renderDashAdminDonutChart(keepStatus);
+  } catch (e) {
+    console.warn('Gagal render donut chart admin sosmed:', e);
+  }
+}
+
+function renderDashAdminBarChart(adminList) {
+  const canvas = document.getElementById('dashAdminBarChartCanvas');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (dashAdminBarChartInstance) {
+    try { dashAdminBarChartInstance.destroy(); } catch (e) {}
+    dashAdminBarChartInstance = null;
+  }
+
+  const topAdmins = (adminList || []).slice(0, 10);
+  const labels = topAdmins.map(a => a.name);
+  const totalData = topAdmins.map(a => a.total);
+  const winData = topAdmins.map(a => a.win);
+  const progressData = topAdmins.map(a => a.progress);
+  const rateData = topAdmins.map(a => a.total > 0 ? Number(((a.win / a.total) * 100).toFixed(1)) : 0);
+
+  const ctx = canvas.getContext('2d');
+  dashAdminBarChartInstance = new Chart(ctx, {
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          type: 'line',
+          label: 'Closing Rate (%)',
+          data: rateData,
+          yAxisID: 'yRate',
+          borderColor: '#1e293b',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointBackgroundColor: '#1e293b',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          fill: false,
+          tension: 0.1,
+          order: 1
+        },
+        {
+          type: 'bar',
+          label: 'Total Keep',
+          data: totalData,
+          yAxisID: 'yCount',
+          backgroundColor: '#2563eb',
+          hoverBackgroundColor: '#1d4ed8',
+          borderRadius: 6,
+          borderSkipped: false,
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
+          order: 2
+        },
+        {
+          type: 'bar',
+          label: 'Closing WIN',
+          data: winData,
+          yAxisID: 'yCount',
+          backgroundColor: '#10b981',
+          hoverBackgroundColor: '#059669',
+          borderRadius: 6,
+          borderSkipped: false,
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
+          order: 3
+        },
+        {
+          type: 'bar',
+          label: 'On Progress',
+          data: progressData,
+          yAxisID: 'yCount',
+          backgroundColor: '#0ea5e9',
+          hoverBackgroundColor: '#0284c7',
+          borderRadius: 6,
+          borderSkipped: false,
+          barPercentage: 0.7,
+          categoryPercentage: 0.8,
+          order: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#ffffff',
+          titleFont: { weight: 'bold', size: 12 },
+          bodyColor: '#e2e8f0',
+          bodyFont: { size: 11 },
+          padding: 12,
+          cornerRadius: 10,
+          boxPadding: 4,
+          callbacks: {
+            title: function(items) {
+              return items.length > 0 ? ('Admin Sosmed: ' + items[0].label) : '';
+            },
+            afterBody: function(items) {
+              if (items.length > 0) {
+                const idx = items[0].dataIndex;
+                const adm = topAdmins[idx];
+                if (adm) {
+                  return `Level: ${adm.level || 'Karyawan'} | Cabang Utama: ${adm.cabang || '-'}\nLose/Drop: ${adm.lose} | Belum FU: ${adm.pending}`;
+                }
+              }
+              return '';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            font: { size: 10, weight: '700' },
+            color: '#475569',
+            maxRotation: 30,
+            minRotation: 0
+          }
+        },
+        yCount: {
+          type: 'linear',
+          position: 'left',
+          beginAtZero: true,
+          grid: {
+            color: '#f1f5f9',
+            drawBorder: false
+          },
+          ticks: {
+            font: { size: 10 },
+            color: '#94a3b8',
+            precision: 0
+          }
+        },
+        yRate: {
+          type: 'linear',
+          position: 'right',
+          min: 0,
+          max: 100,
+          grid: {
+            display: false
+          },
+          ticks: {
+            font: { size: 10 },
+            color: '#64748b',
+            callback: function(v) { return v + '%'; }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderDashAdminDonutChart(keepStatus) {
+  const canvas = document.getElementById('dashAdminDonutChartCanvas');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (dashAdminDonutChartInstance) {
+    try { dashAdminDonutChartInstance.destroy(); } catch (e) {}
+    dashAdminDonutChartInstance = null;
+  }
+
+  const total = keepStatus ? (keepStatus.total || 0) : 0;
+  const unassign = keepStatus ? (keepStatus.unassign || 0) : 0;
+  const progress = keepStatus ? (keepStatus.progress || 0) : 0;
+  const win = keepStatus ? (keepStatus.win || 0) : 0;
+  const lose = keepStatus ? (keepStatus.lose || 0) : 0;
+
+  // Center text total keep
+  const elCenterTotal = document.getElementById('dashAdminDonutCenterTotal');
+  if (elCenterTotal) elCenterTotal.innerText = total.toLocaleString('id-ID');
+
+  // Legend mini stats
+  const elUnassign = document.getElementById('dashAdminDonutStatUnassign');
+  const elProgress = document.getElementById('dashAdminDonutStatProgress');
+  const elWin = document.getElementById('dashAdminDonutStatWin');
+  const elLose = document.getElementById('dashAdminDonutStatLose');
+
+  if (elUnassign) elUnassign.innerText = unassign.toLocaleString('id-ID');
+  if (elProgress) elProgress.innerText = progress.toLocaleString('id-ID');
+  if (elWin) elWin.innerText = win.toLocaleString('id-ID');
+  if (elLose) elLose.innerText = lose.toLocaleString('id-ID');
+
+  const ctx = canvas.getContext('2d');
+  const chartData = (total === 0) ? [1] : [unassign, progress, win, lose];
+  const chartColors = (total === 0) ? ['#e2e8f0'] : ['#f59e0b', '#0284c7', '#10b981', '#f43f5e'];
+  const chartHoverColors = (total === 0) ? ['#cbd5e1'] : ['#d97706', '#0369a1', '#059669', '#e11d48'];
+  const chartLabels = (total === 0) 
+    ? ['Tidak Ada Data'] 
+    : ['Unassign (Belum Claim)', 'Di Follow Up (Progress)', 'Closing WIN', 'Lose / Cancel'];
+
+  dashAdminDonutChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: chartLabels,
+      datasets: [
+        {
+          data: chartData,
+          backgroundColor: chartColors,
+          hoverBackgroundColor: chartHoverColors,
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '72%',
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#ffffff',
+          bodyColor: '#e2e8f0',
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: function(item) {
+              if (total === 0) return 'Belum ada data format keep';
+              const val = item.raw || 0;
+              const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+              return ` ${item.label}: ${val.toLocaleString('id-ID')} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 window.switchKeepView = switchKeepView;
