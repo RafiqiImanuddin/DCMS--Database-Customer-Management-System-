@@ -227,9 +227,11 @@
                     <span id="keepCurrentPageText" class="px-3 py-1.5 font-bold text-slate-700 bg-white border border-slate-200 rounded-xl shadow-xs">Halaman 1 / 1</span>
                     <button class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="btnKeepNext" onclick="changeKeepPage(1)">Selanjutnya &raquo;</button>
                 </div>
-        </div>
+            </div>
+        </section>
+    </div>
 
-        <!-- 3. DASHBOARD FORMAT KEEP ADMIN SOSMED -->
+    <!-- 3. DASHBOARD FORMAT KEEP ADMIN SOSMED -->
         <div id="keepAdminDashboardContainer" style="display: none;" class="space-y-5">
             <!-- Top KPI Summary Cards -->
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -357,8 +359,6 @@
                 </div>
             </div>
         </div>
-    </div>
-</section>
     </div>
 </section>
 
