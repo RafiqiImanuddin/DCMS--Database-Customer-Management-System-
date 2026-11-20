@@ -333,15 +333,6 @@
                     <span>Laporan Broadcast</span>
                 </a>
                 @endif
-
-                @if ($currentUser->canAccessFeature('pricelist'))
-                <a href="{{ \App\Support\RouteCipher::url('pricelist.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'pricelist.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                    </svg>
-                    <span>Pricelist Gadget</span>
-                </a>
-                @endif
             </div>
         </div>
         @endif
