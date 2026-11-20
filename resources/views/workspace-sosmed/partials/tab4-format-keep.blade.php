@@ -268,7 +268,7 @@
                         </div>
                     </div>
                     <div class="mt-2 text-2xl font-black text-blue-600" id="dashAdminClosingRate">0.0%</div>
-                    <div class="mt-0.5 text-[11px] text-slate-500">Rasio WIN terhadap keep selesai</div>
+                    <div class="mt-0.5 text-[11px] text-slate-500" id="dashAdminClosingRateSubtext">Rasio konversi WIN vs total keep</div>
                 </div>
 
                 <!-- Card 4: Top Contributor Admin -->
@@ -293,7 +293,7 @@
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                             </span>
-                            <input type="text" id="dashAdminSearchInput" oninput="renderKeepAdminDashboard()" placeholder="Cari admin sosmed / sender..." class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none transition">
+                            <input type="search" id="dashAdminSearchInput" name="dash_admin_search_query_no_autofill" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="renderKeepAdminDashboard()" placeholder="Cari admin sosmed / sender..." class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none transition">
                         </div>
 
                         <!-- Filter Periode -->

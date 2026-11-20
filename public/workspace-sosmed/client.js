@@ -18240,6 +18240,11 @@ function switchKeepView(mode) {
     if (btnDash) {
       btnDash.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-white text-brand-700 shadow-xs cursor-pointer';
     }
+    const sInput = document.getElementById('dashAdminSearchInput');
+    if (sInput) {
+      sInput.value = '';
+      sInput.setAttribute('autocomplete', 'new-password');
+    }
     renderKeepAdminDashboard();
   } else {
     if (tableContainer) tableContainer.style.display = 'block';
@@ -18514,10 +18519,10 @@ function renderKeepAdminDashboard() {
     st.cabangCounts[cab] = (st.cabangCounts[cab] || 0) + 1;
   });
 
-  // 5. Update KPI Highlight Cards
-  const overallClosingRate = totalFilteredFinished > 0 
-    ? ((totalFilteredWin / totalFilteredFinished) * 100).toFixed(1)
-    : (totalFilteredKeep > 0 ? ((totalFilteredWin / totalFilteredKeep) * 100).toFixed(1) : '0.0');
+  // 5. Update KPI Highlight Cards (Standar Konversi: Total WIN / Total Keep)
+  const overallClosingRate = totalFilteredKeep > 0 
+    ? ((totalFilteredWin / totalFilteredKeep) * 100).toFixed(1)
+    : '0.0';
 
   const winShare = totalFilteredKeep > 0 
     ? ((totalFilteredWin / totalFilteredKeep) * 100).toFixed(1) 
@@ -18541,6 +18546,10 @@ function renderKeepAdminDashboard() {
   if (elTotalWin) elTotalWin.textContent = totalFilteredWin.toLocaleString('id-ID');
   if (elWinShare) elWinShare.textContent = `${winShare}% dari total keep`;
   if (elClosingRate) elClosingRate.textContent = `${overallClosingRate}%`;
+  const elClosingRateSubtext = document.getElementById('dashAdminClosingRateSubtext');
+  if (elClosingRateSubtext) {
+    elClosingRateSubtext.textContent = `Rasio WIN vs Total Keep (${totalFilteredWin.toLocaleString('id-ID')} dari ${totalFilteredKeep.toLocaleString('id-ID')})`;
+  }
   if (elTopName) elTopName.textContent = topAdmin ? topAdmin.name : '-';
   if (elTopSubtext) {
     elTopSubtext.textContent = topAdmin 
@@ -18561,11 +18570,13 @@ function renderKeepAdminDashboard() {
   }
 
   tbody.innerHTML = adminList.map((adm, idx) => {
-    const finishedCount = adm.win + adm.lose;
-    const rateVal = finishedCount > 0 
-      ? ((adm.win / finishedCount) * 100) 
-      : (adm.total > 0 ? ((adm.win / adm.total) * 100) : 0);
+    // Closing Rate = WIN / TOTAL KEEP
+    const rateVal = adm.total > 0 ? ((adm.win / adm.total) * 100) : 0;
     const rateFormatted = rateVal.toFixed(1);
+
+    // Rasio WIN terhadap keep yang sudah selesai (WIN + LOSE) untuk perbandingan
+    const finishedCount = adm.win + adm.lose;
+    const finishedRateVal = finishedCount > 0 ? ((adm.win / finishedCount) * 100).toFixed(1) : '0.0';
 
     // Cabang Dominan
     let topCab = '-';
@@ -18591,10 +18602,10 @@ function renderKeepAdminDashboard() {
 
     let rateBarColor = 'bg-slate-300';
     let rateTextColor = 'text-slate-600';
-    if (rateVal >= 40) {
+    if (rateVal >= 25) {
       rateBarColor = 'bg-emerald-500';
       rateTextColor = 'text-emerald-700 font-extrabold';
-    } else if (rateVal >= 20) {
+    } else if (rateVal >= 15) {
       rateBarColor = 'bg-blue-500';
       rateTextColor = 'text-blue-700 font-extrabold';
     } else if (rateVal > 0) {
@@ -18626,11 +18637,12 @@ function renderKeepAdminDashboard() {
         <td class="py-3 px-3.5 text-center font-semibold text-slate-500">${adm.lose.toLocaleString('id-ID')}</td>
         <td class="py-3 px-3.5 text-center font-semibold text-rose-500">${adm.pending.toLocaleString('id-ID')}</td>
         <td class="py-3 px-3.5 text-center">
-          <div class="flex flex-col items-center gap-1">
+          <div class="flex flex-col items-center gap-1" title="${adm.win} WIN dari ${adm.total} Total Keep (${rateFormatted}%) | ${finishedRateVal}% dari ${finishedCount} Keep Selesai">
             <span class="text-xs ${rateTextColor}">${rateFormatted}%</span>
             <div class="w-24 bg-slate-100 h-1.5 rounded-full overflow-hidden">
               <div class="${rateBarColor} h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(0, rateVal))}%"></div>
             </div>
+            <span class="text-[9px] text-slate-400 font-medium">${adm.win}/${adm.total} Deal</span>
           </div>
         </td>
         <td class="py-3 px-3.5 text-center">
