@@ -672,7 +672,7 @@
                 <!-- History Specific Filters -->
                 <div class="flex items-center gap-2 flex-wrap">
                     <div class="relative">
-                        <input type="text" id="fu12HistSearchInput" oninput="renderFu12HistoryTable()" placeholder="Cari PIC, Cabang, Catatan..." class="w-48 sm:w-60 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" autocomplete="off">
+                        <input type="search" id="fu12HistSearchInput" name="fu12_history_search_query" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly');" oninput="renderFu12HistoryTable()" placeholder="Cari PIC, Cabang, Catatan..." class="w-48 sm:w-60 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500">
                     </div>
                     <select id="fu12HistStatusFilter" onchange="renderFu12HistoryTable()" class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-teal-500 focus:outline-none">
                         <option value="ALL">Semua Status (Semua)</option>

@@ -293,7 +293,7 @@
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                             </span>
-                            <input type="search" id="dashAdminSearchInput" name="dash_admin_search_query_no_autofill" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="renderKeepAdminDashboard()" placeholder="Cari admin sosmed / sender..." class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none transition">
+                            <input type="search" id="dashAdminSearchInput" name="q_live_filter_term" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly');" oninput="renderKeepAdminDashboard()" placeholder="Cari admin sosmed / sender..." class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none transition">
                         </div>
 
                         <!-- Filter Periode -->

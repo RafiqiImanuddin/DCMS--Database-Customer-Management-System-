@@ -18409,7 +18409,18 @@ function renderKeepAdminDashboard() {
   // 2. Baca Nilai Filter
   const periodVal = document.getElementById('dashAdminPeriodFilter')?.value || 'THIS_MONTH';
   const cabangVal = document.getElementById('dashAdminCabangFilter')?.value || 'ALL';
-  const searchVal = (document.getElementById('dashAdminSearchInput')?.value || '').trim().toLowerCase();
+  const sInputEl = document.getElementById('dashAdminSearchInput');
+  let searchVal = (sInputEl?.value || '').trim();
+
+  // Bulletproof Anti-Autofill: Segera bersihkan jika browser mengisi email/superadmin login
+  if (searchVal.toLowerCase().includes('superadmin') || 
+      searchVal.includes('@') || 
+      searchVal.toLowerCase().includes('.com') || 
+      searchVal.toLowerCase() === 'admin') {
+    if (sInputEl) sInputEl.value = '';
+    searchVal = '';
+  }
+  searchVal = searchVal.toLowerCase();
 
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -18669,3 +18680,27 @@ window.switchKeepView = switchKeepView;
 window.matchRowToKaryawan = matchRowToKaryawan;
 window.resolveAdminSosmedName = resolveAdminSosmedName;
 window.renderKeepAdminDashboard = renderKeepAdminDashboard;
+// =========================================================================
+// GLOBAL BULLETPROOF SEARCH AUTOFILL PURGER
+// Mencegah dan membersihkan otomatis autofill email/password manager pada seluruh search input
+// =========================================================================
+function purgeSearchAutofill() {
+  try {
+    const searchInputs = document.querySelectorAll(
+      'input[type="search"], input[id*="Search"], input[id*="search"], input[name*="search"], input[placeholder*="Cari"], input[placeholder*="Search"]'
+    );
+    searchInputs.forEach(input => {
+      const val = (input.value || '').trim().toLowerCase();
+      if (val.includes('superadmin') || val.includes('@') || val.includes('.com') || val === 'admin') {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  } catch (e) {}
+}
+
+window.addEventListener('DOMContentLoaded', purgeSearchAutofill);
+window.addEventListener('pageshow', purgeSearchAutofill);
+window.addEventListener('focus', purgeSearchAutofill);
+[100, 300, 600, 1000, 2000, 3500].forEach(delay => setTimeout(purgeSearchAutofill, delay));
+window.purgeSearchAutofill = purgeSearchAutofill;
