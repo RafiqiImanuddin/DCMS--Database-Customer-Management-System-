@@ -74,82 +74,20 @@
             $currentUser = auth()->user();
 
             $isCustomerActive = in_array($activeTarget, [
-                'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index', 'pricelist.index'
+                'dashboard', 'predictions.index', 'leads.index', 'broadcasts.index'
             ]);
             $isWorkspaceActive = ($activeTarget === 'workspace-sosmed.index' && !in_array($activeWorkspaceTab, [7, 8]));
             $isMonitoringActive = in_array($activeTarget, ['monitoring.sales.index', 'quotations.index', 'quotations.create', 'quotations.edit', 'quotations.show', 'quotations.print', 'shifts.index']);
             $isGuidanceActive = ($activeTarget === 'guidance.index');
             $isSettingActive = in_array($activeTarget, ['settings.watzap.index', 'whatsapp.index', 'settings.baileys_logs.index', 'settings.karyawan.index', 'imports.index', 'profile.edit', 'settings.users.index']) || ($activeTarget === 'workspace-sosmed.index' && in_array($activeWorkspaceTab, [7, 8]));
 
-            $canSeeCustomerGroup = $currentUser && ($currentUser->canAccessFeature('dashboard') || $currentUser->canAccessFeature('predictions') || $currentUser->canAccessFeature('leads') || $currentUser->canAccessFeature('broadcasts') || $currentUser->canAccessFeature('pricelist'));
+            $canSeeCustomerGroup = $currentUser && ($currentUser->canAccessFeature('dashboard') || $currentUser->canAccessFeature('predictions') || $currentUser->canAccessFeature('leads') || $currentUser->canAccessFeature('broadcasts'));
             $canSeeWorkspaceGroup = $currentUser && ($currentUser->canAccessFeature('workspace_dashboard') || $currentUser->canAccessFeature('workspace_matrix') || $currentUser->canAccessFeature('workspace_cek_ar') || $currentUser->canAccessFeature('workspace_format_keep') || $currentUser->canAccessFeature('workspace_tracking_ar') || $currentUser->canAccessFeature('workspace_klaim_ar') || $currentUser->canAccessFeature('workspace_inbox_fu') || $currentUser->canAccessFeature('workspace_customer_segmentation') || $currentUser->canAccessFeature('workspace_auto_fu_h1'));
             $canSeeMonitoringGroup = $currentUser && ($currentUser->canAccessFeature('monitoring_sales') || $currentUser->canAccessFeature('quotations') || $currentUser->canAccessFeature('sosmed_shifts'));
         @endphp
 
-        @if ($canSeeCustomerGroup)
-        <!-- GROUP 1: CUSTOMER & OUTREACH CRM -->
-        <div class="pt-1">
-            <button type="button" 
-                    id="btn-sidebar-group-customer"
-                    onclick="toggleSidebarGroup('customer')" 
-                    class="group flex w-full items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors select-none cursor-pointer focus:outline-none"
-                    aria-expanded="true"
-                    aria-controls="sidebar-group-customer"
-                    title="Klik untuk collapse / expand">
-                <span class="flex items-center gap-1.5">
-                    <span>Customer & Outreach</span>
-                    @if ($isCustomerActive)
-                        <span id="dot-active-customer" class="size-1.5 rounded-full bg-brand-400 ring-2 ring-brand-400/20" style="display: none;" title="Menu aktif di grup ini"></span>
-                    @endif
-                </span>
-                <svg id="chevron-customer" class="sidebar-group-chevron size-3 text-slate-500 group-hover:text-slate-300 is-expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
-                </svg>
-            </button>
-            
-            <div id="sidebar-group-customer" class="sidebar-group-content space-y-1 pt-1 is-expanded">
-                @if ($currentUser->canAccessFeature('dashboard'))
-                <a href="{{ \App\Support\RouteCipher::url('dashboard') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'dashboard' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 13h6V4H4v9Zm10 7h6v-9h-6v9ZM4 20h6v-3H4v3Zm10-13h6V4h-6v3Z"/></svg>
-                    <span>Dashboard</span>
-                </a>
-                @endif
-
-                @if ($currentUser->canAccessFeature('predictions'))
-                <a href="{{ \App\Support\RouteCipher::url('predictions.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'predictions.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 2v6m3-3h-6"/></svg>
-                    <span>Master Customer</span>
-                </a>
-                @endif
-
-                @if ($currentUser->canAccessFeature('leads'))
-                <a href="{{ \App\Support\RouteCipher::url('leads.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'leads.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    <span>Leads Customer</span>
-                </a>
-                @endif
-
-                @if ($currentUser->canAccessFeature('broadcasts'))
-                <a href="{{ \App\Support\RouteCipher::url('broadcasts.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'broadcasts.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>
-                    <span>Laporan Broadcast</span>
-                </a>
-                @endif
-
-                @if ($currentUser->canAccessFeature('pricelist'))
-                <a href="{{ \App\Support\RouteCipher::url('pricelist.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'pricelist.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                    </svg>
-                    <span>Pricelist Gadget</span>
-                </a>
-                @endif
-            </div>
-        </div>
-        @endif
-
         @if ($canSeeWorkspaceGroup)
-        <!-- GROUP 2: WORKSPACE SOSMED (INTEGRASI PENUH) -->
+        <!-- GROUP 1: WORKSPACE SOSMED (INTEGRASI PENUH) -->
         <div class="pt-2">
             <button type="button" 
                     id="btn-sidebar-group-workspace"
@@ -295,7 +233,7 @@
         @endif
 
         @if ($canSeeMonitoringGroup)
-        <!-- GROUP 3: DASHBOARD MANAGER -->
+        <!-- GROUP 2: DASHBOARD MANAGER -->
         <div class="pt-2">
             <button type="button" 
                     id="btn-sidebar-group-monitoring"
@@ -346,39 +284,69 @@
         </div>
         @endif
 
-        @if ($currentUser && $currentUser->canAccessFeature('guidance'))
-        <!-- GROUP 4: PANDUAN & SOP -->
-        <div class="pt-2">
+        @if ($canSeeCustomerGroup)
+        <!-- GROUP 3: CUSTOMER & OUTREACH CRM -->
+        <div class="pt-1">
             <button type="button" 
-                    id="btn-sidebar-group-guidance"
-                    onclick="toggleSidebarGroup('guidance')" 
+                    id="btn-sidebar-group-customer"
+                    onclick="toggleSidebarGroup('customer')" 
                     class="group flex w-full items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors select-none cursor-pointer focus:outline-none"
                     aria-expanded="true"
-                    aria-controls="sidebar-group-guidance"
+                    aria-controls="sidebar-group-customer"
                     title="Klik untuk collapse / expand">
                 <span class="flex items-center gap-1.5">
-                    <span>Panduan & SOP</span>
-                    @if ($isGuidanceActive)
-                        <span id="dot-active-guidance" class="size-1.5 rounded-full bg-brand-400 ring-2 ring-brand-400/20" style="display: none;" title="Menu aktif di grup ini"></span>
+                    <span>Customer & Outreach</span>
+                    @if ($isCustomerActive)
+                        <span id="dot-active-customer" class="size-1.5 rounded-full bg-brand-400 ring-2 ring-brand-400/20" style="display: none;" title="Menu aktif di grup ini"></span>
                     @endif
                 </span>
-                <svg id="chevron-guidance" class="sidebar-group-chevron size-3 text-slate-500 group-hover:text-slate-300 is-expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <svg id="chevron-customer" class="sidebar-group-chevron size-3 text-slate-500 group-hover:text-slate-300 is-expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
                 </svg>
             </button>
-
-            <div id="sidebar-group-guidance" class="sidebar-group-content space-y-1 pt-1 is-expanded">
-                <a href="{{ \App\Support\RouteCipher::url('guidance.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'guidance.index' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                    <svg class="size-5 shrink-0 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
-                    </svg>
-                    <span>{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Rumus & Panduan' : 'Panduan & SOP Sales' }}</span>
+            
+            <div id="sidebar-group-customer" class="sidebar-group-content space-y-1 pt-1 is-expanded">
+                @if ($currentUser->canAccessFeature('dashboard'))
+                <a href="{{ \App\Support\RouteCipher::url('dashboard') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'dashboard' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 13h6V4H4v9Zm10 7h6v-9h-6v9ZM4 20h6v-3H4v3Zm10-13h6V4h-6v3Z"/></svg>
+                    <span>Dashboard</span>
                 </a>
+                @endif
+
+                @if ($currentUser->canAccessFeature('predictions'))
+                <a href="{{ \App\Support\RouteCipher::url('predictions.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'predictions.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 2v6m3-3h-6"/></svg>
+                    <span>Master Customer</span>
+                </a>
+                @endif
+
+                @if ($currentUser->canAccessFeature('leads'))
+                <a href="{{ \App\Support\RouteCipher::url('leads.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'leads.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span>Leads Customer</span>
+                </a>
+                @endif
+
+                @if ($currentUser->canAccessFeature('broadcasts'))
+                <a href="{{ \App\Support\RouteCipher::url('broadcasts.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'broadcasts.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/></svg>
+                    <span>Laporan Broadcast</span>
+                </a>
+                @endif
+
+                @if ($currentUser->canAccessFeature('pricelist'))
+                <a href="{{ \App\Support\RouteCipher::url('pricelist.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'pricelist.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    <span>Pricelist Gadget</span>
+                </a>
+                @endif
             </div>
         </div>
         @endif
 
-        <!-- GROUP 5: PENGATURAN -->
+        <!-- GROUP 4: PENGATURAN -->
         <div class="pt-2">
             <button type="button" 
                     id="btn-sidebar-group-setting"
@@ -475,7 +443,39 @@
                 </a>
             </div>
         </div>
-    </nav>
+    @if ($currentUser && $currentUser->canAccessFeature('guidance'))
+        <!-- GROUP 5: PANDUAN & SOP -->
+        <div class="pt-2">
+            <button type="button" 
+                    id="btn-sidebar-group-guidance"
+                    onclick="toggleSidebarGroup('guidance')" 
+                    class="group flex w-full items-center justify-between px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-lg transition-colors select-none cursor-pointer focus:outline-none"
+                    aria-expanded="true"
+                    aria-controls="sidebar-group-guidance"
+                    title="Klik untuk collapse / expand">
+                <span class="flex items-center gap-1.5">
+                    <span>Panduan & SOP</span>
+                    @if ($isGuidanceActive)
+                        <span id="dot-active-guidance" class="size-1.5 rounded-full bg-brand-400 ring-2 ring-brand-400/20" style="display: none;" title="Menu aktif di grup ini"></span>
+                    @endif
+                </span>
+                <svg id="chevron-guidance" class="sidebar-group-chevron size-3 text-slate-500 group-hover:text-slate-300 is-expanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+
+            <div id="sidebar-group-guidance" class="sidebar-group-content space-y-1 pt-1 is-expanded">
+                <a href="{{ \App\Support\RouteCipher::url('guidance.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'guidance.index' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <svg class="size-5 shrink-0 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
+                    </svg>
+                    <span>{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Rumus & Panduan' : 'Panduan & SOP Sales' }}</span>
+                </a>
+            </div>
+        </div>
+        @endif
+
+        </nav>
 
     <div class="shrink-0 p-4 border-t border-white/10 bg-white/5">
         <div class="flex items-center justify-between"><span class="text-xs text-slate-400">Login sebagai</span><span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'bg-white/10 text-amber-300' : (auth()->user()?->role === 'admin' ? 'bg-white/10 text-emerald-300' : (auth()->user()?->isGuest() ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/10 text-sky-300')) }}">{{ auth()->check() && auth()->user()->isSuperAdmin() ? 'Superadmin' : (auth()->user()?->role === 'admin' ? 'Admin' : (auth()->user()?->isGuest() ? 'Tamu (Guest)' : 'Staff')) }}</span></div>
@@ -658,12 +658,12 @@ window.updateKeepSubmenuActive = function(tabIndex) {
 };
 
 (function initSidebarGroups() {
-    const groups = [
-        { id: 'customer', isActive: {{ $isCustomerActive ? 'true' : 'false' }} },
+        const groups = [
         { id: 'workspace', isActive: {{ $isWorkspaceActive ? 'true' : 'false' }} },
         { id: 'monitoring', isActive: {{ $isMonitoringActive ? 'true' : 'false' }} },
-        { id: 'guidance', isActive: {{ $isGuidanceActive ? 'true' : 'false' }} },
-        { id: 'setting', isActive: {{ $isSettingActive ? 'true' : 'false' }} }
+        { id: 'customer', isActive: {{ $isCustomerActive ? 'true' : 'false' }} },
+        { id: 'setting', isActive: {{ $isSettingActive ? 'true' : 'false' }} },
+        { id: 'guidance', isActive: {{ $isGuidanceActive ? 'true' : 'false' }} }
     ];
 
     groups.forEach(function(g) {

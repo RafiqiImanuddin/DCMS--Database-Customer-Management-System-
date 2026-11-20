@@ -14,12 +14,24 @@
                 <h1 class="mt-1 text-2xl font-black text-slate-900">Format Keep Customer</h1>
             </div>
 
-            <!-- Export XLSX Button -->
-            <div class="flex items-center gap-2">
+            <!-- View Toggle & Export XLSX Button -->
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <!-- Segmented Switch View Toggle: Tabel vs Dashboard Admin Sosmed -->
+                <div class="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 shadow-2xs">
+                    <button type="button" id="btnKeepViewTable" onclick="switchKeepView('table')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-white text-slate-800 shadow-xs cursor-pointer">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+                        <span>Tabel Data Keep</span>
+                    </button>
+                    <button type="button" id="btnKeepViewDashboard" onclick="switchKeepView('dashboard')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500 hover:text-slate-800 cursor-pointer">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+                        <span>Dashboard Admin Sosmed</span>
+                    </button>
+                </div>
+
                 <button type="button" 
                         onclick="exportKeepDataXlsx()" 
                         id="btnExportKeepXlsx" 
-                        class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-2.5 text-xs font-bold shadow-sm shadow-emerald-600/20 transition cursor-pointer"
+                        class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-2 text-xs font-bold shadow-sm shadow-emerald-600/20 transition cursor-pointer"
                         title="Export data Format Keep yang tampil ke file Excel (.xlsx)">
                     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                     <span>Export Excel (.xlsx)</span>
@@ -27,7 +39,8 @@
             </div>
         </div>
 
-        <!-- 2. Metric Cards: Color Palette & Border-L Selaras Customer & Outreach (Clickable Filters) -->
+                <div id="keepTableViewContainer" class="space-y-5">
+<!-- 2. Metric Cards: Color Palette & Border-L Selaras Customer & Outreach (Clickable Filters) -->
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
             <!-- Card 1: Total Keep -->
             <div id="cardKeepTotal" class="dcms-card p-4 border-l-4 border-l-brand-500 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition duration-150 select-none" onclick="filterByKeepStatus('ALL')" title="Klik untuk menampilkan semua data keep">
@@ -214,8 +227,138 @@
                     <span id="keepCurrentPageText" class="px-3 py-1.5 font-bold text-slate-700 bg-white border border-slate-200 rounded-xl shadow-xs">Halaman 1 / 1</span>
                     <button class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="btnKeepNext" onclick="changeKeepPage(1)">Selanjutnya &raquo;</button>
                 </div>
+        </div>
+
+        <!-- 3. DASHBOARD FORMAT KEEP ADMIN SOSMED -->
+        <div id="keepAdminDashboardContainer" style="display: none;" class="space-y-5">
+            <!-- Top KPI Summary Cards -->
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <!-- Card 1: Total Keep Admin Sosmed -->
+                <div class="dcms-card p-4 border-l-4 border-l-brand-500 shadow-xs">
+                    <div class="flex items-center justify-between text-slate-500">
+                        <span class="text-[11px] font-bold uppercase tracking-wider">Total Keep Terkirim</span>
+                        <div class="grid size-7 place-items-center rounded-lg bg-brand-50 text-brand-600">
+                            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-slate-900" id="dashAdminTotalKeep">0</div>
+                    <div class="mt-0.5 text-[11px] text-slate-500">Akumulasi seluruh keep masuk</div>
+                </div>
+
+                <!-- Card 2: Closing WIN -->
+                <div class="dcms-card p-4 border-l-4 border-l-emerald-500 shadow-xs">
+                    <div class="flex items-center justify-between text-slate-500">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Total Closing (WIN)</span>
+                        <div class="grid size-7 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
+                            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-emerald-600" id="dashAdminTotalWin">0</div>
+                    <div class="mt-0.5 text-[11px] text-slate-500" id="dashAdminWinShare">0% dari total keep</div>
+                </div>
+
+                <!-- Card 3: Overall Closing Rate -->
+                <div class="dcms-card p-4 border-l-4 border-l-blue-500 shadow-xs">
+                    <div class="flex items-center justify-between text-slate-500">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700">Closing Rate Rata-rata</span>
+                        <div class="grid size-7 place-items-center rounded-lg bg-blue-50 text-blue-600">
+                            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-2xl font-black text-blue-600" id="dashAdminClosingRate">0.0%</div>
+                    <div class="mt-0.5 text-[11px] text-slate-500">Rasio WIN terhadap keep selesai</div>
+                </div>
+
+                <!-- Card 4: Top Contributor Admin -->
+                <div class="dcms-card p-4 border-l-4 border-l-purple-500 shadow-xs">
+                    <div class="flex items-center justify-between text-slate-500">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-purple-700">Top Admin Sosmed</span>
+                        <div class="grid size-7 place-items-center rounded-lg bg-purple-50 text-purple-600">
+                            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.01-6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM12 1.5v3m0 16.5v1.5"/></svg>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-lg font-black text-purple-700 truncate" id="dashAdminTopName">-</div>
+                    <div class="mt-0.5 text-[11px] text-slate-500" id="dashAdminTopSubtext">Kontributor keep terbanyak</div>
+                </div>
             </div>
-        </section>
+
+            <!-- Filter Bar Dashboard Admin Sosmed -->
+            <div class="dcms-card p-4 space-y-3">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- Search Admin -->
+                        <div class="relative min-w-[220px]">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                            </span>
+                            <input type="text" id="dashAdminSearchInput" oninput="renderKeepAdminDashboard()" placeholder="Cari admin sosmed / sender..." class="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none transition">
+                        </div>
+
+                        <!-- Filter Periode -->
+                        <select id="dashAdminPeriodFilter" onchange="renderKeepAdminDashboard()" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-brand-500 focus:outline-none transition">
+                            <option value="ALL">📅 Semua Periode</option>
+                            <option value="THIS_MONTH" selected>📅 Bulan Ini</option>
+                            <option value="LAST_7_DAYS">📅 7 Hari Terakhir</option>
+                            <option value="TODAY">📅 Hari Ini</option>
+                        </select>
+
+                        <!-- Filter Cabang -->
+                        <select id="dashAdminCabangFilter" onchange="renderKeepAdminDashboard()" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 focus:border-brand-500 focus:outline-none transition">
+                            <option value="ALL">🏢 Semua Cabang</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2 text-xs font-bold text-slate-500">
+                        <span id="dashAdminTotalFilteredCount">Memuat data...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaderboard Kinerja Admin Sosmed Table -->
+            <div class="dcms-card overflow-hidden">
+                <div class="p-4 border-b border-slate-200/80 flex items-center justify-between flex-wrap gap-2 bg-slate-50/50">
+                    <div>
+                        <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                            <span>🏆 Leaderboard & Performa Admin Sosmed</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Statistik format keep yang dikirim, status closing WIN, dan distribusi transaksi per admin sosmed.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-50 text-brand-700 border border-brand-200/60">
+                        <span class="size-1.5 rounded-full bg-brand-500 animate-pulse"></span>
+                        <span>Auto Aggregate Live</span>
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-200/90 bg-slate-100/75 text-[11px] font-black uppercase tracking-wider text-slate-600">
+                                <th class="py-3 px-3.5 text-center w-14">#Rank</th>
+                                <th class="py-3 px-3.5">Admin Sosmed (Sender)</th>
+                                <th class="py-3 px-3.5 text-center">Total Keep</th>
+                                <th class="py-3 px-3.5 text-center text-emerald-700">WIN</th>
+                                <th class="py-3 px-3.5 text-center text-amber-700">On Progress</th>
+                                <th class="py-3 px-3.5 text-center text-slate-600">Lose / Drop</th>
+                                <th class="py-3 px-3.5 text-center text-rose-600">Belum FU</th>
+                                <th class="py-3 px-3.5 text-center w-36">Closing Rate</th>
+                                <th class="py-3 px-3.5 text-center">Cabang Utama</th>
+                                <th class="py-3 px-3.5 text-center">Kredit vs Non</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashAdminTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
+                            <tr>
+                                <td colspan="10" class="py-12 text-center text-slate-400">
+                                    <span class="inline-block size-5 border-2 border-brand-600 border-t-transparent rounded-full animate-spin"></span>
+                                    <span class="ml-2">Menganalisis performa admin sosmed...</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
     </div>
 </section>
 

@@ -2521,6 +2521,9 @@ window.loadKeepData = loadKeepData;
 
 function renderKeepTable() {
   applyKeepFilters();
+  if (typeof currentKeepViewMode !== 'undefined' && currentKeepViewMode === 'dashboard') {
+    renderKeepAdminDashboard();
+  }
 }
 window.renderKeepTable = renderKeepTable;
 
@@ -14166,7 +14169,7 @@ function matchKeepToPic(keepRow, pic) {
   return false;
 }
 
-function getOmniKeepsForPic(pic, picKeepsMap) {
+function getOmniKeepsForPic(pic, picKeepsMap, allowDeepScan = false) {
   if (!pic) return [];
   if (!picKeepsMap) picKeepsMap = getIndexedOmniKeeps();
 
@@ -14184,7 +14187,7 @@ function getOmniKeepsForPic(pic, picKeepsMap) {
     });
   }
 
-  // 1. Direct key lookups
+  // 1. Direct key lookups (O(1) Instant Map Lookup)
   if (pic.key) pushItems(picKeepsMap[pic.key]);
   if (pic.picWA) {
     pushItems(picKeepsMap[pic.picWA]);
@@ -14192,7 +14195,7 @@ function getOmniKeepsForPic(pic, picKeepsMap) {
     if (last9.length >= 9) pushItems(picKeepsMap[last9]);
   }
 
-  // 2. Lookup nama dan kode PIC
+  // 2. Lookup nama dan kode PIC (O(1) Instant Map Lookup)
   const picName = String(pic.picName || '').trim();
   if (picName) {
     const normPicName = picName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -14207,8 +14210,9 @@ function getOmniKeepsForPic(pic, picKeepsMap) {
     }
   }
 
-  // 3. Fallback scan komprehensif jika belum ditemukan atau untuk menjamin kelengkapan
-  if (Array.isArray(rawKeepRows)) {
+  // 3. Fallback scan komprehensif: HANYA jika allowDeepScan = true (misal saat buka detail panel 1 PIC tertentu),
+  // JANGAN PERNAH dijalankan saat bulk rendering chat list 195+ chat agar browser TIDAK Freeze / Page Unresponsive!
+  if (allowDeepScan && Array.isArray(rawKeepRows)) {
     for (let i = rawKeepRows.length - 1; i >= 0; i--) {
       const r = rawKeepRows[i];
       const ts = r['Timestamp'] || r.keep_timestamp;
@@ -14382,7 +14386,7 @@ window.invalidateOmniPicChatsCache = invalidateOmniPicChatsCache;
 
 function getOmniPicChats(forceRefresh = false) {
   const now = Date.now();
-  if (!forceRefresh && _cachedOmniPicChats && (now - _cachedOmniPicChatsTimestamp) < 3000) {
+  if (!forceRefresh && _cachedOmniPicChats && (now - _cachedOmniPicChatsTimestamp) < 30000) {
     return _cachedOmniPicChats;
   }
 
@@ -14411,7 +14415,6 @@ function getOmniPicChats(forceRefresh = false) {
       lidModified = true;
     }
   });
-  if (lidModified) saveLidPicMap(lidMap);
 
   const result = [];
   activeKeys.forEach(function(key) {
@@ -14419,10 +14422,14 @@ function getOmniPicChats(forceRefresh = false) {
     const chatMsgs = threads[key] || [];
     const lastMsg = chatMsgs[chatMsgs.length - 1];
 
+    // Batasi pembacaan histori untuk deteksi metadata ke 20 pesan terakhir (Super Cepat & Anti Freeze)
+    const scanLimit = Math.min(chatMsgs.length, 20);
+    const startIdx = chatMsgs.length - scanLimit;
+
     // Deteksi apakah percakapan berasal dari aktivitas broadcast outbound
     let isOutbound = false;
     let outboundDetail = null;
-    for (let i = chatMsgs.length - 1; i >= 0; i--) {
+    for (let i = chatMsgs.length - 1; i >= startIdx; i--) {
       const m = chatMsgs[i];
       const mText = (m.text || m.message || '').trim();
       const isBcMsg = !!(m.is_broadcast || m.is_outbound || (m.id && String(m.id).startsWith('bc_')) || (m.messageId && String(m.messageId).startsWith('bc_')) || (m.gateway === 'BAILEYS_GATEWAY'));
@@ -14465,10 +14472,10 @@ function getOmniPicChats(forceRefresh = false) {
       }
     }
 
-    // Deteksi nama profil WhatsApp dan nomor telepon asli dari riwayat pesan
+    // Deteksi nama profil WhatsApp dan nomor telepon asli dari riwayat pesan terakhir
     let detectedSenderName = '';
     let detectedRealPhone = '';
-    for (let i = chatMsgs.length - 1; i >= 0; i--) {
+    for (let i = chatMsgs.length - 1; i >= startIdx; i--) {
       const m = chatMsgs[i];
       if (!detectedSenderName) {
         const cand = (m.customer_name || m.senderName || m.pushname || m.notifyName || '').trim();
@@ -14489,7 +14496,7 @@ function getOmniPicChats(forceRefresh = false) {
     if (isOutbound && outboundDetail && outboundDetail.customerName) {
       detectedSenderName = outboundDetail.customerName;
     } else if (!detectedSenderName) {
-      for (let i = 0; i < chatMsgs.length; i++) {
+      for (let i = startIdx; i < chatMsgs.length; i++) {
         const t = (chatMsgs[i].text || chatMsgs[i].message || '').trim();
         const mName = t.match(/hallo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i) ||
                       t.match(/halo\s+kaka?\s+([A-Za-z0-9\s\.\-_]+?)\s+kami\s+dari/i) ||
@@ -14515,7 +14522,7 @@ function getOmniPicChats(forceRefresh = false) {
         lidCached = { picName: finalName, cabang: finalCabang, wa: finalWA, isSynced: true };
         lidMap[cleanKey] = lidCached;
         lidMap[key] = lidCached;
-        saveLidPicMap(lidMap);
+        lidModified = true;
       }
     }
 
@@ -14542,11 +14549,15 @@ function getOmniPicChats(forceRefresh = false) {
       picName = formatWhatsAppPhoneDisplay(picWA);
     }
 
+    // Ringankan alokasi memori string: chatThreadText hanya dibuat jika chat ini sedang dibuka
+    const isCurrentActive = (selectedOmniPicKey === cleanKey || selectedOmniPicKey === key);
     let chatThreadText = '';
-    chatMsgs.forEach(function(m) {
-      if (m.text) chatThreadText += ' ' + m.text;
-      if (m.message) chatThreadText += ' ' + m.message;
-    });
+    if (isCurrentActive) {
+      for (let i = startIdx; i < chatMsgs.length; i++) {
+        if (chatMsgs[i].text) chatThreadText += ' ' + chatMsgs[i].text;
+        if (chatMsgs[i].message) chatThreadText += ' ' + chatMsgs[i].message;
+      }
+    }
 
     const picCandidate = {
       key: cleanKey,
@@ -14556,7 +14567,8 @@ function getOmniPicChats(forceRefresh = false) {
       chatThreadText: chatThreadText
     };
 
-    const keeps = getOmniKeepsForPic(picCandidate, picKeepsMap);
+    // getOmniKeepsForPic secara instan menggunakan O(1) indexed lookup tanpa deep loop scan!
+    const keeps = getOmniKeepsForPic(picCandidate, picKeepsMap, false);
     const pendingCount = keeps.filter(function(k) { return k.isPending; }).length;
     const resolvedCount = keeps.filter(function(k) { return !k.isPending; }).length;
 
@@ -14579,7 +14591,6 @@ function getOmniPicChats(forceRefresh = false) {
       }
     }
 
-    const isCurrentActive = (selectedOmniPicKey === cleanKey || selectedOmniPicKey === key);
     let unreadCount = 0;
     if (isCurrentActive) {
       unreadCount = 0;
@@ -14645,6 +14656,10 @@ function getOmniPicChats(forceRefresh = false) {
       messages: chatMsgs
     });
   });
+
+  if (lidModified) {
+    saveLidPicMap(lidMap);
+  }
 
   // Urutan standar WhatsApp: Pesan terbaru SELALU berada di urutan paling atas (#1)
   result.sort(function(a, b) {
@@ -16464,6 +16479,7 @@ async function pollWatzapIncomingMessages() {
 
     if (hasNew) {
       saveOmniThreads(threads);
+      invalidateOmniPicChatsCache();
       if (isInitialLoad) {
         renderOmniInboxModule();
         const allChats = getOmniPicChats();
@@ -16896,9 +16912,9 @@ function renderOmniKeepPanel(pic) {
     return;
   }
 
-  // Pastikan data keep PIC selalu terambil akurat dari cycle 2 hari terakhir
+  // Pastikan data keep PIC selalu terambil akurat dari cycle 2 hari terakhir (deep scan hanya untuk PIC aktif)
   if (!pic.keeps || pic.keeps.length === 0) {
-    pic.keeps = getOmniKeepsForPic(pic);
+    pic.keeps = getOmniKeepsForPic(pic, null, true);
   }
 
   const pendingKeeps = (pic.keeps || []).filter(function(k) { return k.isPending; });
@@ -18169,3 +18185,331 @@ window.changeCsPage = changeCsPage;
 window.isRowKredit = isRowKredit;
 window.detectLeasingProvider = detectLeasingProvider;
 
+
+// ==========================================================================
+// DASHBOARD KINERJA FORMAT KEEP ADMIN SOSMED (TAB 4)
+// ==========================================================================
+let currentKeepViewMode = 'table'; // 'table' | 'dashboard'
+
+function switchKeepView(mode) {
+  currentKeepViewMode = mode;
+  const tableContainer = document.getElementById('keepTableViewContainer');
+  const dashContainer = document.getElementById('keepAdminDashboardContainer');
+  const btnTable = document.getElementById('btnKeepViewTable');
+  const btnDash = document.getElementById('btnKeepViewDashboard');
+
+  if (mode === 'dashboard') {
+    if (tableContainer) tableContainer.style.display = 'none';
+    if (dashContainer) dashContainer.style.display = 'block';
+
+    if (btnTable) {
+      btnTable.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500 hover:text-slate-800 cursor-pointer';
+    }
+    if (btnDash) {
+      btnDash.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-white text-brand-700 shadow-xs cursor-pointer';
+    }
+    renderKeepAdminDashboard();
+  } else {
+    if (tableContainer) tableContainer.style.display = 'block';
+    if (dashContainer) dashContainer.style.display = 'none';
+
+    if (btnTable) {
+      btnTable.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-white text-slate-800 shadow-xs cursor-pointer';
+    }
+    if (btnDash) {
+      btnDash.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500 hover:text-slate-800 cursor-pointer';
+    }
+  }
+}
+
+function resolveAdminSosmedName(row) {
+  if (!row) return 'TIDAK TERIDENTIFIKASI';
+  let s = String(row['Sender'] || row.sender || '').trim();
+  let r = String(row['Remarks'] || row.remarks || row['Kode Sosmed'] || row.kode_sosmed || '').trim();
+
+  // Jika Sender terisi nama teks yang bukan nomor telepon mentah
+  if (s && s !== '-' && !s.startsWith('+') && !s.startsWith('628') && !s.startsWith('08')) {
+    let clean = s.replace(/^admin\s+sosmed\s*[-:]*\s*/i, '')
+                 .replace(/^admin\s*[-:]*\s*/i, '')
+                 .replace(/^sosmed\s*[-:]*\s*/i, '')
+                 .trim();
+    if (clean && clean.length >= 2) return clean.toUpperCase();
+    return s.toUpperCase();
+  }
+
+  // Fallback ke Remarks atau Kode Sosmed jika Sender adalah nomor WA atau kosong
+  if (r && r !== '-' && !r.toLowerCase().includes('http') && !r.toLowerCase().includes('.com')) {
+    let cleanR = r.replace(/^admin\s+sosmed\s*[-:]*\s*/i, '')
+                  .replace(/^sosmed\s*[-:]*\s*/i, '')
+                  .trim();
+    if (cleanR && cleanR.length >= 2) return cleanR.toUpperCase();
+  }
+
+  if (s && s !== '-') return s;
+  return 'ADMIN SOSMED LAINNYA';
+}
+
+function renderKeepAdminDashboard() {
+  const dashContainer = document.getElementById('keepAdminDashboardContainer');
+  if (!dashContainer || dashContainer.style.display === 'none') return;
+
+  const rows = (typeof rawKeepRows !== 'undefined' && Array.isArray(rawKeepRows)) ? rawKeepRows : [];
+  if (rows.length === 0) {
+    const tbody = document.getElementById('dashAdminTableBody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="10" class="py-12 text-center text-slate-400">Belum ada data Format Keep untuk dianalisis.</td></tr>';
+    }
+    return;
+  }
+
+  // 1. Populate Filter Cabang jika belum terisi
+  const cabangFilterEl = document.getElementById('dashAdminCabangFilter');
+  if (cabangFilterEl && cabangFilterEl.options.length <= 1) {
+    const branchesSet = new Set();
+    rows.forEach(r => {
+      const cab = String(r['Cabang'] || r.cabang || '').trim().toUpperCase();
+      if (cab && cab !== '-' && cab !== 'UNDEFINED') branchesSet.add(cab);
+    });
+    const sortedCab = Array.from(branchesSet).sort();
+    sortedCab.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = '🏢 ' + c;
+      cabangFilterEl.appendChild(opt);
+    });
+  }
+
+  // 2. Baca Nilai Filter
+  const periodVal = document.getElementById('dashAdminPeriodFilter')?.value || 'THIS_MONTH';
+  const cabangVal = document.getElementById('dashAdminCabangFilter')?.value || 'ALL';
+  const searchVal = (document.getElementById('dashAdminSearchInput')?.value || '').trim().toLowerCase();
+
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+  // 3. Filter Data
+  const filtered = rows.filter(r => {
+    // A. Filter Periode
+    const ts = String(r['Timestamp'] || r.keep_timestamp || '').trim();
+    if (periodVal === 'THIS_MONTH') {
+      if (!ts.startsWith(currentYearMonth) && !ts.includes(`/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`)) {
+        const d = (typeof parseKeepDateObj === 'function') ? parseKeepDateObj(ts) : null;
+        if (!d || d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) return false;
+      }
+    } else if (periodVal === 'TODAY') {
+      const d = (typeof parseKeepDateObj === 'function') ? parseKeepDateObj(ts) : null;
+      if (!d) return false;
+      const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (dStr !== todayStr) return false;
+    } else if (periodVal === 'LAST_7_DAYS') {
+      const d = (typeof parseKeepDateObj === 'function') ? parseKeepDateObj(ts) : null;
+      if (!d || d < sevenDaysAgo) return false;
+    }
+
+    // B. Filter Cabang
+    if (cabangVal !== 'ALL') {
+      const cab = String(r['Cabang'] || r.cabang || '').trim().toUpperCase();
+      if (cab !== cabangVal) return false;
+    }
+
+    // C. Filter Search
+    if (searchVal) {
+      const adminName = resolveAdminSosmedName(r).toLowerCase();
+      const sender = String(r['Sender'] || r.sender || '').toLowerCase();
+      const remarks = String(r['Remarks'] || r.remarks || '').toLowerCase();
+      if (!adminName.includes(searchVal) && !sender.includes(searchVal) && !remarks.includes(searchVal)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // 4. Agregasi Statistik per Admin Sosmed
+  const adminStatsMap = {};
+  let totalFilteredKeep = filtered.length;
+  let totalFilteredWin = 0;
+  let totalFilteredFinished = 0;
+
+  filtered.forEach(r => {
+    const admin = resolveAdminSosmedName(r);
+    if (!adminStatsMap[admin]) {
+      adminStatsMap[admin] = {
+        name: admin,
+        total: 0,
+        win: 0,
+        progress: 0,
+        lose: 0,
+        pending: 0,
+        kredit: 0,
+        nonKredit: 0,
+        cabangCounts: {}
+      };
+    }
+
+    const st = adminStatsMap[admin];
+    st.total++;
+
+    const status = String(r['Status'] || r.status || '').trim().toUpperCase();
+    if (status === 'WIN') {
+      st.win++;
+      totalFilteredWin++;
+      totalFilteredFinished++;
+    } else if (status.startsWith('ON PROGRESS')) {
+      st.progress++;
+    } else if (status === 'LOSE' || status === 'TAKE OUT' || status === 'DOUBLE KEEP') {
+      st.lose++;
+      totalFilteredFinished++;
+    } else {
+      st.pending++;
+    }
+
+    // Komposisi Kredit vs Non Kredit
+    const uk = String(r['USER KREDIT'] || r.user_kredit || '').trim().toUpperCase();
+    if (uk.includes('KREDIT') && !uk.includes('NON')) {
+      st.kredit++;
+    } else {
+      st.nonKredit++;
+    }
+
+    // Cabang
+    const cab = String(r['Cabang'] || r.cabang || '-').trim().toUpperCase() || '-';
+    st.cabangCounts[cab] = (st.cabangCounts[cab] || 0) + 1;
+  });
+
+  // 5. Update KPI Highlight Cards
+  const overallClosingRate = totalFilteredFinished > 0 
+    ? ((totalFilteredWin / totalFilteredFinished) * 100).toFixed(1)
+    : (totalFilteredKeep > 0 ? ((totalFilteredWin / totalFilteredKeep) * 100).toFixed(1) : '0.0');
+
+  const winShare = totalFilteredKeep > 0 
+    ? ((totalFilteredWin / totalFilteredKeep) * 100).toFixed(1) 
+    : '0';
+
+  const adminList = Object.values(adminStatsMap);
+  // Sort descending: prioritas WIN terbanyak, lalu total keep terbanyak
+  adminList.sort((a, b) => (b.win - a.win) || (b.total - a.total));
+
+  const topAdmin = adminList.length > 0 ? adminList[0] : null;
+
+  const elTotalKeep = document.getElementById('dashAdminTotalKeep');
+  const elTotalWin = document.getElementById('dashAdminTotalWin');
+  const elWinShare = document.getElementById('dashAdminWinShare');
+  const elClosingRate = document.getElementById('dashAdminClosingRate');
+  const elTopName = document.getElementById('dashAdminTopName');
+  const elTopSubtext = document.getElementById('dashAdminTopSubtext');
+  const elFilteredCount = document.getElementById('dashAdminTotalFilteredCount');
+
+  if (elTotalKeep) elTotalKeep.textContent = totalFilteredKeep.toLocaleString('id-ID');
+  if (elTotalWin) elTotalWin.textContent = totalFilteredWin.toLocaleString('id-ID');
+  if (elWinShare) elWinShare.textContent = `${winShare}% dari total keep`;
+  if (elClosingRate) elClosingRate.textContent = `${overallClosingRate}%`;
+  if (elTopName) elTopName.textContent = topAdmin ? topAdmin.name : '-';
+  if (elTopSubtext) {
+    elTopSubtext.textContent = topAdmin 
+      ? `🏆 ${topAdmin.win} WIN dari ${topAdmin.total} Keep`
+      : 'Kontributor keep terbanyak';
+  }
+  if (elFilteredCount) {
+    elFilteredCount.textContent = `Menampilkan ${adminList.length} Admin Sosmed (${totalFilteredKeep.toLocaleString('id-ID')} format keep)`;
+  }
+
+  // 6. Render Tabel Leaderboard
+  const tbody = document.getElementById('dashAdminTableBody');
+  if (!tbody) return;
+
+  if (adminList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="py-12 text-center text-slate-400">Tidak ada admin sosmed yang cocok dengan filter yang dipilih.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = adminList.map((adm, idx) => {
+    const finishedCount = adm.win + adm.lose;
+    const rateVal = finishedCount > 0 
+      ? ((adm.win / finishedCount) * 100) 
+      : (adm.total > 0 ? ((adm.win / adm.total) * 100) : 0);
+    const rateFormatted = rateVal.toFixed(1);
+
+    // Cabang Dominan
+    let topCab = '-';
+    let maxCabCount = 0;
+    Object.entries(adm.cabangCounts).forEach(([c, cnt]) => {
+      if (cnt > maxCabCount) {
+        maxCabCount = cnt;
+        topCab = c;
+      }
+    });
+
+    // Medali / Rank Badge
+    let rankBadge = `<span class="inline-flex size-6 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">${idx + 1}</span>`;
+    if (idx === 0) {
+      rankBadge = `<span class="inline-flex size-6 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-700 shadow-xs" title="Juara 1 Closing WIN">🥇</span>`;
+    } else if (idx === 1) {
+      rankBadge = `<span class="inline-flex size-6 items-center justify-center rounded-full bg-slate-200 text-sm font-bold text-slate-700 shadow-xs" title="Juara 2">🥈</span>`;
+    } else if (idx === 2) {
+      rankBadge = `<span class="inline-flex size-6 items-center justify-center rounded-full bg-amber-50 text-sm font-bold text-amber-900 border border-amber-200 shadow-xs" title="Juara 3">🥉</span>`;
+    }
+
+    const initial = (adm.name || 'A').charAt(0).toUpperCase();
+
+    let rateBarColor = 'bg-slate-300';
+    let rateTextColor = 'text-slate-600';
+    if (rateVal >= 40) {
+      rateBarColor = 'bg-emerald-500';
+      rateTextColor = 'text-emerald-700 font-extrabold';
+    } else if (rateVal >= 20) {
+      rateBarColor = 'bg-blue-500';
+      rateTextColor = 'text-blue-700 font-extrabold';
+    } else if (rateVal > 0) {
+      rateBarColor = 'bg-amber-500';
+      rateTextColor = 'text-amber-700 font-extrabold';
+    }
+
+    return `
+      <tr class="hover:bg-slate-50/80 transition-colors">
+        <td class="py-3 px-3.5 text-center">${rankBadge}</td>
+        <td class="py-3 px-3.5">
+          <div class="flex items-center gap-2.5">
+            <div class="size-8 rounded-lg bg-brand-50 border border-brand-100 text-brand-700 flex items-center justify-center font-black text-xs shrink-0">
+              ${initial}
+            </div>
+            <div class="min-w-0">
+              <div class="font-extrabold text-slate-900 text-xs truncate max-w-[170px]" title="${escapeHtml(adm.name)}">${escapeHtml(adm.name)}</div>
+              <div class="text-[10px] text-slate-400">Admin Sosmed</div>
+            </div>
+          </div>
+        </td>
+        <td class="py-3 px-3.5 text-center font-bold text-slate-900">${adm.total.toLocaleString('id-ID')}</td>
+        <td class="py-3 px-3.5 text-center font-black text-emerald-600 bg-emerald-50/40">${adm.win.toLocaleString('id-ID')}</td>
+        <td class="py-3 px-3.5 text-center font-bold text-amber-600">${adm.progress.toLocaleString('id-ID')}</td>
+        <td class="py-3 px-3.5 text-center font-semibold text-slate-500">${adm.lose.toLocaleString('id-ID')}</td>
+        <td class="py-3 px-3.5 text-center font-semibold text-rose-500">${adm.pending.toLocaleString('id-ID')}</td>
+        <td class="py-3 px-3.5 text-center">
+          <div class="flex flex-col items-center gap-1">
+            <span class="text-xs ${rateTextColor}">${rateFormatted}%</span>
+            <div class="w-24 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div class="${rateBarColor} h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(0, rateVal))}%"></div>
+            </div>
+          </div>
+        </td>
+        <td class="py-3 px-3.5 text-center">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+            ${escapeHtml(topCab)}
+          </span>
+        </td>
+        <td class="py-3 px-3.5 text-center">
+          <div class="inline-flex items-center gap-1 text-[10px] font-bold">
+            <span class="text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200" title="Kredit">${adm.kredit} K</span>
+            <span class="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="Non-Kredit / Cash">${adm.nonKredit} N</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+window.switchKeepView = switchKeepView;
+window.resolveAdminSosmedName = resolveAdminSosmedName;
+window.renderKeepAdminDashboard = renderKeepAdminDashboard;
