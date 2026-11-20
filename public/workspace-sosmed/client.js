@@ -18,6 +18,7 @@ const DEFAULT_SALES_MASTER = [
   { code: 'BJM.SOS.022', name: 'QONA', target: 867261886, active: true, level: 'Karyawan' },
   // Extended Master Sales
   { code: 'BJM.SOS.021', name: 'RARA', target: 867261886, active: true, level: 'Karyawan' },
+  { code: 'BJM.SOS.023', name: 'RYAN', target: 867261886, active: true, level: 'Karyawan' },
   { code: 'BJM.SOS.013', name: 'TIKA', target: 867261886, active: false, level: 'Karyawan' },
   { code: 'BJM.SOS.001', name: 'DIANA', target: 867261886, active: false, level: 'Karyawan' },
   { code: 'BJM.SOS.012', name: 'QOFA', target: 867261886, active: false, level: 'Karyawan' },
@@ -18253,31 +18254,118 @@ function switchKeepView(mode) {
   }
 }
 
+function matchRowToKaryawan(row, masterEmployees) {
+  if (!row) return null;
+  const list = Array.isArray(masterEmployees) && masterEmployees.length > 0 
+    ? masterEmployees 
+    : (typeof getMasterSales === 'function' ? getMasterSales() : DEFAULT_SALES_MASTER);
+
+  if (!list || list.length === 0) return null;
+
+  const sender = String(row['Sender'] || row.sender || '').trim();
+  const remarks = String(row['Remarks'] || row.remarks || '').trim();
+  const kodeSosmed = String(row['Kode Sosmed'] || row.kode_sosmed || '').trim();
+
+  // Entitas non-karyawan yang wajib diabaikan secara tegas
+  const ignorePatterns = [
+    /WHATSAPP\s+COEX/i,
+    /\bADIRA\b/i,
+    /GADGET\s*MART/i,
+    /\bUNKNOWN\b/i,
+    /\bSUPERADMIN\b/i,
+    /\bBOT\b/i,
+    /\bSYSTEM\b/i
+  ];
+
+  for (const rx of ignorePatterns) {
+    if (rx.test(sender) || rx.test(remarks)) {
+      return null;
+    }
+  }
+
+  // Normalisasi pembersih awalan admin/sosmed
+  const cleanSender = sender.replace(/^(?:admin\s+sosmed|admin|sosmed)\s*[-:]*\s*/i, '')
+                            .replace(/[-_]/g, ' ')
+                            .trim();
+  const cleanRemarks = remarks.replace(/^(?:admin\s+sosmed|admin|sosmed)\s*[-:]*\s*/i, '')
+                              .replace(/[-_]/g, ' ')
+                              .trim();
+  const cleanKode = kodeSosmed.trim().toUpperCase();
+
+  // Normalisasi nomor telepon
+  const senderPhoneDigits = sender.replace(/\D/g, '');
+  const normSenderPhone = senderPhoneDigits.startsWith('62') ? ('0' + senderPhoneDigits.slice(2)) : senderPhoneDigits;
+
+  for (const emp of list) {
+    if (!emp || !emp.name) continue;
+    const empName = String(emp.name).trim().toUpperCase();
+    if (!empName || empName === 'NOL' || empName === 'ADMIN') continue;
+
+    // 1. Pencocokan nomor telepon jika nomor WA tersimpan di master karyawan
+    if (emp.phone && normSenderPhone.length >= 9) {
+      const empPhoneDigits = String(emp.phone).replace(/\D/g, '');
+      const normEmpPhone = empPhoneDigits.startsWith('62') ? ('0' + empPhoneDigits.slice(2)) : empPhoneDigits;
+      if (normEmpPhone && normEmpPhone === normSenderPhone) {
+        return emp;
+      }
+    }
+
+    // 2. Exact match nama (case-insensitive)
+    const upperSender = cleanSender.toUpperCase();
+    const upperRemarks = cleanRemarks.toUpperCase();
+    if (upperSender === empName || upperRemarks === empName) {
+      return emp;
+    }
+
+    // 3. Khusus variasi umum ejaan SIFA <-> SHIFA
+    if (empName === 'SIFA' || empName === 'SHIFA') {
+      if (upperSender === 'SIFA' || upperSender === 'SHIFA' || upperRemarks === 'SIFA' || upperRemarks === 'SHIFA') {
+        return emp;
+      }
+      if (/\b(?:SIFA|SHIFA)\b/i.test(upperSender) || /\b(?:SIFA|SHIFA)\b/i.test(upperRemarks)) {
+        return emp;
+      }
+    }
+
+    // 4. Word boundary match berdasarkan token nama utama (panjang >= 3 huruf)
+    const tokens = empName.split(/\s+/).filter(t => t.length >= 3 && !['PUTRI', 'AULIA', 'SARI', 'PRATAMA', 'WIJAYA', 'ADMIN'].includes(t));
+    for (const tok of tokens) {
+      const tokRegex = new RegExp('\\b' + tok + '\\b', 'i');
+      if (tokRegex.test(upperSender) || tokRegex.test(upperRemarks)) {
+        return emp;
+      }
+    }
+
+    // 5. Pencocokan kode sales / NIK
+    const empCode = String(emp.code || emp.nik || '').trim().toUpperCase();
+    if (empCode && empCode !== '-' && empCode !== 'BJM.SOS.000') {
+      if (cleanKode.includes(empCode) || upperSender.includes(empCode) || upperRemarks.includes(empCode)) {
+        return emp;
+      }
+
+      // Format SOSMED <nomor>, misal BJM.SOS.005 -> SOSMED 5 atau SOSMED 05 atau SOS 5
+      const numMatch = empCode.match(/\d+$/);
+      if (numMatch) {
+        const numVal = parseInt(numMatch[0], 10);
+        const sosmedPattern = new RegExp('\\b(?:SOSMED|SOS)\\s*0*' + numVal + '\\b', 'i');
+        if (sosmedPattern.test(cleanKode) || sosmedPattern.test(upperSender) || sosmedPattern.test(upperRemarks)) {
+          return emp;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 function resolveAdminSosmedName(row) {
   if (!row) return 'TIDAK TERIDENTIFIKASI';
-  let s = String(row['Sender'] || row.sender || '').trim();
-  let r = String(row['Remarks'] || row.remarks || row['Kode Sosmed'] || row.kode_sosmed || '').trim();
-
-  // Jika Sender terisi nama teks yang bukan nomor telepon mentah
-  if (s && s !== '-' && !s.startsWith('+') && !s.startsWith('628') && !s.startsWith('08')) {
-    let clean = s.replace(/^admin\s+sosmed\s*[-:]*\s*/i, '')
-                 .replace(/^admin\s*[-:]*\s*/i, '')
-                 .replace(/^sosmed\s*[-:]*\s*/i, '')
-                 .trim();
-    if (clean && clean.length >= 2) return clean.toUpperCase();
-    return s.toUpperCase();
+  const masterEmployees = (typeof getMasterSales === 'function') ? getMasterSales() : DEFAULT_SALES_MASTER;
+  const emp = matchRowToKaryawan(row, masterEmployees);
+  if (emp && emp.name) {
+    return emp.name.toUpperCase();
   }
-
-  // Fallback ke Remarks atau Kode Sosmed jika Sender adalah nomor WA atau kosong
-  if (r && r !== '-' && !r.toLowerCase().includes('http') && !r.toLowerCase().includes('.com')) {
-    let cleanR = r.replace(/^admin\s+sosmed\s*[-:]*\s*/i, '')
-                  .replace(/^sosmed\s*[-:]*\s*/i, '')
-                  .trim();
-    if (cleanR && cleanR.length >= 2) return cleanR.toUpperCase();
-  }
-
-  if (s && s !== '-') return s;
-  return 'ADMIN SOSMED LAINNYA';
+  return null;
 }
 
 function renderKeepAdminDashboard() {
@@ -18292,6 +18380,9 @@ function renderKeepAdminDashboard() {
     }
     return;
   }
+
+  // Ambil daftar karyawan resmi dari master data (Karyawan & Bobot KPI)
+  const masterEmployees = (typeof getMasterSales === 'function') ? getMasterSales() : DEFAULT_SALES_MASTER;
 
   // 1. Populate Filter Cabang jika belum terisi
   const cabangFilterEl = document.getElementById('dashAdminCabangFilter');
@@ -18320,8 +18411,13 @@ function renderKeepAdminDashboard() {
   const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
 
-  // 3. Filter Data
+  // 3. Filter Data - HANYA mengambil baris yang terdaftar di data Karyawan & Bobot KPI
   const filtered = rows.filter(r => {
+    // 0. Filter Karyawan Resmi (Abaikan WHATSAPP COEX, ADIRA, GADGET MART, unknown, dll)
+    const emp = matchRowToKaryawan(r, masterEmployees);
+    if (!emp) return false;
+    r._matchedEmp = emp;
+
     // A. Filter Periode
     const ts = String(r['Timestamp'] || r.keep_timestamp || '').trim();
     if (periodVal === 'THIS_MONTH') {
@@ -18347,10 +18443,11 @@ function renderKeepAdminDashboard() {
 
     // C. Filter Search
     if (searchVal) {
-      const adminName = resolveAdminSosmedName(r).toLowerCase();
+      const adminName = (emp.name || '').toLowerCase();
+      const adminCode = (emp.code || emp.nik || '').toLowerCase();
       const sender = String(r['Sender'] || r.sender || '').toLowerCase();
       const remarks = String(r['Remarks'] || r.remarks || '').toLowerCase();
-      if (!adminName.includes(searchVal) && !sender.includes(searchVal) && !remarks.includes(searchVal)) {
+      if (!adminName.includes(searchVal) && !adminCode.includes(searchVal) && !sender.includes(searchVal) && !remarks.includes(searchVal)) {
         return false;
       }
     }
@@ -18358,17 +18455,24 @@ function renderKeepAdminDashboard() {
     return true;
   });
 
-  // 4. Agregasi Statistik per Admin Sosmed
+  // 4. Agregasi Statistik per Admin Sosmed Resmi
   const adminStatsMap = {};
   let totalFilteredKeep = filtered.length;
   let totalFilteredWin = 0;
   let totalFilteredFinished = 0;
 
   filtered.forEach(r => {
-    const admin = resolveAdminSosmedName(r);
-    if (!adminStatsMap[admin]) {
-      adminStatsMap[admin] = {
-        name: admin,
+    const emp = r._matchedEmp || matchRowToKaryawan(r, masterEmployees);
+    if (!emp) return;
+
+    const adminKey = emp.name.toUpperCase();
+    if (!adminStatsMap[adminKey]) {
+      adminStatsMap[adminKey] = {
+        name: emp.name.toUpperCase(),
+        code: emp.code || emp.nik || 'BJM.SOS',
+        level: emp.level || 'Karyawan',
+        cabang: emp.cabang || '-',
+        active: emp.active !== false,
         total: 0,
         win: 0,
         progress: 0,
@@ -18380,7 +18484,7 @@ function renderKeepAdminDashboard() {
       };
     }
 
-    const st = adminStatsMap[admin];
+    const st = adminStatsMap[adminKey];
     st.total++;
 
     const status = String(r['Status'] || r.status || '').trim().toUpperCase();
@@ -18452,7 +18556,7 @@ function renderKeepAdminDashboard() {
   if (!tbody) return;
 
   if (adminList.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="py-12 text-center text-slate-400">Tidak ada admin sosmed yang cocok dengan filter yang dipilih.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="py-12 text-center text-slate-400">Tidak ada admin sosmed resmi yang cocok dengan filter yang dipilih.</td></tr>';
     return;
   }
 
@@ -18508,7 +18612,11 @@ function renderKeepAdminDashboard() {
             </div>
             <div class="min-w-0">
               <div class="font-extrabold text-slate-900 text-xs truncate max-w-[170px]" title="${escapeHtml(adm.name)}">${escapeHtml(adm.name)}</div>
-              <div class="text-[10px] text-slate-400">Admin Sosmed</div>
+              <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span class="font-mono text-[9px] bg-slate-100 px-1 py-0.5 rounded text-slate-600 font-semibold">${escapeHtml(adm.code)}</span>
+                <span class="inline-block size-1 rounded-full bg-slate-300"></span>
+                <span class="${adm.level === 'Internship' ? 'text-amber-600 font-bold' : 'text-slate-500 font-medium'}">${escapeHtml(adm.level || 'Karyawan')}</span>
+              </div>
             </div>
           </div>
         </td>
@@ -18542,5 +18650,6 @@ function renderKeepAdminDashboard() {
 }
 
 window.switchKeepView = switchKeepView;
+window.matchRowToKaryawan = matchRowToKaryawan;
 window.resolveAdminSosmedName = resolveAdminSosmedName;
 window.renderKeepAdminDashboard = renderKeepAdminDashboard;
