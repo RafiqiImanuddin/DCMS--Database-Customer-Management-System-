@@ -22,7 +22,7 @@ class MaskRouteUrlMiddleware
         }
 
         // Skip AJAX, JSON, downloads, and webhooks
-        if ($request->expectsJson() || $request->ajax()) {
+        if ($request->expectsJson() || $request->ajax() || $request->query('format') === 'json') {
             return $next($request);
         }
 

@@ -190,19 +190,19 @@
                         <td class="px-4 py-4">
                             <div class="flex items-start gap-3">
                                 @if($batch->image_url)
-                                    <button type="button" onclick="openBatchDetailModal({{ $batch->id }})" class="group shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-0.5 hover:border-purple-500 transition w-10 h-10 text-center shadow-2xs" title="Lihat detail campaign & lampiran">
+                                    <a href="{{ route('broadcasts.batches.show', $batch) }}" onclick="return handleBatchClick(event, {{ $batch->id }})" class="group shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-0.5 hover:border-purple-500 transition w-10 h-10 text-center shadow-2xs" title="Lihat detail campaign & lampiran">
                                         <img src="{{ $batch->image_url }}" alt="Flyer" class="h-full w-full rounded object-cover">
-                                    </button>
+                                    </a>
                                 @endif
                                 <div>
-                                    <button type="button" 
-                                            onclick="openBatchDetailModal({{ $batch->id }})" 
-                                            class="text-left font-bold text-purple-700 hover:text-purple-900 hover:underline text-sm uppercase tracking-wide cursor-pointer inline-flex items-center gap-1 transition"
-                                            title="Buka Data Campaign">
+                                    <a href="{{ route('broadcasts.batches.show', $batch) }}" 
+                                       onclick="return handleBatchClick(event, {{ $batch->id }})" 
+                                       class="text-left font-bold text-purple-700 hover:text-purple-900 hover:underline text-sm uppercase tracking-wide cursor-pointer inline-flex items-center gap-1 transition"
+                                       title="Buka Data Campaign">
                                         <span>{{ $batch->title }}</span>
                                         <svg class="size-3 text-purple-400 group-hover:text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
-                                    </button>
-                                    <p class="mt-0.5 max-w-md line-clamp-1 text-xs text-slate-500 cursor-pointer" onclick="openBatchDetailModal({{ $batch->id }})" title="Klik untuk membaca pesan lengkap">{{ Str::limit($batch->message, 80) }}</p>
+                                    </a>
+                                    <p class="mt-0.5 max-w-md line-clamp-1 text-xs text-slate-500 cursor-pointer" onclick="handleBatchClick(event, {{ $batch->id }})" title="Klik untuk membaca pesan lengkap">{{ Str::limit($batch->message, 80) }}</p>
                                 </div>
                             </div>
                         </td>
@@ -238,13 +238,13 @@
                         </td>
                         <td class="px-4 py-4 text-right whitespace-nowrap">
                             <div class="inline-flex items-center gap-1.5">
-                                <button type="button" 
-                                        onclick="openBatchDetailModal({{ $batch->id }})" 
-                                        class="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50/70 px-2.5 py-1 text-xs font-bold text-purple-700 shadow-2xs hover:bg-purple-100 hover:border-purple-300 transition" 
-                                        title="Buka Data Campaign & Detail Penerima">
+                                <a href="{{ route('broadcasts.batches.show', $batch) }}" 
+                                   onclick="return handleBatchClick(event, {{ $batch->id }})" 
+                                   class="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50/70 px-2.5 py-1 text-xs font-bold text-purple-700 shadow-2xs hover:bg-purple-100 hover:border-purple-300 transition" 
+                                   title="Buka Data Campaign & Detail Penerima">
                                     <svg class="size-3.5 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                     Detail
-                                </button>
+                                </a>
                                 @if(!\App\Support\DataMasker::isGuest())
                                 <a href="{{ route('broadcasts.batches.download', $batch) }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-emerald-700 shadow-2xs hover:bg-emerald-50" title="Download Excel batch ini">
                                     <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
@@ -308,13 +308,13 @@
                         </td>
                         <td class="px-3 py-4 whitespace-nowrap">
                             @if($report->batch)
-                                <button type="button" 
-                                        onclick="openBatchDetailModal({{ $report->batch->id }})" 
-                                        class="font-bold text-xs text-purple-700 hover:text-purple-900 hover:underline cursor-pointer text-left inline-flex items-center gap-1 transition"
-                                        title="Buka Data Campaign">
+                                <a href="{{ route('broadcasts.batches.show', $report->batch) }}" 
+                                   onclick="return handleBatchClick(event, {{ $report->batch->id }})" 
+                                   class="font-bold text-xs text-purple-700 hover:text-purple-900 hover:underline cursor-pointer text-left inline-flex items-center gap-1 transition"
+                                   title="Buka Data Campaign">
                                     <span>{{ $report->batch->title }}</span>
                                     <svg class="size-2.5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
-                                </button>
+                                </a>
                             @else
                                 <span class="text-xs text-slate-400">Direct Broadcast</span>
                             @endif
@@ -370,7 +370,7 @@
 @endif
 
 <!-- Modal: 📊 Detail Data Campaign Broadcast -->
-<div id="batch-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-5">
+<div id="batch-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-5" style="display: none;">
     <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onclick="closeBatchDetailModal()"></div>
     <div class="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] z-10 animate-in fade-in zoom-in-95 duration-150">
         <!-- Header -->
@@ -567,18 +567,36 @@
 <script>
 let currentModalBatchReports = [];
 
+function handleBatchClick(e, batchId) {
+    if (e) {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) {
+            return true;
+        }
+        e.preventDefault();
+    }
+    openBatchDetailModal(batchId);
+    return false;
+}
+
 function openBatchDetailModal(batchId) {
     const modal = document.getElementById('batch-detail-modal');
-    if (!modal) return;
+    if (!modal) {
+        window.location.href = "{{ url('/broadcasts/batches') }}/" + batchId;
+        return;
+    }
 
+    modal.style.display = 'flex';
     modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    document.body.style.overflow = 'hidden';
 
     const loadingEl = document.getElementById('modalBatchLoading');
     const contentEl = document.getElementById('modalBatchContent');
     const errorEl = document.getElementById('modalBatchError');
 
-    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (loadingEl) {
+        loadingEl.style.display = 'flex';
+        loadingEl.classList.remove('hidden');
+    }
     if (contentEl) contentEl.classList.add('hidden');
     if (errorEl) errorEl.classList.add('hidden');
 
@@ -590,7 +608,13 @@ function openBatchDetailModal(batchId) {
     }
     document.getElementById('modalBatchSubtitle').innerText = 'Mengambil rincian data batch...';
 
-    const batchUrl = "{{ route('broadcasts.batches.show', ['batch' => ':id']) }}".replace(':id', encodeURIComponent(batchId)) + "?format=json";
+    // Direct fallback button
+    const fullPageBtn = document.getElementById('modalBatchFullPageBtn');
+    if (fullPageBtn) {
+        fullPageBtn.href = "{{ url('/broadcasts/batches') }}/" + batchId;
+    }
+
+    const batchUrl = "{{ url('/broadcasts/batches') }}/" + encodeURIComponent(batchId) + "?format=json";
 
     fetch(batchUrl, {
         headers: {
@@ -610,7 +634,7 @@ function openBatchDetailModal(batchId) {
             } else {
                 const txt = await res.text();
                 if (txt.includes("<!DOCTYPE") || txt.includes("<html")) {
-                    errorMsg = `Server merespon dengan status ${res.status}. Pastikan sesi login Anda masih aktif.`;
+                    errorMsg = `Server merespon dengan status ${res.status}. Sesi login Anda mungkin sudah kedaluwarsa atau terjadi proteksi middleware.`;
                 }
             }
             throw new Error(errorMsg);
@@ -627,12 +651,27 @@ function openBatchDetailModal(batchId) {
         renderBatchDetailModal(data);
     })
     .catch(err => {
-        if (loadingEl) loadingEl.classList.add('hidden');
+        console.error("Detail campaign error:", err);
+        if (loadingEl) {
+            loadingEl.style.display = 'none';
+            loadingEl.classList.add('hidden');
+        }
         if (contentEl) contentEl.classList.add('hidden');
         if (errorEl) {
             errorEl.classList.remove('hidden');
-            document.getElementById('modalBatchErrorMessage').innerText = err.message;
-            document.getElementById('modalBatchRetryBtn').onclick = () => openBatchDetailModal(batchId);
+            const errEl = document.getElementById('modalBatchErrorMessage');
+            if (errEl) {
+                errEl.innerHTML = `
+                    <div class="mb-3 text-rose-600 font-medium">${err.message}</div>
+                    <div class="pt-2">
+                        <a href="{{ url('/broadcasts/batches') }}/${batchId}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-700 text-white font-bold text-xs hover:bg-purple-800 shadow-xs transition">
+                            Buka Halaman Campaign Langsung ↗
+                        </a>
+                    </div>
+                `;
+            }
+            const retryBtn = document.getElementById('modalBatchRetryBtn');
+            if (retryBtn) retryBtn.onclick = () => openBatchDetailModal(batchId);
         }
     });
 }
@@ -640,10 +679,17 @@ function openBatchDetailModal(batchId) {
 function closeBatchDetailModal() {
     const modal = document.getElementById('batch-detail-modal');
     if (modal) {
+        modal.style.display = 'none';
         modal.classList.add('hidden');
-        modal.classList.remove('flex');
+        document.body.style.overflow = '';
     }
 }
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeBatchDetailModal();
+    }
+});
 
 function renderBatchDetailModal(data) {
     const batch = data.batch || {};
