@@ -18272,13 +18272,15 @@ function matchRowToKaryawan(row, masterEmployees) {
   const kodeSosmed = String(row['Kode Sosmed'] || row.kode_sosmed || '').trim();
   const cleanKode = kodeSosmed.trim().toUpperCase();
 
-  // 1. PRIORITAS UTAMA: Cocokkan langsung dari "Kode Sosmed" (contoh: "SOSMED 4", "BJM.SOS.004", "SOSMED 17")
-  // Karena pesan keep dari WhatsApp sering diforward oleh bot "WHATSAPP COEX" / "GADGET MART",
-  // namun identitas pembuat keep yang sebenarnya tercatat jelas di "Kode Sosmed".
+  // 1. PRIORITAS UTAMA: Cocokkan langsung dari "Kode Sosmed" (Berlaku untuk SEMUA SOSMED 1 s/d 23 & Kode Sales)
+  // Pesan WhatsApp yang diforward oleh bot "WHATSAPP COEX" / "GADGET MART" tetap terdeteksi 100% sesuai admin aslinya.
   if (cleanKode && cleanKode !== '-' && cleanKode !== 'UNDEFINED') {
     for (const emp of list) {
       if (!emp) continue;
+      const empName = String(emp.name || '').trim().toUpperCase();
       const empCode = String(emp.code || emp.nik || '').trim().toUpperCase();
+
+      // A. Match Kode Sales Resmi (misal: BJM.SOS.004, BJM.SOS.017) atau angka murni
       if (empCode && empCode !== '-' && empCode !== 'BJM.SOS.000') {
         if (cleanKode.includes(empCode)) {
           return emp;
@@ -18287,15 +18289,62 @@ function matchRowToKaryawan(row, masterEmployees) {
         if (numMatch) {
           const numVal = parseInt(numMatch[0], 10);
           const sosmedPattern = new RegExp('\\b(?:SOSMED|SOS)\\s*0*' + numVal + '\\b', 'i');
-          if (sosmedPattern.test(cleanKode)) {
+          if (sosmedPattern.test(cleanKode) || cleanKode === String(numVal)) {
             return emp;
           }
+        }
+      }
+
+      // B. Match Nama Admin di Kode Sosmed (misal: "SOSMED MARLINA", "SIFA", "SOSMED 17 - MARLINA")
+      if (empName && empName !== 'NOL' && empName !== 'ADMIN') {
+        const nameRegex = new RegExp('\\b' + empName + '\\b', 'i');
+        if (nameRegex.test(cleanKode)) {
+          return emp;
+        }
+        if ((empName === 'SIFA' || empName === 'SHIFA') && /\b(?:SIFA|SHIFA)\b/i.test(cleanKode)) {
+          return emp;
         }
       }
     }
   }
 
-  // 2. Daftar entitas non-karyawan yang diabaikan saat pencocokan teks nama Sender/Remarks
+  // 2. PRIORITAS KEDUA: Cocokkan dari "Remarks" (Catatan Admin Sosmed)
+  const cleanRemarks = remarks.replace(/^(?:admin\s+sosmed|admin|sosmed)\s*[-:]*\s*/i, '')
+                              .replace(/[-_]/g, ' ')
+                              .trim();
+  const upperRemarks = cleanRemarks.toUpperCase();
+
+  if (upperRemarks && upperRemarks !== '-' && upperRemarks !== 'UNDEFINED') {
+    for (const emp of list) {
+      if (!emp) continue;
+      const empName = String(emp.name || '').trim().toUpperCase();
+      const empCode = String(emp.code || emp.nik || '').trim().toUpperCase();
+
+      if (empCode && empCode !== '-' && empCode !== 'BJM.SOS.000') {
+        if (upperRemarks.includes(empCode)) {
+          return emp;
+        }
+        const numMatch = empCode.match(/\d+$/);
+        if (numMatch) {
+          const numVal = parseInt(numMatch[0], 10);
+          const sosmedPattern = new RegExp('\\b(?:SOSMED|SOS)\\s*0*' + numVal + '\\b', 'i');
+          if (sosmedPattern.test(upperRemarks) || upperRemarks === String(numVal)) {
+            return emp;
+          }
+        }
+      }
+
+      if (empName && empName !== 'NOL' && empName !== 'ADMIN') {
+        if (upperRemarks === empName) return emp;
+        const nameRegex = new RegExp('\\b' + empName + '\\b', 'i');
+        if (nameRegex.test(upperRemarks)) return emp;
+        if ((empName === 'SIFA' || empName === 'SHIFA') && /\b(?:SIFA|SHIFA)\b/i.test(upperRemarks)) return emp;
+      }
+    }
+  }
+
+  // 3. PRIORITAS KETIGA: Cocokkan dari nama "Sender" WhatsApp
+  // Hanya jika Sender bukan entitas bot / gateway luar
   const ignorePatterns = [
     /WHATSAPP\s+COEX/i,
     /\bADIRA\b/i,
@@ -18307,67 +18356,56 @@ function matchRowToKaryawan(row, masterEmployees) {
   ];
 
   const isIgnoredSender = ignorePatterns.some(rx => rx.test(sender));
-  const isIgnoredRemarks = ignorePatterns.some(rx => rx.test(remarks));
 
-  // Normalisasi pembersih awalan admin/sosmed
-  const cleanSender = sender.replace(/^(?:admin\s+sosmed|admin|sosmed)\s*[-:]*\s*/i, '')
-                            .replace(/[-_]/g, ' ')
-                            .trim();
-  const cleanRemarks = remarks.replace(/^(?:admin\s+sosmed|admin|sosmed)\s*[-:]*\s*/i, '')
+  if (!isIgnoredSender && sender) {
+    const cleanSender = sender.replace(/^(?:admin\s+sosmed|admin|sosmed)\s*[-:]*\s*/i, '')
                               .replace(/[-_]/g, ' ')
                               .trim();
+    const upperSender = cleanSender.toUpperCase();
 
-  // Normalisasi nomor telepon
-  const senderPhoneDigits = sender.replace(/\D/g, '');
-  const normSenderPhone = senderPhoneDigits.startsWith('62') ? ('0' + senderPhoneDigits.slice(2)) : senderPhoneDigits;
+    // Normalisasi nomor telepon
+    const senderPhoneDigits = sender.replace(/\D/g, '');
+    const normSenderPhone = senderPhoneDigits.startsWith('62') ? ('0' + senderPhoneDigits.slice(2)) : senderPhoneDigits;
 
-  const upperSender = cleanSender.toUpperCase();
-  const upperRemarks = cleanRemarks.toUpperCase();
+    for (const emp of list) {
+      if (!emp || !emp.name) continue;
+      const empName = String(emp.name).trim().toUpperCase();
+      if (!empName || empName === 'NOL' || empName === 'ADMIN') continue;
 
-  for (const emp of list) {
-    if (!emp || !emp.name) continue;
-    const empName = String(emp.name).trim().toUpperCase();
-    if (!empName || empName === 'NOL' || empName === 'ADMIN') continue;
-
-    // A. Pencocokan nomor telepon jika nomor WA tersimpan di master karyawan
-    if (emp.phone && normSenderPhone.length >= 9) {
-      const empPhoneDigits = String(emp.phone).replace(/\D/g, '');
-      const normEmpPhone = empPhoneDigits.startsWith('62') ? ('0' + empPhoneDigits.slice(2)) : empPhoneDigits;
-      if (normEmpPhone && normEmpPhone === normSenderPhone) {
-        return emp;
+      // A. Pencocokan nomor telepon jika nomor WA tersimpan di master karyawan
+      if (emp.phone && normSenderPhone.length >= 9) {
+        const empPhoneDigits = String(emp.phone).replace(/\D/g, '');
+        const normEmpPhone = empPhoneDigits.startsWith('62') ? ('0' + empPhoneDigits.slice(2)) : empPhoneDigits;
+        if (normEmpPhone && normEmpPhone === normSenderPhone) {
+          return emp;
+        }
       }
-    }
 
-    // B. Exact match nama (jika Sender / Remarks bukan entitas bot yang diabaikan)
-    if (!isIgnoredSender && upperSender === empName) return emp;
-    if (!isIgnoredRemarks && upperRemarks === empName) return emp;
+      // B. Exact match nama
+      if (upperSender === empName) return emp;
 
-    // C. Khusus variasi umum ejaan SIFA <-> SHIFA
-    if (empName === 'SIFA' || empName === 'SHIFA') {
-      if (!isIgnoredSender && (upperSender === 'SIFA' || upperSender === 'SHIFA' || /\b(?:SIFA|SHIFA)\b/i.test(upperSender))) return emp;
-      if (!isIgnoredRemarks && (upperRemarks === 'SIFA' || upperRemarks === 'SHIFA' || /\b(?:SIFA|SHIFA)\b/i.test(upperRemarks))) return emp;
-    }
+      // C. Khusus variasi umum ejaan SIFA <-> SHIFA
+      if (empName === 'SIFA' || empName === 'SHIFA') {
+        if (upperSender === 'SIFA' || upperSender === 'SHIFA' || /\b(?:SIFA|SHIFA)\b/i.test(upperSender)) return emp;
+      }
 
-    // D. Word boundary match berdasarkan token nama utama (panjang >= 3 huruf)
-    const tokens = empName.split(/\s+/).filter(t => t.length >= 3 && !['PUTRI', 'AULIA', 'SARI', 'PRATAMA', 'WIJAYA', 'ADMIN'].includes(t));
-    for (const tok of tokens) {
-      const tokRegex = new RegExp('\\b' + tok + '\\b', 'i');
-      if (!isIgnoredSender && tokRegex.test(upperSender)) return emp;
-      if (!isIgnoredRemarks && tokRegex.test(upperRemarks)) return emp;
-    }
+      // D. Word boundary match berdasarkan token nama utama (panjang >= 3 huruf)
+      const tokens = empName.split(/\s+/).filter(t => t.length >= 3 && !['PUTRI', 'AULIA', 'SARI', 'PRATAMA', 'WIJAYA', 'ADMIN'].includes(t));
+      for (const tok of tokens) {
+        const tokRegex = new RegExp('\\b' + tok + '\\b', 'i');
+        if (tokRegex.test(upperSender)) return emp;
+      }
 
-    // E. Pencocokan kode sales / NIK jika tertulis di Sender atau Remarks
-    const empCode = String(emp.code || emp.nik || '').trim().toUpperCase();
-    if (empCode && empCode !== '-' && empCode !== 'BJM.SOS.000') {
-      if (!isIgnoredSender && upperSender.includes(empCode)) return emp;
-      if (!isIgnoredRemarks && upperRemarks.includes(empCode)) return emp;
-
-      const numMatch = empCode.match(/\d+$/);
-      if (numMatch) {
-        const numVal = parseInt(numMatch[0], 10);
-        const sosmedPattern = new RegExp('\\b(?:SOSMED|SOS)\\s*0*' + numVal + '\\b', 'i');
-        if (!isIgnoredSender && sosmedPattern.test(upperSender)) return emp;
-        if (!isIgnoredRemarks && sosmedPattern.test(upperRemarks)) return emp;
+      // E. Match kode sales di Sender
+      const empCode = String(emp.code || emp.nik || '').trim().toUpperCase();
+      if (empCode && empCode !== '-' && empCode !== 'BJM.SOS.000') {
+        if (upperSender.includes(empCode)) return emp;
+        const numMatch = empCode.match(/\d+$/);
+        if (numMatch) {
+          const numVal = parseInt(numMatch[0], 10);
+          const sosmedPattern = new RegExp('\\b(?:SOSMED|SOS)\\s*0*' + numVal + '\\b', 'i');
+          if (sosmedPattern.test(upperSender)) return emp;
+        }
       }
     }
   }
