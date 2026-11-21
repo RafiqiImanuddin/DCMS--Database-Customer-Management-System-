@@ -18270,8 +18270,32 @@ function matchRowToKaryawan(row, masterEmployees) {
   const sender = String(row['Sender'] || row.sender || '').trim();
   const remarks = String(row['Remarks'] || row.remarks || '').trim();
   const kodeSosmed = String(row['Kode Sosmed'] || row.kode_sosmed || '').trim();
+  const cleanKode = kodeSosmed.trim().toUpperCase();
 
-  // Entitas non-karyawan yang wajib diabaikan secara tegas
+  // 1. PRIORITAS UTAMA: Cocokkan langsung dari "Kode Sosmed" (contoh: "SOSMED 4", "BJM.SOS.004", "SOSMED 17")
+  // Karena pesan keep dari WhatsApp sering diforward oleh bot "WHATSAPP COEX" / "GADGET MART",
+  // namun identitas pembuat keep yang sebenarnya tercatat jelas di "Kode Sosmed".
+  if (cleanKode && cleanKode !== '-' && cleanKode !== 'UNDEFINED') {
+    for (const emp of list) {
+      if (!emp) continue;
+      const empCode = String(emp.code || emp.nik || '').trim().toUpperCase();
+      if (empCode && empCode !== '-' && empCode !== 'BJM.SOS.000') {
+        if (cleanKode.includes(empCode)) {
+          return emp;
+        }
+        const numMatch = empCode.match(/\d+$/);
+        if (numMatch) {
+          const numVal = parseInt(numMatch[0], 10);
+          const sosmedPattern = new RegExp('\\b(?:SOSMED|SOS)\\s*0*' + numVal + '\\b', 'i');
+          if (sosmedPattern.test(cleanKode)) {
+            return emp;
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Daftar entitas non-karyawan yang diabaikan saat pencocokan teks nama Sender/Remarks
   const ignorePatterns = [
     /WHATSAPP\s+COEX/i,
     /\bADIRA\b/i,
@@ -18282,11 +18306,8 @@ function matchRowToKaryawan(row, masterEmployees) {
     /\bSYSTEM\b/i
   ];
 
-  for (const rx of ignorePatterns) {
-    if (rx.test(sender) || rx.test(remarks)) {
-      return null;
-    }
-  }
+  const isIgnoredSender = ignorePatterns.some(rx => rx.test(sender));
+  const isIgnoredRemarks = ignorePatterns.some(rx => rx.test(remarks));
 
   // Normalisasi pembersih awalan admin/sosmed
   const cleanSender = sender.replace(/^(?:admin\s+sosmed|admin|sosmed)\s*[-:]*\s*/i, '')
@@ -18295,18 +18316,20 @@ function matchRowToKaryawan(row, masterEmployees) {
   const cleanRemarks = remarks.replace(/^(?:admin\s+sosmed|admin|sosmed)\s*[-:]*\s*/i, '')
                               .replace(/[-_]/g, ' ')
                               .trim();
-  const cleanKode = kodeSosmed.trim().toUpperCase();
 
   // Normalisasi nomor telepon
   const senderPhoneDigits = sender.replace(/\D/g, '');
   const normSenderPhone = senderPhoneDigits.startsWith('62') ? ('0' + senderPhoneDigits.slice(2)) : senderPhoneDigits;
+
+  const upperSender = cleanSender.toUpperCase();
+  const upperRemarks = cleanRemarks.toUpperCase();
 
   for (const emp of list) {
     if (!emp || !emp.name) continue;
     const empName = String(emp.name).trim().toUpperCase();
     if (!empName || empName === 'NOL' || empName === 'ADMIN') continue;
 
-    // 1. Pencocokan nomor telepon jika nomor WA tersimpan di master karyawan
+    // A. Pencocokan nomor telepon jika nomor WA tersimpan di master karyawan
     if (emp.phone && normSenderPhone.length >= 9) {
       const empPhoneDigits = String(emp.phone).replace(/\D/g, '');
       const normEmpPhone = empPhoneDigits.startsWith('62') ? ('0' + empPhoneDigits.slice(2)) : empPhoneDigits;
@@ -18315,47 +18338,36 @@ function matchRowToKaryawan(row, masterEmployees) {
       }
     }
 
-    // 2. Exact match nama (case-insensitive)
-    const upperSender = cleanSender.toUpperCase();
-    const upperRemarks = cleanRemarks.toUpperCase();
-    if (upperSender === empName || upperRemarks === empName) {
-      return emp;
-    }
+    // B. Exact match nama (jika Sender / Remarks bukan entitas bot yang diabaikan)
+    if (!isIgnoredSender && upperSender === empName) return emp;
+    if (!isIgnoredRemarks && upperRemarks === empName) return emp;
 
-    // 3. Khusus variasi umum ejaan SIFA <-> SHIFA
+    // C. Khusus variasi umum ejaan SIFA <-> SHIFA
     if (empName === 'SIFA' || empName === 'SHIFA') {
-      if (upperSender === 'SIFA' || upperSender === 'SHIFA' || upperRemarks === 'SIFA' || upperRemarks === 'SHIFA') {
-        return emp;
-      }
-      if (/\b(?:SIFA|SHIFA)\b/i.test(upperSender) || /\b(?:SIFA|SHIFA)\b/i.test(upperRemarks)) {
-        return emp;
-      }
+      if (!isIgnoredSender && (upperSender === 'SIFA' || upperSender === 'SHIFA' || /\b(?:SIFA|SHIFA)\b/i.test(upperSender))) return emp;
+      if (!isIgnoredRemarks && (upperRemarks === 'SIFA' || upperRemarks === 'SHIFA' || /\b(?:SIFA|SHIFA)\b/i.test(upperRemarks))) return emp;
     }
 
-    // 4. Word boundary match berdasarkan token nama utama (panjang >= 3 huruf)
+    // D. Word boundary match berdasarkan token nama utama (panjang >= 3 huruf)
     const tokens = empName.split(/\s+/).filter(t => t.length >= 3 && !['PUTRI', 'AULIA', 'SARI', 'PRATAMA', 'WIJAYA', 'ADMIN'].includes(t));
     for (const tok of tokens) {
       const tokRegex = new RegExp('\\b' + tok + '\\b', 'i');
-      if (tokRegex.test(upperSender) || tokRegex.test(upperRemarks)) {
-        return emp;
-      }
+      if (!isIgnoredSender && tokRegex.test(upperSender)) return emp;
+      if (!isIgnoredRemarks && tokRegex.test(upperRemarks)) return emp;
     }
 
-    // 5. Pencocokan kode sales / NIK
+    // E. Pencocokan kode sales / NIK jika tertulis di Sender atau Remarks
     const empCode = String(emp.code || emp.nik || '').trim().toUpperCase();
     if (empCode && empCode !== '-' && empCode !== 'BJM.SOS.000') {
-      if (cleanKode.includes(empCode) || upperSender.includes(empCode) || upperRemarks.includes(empCode)) {
-        return emp;
-      }
+      if (!isIgnoredSender && upperSender.includes(empCode)) return emp;
+      if (!isIgnoredRemarks && upperRemarks.includes(empCode)) return emp;
 
-      // Format SOSMED <nomor>, misal BJM.SOS.005 -> SOSMED 5 atau SOSMED 05 atau SOS 5
       const numMatch = empCode.match(/\d+$/);
       if (numMatch) {
         const numVal = parseInt(numMatch[0], 10);
         const sosmedPattern = new RegExp('\\b(?:SOSMED|SOS)\\s*0*' + numVal + '\\b', 'i');
-        if (sosmedPattern.test(cleanKode) || sosmedPattern.test(upperSender) || sosmedPattern.test(upperRemarks)) {
-          return emp;
-        }
+        if (!isIgnoredSender && sosmedPattern.test(upperSender)) return emp;
+        if (!isIgnoredRemarks && sosmedPattern.test(upperRemarks)) return emp;
       }
     }
   }
@@ -18436,8 +18448,11 @@ function renderKeepAdminDashboard() {
 
     // A. Filter Periode
     const ts = String(r['Timestamp'] || r.keep_timestamp || '').trim();
+    const pStr = String(r['PERIODE'] || '').trim().toLowerCase();
+    const isCurrentPeriod = pStr.includes('november 2026') || pStr.includes('11-2026') || pStr.includes('nov 2026');
+
     if (periodVal === 'THIS_MONTH') {
-      if (!ts.startsWith(currentYearMonth) && !ts.includes(`/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`)) {
+      if (!isCurrentPeriod && !ts.startsWith(currentYearMonth) && !ts.includes(`/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`)) {
         const d = (typeof parseKeepDateObj === 'function') ? parseKeepDateObj(ts) : null;
         if (!d || d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) return false;
       }
