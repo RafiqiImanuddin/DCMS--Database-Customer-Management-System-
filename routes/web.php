@@ -97,6 +97,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/pricelist/check-status', [\App\Http\Controllers\PricelistController::class, 'checkDropboxStatus'])->name('pricelist.check_status');
     Route::delete('/broadcasts/batches/{batch}', [BroadcastReportController::class, 'destroyBatch'])->name('broadcasts.batches.destroy');
     Route::post('/broadcasts/bulk', [BroadcastReportController::class, 'bulkStore'])->name('broadcasts.bulk');
+    Route::post('/broadcasts/init-batch', [BroadcastReportController::class, 'initBatch'])->name('broadcasts.init_batch');
+    Route::post('/broadcasts/send-item', [BroadcastReportController::class, 'sendItem'])->name('broadcasts.send_item');
+    Route::post('/broadcasts/finish-batch', [BroadcastReportController::class, 'finishBatch'])->name('broadcasts.finish_batch');
     Route::post('/broadcasts/settings', [BroadcastReportController::class, 'updateSettings'])->name('broadcasts.settings.update');
     Route::post('/broadcasts/reset-cycle', [BroadcastReportController::class, 'resetCycle'])->name('broadcasts.reset-cycle');
     Route::delete('/broadcasts/{report}', [BroadcastReportController::class, 'destroy'])->name('broadcasts.destroy');

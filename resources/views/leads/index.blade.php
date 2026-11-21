@@ -556,6 +556,209 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateLeadMessagePreview();
+
+    const broadcastForm = document.getElementById('lead-broadcast-form');
+    if (broadcastForm) {
+        broadcastForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            startLeadBroadcastWithProgress();
+        });
+    }
 });
+
+async function startLeadBroadcastWithProgress() {
+    const checkedCheckboxes = [...document.querySelectorAll('.lead-checkbox:checked')];
+    const predictionIds = checkedCheckboxes
+        .map(cb => cb.value)
+        .filter(val => val && val.trim() !== '');
+
+    if (predictionIds.length === 0) {
+        alert('Silakan centang minimal 1 pelanggan lead dengan nomor WhatsApp valid untuk dibroadcast.');
+        return;
+    }
+
+    const message = (document.getElementById('lead-bulk-message')?.value || '').trim();
+    if (!message) {
+        alert('Silakan masukkan isi pesan broadcast terlebih dahulu.');
+        document.getElementById('lead-bulk-message')?.focus();
+        return;
+    }
+
+    const title = (document.getElementById('lead-broadcast-title')?.value || '').trim();
+    const imageInput = document.getElementById('lead-broadcast-image');
+    const imageUrlInput = document.getElementById('lead-template-image-url');
+
+    const count = predictionIds.length;
+    if (!confirm(`Mulai pengiriman broadcast ke ${count} pelanggan terpilih? Progres pengiriman akan ditampilkan langsung secara real-time.`)) {
+        return;
+    }
+
+    openBroadcastProgressModal(count, title || 'Broadcast WhatsApp');
+
+    isBroadcastRunning = true;
+    shouldStopBroadcast = false;
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    try {
+        appendBpLog(`[Sistem] Menyiapkan antrean broadcast untuk ${count} kontak target...`);
+        updateBpStatus('Menyiapkan batch...', 'Mengunggah lampiran gambar dan memvalidasi kuota broadcast...', 'loading');
+
+        const formData = new FormData();
+        formData.append('_token', '{{ csrf_token() }}');
+        if (title) formData.append('title', title);
+        formData.append('message', message);
+        predictionIds.forEach(id => formData.append('prediction_ids[]', id));
+
+        if (imageInput && imageInput.files && imageInput.files[0]) {
+            formData.append('image', imageInput.files[0]);
+        } else if (imageUrlInput && imageUrlInput.value) {
+            formData.append('image_url', imageUrlInput.value);
+        }
+
+        const initRes = await fetch("{{ route('broadcasts.init_batch') }}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+
+        const initData = await initRes.json();
+        if (!initRes.ok || !initData.success) {
+            throw new Error(initData.message || 'Gagal menginisialisasi batch broadcast.');
+        }
+
+        currentBatchId = initData.batch_id;
+        currentBroadcastTargets = initData.targets || [];
+        const total = currentBroadcastTargets.length;
+        const delayMin = initData.delay_min || 5;
+        const delayMax = initData.delay_max || 15;
+        const batchSize = initData.batch_size || 20;
+        const batchCooldown = initData.batch_cooldown || 30;
+
+        document.getElementById('bp-modal-title').textContent = initData.batch_title || 'BROADCAST BATCH';
+        document.getElementById('bp-stat-total').textContent = total;
+        appendBpLog(`[Sukses] Batch #${currentBatchId} dibuat. Total: ${total} kontak. Jeda anti-banned: ${delayMin}-${delayMax} detik.`);
+
+        let sentSuccessCount = 0;
+        let sentFailedCount = 0;
+        let processedInCurrentGroup = 0;
+
+        for (let i = 0; i < total; i++) {
+            if (shouldStopBroadcast) {
+                appendBpLog(`[Dihentikan] Broadcast dihentikan oleh pengguna pada pesan ke-${i + 1}.`);
+                break;
+            }
+
+            const target = currentBroadcastTargets[i];
+            const currentIndex = i + 1;
+
+            updateBpStatus(
+                `Mengirim pesan (${currentIndex}/${total})...`,
+                `Target: ${target.customer_name} (${target.phone})`,
+                'sending'
+            );
+            appendBpLog(`[Mengirim ${currentIndex}/${total}] Ke ${target.customer_name} (${target.phone})...`);
+
+            try {
+                const itemRes = await fetch("{{ route('broadcasts.send_item') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        batch_id: currentBatchId,
+                        prediction_id: target.id
+                    })
+                });
+
+                const itemData = await itemRes.json();
+                if (itemData.success && itemData.status === 'sent') {
+                    sentSuccessCount++;
+                    appendBpLog(`  ✅ Berhasil terkirim ke ${target.phone}`);
+                } else {
+                    sentFailedCount++;
+                    const reason = itemData.provider_response || (itemData.status === 'logged' ? 'Tersimpan tanpa nomor HP' : 'Gagal terkirim');
+                    appendBpLog(`  ❌ Gagal: ${reason}`);
+                }
+            } catch (itemErr) {
+                sentFailedCount++;
+                appendBpLog(`  ❌ Gagal: ${itemErr.message}`);
+            }
+
+            document.getElementById('bp-stat-sent').textContent = sentSuccessCount;
+            document.getElementById('bp-stat-failed').textContent = sentFailedCount;
+            const percent = Math.round((currentIndex / total) * 100);
+            updateBpProgressBar(currentIndex, total, percent);
+
+            processedInCurrentGroup++;
+
+            if (i < total - 1 && !shouldStopBroadcast) {
+                let waitSeconds = Math.floor(Math.random() * (delayMax - delayMin + 1)) + delayMin;
+                let isCooldown = false;
+                if (batchSize > 0 && processedInCurrentGroup >= batchSize && batchCooldown > 0) {
+                    waitSeconds = batchCooldown;
+                    processedInCurrentGroup = 0;
+                    isCooldown = true;
+                }
+
+                const delayLabel = isCooldown ? `Jeda Cooldown Batch (${batchCooldown}s)` : `Jeda Aman Anti-Banned (${waitSeconds}s)`;
+                appendBpLog(`  ⏳ ${delayLabel}...`);
+
+                for (let sec = waitSeconds; sec > 0; sec--) {
+                    if (shouldStopBroadcast) break;
+                    updateBpStatus(
+                        `Jeda Anti-Banned: ${sec} detik...`,
+                        `Menjaga interval aman ${delayMin}-${delayMax} detik agar nomor WhatsApp tidak diblokir (${sec}s tersisa)`,
+                        'delay'
+                    );
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+        }
+
+        updateBpStatus('Menyelesaikan batch...', 'Menyimpan laporan akhir dan memperbarui daftar lead...', 'loading');
+        appendBpLog(`[Selesai] Memperbarui laporan broadcast dan membersihkan data lead terpilih...`);
+
+        const finishRes = await fetch("{{ route('broadcasts.finish_batch') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                batch_id: currentBatchId,
+                prediction_ids: predictionIds,
+                redirect_to: 'leads.index'
+            })
+        });
+
+        const finishData = await finishRes.json();
+        showBroadcastCompletion(finishData);
+
+    } catch (err) {
+        console.error('Broadcast error:', err);
+        updateBpStatus('Terjadi Kendala', err.message, 'error');
+        appendBpLog(`[ERROR] ${err.message}`);
+        alert('Terjadi kendala saat broadcast: ' + err.message);
+        const cancelBtn = document.getElementById('bp-cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.textContent = 'Tutup';
+            cancelBtn.className = 'rounded-xl bg-slate-800 text-white px-3.5 py-1.5 text-xs font-bold transition';
+            cancelBtn.onclick = closeBroadcastProgressModal;
+        }
+    } finally {
+        isBroadcastRunning = false;
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+}
 </script>
+
+@include('broadcasts.partials.progress-modal')
 @endsection

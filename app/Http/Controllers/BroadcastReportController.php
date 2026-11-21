@@ -11,6 +11,7 @@ use App\Models\RepeatOrderPrediction;
 use App\Models\Setting;
 use App\Services\BroadcastService;
 use App\Services\FastXlsxWriter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -392,6 +393,191 @@ class BroadcastReportController extends Controller
             : count($predictions).' pelanggan ditambahkan ke antrean/laporan broadcast.'.($imageUrl ? ' (dengan lampiran gambar)' : '');
 
         return redirect()->route($redirectRoute)->with('success', $successMessage);
+    }
+
+    /**
+     * Inisialisasi Batch Broadcast untuk Progress Bar Real-Time
+     */
+    public function initBatch(Request $request, BroadcastService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'title' => ['nullable', 'string', 'max:255'],
+            'prediction_ids' => ['required', 'array', 'min:1'],
+            'prediction_ids.*' => ['integer', 'distinct', 'exists:repeat_order_predictions,id'],
+            'message' => ['required', 'string', 'max:2500'],
+            'image' => ['nullable', 'file', 'image', 'max:5120'],
+            'image_url' => ['nullable', 'url', 'max:500'],
+        ]);
+
+        $predictions = RepeatOrderPrediction::whereIn('id', $validated['prediction_ids'])->get();
+        $targetCount = count($predictions);
+
+        if ($targetCount === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada data kontak penerima yang dipilih.',
+            ], 422);
+        }
+
+        $cycleInfo = $service->getCycleInfo();
+        if ($cycleInfo['remaining_quota'] < 1) {
+            $resetNotice = $cycleInfo['reset_at']
+                ? ' Kuota akan direset otomatis pada '.$cycleInfo['reset_time_formatted'].' (sisa '.$cycleInfo['remaining_text'].').'
+                : ' Kuota 1x24 jam telah habis.';
+            return response()->json([
+                'success' => false,
+                'message' => 'Batas kuota broadcast ('.$cycleInfo['daily_limit'].' pesan / 1x24 jam) telah tercapai.'.$resetNotice,
+            ], 422);
+        }
+
+        if ($targetCount > $cycleInfo['remaining_quota']) {
+            $resetNotice = $cycleInfo['reset_at']
+                ? ' Kuota akan direset pada '.$cycleInfo['reset_time_formatted'].'.'
+                : '';
+            return response()->json([
+                'success' => false,
+                'message' => "Target penerima ({$targetCount} kontak) melebihi sisa kuota broadcast ({$cycleInfo['remaining_quota']} dari batas {$cycleInfo['daily_limit']} per 24 jam).{$resetNotice}",
+            ], 422);
+        }
+
+        $imageUrl = $this->resolveImageUrl($request, $validated['image_url'] ?? null);
+        $title = trim((string) ($request->input('title') ?: '')) ?: ('Broadcast - '.now()->format('d M Y H:i'));
+
+        $batch = BroadcastBatch::create([
+            'user_id' => $request->user()->id,
+            'title' => $title,
+            'message' => $validated['message'],
+            'image_url' => $imageUrl,
+            'total_recipients' => $targetCount,
+            'total_sent' => 0,
+            'total_failed' => 0,
+            'delivery_rate' => 0,
+            'status' => 'processing',
+            'sent_at' => now(),
+        ]);
+
+        $delayMin = (int) Setting::get('broadcast_delay_min', '5');
+        $delayMax = (int) Setting::get('broadcast_delay_max', '15');
+        $batchSize = (int) Setting::get('broadcast_batch_size', '20');
+        $batchCooldown = (int) Setting::get('broadcast_batch_cooldown', '30');
+
+        if ($delayMin < 1) $delayMin = 1;
+        if ($delayMax < $delayMin) $delayMax = $delayMin;
+
+        $targets = $predictions->map(function ($p) {
+            return [
+                'id' => $p->id,
+                'customer_name' => $p->customer_vendor_name ?: ($p->customer_vendor_code ?: 'Pelanggan'),
+                'customer_code' => $p->customer_vendor_code ?: '-',
+                'phone' => $p->no_hp_customer ?: '-',
+                'item' => $p->dscription ?: ($p->item_code ?: 'produk'),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'batch_id' => $batch->id,
+            'batch_title' => $batch->title,
+            'total' => $targetCount,
+            'image_url' => $imageUrl,
+            'delay_min' => $delayMin,
+            'delay_max' => $delayMax,
+            'batch_size' => $batchSize,
+            'batch_cooldown' => $batchCooldown,
+            'targets' => $targets,
+        ]);
+    }
+
+    /**
+     * Kirim Satu Pesan Broadcast Per Item (Real-Time Loop)
+     */
+    public function sendItem(Request $request, BroadcastService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'batch_id' => ['required', 'integer', 'exists:broadcast_batches,id'],
+            'prediction_id' => ['required', 'integer', 'exists:repeat_order_predictions,id'],
+        ]);
+
+        $batch = BroadcastBatch::findOrFail($validated['batch_id']);
+        if (!$request->user()->isSuperAdmin() && (int) $batch->user_id !== (int) $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak memiliki hak akses ke batch ini.'], 403);
+        }
+
+        $prediction = RepeatOrderPrediction::findOrFail($validated['prediction_id']);
+
+        $report = $service->send(
+            $prediction,
+            $batch->message,
+            $request->user()->id,
+            $batch->image_url,
+            $batch->id
+        );
+
+        if ($report->status === 'sent') {
+            $batch->increment('total_sent');
+        } else {
+            $batch->increment('total_failed');
+        }
+
+        $batch->refresh();
+        $processed = $batch->total_sent + $batch->total_failed;
+        $deliveryRate = $batch->total_recipients > 0
+            ? round(($batch->total_sent / $batch->total_recipients) * 100, 1)
+            : 0;
+        $batch->update(['delivery_rate' => $deliveryRate]);
+
+        return response()->json([
+            'success' => true,
+            'status' => $report->status,
+            'customer_name' => $prediction->customer_vendor_name ?: ($prediction->customer_vendor_code ?: 'Pelanggan'),
+            'phone' => $prediction->no_hp_customer ?: '-',
+            'provider_response' => $report->provider_response,
+            'batch_sent' => $batch->total_sent,
+            'batch_failed' => $batch->total_failed,
+            'delivery_rate' => $deliveryRate,
+        ]);
+    }
+
+    /**
+     * Selesaikan Batch Broadcast dan Bersihkan Lead yang Sudah Dikirim
+     */
+    public function finishBatch(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'batch_id' => ['required', 'integer', 'exists:broadcast_batches,id'],
+            'prediction_ids' => ['nullable', 'array'],
+            'prediction_ids.*' => ['integer'],
+            'redirect_to' => ['nullable', 'string'],
+        ]);
+
+        $batch = BroadcastBatch::findOrFail($validated['batch_id']);
+        if (!$request->user()->isSuperAdmin() && (int) $batch->user_id !== (int) $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak memiliki hak akses ke batch ini.'], 403);
+        }
+
+        $batchStatus = ($batch->total_failed === 0) ? 'completed' : (($batch->total_sent === 0) ? 'failed' : 'completed');
+        $batch->update([
+            'status' => $batchStatus,
+        ]);
+
+        if (($validated['redirect_to'] ?? '') === 'leads.index' && !empty($validated['prediction_ids'])) {
+            LeadCustomer::whereIn('repeat_order_prediction_id', $validated['prediction_ids'])->delete();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Broadcast selesai!',
+            'batch' => [
+                'id' => $batch->id,
+                'title' => $batch->title,
+                'status' => $batch->status,
+                'total_recipients' => $batch->total_recipients,
+                'total_sent' => $batch->total_sent,
+                'total_failed' => $batch->total_failed,
+                'delivery_rate' => $batch->delivery_rate,
+            ],
+            'detail_url' => route('broadcasts.batches.show', $batch),
+        ]);
     }
 
     public function download(Request $request): BinaryFileResponse
