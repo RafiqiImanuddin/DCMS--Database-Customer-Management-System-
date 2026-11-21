@@ -434,6 +434,7 @@
                             <tr class="border-b border-slate-200/90 bg-slate-100/75 text-[11px] font-black uppercase tracking-wider text-slate-600">
                                 <th class="py-3 px-3.5 text-center w-14">#Rank</th>
                                 <th class="py-3 px-3.5">Admin Sosmed (Sender)</th>
+                                <th class="py-3 px-3.5 text-center text-brand-700 bg-brand-50/50" title="Skor Performa Kombinasi: 60% Closing Rate + 40% Volume Format Keep">⚡ Skor KPI</th>
                                 <th class="py-3 px-3.5 text-center">Total Keep</th>
                                 <th class="py-3 px-3.5 text-center text-emerald-700">WIN</th>
                                 <th class="py-3 px-3.5 text-center text-amber-700">On Progress</th>
@@ -446,7 +447,7 @@
                         </thead>
                         <tbody id="dashAdminTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
                             <tr>
-                                <td colspan="10" class="py-12 text-center text-slate-400">
+                                <td colspan="11" class="py-12 text-center text-slate-400">
                                     <span class="inline-block size-5 border-2 border-brand-600 border-t-transparent rounded-full animate-spin"></span>
                                     <span class="ml-2">Menganalisis performa admin sosmed...</span>
                                 </td>

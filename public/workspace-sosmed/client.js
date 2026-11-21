@@ -18431,7 +18431,7 @@ function renderKeepAdminDashboard() {
   if (rows.length === 0) {
     const tbody = document.getElementById('dashAdminTableBody');
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="10" class="py-12 text-center text-slate-400">Belum ada data Format Keep untuk dianalisis.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="py-12 text-center text-slate-400">Belum ada data Format Keep untuk dianalisis.</td></tr>';
     }
     return;
   }
@@ -18599,8 +18599,38 @@ function renderKeepAdminDashboard() {
     : '0';
 
   const adminList = Object.values(adminStatsMap);
-  // Sort descending: prioritas WIN terbanyak, lalu total keep terbanyak
-  adminList.sort((a, b) => (b.win - a.win) || (b.total - a.total));
+
+  // 1. Hitung Closing Rate dasar untuk setiap admin
+  adminList.forEach(adm => {
+    adm.closingRate = adm.total > 0 ? ((adm.win / adm.total) * 100) : 0;
+  });
+
+  // 2. Tentukan benchmark tim untuk normalisasi adil
+  const maxKeep = Math.max(...adminList.map(a => a.total), 0);
+  const qualifyingRates = adminList.filter(a => a.total >= 5).map(a => a.closingRate);
+  const maxRate = qualifyingRates.length > 0 ? Math.max(...qualifyingRates) : 100;
+
+  // 3. Hitung Skor Performa Kombinasi: (Closing Rate 60%) + (Skor Volume Keep 40%)
+  adminList.forEach(adm => {
+    // Skor Volume (0 - 100 poin): Rasio volume keep terhadap admin paling produktif
+    const volScore = maxKeep > 0 ? ((adm.total / maxKeep) * 100) : 0;
+
+    // Skor Closing Rate (0 - 100 poin): Rasio efektivitas closing terhadap benchmark tim
+    const rawRateScore = maxRate > 0 ? ((adm.closingRate / maxRate) * 100) : 0;
+
+    // Confidence Dampening: Jika keep < 5 (sample terlalu kecil), bobot closing rate disesuaikan proporsional
+    const confidence = adm.total >= 5 ? 1.0 : (adm.total > 0 ? (adm.total / 5.0) : 0);
+    const rateScore = Math.min(100.0, rawRateScore) * confidence;
+
+    // Formula Skor Kombinasi
+    const score = (rateScore * 0.60) + (volScore * 0.40);
+    adm.volScore = Number(volScore.toFixed(1));
+    adm.rateScore = Number(rateScore.toFixed(1));
+    adm.score = Number(score.toFixed(1));
+  });
+
+  // 4. Urutkan Ranking berdasarkan Skor Performa Kombinasi Tertinggi
+  adminList.sort((a, b) => (b.score - a.score) || (b.win - a.win) || (b.total - a.total));
 
   const topAdmin = adminList.length > 0 ? adminList[0] : null;
 
@@ -18623,8 +18653,8 @@ function renderKeepAdminDashboard() {
   if (elTopName) elTopName.textContent = topAdmin ? topAdmin.name : '-';
   if (elTopSubtext) {
     elTopSubtext.textContent = topAdmin 
-      ? `🏆 ${topAdmin.win} WIN dari ${topAdmin.total} Keep`
-      : 'Kontributor keep terbanyak';
+      ? `🏆 Juara 1: Skor ${topAdmin.score.toFixed(1)} pts (${topAdmin.win} WIN / ${topAdmin.total} Keep)`
+      : 'Kontributor keep terbaik';
   }
   if (elFilteredCount) {
     elFilteredCount.textContent = `Menampilkan ${adminList.length} Admin Sosmed (${totalFilteredKeep.toLocaleString('id-ID')} format keep)`;
@@ -18644,7 +18674,7 @@ function renderKeepAdminDashboard() {
   if (!tbody) return;
 
   if (adminList.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="py-12 text-center text-slate-400">Tidak ada admin sosmed resmi yang cocok dengan filter yang dipilih.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="py-12 text-center text-slate-400">Tidak ada admin sosmed resmi yang cocok dengan filter yang dipilih.</td></tr>';
     return;
   }
 
@@ -18712,6 +18742,13 @@ function renderKeepAdminDashboard() {
                 <span class="${adm.level === 'Internship' ? 'text-amber-600 font-bold' : 'text-slate-500 font-medium'}">${escapeHtml(adm.level || 'Karyawan')}</span>
               </div>
             </div>
+          </div>
+        </td>
+        <td class="py-3 px-3.5 text-center bg-brand-50/30">
+          <div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-800 font-black text-xs shadow-2xs" title="Skor Performa: ${adm.score.toFixed(1)} pts\n• Closing Rate (60%): ${adm.rateScore.toFixed(1)} pts\n• Volume Keep (40%): ${adm.volScore.toFixed(1)} pts">
+            <span class="text-brand-600 text-[11px]">⚡</span>
+            <span>${adm.score.toFixed(1)}</span>
+            <span class="text-[9px] text-brand-600/70 font-semibold">pts</span>
           </div>
         </td>
         <td class="py-3 px-3.5 text-center font-bold text-slate-900">${adm.total.toLocaleString('id-ID')}</td>
