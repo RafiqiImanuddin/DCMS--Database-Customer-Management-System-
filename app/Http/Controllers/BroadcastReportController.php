@@ -23,11 +23,14 @@ class BroadcastReportController extends Controller
     {
         abort_unless($request->user()?->canAccessFeature('broadcasts'), 403, 'Akses terbatas: Fitur Laporan Broadcast tidak diaktifkan untuk akun Anda.');
         $userId = $request->user()->id;
+        $isSuperAdmin = (bool) $request->user()->isSuperAdmin();
         $tab = $request->query('tab', 'batches');
 
         // Query Batches
-        $batchesQuery = BroadcastBatch::query()
-            ->where('user_id', $userId);
+        $batchesQuery = BroadcastBatch::query();
+        if (!$isSuperAdmin) {
+            $batchesQuery->where('user_id', $userId);
+        }
 
         if ($search = trim((string) $request->input('search'))) {
             $batchesQuery->where(function ($q) use ($search) {
@@ -44,8 +47,10 @@ class BroadcastReportController extends Controller
 
         // Individual messages (for "Semua Pesan" tab)
         $reportsQuery = BroadcastReport::query()
-            ->where('user_id', $userId)
             ->with(['prediction', 'user', 'batch']);
+        if (!$isSuperAdmin) {
+            $reportsQuery->where('user_id', $userId);
+        }
 
         if (($repStatus = $request->string('status')->toString()) && in_array($repStatus, ['sent', 'failed', 'logged', 'queued'], true)) {
             $reportsQuery->where('status', $repStatus);
@@ -62,9 +67,13 @@ class BroadcastReportController extends Controller
         $reports = $reportsQuery->latest()->paginate(20)->withQueryString();
 
         // KPI Summary
-        $totalBatches = BroadcastBatch::where('user_id', $userId)->count();
-        $totalRecipients = (int) BroadcastBatch::where('user_id', $userId)->sum('total_recipients');
-        $totalSent = (int) BroadcastBatch::where('user_id', $userId)->sum('total_sent');
+        $batchesCountQuery = BroadcastBatch::query();
+        if (!$isSuperAdmin) {
+            $batchesCountQuery->where('user_id', $userId);
+        }
+        $totalBatches = (clone $batchesCountQuery)->count();
+        $totalRecipients = (int) (clone $batchesCountQuery)->sum('total_recipients');
+        $totalSent = (int) (clone $batchesCountQuery)->sum('total_sent');
         $avgDeliveryRate = $totalRecipients > 0 ? round(($totalSent / $totalRecipients) * 100, 1) : 0;
 
         $templates = BroadcastTemplate::orderBy('id')->get();
@@ -95,15 +104,51 @@ class BroadcastReportController extends Controller
         ]);
     }
 
-    public function showBatch(Request $request, BroadcastBatch $batch): View
+    public function showBatch(Request $request, BroadcastBatch $batch): View|\Illuminate\Http\JsonResponse
     {
-        if ((int) $batch->user_id !== (int) $request->user()->id) {
+        if (!$request->user()->isSuperAdmin() && (int) $batch->user_id !== (int) $request->user()->id) {
             abort(404);
         }
 
         $reportsQuery = $batch->reports()->with(['prediction', 'user']);
         if (($status = $request->string('status')->toString()) && in_array($status, ['sent', 'failed', 'logged', 'queued'], true)) {
             $reportsQuery->where('status', $status);
+        }
+
+        if ($request->wantsJson() || $request->ajax() || $request->query('format') === 'json') {
+            $reports = $reportsQuery->latest()->get();
+            return response()->json([
+                'success' => true,
+                'batch' => [
+                    'id' => $batch->id,
+                    'title' => $batch->title,
+                    'status' => $batch->status,
+                    'message' => $batch->message,
+                    'image_url' => $batch->image_url,
+                    'total_recipients' => (int) $batch->total_recipients,
+                    'total_sent' => (int) $batch->total_sent,
+                    'total_failed' => (int) $batch->total_failed,
+                    'delivery_rate' => (float) $batch->delivery_rate,
+                    'sent_at' => $batch->sent_at?->format('D, d M Y H:i') . ' WIB',
+                    'sent_at_date' => $batch->sent_at?->format('d M Y, H:i') ?: '-',
+                    'created_at' => $batch->created_at?->format('d M Y H:i'),
+                ],
+                'download_url' => route('broadcasts.batches.download', $batch),
+                'full_url' => route('broadcasts.batches.show', $batch),
+                'reports' => $reports->map(function ($r) {
+                    return [
+                        'id' => $r->id,
+                        'customer_vendor_code' => $r->customer_vendor_code ?: '-',
+                        'customer_name' => $r->prediction?->customer_vendor_name ?: ($r->customer_vendor_code ?: '-'),
+                        'phone_number' => \App\Support\DataMasker::maskPhone($r->phone_number) ?: ($r->phone_number ?: '-'),
+                        'status' => $r->status,
+                        'status_label' => $r->status === 'sent' ? 'Terkirim' : ($r->status === 'failed' ? 'Gagal' : ucfirst($r->status)),
+                        'provider_response' => $r->provider_response,
+                        'sent_at' => $r->sent_at?->format('d M Y H:i') ?: '-',
+                        'message' => $r->message,
+                    ];
+                }),
+            ]);
         }
 
         $reports = $reportsQuery->latest()->paginate(25)->withQueryString();
@@ -116,7 +161,7 @@ class BroadcastReportController extends Controller
 
     public function downloadBatch(Request $request, BroadcastBatch $batch): BinaryFileResponse
     {
-        if ((int) $batch->user_id !== (int) $request->user()->id) {
+        if (!$request->user()->isSuperAdmin() && (int) $batch->user_id !== (int) $request->user()->id) {
             abort(404);
         }
 
@@ -143,7 +188,7 @@ class BroadcastReportController extends Controller
 
     public function destroyBatch(Request $request, BroadcastBatch $batch): RedirectResponse
     {
-        if ((int) $batch->user_id !== (int) $request->user()->id) {
+        if (!$request->user()->isSuperAdmin() && (int) $batch->user_id !== (int) $request->user()->id) {
             abort(404);
         }
 

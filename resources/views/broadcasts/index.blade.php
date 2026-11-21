@@ -190,15 +190,19 @@
                         <td class="px-4 py-4">
                             <div class="flex items-start gap-3">
                                 @if($batch->image_url)
-                                    <a href="{{ $batch->image_url }}" target="_blank" rel="noopener" class="group shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-0.5 hover:border-brand-500 transition w-10 h-10 text-center shadow-2xs" title="Lampiran Gambar">
+                                    <button type="button" onclick="openBatchDetailModal({{ $batch->id }})" class="group shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-0.5 hover:border-purple-500 transition w-10 h-10 text-center shadow-2xs" title="Lihat detail campaign & lampiran">
                                         <img src="{{ $batch->image_url }}" alt="Flyer" class="h-full w-full rounded object-cover">
-                                    </a>
+                                    </button>
                                 @endif
                                 <div>
-                                    <a href="{{ route('broadcasts.batches.show', $batch) }}" class="font-bold text-purple-700 hover:text-purple-900 hover:underline text-sm uppercase tracking-wide">
-                                        {{ $batch->title }}
-                                    </a>
-                                    <p class="mt-0.5 max-w-md line-clamp-1 text-xs text-slate-500">{{ Str::limit($batch->message, 80) }}</p>
+                                    <button type="button" 
+                                            onclick="openBatchDetailModal({{ $batch->id }})" 
+                                            class="text-left font-bold text-purple-700 hover:text-purple-900 hover:underline text-sm uppercase tracking-wide cursor-pointer inline-flex items-center gap-1 transition"
+                                            title="Buka Data Campaign">
+                                        <span>{{ $batch->title }}</span>
+                                        <svg class="size-3 text-purple-400 group-hover:text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+                                    </button>
+                                    <p class="mt-0.5 max-w-md line-clamp-1 text-xs text-slate-500 cursor-pointer" onclick="openBatchDetailModal({{ $batch->id }})" title="Klik untuk membaca pesan lengkap">{{ Str::limit($batch->message, 80) }}</p>
                                 </div>
                             </div>
                         </td>
@@ -234,10 +238,13 @@
                         </td>
                         <td class="px-4 py-4 text-right whitespace-nowrap">
                             <div class="inline-flex items-center gap-1.5">
-                                <a href="{{ route('broadcasts.batches.show', $batch) }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50" title="Lihat detail penerima">
+                                <button type="button" 
+                                        onclick="openBatchDetailModal({{ $batch->id }})" 
+                                        class="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50/70 px-2.5 py-1 text-xs font-bold text-purple-700 shadow-2xs hover:bg-purple-100 hover:border-purple-300 transition" 
+                                        title="Buka Data Campaign & Detail Penerima">
                                     <svg class="size-3.5 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                     Detail
-                                </a>
+                                </button>
                                 @if(!\App\Support\DataMasker::isGuest())
                                 <a href="{{ route('broadcasts.batches.download', $batch) }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-emerald-700 shadow-2xs hover:bg-emerald-50" title="Download Excel batch ini">
                                     <svg class="size-3.5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
@@ -301,9 +308,13 @@
                         </td>
                         <td class="px-3 py-4 whitespace-nowrap">
                             @if($report->batch)
-                                <a href="{{ route('broadcasts.batches.show', $report->batch) }}" class="font-bold text-xs text-purple-700 hover:underline">
-                                    {{ $report->batch->title }}
-                                </a>
+                                <button type="button" 
+                                        onclick="openBatchDetailModal({{ $report->batch->id }})" 
+                                        class="font-bold text-xs text-purple-700 hover:text-purple-900 hover:underline cursor-pointer text-left inline-flex items-center gap-1 transition"
+                                        title="Buka Data Campaign">
+                                    <span>{{ $report->batch->title }}</span>
+                                    <svg class="size-2.5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+                                </button>
                             @else
                                 <span class="text-xs text-slate-400">Direct Broadcast</span>
                             @endif
@@ -358,6 +369,151 @@
     <div class="mt-4">{{ $reports->links() }}</div>
 @endif
 
+<!-- Modal: 📊 Detail Data Campaign Broadcast -->
+<div id="batch-detail-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/65 p-3 sm:p-5 backdrop-blur-sm flex items-center justify-center transition-all">
+    <div class="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50/90 px-5 py-4">
+            <div class="flex items-center gap-3">
+                <div class="flex size-10 items-center justify-center rounded-xl bg-purple-100 text-purple-700 shadow-2xs">
+                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.38.04-.77.06-1.16.06-2.4 0-4.5-1.19-5.74-3a7.48 7.48 0 0 1 12.33-2.12M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 0 1-2.25 2.25H16.5m0 0-2.25-2.25m2.25 2.25 2.25 2.25"/></svg>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 id="modalBatchTitle" class="text-base sm:text-lg font-black text-purple-900 uppercase tracking-tight">Memuat Campaign...</h3>
+                        <span id="modalBatchStatusBadge" class="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold"></span>
+                    </div>
+                    <p id="modalBatchSubtitle" class="text-xs text-slate-500 mt-0.5">Memuat informasi batch...</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a id="modalBatchExcelBtn" href="#" class="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition">
+                    <svg class="size-3.5 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/></svg>
+                    <span>Excel (.xlsx)</span>
+                </a>
+                <a id="modalBatchFullPageBtn" href="#" target="_blank" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition" title="Buka Halaman Lengkap di Tab Baru">
+                    <span>Halaman Penuh ↗</span>
+                </a>
+                <button type="button" onclick="closeBatchDetailModal()" class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition" title="Tutup Modal">
+                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Scrollable Modal Body -->
+        <div id="modalBatchLoading" class="p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
+            <svg class="size-8 animate-spin text-purple-600" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <span class="text-xs font-semibold">Mengambil data campaign & daftar penerima...</span>
+        </div>
+
+        <div id="modalBatchContent" class="hidden flex-1 overflow-y-auto p-5 space-y-5">
+            <!-- 4 KPI Summary Cards -->
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Target Penerima</span>
+                    <span id="modalKpiRecipients" class="mt-1 text-xl sm:text-2xl font-black text-slate-900 block">0</span>
+                    <span class="text-[10px] text-slate-500">Nomor dalam batch</span>
+                </div>
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Pesan Terkirim</span>
+                    <span id="modalKpiSent" class="mt-1 text-xl sm:text-2xl font-black text-emerald-600 block">0</span>
+                    <span class="text-[10px] text-emerald-600 font-medium">Sukses diterima WatZap</span>
+                </div>
+                <div class="rounded-xl border border-rose-200 bg-rose-50/40 p-3.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-rose-700 block">Pesan Gagal</span>
+                    <span id="modalKpiFailed" class="mt-1 text-xl sm:text-2xl font-black text-rose-600 block">0</span>
+                    <span class="text-[10px] text-rose-500 font-medium">Tidak terkirim</span>
+                </div>
+                <div class="rounded-xl border border-purple-200 bg-purple-50/40 p-3.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-purple-700 block">Delivery Rate</span>
+                    <span id="modalKpiRate" class="mt-1 text-xl sm:text-2xl font-black text-purple-700 block">0%</span>
+                    <span class="text-[10px] text-purple-600 font-medium">Rasio keberhasilan</span>
+                </div>
+            </div>
+
+            <!-- Konten Pesan Campaign -->
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+                    <svg class="size-4 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.75.75 0 0 1-.974-.94 4.025 4.025 0 0 0 .54-2.112A8.136 8.136 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/></svg>
+                    <span>Konten Broadcast Campaign</span>
+                </h4>
+                <div class="grid gap-3 md:grid-cols-12">
+                    <div id="modalBatchMessageCol" class="md:col-span-8">
+                        <div id="modalBatchMessage" class="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 text-xs text-slate-800 font-sans leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto"></div>
+                    </div>
+                    <div id="modalBatchImageCol" class="md:col-span-4">
+                        <div id="modalBatchImageWrapper" class="rounded-xl border border-slate-100 bg-slate-50/70 p-3 h-full flex flex-col justify-center items-center text-center"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recipient Breakdown Table with Search & Filter -->
+            <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+                <div class="border-b border-slate-100 bg-slate-50/60 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                    <div>
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">Daftar Penerima Campaign</h4>
+                        <p id="modalRecipientsSub" class="text-[11px] text-slate-500">Rincian status pengiriman per kontak</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <input type="search" id="modalRecipientSearch" placeholder="Cari nomor / nama..." oninput="applyModalRecipientFilter()" class="dcms-input py-1 px-2.5 text-xs w-44 rounded-lg">
+                        </div>
+                        <select id="modalRecipientStatusFilter" onchange="applyModalRecipientFilter()" class="dcms-input py-1 text-xs rounded-lg">
+                            <option value="">Semua Status</option>
+                            <option value="sent">Terkirim</option>
+                            <option value="failed">Gagal</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-72 overflow-y-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="sticky top-0 z-10 bg-slate-100 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
+                            <tr>
+                                <th class="py-2.5 px-3">Pelanggan</th>
+                                <th class="py-2.5 px-3">No WhatsApp</th>
+                                <th class="py-2.5 px-3 text-center">Status</th>
+                                <th class="py-2.5 px-3 whitespace-nowrap">Waktu</th>
+                                <th class="py-2.5 px-3">Pesan Terkirim</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalRecipientTableBody" class="divide-y divide-slate-100">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="modalBatchError" class="hidden p-8 text-center">
+            <div class="inline-flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 mb-3">
+                <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <div class="text-sm font-bold text-red-600 mb-1">Gagal Memuat Data Campaign</div>
+            <div id="modalBatchErrorMessage" class="text-xs text-slate-500 max-w-md mx-auto leading-relaxed mb-4"></div>
+            <button type="button" id="modalBatchRetryBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-xs font-bold text-purple-700 hover:bg-purple-100 transition shadow-2xs">
+                <span>Coba Muat Ulang</span>
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-between border-t border-slate-200 bg-slate-50/80 px-5 py-3">
+            <span id="modalBatchFooterInfo" class="text-xs text-slate-500 font-medium">Gadgetmart Outreach System</span>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="closeBatchDetailModal()" class="rounded-xl border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-100 transition">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: + New Broadcast (Launcher) -->
 <div id="new-broadcast-launcher-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm sm:p-6 md:p-10 flex items-center justify-center">
     <div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
@@ -408,6 +564,249 @@
 </div>
 
 <script>
+let currentModalBatchReports = [];
+
+function openBatchDetailModal(batchId) {
+    const modal = document.getElementById('batch-detail-modal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    const loadingEl = document.getElementById('modalBatchLoading');
+    const contentEl = document.getElementById('modalBatchContent');
+    const errorEl = document.getElementById('modalBatchError');
+
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (contentEl) contentEl.classList.add('hidden');
+    if (errorEl) errorEl.classList.add('hidden');
+
+    document.getElementById('modalBatchTitle').innerText = 'Memuat Campaign #' + batchId + '...';
+    const statusBadge = document.getElementById('modalBatchStatusBadge');
+    if (statusBadge) {
+        statusBadge.innerText = '';
+        statusBadge.className = 'hidden';
+    }
+    document.getElementById('modalBatchSubtitle').innerText = 'Mengambil rincian data batch...';
+
+    const batchUrl = "{{ url('/broadcasts/batches') }}/" + encodeURIComponent(batchId) + "?format=json";
+
+    fetch(batchUrl, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(async res => {
+        const contentType = res.headers.get("content-type") || "";
+        if (!res.ok) {
+            let errorMsg = `HTTP Error ${res.status} (${res.statusText})`;
+            if (contentType.includes("application/json")) {
+                try {
+                    const errData = await res.json();
+                    if (errData.message) errorMsg = errData.message;
+                } catch(e) {}
+            } else {
+                const txt = await res.text();
+                if (txt.includes("<!DOCTYPE") || txt.includes("<html")) {
+                    errorMsg = `Server merespon dengan status ${res.status}. Pastikan sesi login Anda masih aktif.`;
+                }
+            }
+            throw new Error(errorMsg);
+        }
+        if (contentType.includes("application/json")) {
+            return res.json();
+        }
+        throw new Error("Respon server bukan format JSON yang valid.");
+    })
+    .then(data => {
+        if (!data || !data.success) {
+            throw new Error((data && data.message) ? data.message : 'Gagal memproses data kampanye.');
+        }
+        renderBatchDetailModal(data);
+    })
+    .catch(err => {
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (contentEl) contentEl.classList.add('hidden');
+        if (errorEl) {
+            errorEl.classList.remove('hidden');
+            document.getElementById('modalBatchErrorMessage').innerText = err.message;
+            document.getElementById('modalBatchRetryBtn').onclick = () => openBatchDetailModal(batchId);
+        }
+    });
+}
+
+function closeBatchDetailModal() {
+    const modal = document.getElementById('batch-detail-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+function renderBatchDetailModal(data) {
+    const batch = data.batch || {};
+    const reports = data.reports || [];
+    currentModalBatchReports = reports;
+
+    const loadingEl = document.getElementById('modalBatchLoading');
+    const contentEl = document.getElementById('modalBatchContent');
+    const errorEl = document.getElementById('modalBatchError');
+
+    if (loadingEl) loadingEl.classList.add('hidden');
+    if (errorEl) errorEl.classList.add('hidden');
+    if (contentEl) contentEl.classList.remove('hidden');
+
+    // Header info
+    document.getElementById('modalBatchTitle').innerText = batch.title || 'BROADCAST CAMPAIGN';
+    document.getElementById('modalBatchSubtitle').innerText = `Dikirim pada: ${batch.sent_at || '-'} • ID Batch: #${batch.id}`;
+
+    const badge = document.getElementById('modalBatchStatusBadge');
+    if (badge) {
+        badge.className = 'inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold';
+        if (batch.status === 'completed' || batch.status === 'sent') {
+            badge.innerText = 'Completed';
+            badge.classList.add('bg-emerald-100', 'text-emerald-800');
+        } else if (batch.status === 'failed') {
+            badge.innerText = 'Failed';
+            badge.classList.add('bg-red-100', 'text-red-800');
+        } else {
+            badge.innerText = (batch.status ? batch.status.toUpperCase() : 'QUEUED');
+            badge.classList.add('bg-amber-100', 'text-amber-800');
+        }
+    }
+
+    // Action buttons
+    const excelBtn = document.getElementById('modalBatchExcelBtn');
+    if (excelBtn) {
+        excelBtn.href = data.download_url || '#';
+    }
+    const fullPageBtn = document.getElementById('modalBatchFullPageBtn');
+    if (fullPageBtn) {
+        fullPageBtn.href = data.full_url || '#';
+    }
+
+    // 4 KPI Cards
+    document.getElementById('modalKpiRecipients').innerText = Number(batch.total_recipients || 0).toLocaleString();
+    document.getElementById('modalKpiSent').innerText = Number(batch.total_sent || 0).toLocaleString();
+    document.getElementById('modalKpiFailed').innerText = Number(batch.total_failed || 0).toLocaleString();
+    document.getElementById('modalKpiRate').innerText = (batch.delivery_rate || 0) + '%';
+
+    // Content Message & Flyer
+    document.getElementById('modalBatchMessage').innerText = batch.message || '-';
+
+    const msgCol = document.getElementById('modalBatchMessageCol');
+    const imgCol = document.getElementById('modalBatchImageCol');
+    const imgWrapper = document.getElementById('modalBatchImageWrapper');
+
+    if (batch.image_url) {
+        if (msgCol) msgCol.className = 'md:col-span-8';
+        if (imgCol) imgCol.className = 'md:col-span-4';
+        if (imgWrapper) {
+            imgWrapper.innerHTML = `
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Flyer Promo Terlampir</span>
+                <a href="${batch.image_url}" target="_blank" rel="noopener" class="group block overflow-hidden rounded-xl border border-slate-200 bg-white p-1 hover:border-purple-500 transition shadow-xs max-w-[130px] max-h-[130px] mx-auto">
+                    <img src="${batch.image_url}" alt="Flyer Promo" class="h-28 w-28 rounded-lg object-cover mx-auto">
+                </a>
+                <a href="${batch.image_url}" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 hover:underline">
+                    <span>Buka Gambar Asli ↗</span>
+                </a>
+            `;
+        }
+    } else {
+        if (msgCol) msgCol.className = 'md:col-span-12';
+        if (imgCol) imgCol.className = 'hidden';
+        if (imgWrapper) imgWrapper.innerHTML = '';
+    }
+
+    // Reset filters
+    const searchInput = document.getElementById('modalRecipientSearch');
+    if (searchInput) searchInput.value = '';
+    const statusSelect = document.getElementById('modalRecipientStatusFilter');
+    if (statusSelect) statusSelect.value = '';
+
+    renderRecipientRows(reports);
+}
+
+function applyModalRecipientFilter() {
+    const query = (document.getElementById('modalRecipientSearch')?.value || '').toLowerCase().trim();
+    const status = document.getElementById('modalRecipientStatusFilter')?.value || '';
+
+    const filtered = currentModalBatchReports.filter(r => {
+        const matchText = !query || 
+            (r.customer_vendor_code && r.customer_vendor_code.toLowerCase().includes(query)) ||
+            (r.customer_name && r.customer_name.toLowerCase().includes(query)) ||
+            (r.phone_number && r.phone_number.includes(query)) ||
+            (r.message && r.message.toLowerCase().includes(query));
+
+        const matchStatus = !status || r.status === status;
+        return matchText && matchStatus;
+    });
+
+    renderRecipientRows(filtered);
+}
+
+function renderRecipientRows(list) {
+    const tbody = document.getElementById('modalRecipientTableBody');
+    const sub = document.getElementById('modalRecipientsSub');
+    const footer = document.getElementById('modalBatchFooterInfo');
+
+    if (!tbody) return;
+
+    if (sub) {
+        sub.innerText = `Menampilkan ${list.length} dari ${currentModalBatchReports.length} penerima`;
+    }
+    if (footer) {
+        footer.innerText = `Total ${list.length} data kontak pada batch ini`;
+    }
+
+    if (list.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="py-8 text-center text-slate-400">
+                    <div class="text-xs">Tidak ada data penerima yang cocok dengan filter pencarian.</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let rowsHtml = '';
+    list.forEach(r => {
+        const isSent = r.status === 'sent';
+        const isFailed = r.status === 'failed';
+        const badgeClass = isSent 
+            ? 'bg-emerald-100 text-emerald-800' 
+            : (isFailed ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700');
+
+        rowsHtml += `
+            <tr class="align-top hover:bg-slate-50/70 transition text-xs">
+                <td class="py-2.5 px-3">
+                    <div class="font-bold text-slate-900">${r.customer_vendor_code}</div>
+                    <div class="text-[11px] text-slate-500">${r.customer_name}</div>
+                </td>
+                <td class="py-2.5 px-3 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+                    ${r.phone_number}
+                </td>
+                <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                    <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${badgeClass}">
+                        ${r.status_label}
+                    </span>
+                    ${isFailed && r.provider_response ? `<div class="mt-0.5 max-w-[140px] truncate text-[9px] text-rose-600 font-medium mx-auto" title="${r.provider_response}">${r.provider_response}</div>` : ''}
+                </td>
+                <td class="py-2.5 px-3 whitespace-nowrap text-slate-500 text-[11px]">
+                    ${r.sent_at}
+                </td>
+                <td class="py-2.5 px-3 max-w-xs">
+                    <div class="line-clamp-2 text-[11px] text-slate-600 whitespace-pre-wrap leading-relaxed">${r.message}</div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+}
+
 function openNewBroadcastModal() {
     const modal = document.getElementById('new-broadcast-launcher-modal');
     if (modal) {
