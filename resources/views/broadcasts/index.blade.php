@@ -370,8 +370,9 @@
 @endif
 
 <!-- Modal: 📊 Detail Data Campaign Broadcast -->
-<div id="batch-detail-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/65 p-3 sm:p-5 backdrop-blur-sm flex items-center justify-center transition-all">
-    <div class="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+<div id="batch-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onclick="closeBatchDetailModal()"></div>
+    <div class="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] z-10 animate-in fade-in zoom-in-95 duration-150">
         <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50/90 px-5 py-4">
             <div class="flex items-center gap-3">
@@ -589,7 +590,7 @@ function openBatchDetailModal(batchId) {
     }
     document.getElementById('modalBatchSubtitle').innerText = 'Mengambil rincian data batch...';
 
-    const batchUrl = "{{ url('/broadcasts/batches') }}/" + encodeURIComponent(batchId) + "?format=json";
+    const batchUrl = "{{ route('broadcasts.batches.show', ['batch' => ':id']) }}".replace(':id', encodeURIComponent(batchId)) + "?format=json";
 
     fetch(batchUrl, {
         headers: {

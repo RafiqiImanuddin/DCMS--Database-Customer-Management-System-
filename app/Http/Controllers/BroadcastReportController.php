@@ -104,13 +104,15 @@ class BroadcastReportController extends Controller
         ]);
     }
 
-    public function showBatch(Request $request, BroadcastBatch $batch): View|\Illuminate\Http\JsonResponse
+    public function showBatch(Request $request, $batch): View|\Illuminate\Http\JsonResponse
     {
-        if (!$request->user()->isSuperAdmin() && (int) $batch->user_id !== (int) $request->user()->id) {
+        $batchModel = $batch instanceof BroadcastBatch ? $batch : BroadcastBatch::findOrFail($batch);
+
+        if (!$request->user()->isSuperAdmin() && (int) $batchModel->user_id !== (int) $request->user()->id) {
             abort(404);
         }
 
-        $reportsQuery = $batch->reports()->with(['prediction', 'user']);
+        $reportsQuery = $batchModel->reports()->with(['prediction', 'user']);
         if (($status = $request->string('status')->toString()) && in_array($status, ['sent', 'failed', 'logged', 'queued'], true)) {
             $reportsQuery->where('status', $status);
         }
@@ -120,21 +122,21 @@ class BroadcastReportController extends Controller
             return response()->json([
                 'success' => true,
                 'batch' => [
-                    'id' => $batch->id,
-                    'title' => $batch->title,
-                    'status' => $batch->status,
-                    'message' => $batch->message,
-                    'image_url' => $batch->image_url,
-                    'total_recipients' => (int) $batch->total_recipients,
-                    'total_sent' => (int) $batch->total_sent,
-                    'total_failed' => (int) $batch->total_failed,
-                    'delivery_rate' => (float) $batch->delivery_rate,
-                    'sent_at' => $batch->sent_at?->format('D, d M Y H:i') . ' WIB',
-                    'sent_at_date' => $batch->sent_at?->format('d M Y, H:i') ?: '-',
-                    'created_at' => $batch->created_at?->format('d M Y H:i'),
+                    'id' => $batchModel->id,
+                    'title' => $batchModel->title,
+                    'status' => $batchModel->status,
+                    'message' => $batchModel->message,
+                    'image_url' => $batchModel->image_url,
+                    'total_recipients' => (int) $batchModel->total_recipients,
+                    'total_sent' => (int) $batchModel->total_sent,
+                    'total_failed' => (int) $batchModel->total_failed,
+                    'delivery_rate' => (float) $batchModel->delivery_rate,
+                    'sent_at' => $batchModel->sent_at?->format('D, d M Y H:i') . ' WIB',
+                    'sent_at_date' => $batchModel->sent_at?->format('d M Y, H:i') ?: '-',
+                    'created_at' => $batchModel->created_at?->format('d M Y H:i'),
                 ],
-                'download_url' => route('broadcasts.batches.download', $batch),
-                'full_url' => route('broadcasts.batches.show', $batch),
+                'download_url' => route('broadcasts.batches.download', $batchModel),
+                'full_url' => route('broadcasts.batches.show', $batchModel),
                 'reports' => $reports->map(function ($r) {
                     return [
                         'id' => $r->id,
@@ -154,19 +156,21 @@ class BroadcastReportController extends Controller
         $reports = $reportsQuery->latest()->paginate(25)->withQueryString();
 
         return view('broadcasts.show', [
-            'batch' => $batch,
+            'batch' => $batchModel,
             'reports' => $reports,
         ]);
     }
 
-    public function downloadBatch(Request $request, BroadcastBatch $batch): BinaryFileResponse
+    public function downloadBatch(Request $request, $batch): BinaryFileResponse
     {
-        if (!$request->user()->isSuperAdmin() && (int) $batch->user_id !== (int) $request->user()->id) {
+        $batchModel = $batch instanceof BroadcastBatch ? $batch : BroadcastBatch::findOrFail($batch);
+
+        if (!$request->user()->isSuperAdmin() && (int) $batchModel->user_id !== (int) $request->user()->id) {
             abort(404);
         }
 
-        $query = $batch->reports()->latest();
-        $filename = 'laporan-batch-'.Str::slug($batch->title).'-'.now()->format('Y-m-d').'.xlsx';
+        $query = $batchModel->reports()->latest();
+        $filename = 'laporan-batch-'.Str::slug($batchModel->title).'-'.now()->format('Y-m-d').'.xlsx';
         $headers = ['Kode Pelanggan', 'No HP', 'Channel', 'Status', 'Pesan', 'Lampiran Gambar', 'Waktu'];
 
         $rowsGenerator = function () use ($query) {
@@ -186,15 +190,17 @@ class BroadcastReportController extends Controller
         return FastXlsxWriter::download($filename, $headers, $rowsGenerator());
     }
 
-    public function destroyBatch(Request $request, BroadcastBatch $batch): RedirectResponse
+    public function destroyBatch(Request $request, $batch): RedirectResponse
     {
-        if (!$request->user()->isSuperAdmin() && (int) $batch->user_id !== (int) $request->user()->id) {
+        $batchModel = $batch instanceof BroadcastBatch ? $batch : BroadcastBatch::findOrFail($batch);
+
+        if (!$request->user()->isSuperAdmin() && (int) $batchModel->user_id !== (int) $request->user()->id) {
             abort(404);
         }
 
-        $title = $batch->title;
-        $batch->reports()->delete();
-        $batch->delete();
+        $title = $batchModel->title;
+        $batchModel->reports()->delete();
+        $batchModel->delete();
 
         return redirect()->route('broadcasts.index')->with(
             'success',
