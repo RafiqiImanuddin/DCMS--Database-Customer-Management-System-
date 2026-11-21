@@ -914,17 +914,72 @@ function autoSyncMetrics() {
 function openReportModal(assessmentId) {
     document.getElementById('reportModal').classList.remove('hidden');
     document.getElementById('reportModal').classList.add('flex');
-    document.getElementById('reportModalContent').innerHTML = '<div class="py-8 text-center text-slate-400">Memuat data rapor harian...</div>';
+    document.getElementById('reportModalContent').innerHTML = `
+        <div class="py-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
+            <svg class="size-8 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <span class="text-xs font-semibold">Memuat data rapor harian...</span>
+        </div>
+    `;
 
-    fetch("/monitoring/sales/assessments/" + assessmentId)
-    .then(res => res.json())
+    const reportUrl = "{{ url('/monitoring/sales/assessments') }}/" + encodeURIComponent(assessmentId);
+
+    fetch(reportUrl, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(async res => {
+        const contentType = res.headers.get("content-type") || "";
+        if (!res.ok) {
+            let errorMsg = `HTTP Error ${res.status} (${res.statusText})`;
+            if (contentType.includes("application/json")) {
+                try {
+                    const errJson = await res.json();
+                    if (errJson.message) errorMsg = errJson.message;
+                } catch(e) {}
+            } else {
+                const rawText = await res.text();
+                if (rawText.includes("<!DOCTYPE") || rawText.includes("<html")) {
+                    errorMsg = `Server merespon dengan status ${res.status}. Pastikan sesi login masih aktif atau URL endpoint valid.`;
+                }
+            }
+            throw new Error(errorMsg);
+        }
+
+        if (contentType.includes("application/json")) {
+            return res.json();
+        }
+        throw new Error("Respon server bukan format JSON yang valid.");
+    })
     .then(data => {
-        if (data.success) {
+        if (data && data.success) {
             renderReportCard(data);
+        } else {
+            throw new Error((data && data.message) ? data.message : 'Gagal memproses data rapor.');
         }
     })
     .catch(err => {
-        document.getElementById('reportModalContent').innerHTML = '<div class="py-8 text-center text-red-500">Gagal memuat rapor: ' + err.message + '</div>';
+        document.getElementById('reportModalContent').innerHTML = `
+            <div class="py-8 px-4 text-center">
+                <div class="inline-flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 mb-3">
+                    <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <div class="text-sm font-bold text-red-600 mb-1">Gagal Memuat Rapor</div>
+                <div class="text-xs text-slate-500 max-w-md mx-auto leading-relaxed mb-4">${err.message}</div>
+                <button type="button" onclick="openReportModal(${assessmentId})" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs">
+                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                    <span>Coba Muat Ulang</span>
+                </button>
+            </div>
+        `;
     });
 }
 
@@ -954,11 +1009,11 @@ function copyWhatsAppReport() {
 }
 
 function renderReportCard(data) {
-    const emp = data.employee;
-    const ass = data.assessment;
-    const criteria = data.criteria;
+    const emp = data.employee || { name: 'Karyawan', nik: '-', role: '-', cabang: '-' };
+    const ass = data.assessment || {};
+    const criteria = data.criteria || [];
     const diag = data.diagnostic || {};
-    const scores = ass.scores || {};
+    const scores = (typeof ass.scores === 'object' && ass.scores !== null) ? ass.scores : {};
     const history = data.recent_history || [];
 
     currentReportWaText = diag.whatsapp_text || '';
@@ -1019,13 +1074,13 @@ function renderReportCard(data) {
         <div class="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 text-xs border border-slate-200">
             <div>
                 <div class="text-slate-400 text-[10px] font-bold uppercase">Nama Karyawan</div>
-                <div class="font-black text-slate-900 text-sm mt-0.5">${emp.name}</div>
-                <div class="text-slate-500 mt-0.5">NIK: ${emp.nik} • ${emp.role}</div>
+                <div class="font-black text-slate-900 text-sm mt-0.5">${emp.name || '-'}</div>
+                <div class="text-slate-500 mt-0.5">NIK: ${emp.nik || '-'} • ${emp.role || '-'}</div>
             </div>
             <div class="text-right">
                 <div class="text-slate-400 text-[10px] font-bold uppercase">Cabang & Tanggal</div>
-                <div class="font-bold text-slate-900 text-sm mt-0.5">Cabang ${emp.cabang}</div>
-                <div class="text-indigo-600 font-black mt-0.5">${ass.period}</div>
+                <div class="font-bold text-slate-900 text-sm mt-0.5">Cabang ${emp.cabang || '-'}</div>
+                <div class="text-indigo-600 font-black mt-0.5">${ass.period || '-'}</div>
             </div>
         </div>
 

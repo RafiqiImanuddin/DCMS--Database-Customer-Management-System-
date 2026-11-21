@@ -293,32 +293,63 @@ class SalesMonitoringController extends Controller
     /**
      * Show assessment details as JSON for modal report view.
      */
-    public function showAssessment(SalesAssessment $assessment): JsonResponse
+    public function showAssessment($assessment): JsonResponse
     {
-        $assessment->load(['employee.recentAssessments']);
-        $criteria = KpiCriterion::query()->active()->orderBy('sort_order')->get();
+        try {
+            $assessmentModel = $assessment instanceof SalesAssessment 
+                ? $assessment 
+                : SalesAssessment::find($assessment);
 
-        $diagnostic = SalesAssessment::generateSmartDiagnostic(
-            $assessment->employee,
-            $assessment->period,
-            (float) $assessment->final_score,
-            $assessment->grade,
-            $assessment->scores ?: [],
-            $assessment->notes,
-            $assessment->recommendations,
-            $assessment->evidence_link
-        );
+            if (!$assessmentModel) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data penilaian tidak ditemukan atau telah dihapus.',
+                ], 404);
+            }
 
-        return response()->json([
-            'success' => true,
-            'assessment' => $assessment,
-            'employee' => $assessment->employee,
-            'criteria' => $criteria,
-            'grade_label' => SalesAssessment::getGradeLabel($assessment->grade),
-            'grade_badge' => SalesAssessment::getGradeBadgeClasses($assessment->grade),
-            'diagnostic' => $diagnostic,
-            'recent_history' => $assessment->employee->recentAssessments,
-        ]);
+            $assessmentModel->load(['employee.recentAssessments']);
+            $employee = $assessmentModel->employee;
+            $criteria = KpiCriterion::query()->active()->orderBy('sort_order')->get();
+
+            $diagnostic = null;
+            if ($employee) {
+                $scores = is_array($assessmentModel->scores) 
+                    ? $assessmentModel->scores 
+                    : (json_decode($assessmentModel->scores ?: '[]', true) ?: []);
+
+                $diagnostic = SalesAssessment::generateSmartDiagnostic(
+                    $employee,
+                    (string) ($assessmentModel->period ?? date('Y-m-d')),
+                    (float) ($assessmentModel->final_score ?? 0),
+                    (string) ($assessmentModel->grade ?? 'C'),
+                    $scores,
+                    $assessmentModel->notes,
+                    $assessmentModel->recommendations,
+                    $assessmentModel->evidence_link
+                );
+            }
+
+            return response()->json([
+                'success' => true,
+                'assessment' => $assessmentModel,
+                'employee' => $employee,
+                'criteria' => $criteria,
+                'grade_label' => SalesAssessment::getGradeLabel($assessmentModel->grade ?? 'C'),
+                'grade_badge' => SalesAssessment::getGradeBadgeClasses($assessmentModel->grade ?? 'C'),
+                'diagnostic' => $diagnostic,
+                'recent_history' => $employee ? $employee->recentAssessments : [],
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Error loading assessment: ' . $e->getMessage(), [
+                'assessment_param' => is_object($assessment) ? ($assessment->id ?? 'object') : $assessment,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memproses data rapor: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

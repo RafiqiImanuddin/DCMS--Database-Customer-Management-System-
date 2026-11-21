@@ -44,7 +44,10 @@ class SalesAssessment extends Model
             return $value;
         }
         $scores = $this->scores ?? [];
-        return $scores['_evidence_link'] ?? null;
+        if (is_string($scores)) {
+            $scores = json_decode($scores, true) ?: [];
+        }
+        return is_array($scores) ? ($scores['_evidence_link'] ?? null) : null;
     }
 
     /**
@@ -68,7 +71,10 @@ class SalesAssessment extends Model
         }
 
         $scores = $this->scores ?? [];
-        if (!empty($scores['_evidence_links']) && is_array($scores['_evidence_links'])) {
+        if (is_string($scores)) {
+            $scores = json_decode($scores, true) ?: [];
+        }
+        if (is_array($scores) && !empty($scores['_evidence_links']) && is_array($scores['_evidence_links'])) {
             return array_values(array_filter(array_map('trim', $scores['_evidence_links'])));
         }
 
