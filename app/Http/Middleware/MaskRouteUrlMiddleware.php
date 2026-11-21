@@ -46,11 +46,13 @@ class MaskRouteUrlMiddleware
             return $next($request);
         }
 
-        // Skip download and export endpoints
+        // Skip download, export, and campaign batch detail endpoints
         if ($request->is(
             '*/download*',
             '*/template*',
-            '*/print*'
+            '*/print*',
+            'broadcasts/batches*',
+            '*/batches*'
         )) {
             return $next($request);
         }

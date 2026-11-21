@@ -395,6 +395,7 @@ class RouteCipher
         if ($request->routeIs('predictions.*')) return 'predictions.index';
         if ($request->routeIs('leads.*')) return 'leads.index';
         if ($request->routeIs('broadcasts.templates.*')) return 'broadcasts.templates.index';
+        if ($request->routeIs('broadcasts.batches.*')) return 'broadcasts.batches.show';
         if ($request->routeIs('broadcasts.*')) return 'broadcasts.index';
         if ($request->routeIs('pricelist.*')) return 'pricelist.index';
         if ($request->routeIs('monitoring.sales.*')) return 'monitoring.sales.index';

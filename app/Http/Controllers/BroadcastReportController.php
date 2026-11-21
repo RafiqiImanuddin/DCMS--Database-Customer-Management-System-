@@ -106,10 +106,20 @@ class BroadcastReportController extends Controller
 
     public function showBatch(Request $request, $batch): View|\Illuminate\Http\JsonResponse
     {
-        $batchModel = $batch instanceof BroadcastBatch ? $batch : BroadcastBatch::findOrFail($batch);
+        $batchModel = $batch instanceof BroadcastBatch ? $batch : BroadcastBatch::find($batch);
+
+        if (!$batchModel) {
+            if ($request->wantsJson() || $request->ajax() || $request->query('format') === 'json') {
+                return response()->json(['success' => false, 'message' => 'Data campaign tidak ditemukan.'], 404);
+            }
+            abort(404, 'Data campaign tidak ditemukan.');
+        }
 
         if (!$request->user()->isSuperAdmin() && (int) $batchModel->user_id !== (int) $request->user()->id) {
-            abort(404);
+            if ($request->wantsJson() || $request->ajax() || $request->query('format') === 'json') {
+                return response()->json(['success' => false, 'message' => 'Anda tidak memiliki hak akses ke data campaign ini.'], 403);
+            }
+            abort(403);
         }
 
         $reportsQuery = $batchModel->reports()->with(['prediction', 'user']);
