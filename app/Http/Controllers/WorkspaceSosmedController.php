@@ -765,7 +765,8 @@ class WorkspaceSosmedController extends Controller
         $userKodeSosmed = null;
         if ($user && $user->hasKodeSosmed()) {
             $userKodeSosmed = $user->getKodeSosmed();
-            $sessionId = \Illuminate\Support\Str::slug($userKodeSosmed, '_');
+            $rawSlug = \Illuminate\Support\Str::slug($userKodeSosmed, '_');
+            $sessionId = str_starts_with($rawSlug, 'sosmed_') ? $rawSlug : 'sosmed_'.$rawSlug;
         } elseif ($request->input('session')) {
             $sessionId = trim((string) $request->input('session'));
         }
@@ -1211,57 +1212,71 @@ class WorkspaceSosmedController extends Controller
                 return $parseEpochMs($a['timestamp'] ?? 0) <=> $parseEpochMs($b['timestamp'] ?? 0);
             });
 
-            // Ambil nomor gateway dari cache untuk respon instan tanpa blocking HTTP network call
-            $gatewayPhone = cache()->get('baileys_bot_phone');
-            if (! $gatewayPhone) {
-                try {
-                    $bStatus = $watzapService->getBaileysStatus();
-                    if (! empty($bStatus['phone'])) {
-                        $gatewayPhone = preg_replace('/\D/', '', (string) $bStatus['phone']);
-                        if ($gatewayPhone) {
-                            cache()->put('baileys_bot_phone', $gatewayPhone, now()->addDays(7));
-                        }
-                    }
-                } catch (\Throwable) {}
-            }
-            if (! $gatewayPhone) {
-                $gatewayPhone = '6285111426699';
-            }
-
-            // Filter opsional berdasarkan nomor gateway aktif jika diminta client
-            $requestedGateway = $request->query('gateway_phone');
-            if ($requestedGateway) {
-                $cleanReqGw = preg_replace('/\D/', '', (string) $requestedGateway);
-                if ($cleanReqGw) {
-                    $filtered = array_values(array_filter($filtered, function ($m) use ($cleanReqGw) {
-                        if (empty($m['gateway_phone'])) {
-                            return true; // legacy message tetap diizinkan
-                        }
-                        $mGw = preg_replace('/\D/', '', (string) $m['gateway_phone']);
-                        return $mGw === $cleanReqGw;
-                    }));
-                }
-            }
-
             // Filter scoping berdasarkan kode_sosmed / session untuk Admin Sosmed mandiri
             $currentUser = $request->user();
             $userKodeSosmed = $currentUser?->hasKodeSosmed() ? $currentUser->getKodeSosmed() : null;
-            $userSession = $userKodeSosmed ? \Illuminate\Support\Str::slug($userKodeSosmed, '_') : null;
+            $rawSlug = $userKodeSosmed ? \Illuminate\Support\Str::slug($userKodeSosmed, '_') : null;
+            $userSession = $rawSlug ? (str_starts_with($rawSlug, 'sosmed_') ? $rawSlug : 'sosmed_'.$rawSlug) : null;
 
             if ($currentUser && ! $currentUser->isSuperAdmin() && $userKodeSosmed) {
-                $filtered = array_values(array_filter($filtered, function ($m) use ($userSession, $userKodeSosmed) {
+                // Untuk Admin Sosmed: Ambil status nomor WA dari sesi miliknya sendiri, BUKAN Bot Utama
+                $adminWaStatus = $watzapService->getBaileysStatus(false, $userSession);
+                if (empty($adminWaStatus['online']) || empty($adminWaStatus['phone'])) {
+                    $adminWaStatus = $watzapService->getBaileysStatus(false, $rawSlug);
+                }
+
+                $gatewayPhone = (! empty($adminWaStatus['online']) && ! empty($adminWaStatus['phone']))
+                    ? preg_replace('/\D/', '', (string) $adminWaStatus['phone'])
+                    : null;
+
+                // Admin Sosmed HANYA melihat pesan yang masuk ke sesi / kode_sosmed miliknya sendiri
+                // Pesan Bot Utama (default/legacy) HARUS kosong untuk admin sosmed yang baru / belum punya chat
+                $filtered = array_values(array_filter($filtered, function ($m) use ($userSession, $rawSlug, $userKodeSosmed) {
                     $mSession = $m['session_id'] ?? $m['session'] ?? null;
                     $mKode = $m['kode_sosmed'] ?? null;
-                    if ($mSession && $mSession === $userSession) return true;
+                    if ($mSession && ($mSession === $userSession || $mSession === $rawSlug)) return true;
                     if ($mKode && strcasecmp($mKode, $userKodeSosmed) === 0) return true;
-                    if (empty($mSession) && empty($mKode)) return true; // legacy message tetap tampil
                     return false;
                 }));
-            } elseif ($request->query('session') && $currentUser?->isSuperAdmin()) {
-                $reqSession = trim((string) $request->query('session'));
-                $filtered = array_values(array_filter($filtered, function ($m) use ($reqSession) {
-                    return ($m['session_id'] ?? $m['session'] ?? '') === $reqSession;
-                }));
+            } else {
+                // Untuk Superadmin atau Bot Utama
+                $gatewayPhone = cache()->get('baileys_bot_phone');
+                if (! $gatewayPhone) {
+                    try {
+                        $bStatus = $watzapService->getBaileysStatus();
+                        if (! empty($bStatus['phone'])) {
+                            $gatewayPhone = preg_replace('/\D/', '', (string) $bStatus['phone']);
+                            if ($gatewayPhone) {
+                                cache()->put('baileys_bot_phone', $gatewayPhone, now()->addDays(7));
+                            }
+                        }
+                    } catch (\Throwable) {}
+                }
+                if (! $gatewayPhone) {
+                    $gatewayPhone = '6285111426699';
+                }
+
+                // Filter opsional berdasarkan nomor gateway aktif jika diminta client
+                $requestedGateway = $request->query('gateway_phone');
+                if ($requestedGateway) {
+                    $cleanReqGw = preg_replace('/\D/', '', (string) $requestedGateway);
+                    if ($cleanReqGw) {
+                        $filtered = array_values(array_filter($filtered, function ($m) use ($cleanReqGw) {
+                            if (empty($m['gateway_phone'])) {
+                                return true; // legacy message tetap diizinkan untuk superadmin
+                            }
+                            $mGw = preg_replace('/\D/', '', (string) $m['gateway_phone']);
+                            return $mGw === $cleanReqGw;
+                        }));
+                    }
+                }
+
+                if ($request->query('session') && $currentUser?->isSuperAdmin()) {
+                    $reqSession = trim((string) $request->query('session'));
+                    $filtered = array_values(array_filter($filtered, function ($m) use ($reqSession) {
+                        return ($m['session_id'] ?? $m['session'] ?? '') === $reqSession;
+                    }));
+                }
             }
 
             // Ambil status pengguna yang sedang online & sedang mengetik (realtime presence)
@@ -2799,7 +2814,8 @@ class WorkspaceSosmedController extends Controller
 
         if ($user->hasKodeSosmed()) {
             $kodeSosmed = $user->getKodeSosmed();
-            $sessionId = \Illuminate\Support\Str::slug($kodeSosmed, '_');
+            $rawSlug = \Illuminate\Support\Str::slug($kodeSosmed, '_');
+            $sessionId = str_starts_with($rawSlug, 'sosmed_') ? $rawSlug : 'sosmed_'.$rawSlug;
         } elseif ($request->query('session') && $user->isSuperAdmin()) {
             $sessionId = trim((string) $request->query('session'));
         }
@@ -2834,7 +2850,8 @@ class WorkspaceSosmedController extends Controller
 
         $sessionId = 'default';
         if ($user->hasKodeSosmed()) {
-            $sessionId = \Illuminate\Support\Str::slug($user->getKodeSosmed(), '_');
+            $rawSlug = \Illuminate\Support\Str::slug($user->getKodeSosmed(), '_');
+            $sessionId = str_starts_with($rawSlug, 'sosmed_') ? $rawSlug : 'sosmed_'.$rawSlug;
         } elseif ($request->input('session') && $user->isSuperAdmin()) {
             $sessionId = trim((string) $request->input('session'));
         }

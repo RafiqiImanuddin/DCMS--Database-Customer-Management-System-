@@ -147,6 +147,9 @@
 
     window.switchWorkspaceTab = function(tabIndex) {
         window.switchTab(tabIndex);
+        if (parseInt(tabIndex, 10) === 9 && window.USER_KODE_SOSMED && typeof window.refreshMyWaStatus === 'function') {
+            window.refreshMyWaStatus(true);
+        }
         if (window.innerWidth < 768 && typeof window.toggleDcmsSidebar === 'function') {
             window.toggleDcmsSidebar(false);
         }
@@ -159,6 +162,9 @@
                 window.switchWorkspaceTab(initTab);
             } else if (typeof window.switchTab === 'function') {
                 window.switchTab(initTab);
+            }
+            if (window.USER_KODE_SOSMED && typeof window.refreshMyWaStatus === 'function') {
+                window.refreshMyWaStatus(false);
             }
         }, 100);
     });
