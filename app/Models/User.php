@@ -401,6 +401,10 @@ class User extends Authenticatable
      */
     public function getFirstAccessibleRoute(): string
     {
+        if ($this->hasKodeSosmed() && ! $this->isSuperAdmin()) {
+            return \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]);
+        }
+
         if ($this->canAccessFeature('dashboard')) {
             return route('dashboard');
         }

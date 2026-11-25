@@ -18,7 +18,14 @@ use App\Http\Controllers\WorkspaceSosmedController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect()->route(auth()->check() ? 'dashboard' : 'login');
+    if (auth()->check()) {
+        $user = auth()->user();
+        if ($user->hasKodeSosmed() && ! $user->isSuperAdmin()) {
+            return redirect()->to(\App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]));
+        }
+        return redirect()->route('dashboard');
+    }
+    return redirect()->route('login');
 });
 
 // Endpoint publik untuk akses file media broadcast (agar WatZap server dapat mengunduh gambar)

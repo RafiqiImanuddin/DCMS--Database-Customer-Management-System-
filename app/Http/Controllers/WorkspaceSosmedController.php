@@ -47,12 +47,15 @@ class WorkspaceSosmedController extends Controller
             }
         }
 
+        $user = $request->user();
+        $defaultTab = ($user && $user->hasKodeSosmed() && ! $user->isSuperAdmin()) ? 4 : 1;
+
         $activeTab = $tab
             ?? ($request->route('tab') ? (int) $request->route('tab') : null)
             ?? ($request->query('tab') && is_numeric($request->query('tab')) ? (int) $request->query('tab') : null)
             ?? RouteCipher::resolveWorkspaceTab($request)
             ?? WorkspaceUrlCipher::resolveTab($request)
-            ?? 1;
+            ?? $defaultTab;
 
         $tabFeatureMap = [
             1 => 'workspace_dashboard',

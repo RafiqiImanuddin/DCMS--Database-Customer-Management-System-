@@ -16,8 +16,13 @@ class DashboardController extends Controller
 {
     public function __invoke(Request $request): View|RedirectResponse
     {
-        if ($request->user() && ! $request->user()->canAccessFeature('dashboard')) {
-            return redirect()->to($request->user()->getFirstAccessibleRoute());
+        $user = $request->user();
+        if ($user && $user->hasKodeSosmed() && ! $user->isSuperAdmin()) {
+            return redirect()->to(\App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]));
+        }
+
+        if ($user && ! $user->canAccessFeature('dashboard')) {
+            return redirect()->to($user->getFirstAccessibleRoute());
         }
         $selectedBrand = $request->string('brand')->trim()->toString();
         $selectedPhoneStatus = $request->string('phone_status')->trim()->toString();

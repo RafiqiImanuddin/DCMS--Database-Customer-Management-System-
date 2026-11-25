@@ -12,6 +12,10 @@ class AuthController extends Controller
     public function create(): View|RedirectResponse
     {
         if (Auth::check()) {
+            $user = Auth::user();
+            if ($user && $user->hasKodeSosmed() && ! $user->isSuperAdmin()) {
+                return redirect()->to(\App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]));
+            }
             return redirect()->route('dashboard');
         }
 
@@ -31,6 +35,11 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
         $request->session()->flash('show_login_guidance', true);
+
+        $user = Auth::user();
+        if ($user && $user->hasKodeSosmed() && ! $user->isSuperAdmin()) {
+            return redirect()->to(\App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]));
+        }
 
         return redirect()->intended(route('dashboard'));
     }
