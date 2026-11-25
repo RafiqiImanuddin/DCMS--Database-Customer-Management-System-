@@ -11,7 +11,15 @@
                     <span class="text-xs text-slate-400">&bull;</span>
                     <span class="text-xs font-medium text-slate-500">Rekap Data Booking & Keep Sosmed</span>
                 </div>
-                <h1 class="mt-1 text-2xl font-black text-slate-900">Format Keep Customer</h1>
+                <div class="mt-1 flex items-center gap-2 flex-wrap">
+                    <h1 class="text-2xl font-black text-slate-900">Format Keep Customer</h1>
+                    @if(auth()->user()?->hasKodeSosmed())
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-black text-emerald-800 shadow-2xs" title="Data Format Keep otomatis difilter khusus untuk akun sosmed Anda">
+                            <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>{{ auth()->user()->getKodeSosmed() }}</span>
+                        </span>
+                    @endif
+                </div>
             </div>
 
             <!-- View Toggle & Export XLSX Button -->

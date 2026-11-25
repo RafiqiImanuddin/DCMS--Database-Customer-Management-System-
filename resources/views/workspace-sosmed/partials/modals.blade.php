@@ -748,3 +748,82 @@
         </div>
     </div>
 
+    <!-- MODAL: SCAN QR WHATSAPP MANDIRI (ADMIN SOSMED & SUPERADMIN) -->
+    <div id="modal-my-whatsapp" class="fixed inset-0 z-[100] hidden items-center justify-center p-3 sm:p-5" style="display: none;">
+        <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity" onclick="closeMyWhatsAppModal()"></div>
+        <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col z-10 animate-in fade-in zoom-in-95 duration-150">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between border-b border-slate-100 bg-emerald-50/70 px-5 py-3.5">
+                <div class="flex items-center gap-2.5">
+                    <div class="flex size-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-.778.099-1.533.284-2.253"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                            <span>WhatsApp Mandiri</span>
+                            <span id="myWaBadgeSosmed" class="inline-flex rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                {{ auth()->user()?->hasKodeSosmed() ? auth()->user()->getKodeSosmed() : 'BOT UTAMA' }}
+                            </span>
+                        </h3>
+                        <p class="text-[11px] text-slate-500">Scan QR untuk menghubungkan nomor WA Anda ke DCMS</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeMyWhatsAppModal()" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-5 flex flex-col items-center text-center">
+                <!-- Status Badge -->
+                <div class="mb-4 w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span id="myWaStatusDot" class="inline-block size-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span id="myWaStatusText" class="font-bold text-slate-800">Memeriksa koneksi...</span>
+                    </div>
+                    <span id="myWaPhoneText" class="font-mono text-[11px] font-bold text-slate-600">-</span>
+                </div>
+
+                <!-- QR Code Box -->
+                <div id="myWaQrContainer" class="relative flex size-56 items-center justify-center rounded-2xl border-2 border-dashed border-emerald-300 bg-slate-50 p-2 shadow-inner transition">
+                    <div id="myWaQrLoading" class="flex flex-col items-center justify-center gap-2 text-slate-400">
+                        <svg class="size-8 animate-spin text-emerald-600" viewBox="0 0 24 24" fill="none">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                        <span class="text-xs font-semibold">Mengambil QR Code...</span>
+                    </div>
+                    <img id="myWaQrImage" src="" alt="Scan QR WhatsApp" class="hidden size-full object-contain rounded-xl">
+                    <div id="myWaConnectedState" class="hidden flex-col items-center justify-center gap-2 text-emerald-600">
+                        <div class="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-1">
+                            <svg class="size-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <span class="text-sm font-bold text-slate-900">WhatsApp Terhubung!</span>
+                        <span class="text-[11px] text-slate-500">Inbox & follow-up kini menggunakan WhatsApp Anda</span>
+                    </div>
+                </div>
+
+                <!-- Instructions -->
+                <div id="myWaInstructions" class="mt-4 rounded-xl bg-slate-50 p-3 text-left text-xs text-slate-600 w-full border border-slate-200/80 space-y-1">
+                    <div class="font-bold text-slate-800 mb-1">📱 Cara Menghubungkan:</div>
+                    <p class="text-[11px] text-slate-500">1. Buka <b>WhatsApp</b> di HP Anda</p>
+                    <p class="text-[11px] text-slate-500">2. Ketuk <b>Menu (titik tiga)</b> atau <b>Pengaturan</b></p>
+                    <p class="text-[11px] text-slate-500">3. Pilih <b>Perangkat Tertaut</b> lalu ketuk <b>Tautkan Perangkat</b></p>
+                    <p class="text-[11px] text-slate-500">4. Arahkan kamera HP ke kode QR di atas</p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-5 w-full flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="refreshMyWaStatus(true)" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition cursor-pointer">
+                        <svg class="size-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                        <span>Muat Ulang QR</span>
+                    </button>
+                    <button type="button" id="btnMyWaDisconnect" onclick="disconnectMyWa()" class="hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-xs font-bold text-rose-700 shadow-2xs transition cursor-pointer">
+                        <svg class="size-3.5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+                        <span>Putuskan WhatsApp</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+

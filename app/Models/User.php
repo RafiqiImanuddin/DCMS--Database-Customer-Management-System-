@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'phone', 'password', 'role', 'permissions'])]
+#[Fillable(['name', 'email', 'phone', 'password', 'role', 'permissions', 'kode_sosmed'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -29,6 +29,22 @@ class User extends Authenticatable
             'password' => 'hashed',
             'permissions' => 'array',
         ];
+    }
+
+    /**
+     * Ambil kode sosmed yang terikat pada user (misal: SOSMED 4, SOSMED 16).
+     */
+    public function getKodeSosmed(): ?string
+    {
+        return ! empty($this->kode_sosmed) ? trim((string) $this->kode_sosmed) : null;
+    }
+
+    /**
+     * Cek apakah user memiliki ikatan kode sosmed tertentu.
+     */
+    public function hasKodeSosmed(): bool
+    {
+        return ! empty($this->kode_sosmed);
     }
 
     /**

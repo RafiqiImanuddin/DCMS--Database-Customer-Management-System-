@@ -263,6 +263,13 @@
                                         Staff / User
                                     </span>
                                 @endif
+                                @if (!empty($u->kode_sosmed))
+                                    <div class="mt-1">
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200 shadow-2xs">
+                                            <span>📱 {{ $u->kode_sosmed }}</span>
+                                        </span>
+                                    </div>
+                                @endif
                             </td>
 
                             <td class="px-4 py-4">
@@ -329,6 +336,7 @@
                                                     'name' => $u->name,
                                                     'email' => $u->email,
                                                     'role' => $u->role ?? 'user',
+                                                    'kode_sosmed' => $u->kode_sosmed ?? '',
                                                     'permissions' => $effectivePermissions,
                                                     'is_custom' => $isCustom,
                                                 ]) }})" 
@@ -402,12 +410,19 @@
 
             <!-- Subheader: Role selector & Toolbar actions -->
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-6 py-3 shrink-0">
-                <div class="flex items-center gap-3">
-                    <label class="text-xs font-bold text-slate-700">Peran Akun:</label>
-                    <select name="role" id="modal-role-select" onchange="onRoleChangedInModal(this.value)" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-800 focus:border-brand-500 focus:outline-none">
-                        <option value="admin">Admin (Monitoring, Setup & Workspace Lengkap)</option>
-                        <option value="user">Staff / User (Operasional & Panduan SOP)</option>
-                    </select>
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-bold text-slate-700">Peran:</label>
+                        <select name="role" id="modal-role-select" onchange="onRoleChangedInModal(this.value)" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-800 focus:border-brand-500 focus:outline-none">
+                            <option value="admin">Admin (Monitoring & Setup)</option>
+                            <option value="user">Staff / User (Operasional)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-bold text-slate-700">Kode Sosmed:</label>
+                        <input type="text" name="kode_sosmed" id="modal-kode-sosmed-input" placeholder="Contoh: SOSMED 4" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold uppercase text-slate-800 focus:border-purple-500 focus:outline-none w-32" maxlength="30" title="Isi jika akun ini adalah admin khusus kode sosmed tertentu (misal: SOSMED 4 / SOSMED 16)">
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -534,6 +549,12 @@
             </div>
 
             <div>
+                <label class="block text-xs font-bold text-slate-700">Kode Sosmed <span class="text-slate-400 font-normal">(Khusus Admin Sosmed, misal: SOSMED 4)</span></label>
+                <input type="text" name="kode_sosmed" placeholder="Contoh: SOSMED 4 / SOSMED 16" class="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs font-bold uppercase text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10">
+                <p class="mt-1 text-[10px] text-slate-400">Kosongkan jika bukan admin khusus sosmed. Jika diisi, data keep & inbox akan terfilter otomatis sesuai kode ini.</p>
+            </div>
+
+            <div>
                 <label class="block text-xs font-bold text-slate-700">Kata Sandi Akun <span class="text-rose-500">*</span></label>
                 <input type="password" name="password" minlength="6" required placeholder="Minimal 6 karakter" class="mt-1 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/10">
                 <p class="mt-1 text-[11px] text-slate-400">Pengguna dapat mengganti kata sandi ini sewaktu-waktu di halaman Pengaturan Akun mereka.</p>
@@ -584,6 +605,10 @@ function openEditPermissionsModal(userData) {
     document.getElementById('modal-user-email').innerText = userData.email;
     document.getElementById('modal-user-role-badge').innerText = (userData.role || 'user').toUpperCase();
     document.getElementById('modal-role-select').value = userData.role || 'user';
+    const kodeSosmedInput = document.getElementById('modal-kode-sosmed-input');
+    if (kodeSosmedInput) {
+        kodeSosmedInput.value = userData.kode_sosmed || '';
+    }
     document.getElementById('perm-form-action').value = 'save';
     
     form.action = '/settings/users/' + userData.id + '/permissions';

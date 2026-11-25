@@ -420,6 +420,16 @@ class SosmedKeepWebhookController extends Controller
 
             $query = SosmedKeep::query();
 
+            // Filter kode_sosmed per admin sosmed (jika bukan Superadmin dan memiliki kode_sosmed khusus)
+            $currentUser = $request->user();
+            if ($currentUser && ! $currentUser->isSuperAdmin() && ! empty($currentUser->kode_sosmed)) {
+                $query->where('kode_sosmed', $currentUser->kode_sosmed);
+            } elseif ($kodeSosmed = $request->input('kode_sosmed')) {
+                if ($kodeSosmed !== 'ALL') {
+                    $query->where('kode_sosmed', $kodeSosmed);
+                }
+            }
+
             if ($periode = $request->input('periode')) {
                 if ($periode !== 'ALL') {
                     $query->where('periode', $periode);
@@ -535,9 +545,18 @@ class SosmedKeepWebhookController extends Controller
         $existingCols = \Illuminate\Support\Facades\Schema::getColumnListing('sosmed_keeps');
         $validFields = ! empty($existingCols) ? array_values(array_intersect($fields, $existingCols)) : ['*'];
 
+        $user = $request->user();
+        $userSosmed = ($user && ! $user->isSuperAdmin() && ! empty($user->kode_sosmed))
+            ? $user->kode_sosmed
+            : $request->input('kode_sosmed');
+
         $newKeeps = collect();
         if ($afterId > 0 && $maxId > $afterId) {
-            $newKeeps = SosmedKeep::where('id', '>', $afterId)
+            $newQuery = SosmedKeep::where('id', '>', $afterId);
+            if ($userSosmed && $userSosmed !== 'ALL') {
+                $newQuery->where('kode_sosmed', $userSosmed);
+            }
+            $newKeeps = $newQuery
                 ->latest('id')
                 ->limit(30)
                 ->toBase()
@@ -548,12 +567,16 @@ class SosmedKeepWebhookController extends Controller
         if (! empty($updatedSince)) {
             try {
                 $sinceDt = \Carbon\Carbon::parse($updatedSince);
-                $updatedKeeps = SosmedKeep::where('updated_at', '>=', $sinceDt)
+                $upQuery = SosmedKeep::where('updated_at', '>=', $sinceDt)
                     ->where(function ($q) use ($afterId) {
                         if ($afterId > 0) {
                             $q->where('id', '<=', $afterId);
                         }
-                    })
+                    });
+                if ($userSosmed && $userSosmed !== 'ALL') {
+                    $upQuery->where('kode_sosmed', $userSosmed);
+                }
+                $updatedKeeps = $upQuery
                     ->latest('updated_at')
                     ->limit(30)
                     ->toBase()

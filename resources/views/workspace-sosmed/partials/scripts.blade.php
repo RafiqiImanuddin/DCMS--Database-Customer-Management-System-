@@ -1,6 +1,7 @@
   <script>
     window.IS_GUEST = {{ auth()->check() && auth()->user()->isGuest() ? 'true' : 'false' }};
     window.IS_SUPERADMIN = {{ auth()->check() && auth()->user()->isSuperAdmin() ? 'true' : 'false' }};
+    window.USER_KODE_SOSMED = @json(auth()->user()?->getKodeSosmed() ?? '');
     window.CAN_DELETE_KEEP = {{ auth()->check() && auth()->user()->canAccessFeature('workspace_format_keep_delete') ? 'true' : 'false' }};
     window.WORKSPACE_ROUTING_TOKENS = @json($tabTokens ?? \App\Support\WorkspaceUrlCipher::allTokens());
     window.WORKSPACE_ENCRYPTED_URLS = @json($encryptedTabUrls ?? \App\Support\RouteCipher::allWorkspaceUrls());
