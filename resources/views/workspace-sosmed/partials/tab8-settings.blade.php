@@ -1,5 +1,28 @@
                 <section id="tabContent8" class="tab-content {{ (int) ($activeTab ?? 1) === 8 ? 'active' : '' }}">
                     <div class="admin-grid">
+                        <!-- Card Koneksi WhatsApp Admin Sosmed (Multi-Session Scanner) -->
+                        <div class="card-tegas admin-card" style="grid-column: 1 / -1; margin-bottom: 24px; border-left: 4px solid #10b981;">
+                            <div class="admin-card-header" style="background: linear-gradient(to right, #f0fdf4, #ffffff);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 42px; height: 42px; border-radius: 12px; background: #dcfce7; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                                            📲
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; color: #065f46; font-size: 1rem; font-weight: 800;">Koneksi WhatsApp Admin Sosmed (Multi-Session)</h3>
+                                            <p style="margin: 2px 0 0; color: #047857; font-size: 0.78rem;">
+                                                Hubungkan WhatsApp nomor admin <strong>{{ auth()->user()->hasKodeSosmed() ? '('.auth()->user()->getKodeSosmed().')' : '(Sosmed)' }}</strong> secara mandiri untuk chat Follow-Up tanpa mengganggu Bot Utama.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-emerald" onclick="if(window.openMyWhatsAppModal){ window.openMyWhatsAppModal(); } else if(window.switchWorkspaceTab){ window.switchWorkspaceTab(9); setTimeout(function(){ if(window.openMyWhatsAppModal) window.openMyWhatsAppModal(); }, 350); }" style="background: #059669; color: white; font-weight: 800; border-radius: 10px; padding: 8px 16px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(5,150,105,0.2);">
+                                        <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/></svg>
+                                        <span>Buka Scanner QR WhatsApp</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Card Master Foto & Avatar Profil Sales (Sesuai Permintaan User) -->
                         <div class="card-tegas admin-card" style="grid-column: 1 / -1; margin-bottom: 24px;">
                             <div class="admin-card-header">

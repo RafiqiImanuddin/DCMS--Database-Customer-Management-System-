@@ -343,6 +343,13 @@ class User extends Authenticatable
             return true;
         }
 
+        // Admin yang memiliki kode sosmed otomatis memiliki akses Format Keep, Inbox FU, dan Dashboard Sosmed
+        if ($this->hasKodeSosmed()) {
+            if (in_array($feature, ['workspace_format_keep', 'workspace_inbox_fu', 'workspace_dashboard'], true)) {
+                return true;
+            }
+        }
+
         if ($this->isGuest()) {
             $blockedForGuest = [
                 'predictions_assign',

@@ -226,6 +226,11 @@
                 <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 9]) }}" data-tab="9" onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(9);return false;}" class="workspace-sidebar-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ ($activeTarget === 'workspace-sosmed.index' && $activeWorkspaceTab === 9) ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.75.75 0 0 1-.84-.84c.125-.68.39-1.53.844-2.228C4.015 16.544 3 14.39 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/></svg>
                     <span>Inbox Follow-Up</span>
+                    @if ($currentUser->hasKodeSosmed())
+                        <span class="ml-auto inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                            {{ $currentUser->getKodeSosmed() }}
+                        </span>
+                    @endif
                 </a>
                 @endif
             </div>
@@ -358,6 +363,21 @@
             </button>
 
             <div id="sidebar-group-setting" class="sidebar-group-content space-y-1 pt-1 is-expanded">
+                @if ($currentUser && ($currentUser->hasKodeSosmed() || $currentUser->isSuperAdmin()))
+                <!-- Scan QR WhatsApp (Admin Sosmed) -->
+                <a href="{{ \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 9]) }}" 
+                   onclick="if(window.switchWorkspaceTab){window.switchWorkspaceTab(9); setTimeout(function(){ if(window.openMyWhatsAppModal) window.openMyWhatsAppModal(); }, 350); return false;} else if(window.openMyWhatsAppModal){ window.openMyWhatsAppModal(); return false; }" 
+                   class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition text-slate-300 hover:bg-white/10 hover:text-white group" 
+                   title="Scan QR WhatsApp Mandiri untuk admin sosmed">
+                    <svg class="size-5 shrink-0 text-emerald-400 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/></svg>
+                    <div class="flex flex-col min-w-0">
+                        <span class="truncate">Scan QR WhatsApp {{ $currentUser->hasKodeSosmed() ? '('.$currentUser->getKodeSosmed().')' : 'Sosmed' }}</span>
+                        <span class="text-[10px] text-emerald-400/80 font-medium">Koneksi WhatsApp Mandiri</span>
+                    </div>
+                    <span class="ml-auto flex size-2 rounded-full bg-emerald-400 animate-pulse" title="WhatsApp Multi-Session"></span>
+                </a>
+                @endif
+
                 @if ($currentUser && $currentUser->canAccessFeature('imports'))
                 <a href="{{ \App\Support\RouteCipher::url('imports.index') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 font-semibold transition {{ $activeTarget === 'imports.index' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                     <svg class="size-5 shrink-0 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg>
