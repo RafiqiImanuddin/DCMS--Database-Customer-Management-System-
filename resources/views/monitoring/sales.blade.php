@@ -598,10 +598,123 @@
 </div>
 @endif
 
+<!-- STYLING KHUSUS CETAK & RAPOR ELEGAN -->
+<style>
+/* Styling scrollbar halus untuk modal di layar desktop */
+#reportModalCard::-webkit-scrollbar {
+    width: 6px;
+}
+#reportModalCard::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 8px;
+}
+#reportModalCard::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+}
+#reportModalCard::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* ATURAN CETAK DOKUMEN BERSIH (CLEAN PRINT A4 SCORECARD) */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 10mm 12mm 12mm 12mm;
+    }
+
+    html, body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        font-size: 9.5pt !important;
+        line-height: 1.4 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Sembunyikan elemen latar belakang, sidebar, navbar, dan tombol aksi */
+    body > *:not(#reportModal),
+    #sidebar,
+    header,
+    nav,
+    aside,
+    footer,
+    .no-print,
+    #reportModalBackdrop,
+    #reportModalActions,
+    #assessModal,
+    .evidence-print-hide {
+        display: none !important;
+    }
+
+    /* Transform modal menjadi lembar kerja dokumen statis yang clean */
+    #reportModal {
+        position: static !important;
+        display: block !important;
+        inset: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        z-index: auto !important;
+    }
+
+    #reportModalCard {
+        position: static !important;
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        background: #ffffff !important;
+    }
+
+    /* Hilangkan scrollbar sama sekali saat cetak */
+    ::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    /* Cegah pemotongan halaman canggung pada bagian penting */
+    .print-avoid-break {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    /* Format teks URL link bukti agar terbaca jelas di kertas fisik */
+    .evidence-link-url {
+        word-break: break-all !important;
+        color: #1e293b !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+        font-size: 8pt !important;
+    }
+
+    /* Tampilkan blok tanda tangan pengesahan khusus saat cetak */
+    .print-only-block {
+        display: block !important;
+    }
+}
+</style>
+
 <!-- MODAL RAPOR KINERJA HARIAN (PRINTABLE SCORECARD & WHATSAPP GENERATOR) -->
-<div id="reportModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
-    <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onclick="closeReportModal()"></div>
-    <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl transition">
+<div id="reportModal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div id="reportModalBackdrop" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onclick="closeReportModal()"></div>
+    <div id="reportModalCard" class="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl transition">
         <!-- Print Header -->
         <div class="flex items-start justify-between border-b border-slate-200 pb-4">
             <div class="flex items-center gap-3">
@@ -611,14 +724,15 @@
                     <p class="text-xs text-slate-500">Database Customer Management System • Gadgetmart</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div id="reportModalActions" class="flex items-center gap-2 no-print">
                 <button type="button" id="btnCopyWa" onclick="copyWhatsAppReport()" class="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-2xs">
                     📋 Salin Format WhatsApp
                 </button>
-                <button type="button" onclick="window.print()" class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-2xs">
-                    🖨️ Cetak
+                <button type="button" onclick="printReportScorecard()" class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-2xs inline-flex items-center gap-1.5">
+                    <svg class="size-3.5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z"/></svg>
+                    <span>Cetak</span>
                 </button>
-                <button type="button" onclick="closeReportModal()" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">✕</button>
+                <button type="button" onclick="closeReportModal()" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Tutup">✕</button>
             </div>
         </div>
 
@@ -735,7 +849,7 @@ function addEvidenceRow(val = '') {
             <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/></svg>
             </span>
-            <input type="url" 
+            <input type="text" 
                    name="evidence_links[]" 
                    value="${val ? String(val).replace(/"/g, '&quot;') : ''}" 
                    placeholder="https://chat.whatsapp.com/... atau tautan drive / bukti percakapan" 
@@ -1008,6 +1122,10 @@ function copyWhatsAppReport() {
     });
 }
 
+function printReportScorecard() {
+    window.print();
+}
+
 function renderReportCard(data) {
     const emp = data.employee || { name: 'Karyawan', nik: '-', role: '-', cabang: '-' };
     const ass = data.assessment || {};
@@ -1024,10 +1142,10 @@ function renderReportCard(data) {
         const weighted = ((val * parseFloat(c.weight)) / 100).toFixed(2);
         criteriaRows += `
             <tr class="border-b border-slate-100">
-                <td class="py-2.5 px-3 font-semibold text-slate-900">${idx + 1}. ${c.name}</td>
-                <td class="py-2.5 px-3 text-center font-bold text-slate-600">${c.weight}%</td>
-                <td class="py-2.5 px-3 text-center font-black ${val >= 85 ? 'text-emerald-700' : (val >= 75 ? 'text-blue-700' : 'text-amber-700')}">${val}</td>
-                <td class="py-2.5 px-3 text-right font-black text-indigo-700">${weighted}</td>
+                <td class="py-2 px-3 font-semibold text-slate-900">${idx + 1}. ${c.name}</td>
+                <td class="py-2 px-3 text-center font-bold text-slate-600">${c.weight}%</td>
+                <td class="py-2 px-3 text-center font-black ${val >= 85 ? 'text-emerald-700' : (val >= 75 ? 'text-blue-700' : 'text-amber-700')}">${val}</td>
+                <td class="py-2 px-3 text-right font-black text-indigo-700">${weighted}</td>
             </tr>
         `;
     });
@@ -1038,18 +1156,20 @@ function renderReportCard(data) {
         history.forEach(h => {
             historyRows += `
                 <tr class="border-b border-slate-100 text-[11px] ${h.period === ass.period ? 'bg-indigo-50/50 font-bold' : ''}">
-                    <td class="py-1.5 px-2">${h.period} ${h.period === ass.period ? '<span class="text-indigo-600">(Hari Ini)</span>' : ''}</td>
+                    <td class="py-1.5 px-2">${h.period} ${h.period === ass.period ? '<span class="text-indigo-600 font-extrabold">(Hari Ini)</span>' : ''}</td>
                     <td class="py-1.5 px-2 text-center font-black">${h.final_score}</td>
-                    <td class="py-1.5 px-2 text-center"><span class="rounded px-1.5 py-0.2 text-[10px] font-bold ${h.grade === 'A' ? 'bg-emerald-100 text-emerald-800' : (h.grade === 'B' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')}">Grade ${h.grade}</span></td>
+                    <td class="py-1.5 px-2 text-center"><span class="rounded px-1.5 py-0.5 text-[10px] font-bold ${h.grade === 'A' ? 'bg-emerald-100 text-emerald-800' : (h.grade === 'B' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')}">Grade ${h.grade}</span></td>
                     <td class="py-1.5 px-2 text-slate-500 truncate max-w-[200px]">${h.notes || '-'}</td>
                 </tr>
             `;
         });
 
         historyHtml = `
-            <div class="rounded-xl border border-slate-200 overflow-hidden text-xs">
+            <div class="print-avoid-break rounded-xl border border-slate-200 overflow-hidden text-xs">
                 <div class="bg-slate-100 px-3 py-2 font-bold text-slate-700 flex items-center justify-between">
-                    <span>📈 Riwayat Penilaian Harian Terakhir (${history.length} Hari)</span>
+                    <span class="flex items-center gap-1.5">
+                        <span>📈 Riwayat Penilaian Harian Terakhir (${history.length} Hari)</span>
+                    </span>
                     <span class="text-[10px] text-slate-500 font-normal">Memantau konsistensi performa harian</span>
                 </div>
                 <table class="w-full text-left border-collapse">
@@ -1071,53 +1191,56 @@ function renderReportCard(data) {
     const improvementsList = (diag.improvements || []).map(i => `<li class="flex items-start gap-1.5"><span class="text-amber-600 font-bold">•</span><span>${i}</span></li>`).join('');
 
     const html = `
-        <div class="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 text-xs border border-slate-200">
+        <!-- 1. Header Informasi Karyawan & Periode Evaluasi -->
+        <div class="print-avoid-break grid grid-cols-2 gap-4 rounded-xl bg-slate-50/80 p-4 text-xs border border-slate-200">
             <div>
-                <div class="text-slate-400 text-[10px] font-bold uppercase">Nama Karyawan</div>
+                <div class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Nama Karyawan</div>
                 <div class="font-black text-slate-900 text-sm mt-0.5">${emp.name || '-'}</div>
-                <div class="text-slate-500 mt-0.5">NIK: ${emp.nik || '-'} • ${emp.role || '-'}</div>
+                <div class="text-slate-500 mt-0.5 font-medium">NIK: ${emp.nik || '-'} &bull; Posisi: ${emp.role || 'Admin Sales'}</div>
             </div>
             <div class="text-right">
-                <div class="text-slate-400 text-[10px] font-bold uppercase">Cabang & Tanggal</div>
+                <div class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Cabang & Tanggal Evaluasi</div>
                 <div class="font-bold text-slate-900 text-sm mt-0.5">Cabang ${emp.cabang || '-'}</div>
-                <div class="text-indigo-600 font-black mt-0.5">${ass.period || '-'}</div>
+                <div class="text-indigo-600 font-black mt-0.5 text-xs">${ass.period || '-'}</div>
             </div>
         </div>
 
-        <div class="overflow-hidden rounded-xl border border-slate-200">
+        <!-- 2. Tabel Rincian Aspek Penilaian Kinerja -->
+        <div class="print-avoid-break overflow-hidden rounded-xl border border-slate-200">
             <table class="w-full text-left text-xs border-collapse">
-                <thead class="bg-slate-100/75 text-[10px] uppercase font-bold text-slate-500">
+                <thead class="bg-slate-100/90 text-[10px] uppercase font-bold text-slate-500">
                     <tr>
-                        <th class="py-2.5 px-3">Aspek Penilaian Harian</th>
-                        <th class="py-2.5 px-3 text-center">Bobot</th>
-                        <th class="py-2.5 px-3 text-center">Nilai (0-100)</th>
-                        <th class="py-2.5 px-3 text-right">Poin Terbobot</th>
+                        <th class="py-2 px-3">Aspek Penilaian Harian</th>
+                        <th class="py-2 px-3 text-center">Bobot</th>
+                        <th class="py-2 px-3 text-center">Nilai (0-100)</th>
+                        <th class="py-2 px-3 text-right">Poin Terbobot</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${criteriaRows}
                 </tbody>
-                <tfoot class="bg-indigo-50/70 border-t border-indigo-100 font-bold">
+                <tfoot class="bg-indigo-50/80 border-t border-indigo-100 font-bold">
                     <tr>
-                        <td colspan="3" class="py-3 px-3 text-indigo-950 font-black">SKOR AKHIR HARIAN:</td>
-                        <td class="py-3 px-3 text-right text-base font-black text-indigo-700">${ass.final_score} / 100</td>
+                        <td colspan="3" class="py-2.5 px-3 text-indigo-950 font-black text-xs uppercase tracking-wide">SKOR AKHIR HARIAN:</td>
+                        <td class="py-2.5 px-3 text-right text-base font-black text-indigo-700">${ass.final_score} / 100</td>
                     </tr>
                 </tfoot>
             </table>
         </div>
 
-        <div class="flex items-center justify-between rounded-xl border border-slate-200 p-4">
+        <!-- 3. Ringkasan Predikat Evaluasi -->
+        <div class="print-avoid-break flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3.5">
             <div>
                 <div class="text-[10px] uppercase font-bold text-slate-400">Predikat Evaluasi</div>
                 <div class="text-sm font-black text-slate-900 mt-0.5">${data.grade_label}</div>
             </div>
-            <span class="inline-flex items-center rounded-xl border px-3 py-1 font-black text-sm ${data.grade_badge}">
+            <span class="inline-flex items-center rounded-xl border px-3 py-1 font-black text-xs ${data.grade_badge}">
                 Grade ${ass.grade}
             </span>
         </div>
 
-        <!-- Smart Diagnostic Box: Strengths & Weaknesses -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <!-- 4. Kotak Diagnostik Pintar: Kekuatan & Aspek Peningkatan -->
+        <div class="print-avoid-break grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3.5 space-y-1.5">
                 <div class="font-bold text-emerald-900 flex items-center gap-1.5">
                     <span>🌟 Kekuatan Utama Hari Ini:</span>
@@ -1132,23 +1255,27 @@ function renderReportCard(data) {
             </div>
         </div>
 
+        <!-- 5. Catatan Khusus & Rekomendasi Manager -->
         ${ass.notes ? `
-        <div class="rounded-xl border border-slate-200 p-3.5 bg-slate-50/50 text-xs">
+        <div class="print-avoid-break rounded-xl border border-slate-200 p-3.5 bg-slate-50/50 text-xs">
             <div class="text-[10px] uppercase font-bold text-slate-400">Catatan Khusus Manager:</div>
-            <div class="mt-1 text-slate-700">${ass.notes}</div>
+            <div class="mt-1 text-slate-700 font-medium leading-relaxed">${ass.notes}</div>
         </div>
         ` : ''}
 
         ${ass.recommendations ? `
-        <div class="rounded-xl border border-slate-200 p-3.5 bg-slate-50/50 text-xs">
+        <div class="print-avoid-break rounded-xl border border-slate-200 p-3.5 bg-slate-50/50 text-xs">
             <div class="text-[10px] uppercase font-bold text-slate-400">Rekomendasi / Coaching Plan Besok:</div>
-            <div class="mt-1 text-slate-700">${ass.recommendations}</div>
+            <div class="mt-1 text-slate-700 font-medium leading-relaxed">${ass.recommendations}</div>
         </div>
         ` : ''}
 
+        <!-- 6. LAMPIRAN EVIDENCE CHAT & BUKTI PERCAKAPAN WHATSAPP (CLEAN & TERVERIFIKASI) -->
         ${(() => {
             let evLinks = [];
-            if (Array.isArray(ass.evidence_links) && ass.evidence_links.length > 0) {
+            if (Array.isArray(data.evidence_links) && data.evidence_links.length > 0) {
+                evLinks = data.evidence_links;
+            } else if (Array.isArray(ass.evidence_links) && ass.evidence_links.length > 0) {
                 evLinks = ass.evidence_links;
             } else if (ass.evidence_link) {
                 const raw = String(ass.evidence_link).trim();
@@ -1158,46 +1285,96 @@ function renderReportCard(data) {
                 if (!evLinks || evLinks.length === 0) {
                     evLinks = raw.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
                 }
-            } else if (ass.scores && ass.scores._evidence_link) {
-                evLinks = String(ass.scores._evidence_link).split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+            } else if (scores && scores._evidence_links && Array.isArray(scores._evidence_links)) {
+                evLinks = scores._evidence_links;
+            } else if (scores && scores._evidence_link) {
+                evLinks = String(scores._evidence_link).split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
             }
 
-            if (!evLinks || evLinks.length === 0) return '';
+            if (!evLinks || evLinks.length === 0) {
+                return `
+                    <div class="print-avoid-break rounded-xl border border-dashed border-slate-200 bg-slate-50/40 p-3 text-xs flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-slate-500">
+                            <span class="text-slate-400">📎</span>
+                            <span class="text-[11px] font-bold text-slate-700">Lampiran Evidence Chat:</span>
+                            <span class="text-[11px] text-slate-400 italic">Tidak ada tautan percakapan khusus pada evaluasi hari ini.</span>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">N/A</span>
+                    </div>
+                `;
+            }
 
             let linksRows = '';
             evLinks.forEach((link, idx) => {
+                const isWa = link.includes('wa.me') || link.includes('whatsapp.com');
+                const isDrive = link.includes('drive.google.com') || link.includes('docs.google.com');
+                const linkTypeLabel = isWa ? 'Chat WhatsApp Konsumen' : (isDrive ? 'Google Drive Evidence' : 'Tautan Bukti Percakapan');
+                const linkIcon = isWa ? '💬' : (isDrive ? '📁' : '🔗');
+
                 linksRows += `
                     <div class="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-white border border-indigo-100 shadow-2xs">
-                        <div class="min-w-0 flex-1 flex items-center gap-2">
-                            <span class="size-5 shrink-0 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center">#${idx + 1}</span>
-                            <a href="${link}" target="_blank" class="font-bold text-indigo-700 hover:text-indigo-900 hover:underline truncate max-w-full text-xs" title="${link}">
-                                ${link}
-                            </a>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5 text-[10px] font-bold text-indigo-900 mb-0.5">
+                                <span class="size-4 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px] font-black">#${idx + 1}</span>
+                                <span>${linkIcon} ${linkTypeLabel}</span>
+                            </div>
+                            <div class="evidence-link-url truncate text-xs font-semibold text-slate-800">
+                                <a href="${link}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 hover:underline" title="${link}">
+                                    ${link}
+                                </a>
+                            </div>
                         </div>
-                        <a href="${link}" target="_blank" class="shrink-0 inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-700 transition shadow-2xs">
-                            <span>Buka Roomchat ↗</span>
+                        <a href="${link}" target="_blank" rel="noopener noreferrer" class="evidence-print-hide shrink-0 inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-700 transition shadow-2xs">
+                            <span>Buka Chat ↗</span>
                         </a>
                     </div>
                 `;
             });
 
             return `
-                <div class="rounded-xl border border-indigo-200 p-3.5 bg-indigo-50/50 text-xs space-y-2">
-                    <div class="text-[10px] uppercase font-bold text-indigo-700 flex items-center justify-between">
-                        <span>🔗 Evidence Link Roomchat (${evLinks.length} Tautan):</span>
+                <div class="print-avoid-break rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 text-xs space-y-2.5">
+                    <div class="flex items-center justify-between border-b border-indigo-100 pb-2">
+                        <div class="text-xs uppercase font-extrabold text-indigo-900 flex items-center gap-2">
+                            <svg class="size-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/></svg>
+                            <span>Lampiran Evidence / Bukti Percakapan Chat (${evLinks.length} Tautan)</span>
+                        </div>
+                        <span class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+                            Terlampir
+                        </span>
                     </div>
-                    <div class="space-y-1.5">
+                    <div class="space-y-2">
                         ${linksRows}
                     </div>
                 </div>
             `;
         })()}
 
+        <!-- 7. Tabel Riwayat Penilaian Harian Terakhir -->
         ${historyHtml}
 
-        <div class="flex items-center justify-between pt-4 text-[11px] text-slate-400 border-t border-slate-100">
+        <!-- 8. Footer Info Layar & Pengesahan Cetak -->
+        <div class="print-avoid-break flex items-center justify-between pt-3 text-[11px] text-slate-400 border-t border-slate-100">
             <div>Evaluator: <strong class="text-slate-700">${ass.evaluator_name || 'Manager Sales'}</strong></div>
             <div>Dicetak Resmi: ${new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        </div>
+
+        <!-- 9. BLOK PENGESAHAN TANDA TANGAN (HANYA MUNCUL DI PRINT DOKUMEN FISIK / PDF) -->
+        <div class="print-only-block hidden mt-6 pt-4 border-t border-slate-300 print-avoid-break">
+            <div class="grid grid-cols-2 text-center text-xs text-slate-700">
+                <div>
+                    <div class="text-slate-500 mb-14 text-[11px] font-semibold uppercase">Evaluator / Manager Sales:</div>
+                    <div class="font-black text-slate-900 underline text-sm">${ass.evaluator_name || 'Manager Sales'}</div>
+                    <div class="text-[10px] text-slate-400 mt-0.5">Tanda Tangan & Tanggal</div>
+                </div>
+                <div>
+                    <div class="text-slate-500 mb-14 text-[11px] font-semibold uppercase">Karyawan Yang Dinilai:</div>
+                    <div class="font-black text-slate-900 underline text-sm">${emp.name || '-'}</div>
+                    <div class="text-[10px] text-slate-400 mt-0.5">NIK: ${emp.nik || '-'}</div>
+                </div>
+            </div>
+            <div class="mt-4 text-center text-[9px] text-slate-400 italic">
+                Dokumen resmi Database Customer Management System (DCMS) &bull; PT Gadgetmart Sukses Bersama
+            </div>
         </div>
     `;
 

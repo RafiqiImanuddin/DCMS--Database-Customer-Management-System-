@@ -337,6 +337,7 @@ class SalesMonitoringController extends Controller
                 'grade_label' => SalesAssessment::getGradeLabel($assessmentModel->grade ?? 'C'),
                 'grade_badge' => SalesAssessment::getGradeBadgeClasses($assessmentModel->grade ?? 'C'),
                 'diagnostic' => $diagnostic,
+                'evidence_links' => $assessmentModel->evidence_links ?? [],
                 'recent_history' => $employee ? $employee->recentAssessments : [],
             ]);
         } catch (\Throwable $e) {
