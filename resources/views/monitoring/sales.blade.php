@@ -623,6 +623,15 @@
         margin: 10mm 12mm 12mm 12mm;
     }
 
+    /* Hilangkan scrollbar dan set background putih bersih */
+    * {
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+    ::-webkit-scrollbar {
+        display: none !important;
+    }
+
     html, body {
         background: #ffffff !important;
         color: #0f172a !important;
@@ -637,22 +646,42 @@
         print-color-adjust: exact !important;
     }
 
-    /* Sembunyikan elemen latar belakang, sidebar, navbar, dan tombol aksi */
-    body > *:not(#reportModal),
+    /* Sembunyikan elemen di luar modal rapor saat cetak */
     #sidebar,
+    #sidebar-overlay,
     header,
     nav,
     aside,
     footer,
+    #dcms-confirm-modal,
+    #assessModal,
     .no-print,
     #reportModalBackdrop,
     #reportModalActions,
-    #assessModal,
     .evidence-print-hide {
         display: none !important;
     }
 
-    /* Transform modal menjadi lembar kerja dokumen statis yang clean */
+    /* Pastikan seluruh wrapper parent tidak mengganggu layout cetak */
+    .flex.min-h-screen,
+    main,
+    main > div,
+    .space-y-6 {
+        display: block !important;
+        width: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+    }
+
+    /* Sembunyikan seluruh section halaman monitoring di luar #reportModal */
+    .space-y-6 > *:not(#reportModal) {
+        display: none !important;
+    }
+
+    /* Transform #reportModal menjadi dokumen cetak A4 yang clean & statis */
     #reportModal {
         position: static !important;
         display: block !important;
@@ -683,11 +712,6 @@
         border-radius: 0 !important;
         box-shadow: none !important;
         background: #ffffff !important;
-    }
-
-    /* Hilangkan scrollbar sama sekali saat cetak */
-    ::-webkit-scrollbar {
-        display: none !important;
     }
 
     /* Cegah pemotongan halaman canggung pada bagian penting */
