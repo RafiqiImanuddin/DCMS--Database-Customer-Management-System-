@@ -95,10 +95,9 @@ class WatzapService
      *
      * @return array{online: bool, status: string, phone: string|null, name: string|null, message: string}
      */
-    public function getBaileysStatus(bool $forceFresh = false, ?string $sessionId = 'default'): array
+    public function getBaileysStatus(bool $forceFresh = false): array
     {
-        $sId = $sessionId ? trim($sessionId) : 'default';
-        $cacheKey = "baileys_status_cache_v2_{$sId}";
+        $cacheKey = 'baileys_status_cache_v2';
         if (! $forceFresh && cache()->has($cacheKey)) {
             return (array) cache()->get($cacheKey);
         }
@@ -107,9 +106,9 @@ class WatzapService
         $apiKey = $this->getBaileysApiKey();
 
         try {
-            $res = Http::timeout(4)
+            $res = Http::timeout(2)
                 ->withHeaders(['X-Api-Key' => $apiKey])
-                ->get("{$baileysUrl}/api/status", ['session' => $sId]);
+                ->get("{$baileysUrl}/api/status");
 
             if ($res->ok()) {
                 $data = $res->json();
@@ -129,11 +128,7 @@ class WatzapService
                     cache()->put($cacheKey, $result, now()->addSeconds(4));
                 }
                 if (! empty($result['phone'])) {
-                    $cleanBotPhone = preg_replace('/\D/', '', (string) $result['phone']);
-                    cache()->put("baileys_bot_phone_{$sId}", $cleanBotPhone, now()->addHours(1));
-                    if ($sId === 'default') {
-                        cache()->put('baileys_bot_phone', $cleanBotPhone, now()->addHours(1));
-                    }
+                    cache()->put('baileys_bot_phone', preg_replace('/\D/', '', (string) $result['phone']), now()->addHours(1));
                 }
 
                 return $result;
@@ -224,26 +219,17 @@ class WatzapService
      * Mereset sesi Baileys: membersihkan auth cadangan di database DCMS & memicu
      * endpoint reset di server Baileys (Render) agar generate QR code baru untuk nomor baru.
      */
-    public function resetBaileysSession(?string $sessionId = 'default'): array
+    public function resetBaileysSession(): array
     {
-        $sId = $sessionId ? trim($sessionId) : 'default';
-        $sessionKey = $sId === 'default' ? 'baileys_auth_session' : "baileys_auth_session_{$sId}";
-        $savedAtKey = $sId === 'default' ? 'baileys_auth_saved_at' : "baileys_auth_saved_at_{$sId}";
-
         // 1. Bersihkan sesi cadangan di database DCMS & cache lokal
         try {
-            Setting::forget($sessionKey);
-            Setting::forget($savedAtKey);
-            Setting::forget("baileys_bot_phone_{$sId}");
-            cache()->forget("baileys_status_cache_v2_{$sId}");
-            cache()->forget("baileys_bot_phone_{$sId}");
-            if ($sId === 'default') {
-                Setting::forget('baileys_bot_phone');
-                cache()->forget('baileys_status_cache_v2');
-                cache()->forget('baileys_bot_phone');
-            }
+            Setting::forget('baileys_auth_session');
+            Setting::forget('baileys_auth_saved_at');
+            Setting::forget('baileys_bot_phone');
+            cache()->forget('baileys_status_cache_v2');
+            cache()->forget('baileys_bot_phone');
         } catch (Throwable $e) {
-            Log::warning("Gagal membersihkan cache setting Baileys ({$sId}): ".$e->getMessage());
+            Log::warning('Gagal membersihkan cache setting Baileys: '.$e->getMessage());
         }
 
         // 2. Hubungi server Baileys bot untuk menghapus folder auth_info dan membuat fresh socket
@@ -258,7 +244,6 @@ class WatzapService
                 ])
                 ->post("{$baileysUrl}/api/reset", [
                     'api_key' => $apiKey,
-                    'session' => $sId,
                 ]);
 
             if ($res->ok()) {
@@ -713,7 +698,7 @@ class WatzapService
      * @param  array{id?: string, messageId?: string, senderName?: string, text?: string}|null  $replyTo
      * @return array{success: bool, message: string, status: string, source: string, message_id: string, data: array, raw: string}
      */
-    public function sendOmnichannel(string $rawPhone, string $message, ?string $mediaUrl = null, ?string $mediaType = null, ?array $replyTo = null, ?array $fileData = null, ?string $sessionId = null): array
+    public function sendOmnichannel(string $rawPhone, string $message, ?string $mediaUrl = null, ?string $mediaType = null, ?array $replyTo = null, ?array $fileData = null): array
     {
         $cleanPhone = $this->resolvePhoneOrLid($rawPhone);
         if (! $cleanPhone) {
@@ -736,9 +721,6 @@ class WatzapService
                     'phone' => $cleanPhone,
                     'message' => $message,
                 ];
-                if ($sessionId) {
-                    $payload['session'] = $sessionId;
-                }
 
                 if ($fileData && ! empty($fileData['base64'])) {
                     $payload['file_base64'] = (string) $fileData['base64'];

@@ -1,4 +1,4 @@
- <?php
+<?php
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BroadcastMediaController;
@@ -18,14 +18,7 @@ use App\Http\Controllers\WorkspaceSosmedController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    if (auth()->check()) {
-        $user = auth()->user();
-        if ($user->hasKodeSosmed() && ! $user->isSuperAdmin()) {
-            return redirect()->to(\App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]));
-        }
-        return redirect()->route('dashboard');
-    }
-    return redirect()->route('login');
+    return redirect()->route(auth()->check() ? 'dashboard' : 'login');
 });
 
 // Endpoint publik untuk akses file media broadcast (agar WatZap server dapat mengunduh gambar)
@@ -201,8 +194,6 @@ Route::prefix('api')->group(function () {
     Route::match(['get', 'post'], '/watzap-webhook', [WorkspaceSosmedController::class, 'watzapWebhook'])->name('api.sosmed.watzap_webhook');
     Route::match(['get', 'post', 'delete'], '/baileys-session', [WorkspaceSosmedController::class, 'baileysSession'])->name('api.sosmed.baileys_session');
     Route::get('/watzap-status', [WorkspaceSosmedController::class, 'watzapStatus'])->name('api.sosmed.watzap_status');
-    Route::get('/sosmed/my-wa-status', [WorkspaceSosmedController::class, 'myWaStatus'])->name('api.sosmed.my_wa_status');
-    Route::post('/sosmed/my-wa-disconnect', [WorkspaceSosmedController::class, 'myWaDisconnect'])->name('api.sosmed.my_wa_disconnect');
     Route::match(['get', 'post'], '/omni-resolve', [WorkspaceSosmedController::class, 'omniResolve'])->name('api.sosmed.omni_resolve');
     Route::post('/omni-delete-chats', [WorkspaceSosmedController::class, 'deleteOmniChats'])->name('api.sosmed.omni_delete_chats');
     Route::get('/watzap-media', [WorkspaceSosmedController::class, 'watzapMedia'])->name('api.sosmed.watzap_media');

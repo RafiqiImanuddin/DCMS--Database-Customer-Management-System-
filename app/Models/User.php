@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'phone', 'password', 'role', 'permissions', 'kode_sosmed'])]
+#[Fillable(['name', 'email', 'phone', 'password', 'role', 'permissions'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -29,22 +29,6 @@ class User extends Authenticatable
             'password' => 'hashed',
             'permissions' => 'array',
         ];
-    }
-
-    /**
-     * Ambil kode sosmed yang terikat pada user (misal: SOSMED 4, SOSMED 16).
-     */
-    public function getKodeSosmed(): ?string
-    {
-        return ! empty($this->kode_sosmed) ? trim((string) $this->kode_sosmed) : null;
-    }
-
-    /**
-     * Cek apakah user memiliki ikatan kode sosmed tertentu.
-     */
-    public function hasKodeSosmed(): bool
-    {
-        return ! empty($this->kode_sosmed);
     }
 
     /**
@@ -343,13 +327,6 @@ class User extends Authenticatable
             return true;
         }
 
-        // Admin yang memiliki kode sosmed otomatis memiliki akses Format Keep, Inbox FU, dan Dashboard Sosmed
-        if ($this->hasKodeSosmed()) {
-            if (in_array($feature, ['workspace_format_keep', 'workspace_inbox_fu', 'workspace_dashboard'], true)) {
-                return true;
-            }
-        }
-
         if ($this->isGuest()) {
             $blockedForGuest = [
                 'predictions_assign',
@@ -408,10 +385,6 @@ class User extends Authenticatable
      */
     public function getFirstAccessibleRoute(): string
     {
-        if ($this->hasKodeSosmed() && ! $this->isSuperAdmin()) {
-            return \App\Support\RouteCipher::url('workspace-sosmed.index', ['tab' => 4]);
-        }
-
         if ($this->canAccessFeature('dashboard')) {
             return route('dashboard');
         }

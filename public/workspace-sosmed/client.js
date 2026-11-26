@@ -13691,28 +13691,11 @@ function deletePicMaster(wa) {
 // --------------------------------------------------------------------------
 // ROOMCHAT THREAD PERSISTENCE (100% CERMIN WHATSAPP - ULTRA FAST MEMORY CACHED)
 // --------------------------------------------------------------------------
-function getOmniUserSlug() {
-  if (window.USER_KODE_SOSMED) {
-    const s = String(window.USER_KODE_SOSMED).toLowerCase().replace(/[^a-z0-9]/g, '_');
-    return s.startsWith('sosmed_') ? s : 'sosmed_' + s;
-  }
-  return '';
-}
-
-function getOmniStoragePhoneKey() {
-  const slug = getOmniUserSlug();
-  if (slug) {
-    return 'gadgetmart_gateway_phone_' + slug;
-  }
-  return 'gadgetmart_current_gateway_phone';
-}
-
-let currentActiveGatewayPhone = localStorage.getItem(getOmniStoragePhoneKey()) || '';
+let currentActiveGatewayPhone = localStorage.getItem('gadgetmart_current_gateway_phone') || '';
 
 function formatGatewayPhoneDisplay(p) {
-  if (!p) return 'Belum Terhubung';
+  if (!p) return 'Menunggu Koneksi...';
   const clean = p.replace(/\D/g, '');
-  if (!clean) return 'Belum Terhubung';
   if (clean.startsWith('62')) {
     return '+62 ' + clean.slice(2, 5) + '-' + clean.slice(5, 9) + '-' + clean.slice(9);
   }
@@ -13730,19 +13713,10 @@ function updateOmniGatewayDisplay(phone) {
   }
   if (elTag) {
     elTag.textContent = phone ? 'Aktif' : 'Menunggu';
-    if (phone) {
-      elTag.className = 'text-[10px] text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-bold';
-    } else {
-      elTag.className = 'text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold';
-    }
   }
 }
 
 function getOmniStorageKey(gwPhone) {
-  const slug = getOmniUserSlug();
-  if (slug) {
-    return 'gadgetmart_omni_threads_' + slug;
-  }
   const g = gwPhone || currentActiveGatewayPhone;
   if (g) {
     const clean = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(g) : null) || g.replace(/\D/g, '');
@@ -14857,8 +14831,8 @@ function renderOmniInboxModule() {
     startWatzapPolling();
   const allChats = getOmniPicChats();
 
-  // Auto-sinkronisasi awal dari WAHA VPS jika data lokal masih kosong (khusus Superadmin/Bot Utama)
-  if (!window.USER_KODE_SOSMED && !window._hasAutoSyncedWaha && allChats.length === 0) {
+  // Auto-sinkronisasi awal dari WAHA VPS jika data lokal masih kosong
+  if (!window._hasAutoSyncedWaha && allChats.length === 0) {
     window._hasAutoSyncedWaha = true;
     setTimeout(function() {
       syncOmniChatsFromWhatsApp(false);
@@ -16345,18 +16319,17 @@ async function pollWatzapIncomingMessages() {
     if (!data.success) return;
 
     // SINKRONISASI AKUN WHATSAPP GATEWAY (MULTI-ACCOUNT CHAT SCOPING)
-    const phoneStorageKey = getOmniStoragePhoneKey();
     if (data.gateway_phone) {
       const newGateway = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(data.gateway_phone) : null) || data.gateway_phone.replace(/\D/g, '');
       if (newGateway) {
         if (!currentActiveGatewayPhone) {
           currentActiveGatewayPhone = newGateway;
-          localStorage.setItem(phoneStorageKey, newGateway);
+          localStorage.setItem('gadgetmart_current_gateway_phone', newGateway);
           updateOmniGatewayDisplay(newGateway);
         } else if (newGateway !== currentActiveGatewayPhone) {
           console.log('[Omni Inbox] WhatsApp Gateway beralih dari', currentActiveGatewayPhone, 'ke', newGateway);
           currentActiveGatewayPhone = newGateway;
-          localStorage.setItem(phoneStorageKey, newGateway);
+          localStorage.setItem('gadgetmart_current_gateway_phone', newGateway);
           
           // Switch in-memory cache to the new account's room
           _cachedOmniThreads = null;
@@ -16373,17 +16346,6 @@ async function pollWatzapIncomingMessages() {
           updateOmniGatewayDisplay(newGateway);
         }
       }
-    } else if (window.USER_KODE_SOSMED) {
-      // Admin Sosmed belum terhubung ke sesi WhatsApp mandiri
-      if (currentActiveGatewayPhone) {
-        currentActiveGatewayPhone = '';
-        localStorage.removeItem(phoneStorageKey);
-        _cachedOmniThreads = null;
-        invalidateOmniPicChatsCache();
-        selectedOmniPicKey = null;
-        renderOmniInboxModule();
-      }
-      updateOmniGatewayDisplay('');
     }
 
     // REALTIME TYPING INDICATOR UPDATE (WHATSAPP STYLE)
@@ -16628,18 +16590,13 @@ async function syncOmniChatsFromWhatsApp(isManual) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data.success && Array.isArray(data.messages)) {
-      const phoneStorageKey = getOmniStoragePhoneKey();
       if (data.gateway_phone) {
         const newGateway = (typeof normalizeWhatsAppPhone === 'function' ? normalizeWhatsAppPhone(data.gateway_phone) : null) || data.gateway_phone.replace(/\D/g, '');
         if (newGateway && newGateway !== currentActiveGatewayPhone) {
           currentActiveGatewayPhone = newGateway;
-          localStorage.setItem(phoneStorageKey, newGateway);
+          localStorage.setItem('gadgetmart_current_gateway_phone', newGateway);
           updateOmniGatewayDisplay(newGateway);
         }
-      } else if (window.USER_KODE_SOSMED) {
-        currentActiveGatewayPhone = '';
-        localStorage.removeItem(phoneStorageKey);
-        updateOmniGatewayDisplay('');
       }
       const threads = getOmniThreads();
       let addedCount = 0;
@@ -19112,160 +19069,3 @@ window.addEventListener('pageshow', purgeSearchAutofill);
 window.addEventListener('focus', purgeSearchAutofill);
 [100, 300, 600, 1000, 2000, 3500].forEach(delay => setTimeout(purgeSearchAutofill, delay));
 window.purgeSearchAutofill = purgeSearchAutofill;
-
-// =========================================================================
-// FITUR: SCAN QR WHATSAPP MANDIRI ADMIN SOSMED (MULTI-SESSION)
-// =========================================================================
-let myWaPollTimer = null;
-
-function openMyWhatsAppModal() {
-  const modal = document.getElementById('modal-my-whatsapp');
-  if (!modal) return;
-  modal.style.display = 'flex';
-  modal.classList.remove('hidden');
-
-  refreshMyWaStatus(true);
-
-  if (myWaPollTimer) clearInterval(myWaPollTimer);
-  myWaPollTimer = setInterval(function() {
-    refreshMyWaStatus(false);
-  }, 4000);
-}
-
-function closeMyWhatsAppModal() {
-  const modal = document.getElementById('modal-my-whatsapp');
-  if (modal) {
-    modal.style.display = 'none';
-    modal.classList.add('hidden');
-  }
-  if (myWaPollTimer) {
-    clearInterval(myWaPollTimer);
-    myWaPollTimer = null;
-  }
-}
-
-function refreshMyWaStatus(forceFresh) {
-  const elDot = document.getElementById('myWaStatusDot');
-  const elStatusText = document.getElementById('myWaStatusText');
-  const elPhoneText = document.getElementById('myWaPhoneText');
-  const elQrContainer = document.getElementById('myWaQrContainer');
-  const elQrLoading = document.getElementById('myWaQrLoading');
-  const elQrImage = document.getElementById('myWaQrImage');
-  const elConnected = document.getElementById('myWaConnectedState');
-  const elInstructions = document.getElementById('myWaInstructions');
-  const btnDisconnect = document.getElementById('btnMyWaDisconnect');
-
-  const url = '/api/sosmed/my-wa-status' + (forceFresh ? '?refresh=1' : '');
-
-  fetch(url, {
-    headers: {
-      'Accept': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    }
-  })
-  .then(function(res) { return res.json(); })
-  .then(function(data) {
-    if (!data || !data.success) return;
-
-    if (data.kode_sosmed) {
-      const badge = document.getElementById('myWaBadgeSosmed');
-      if (badge) badge.textContent = data.kode_sosmed;
-    }
-
-    if (data.online) {
-      if (elDot) {
-        elDot.className = 'inline-block size-2.5 rounded-full bg-emerald-500 animate-pulse';
-      }
-      if (elStatusText) {
-        elStatusText.textContent = 'Terhubung ke WhatsApp';
-        elStatusText.className = 'font-bold text-emerald-700';
-      }
-      if (elPhoneText) {
-        elPhoneText.textContent = data.phone ? formatGatewayPhoneDisplay(data.phone) : 'Nomor Terhubung';
-      }
-      if (elQrLoading) elQrLoading.classList.add('hidden');
-      if (elQrImage) elQrImage.classList.add('hidden');
-      if (elConnected) {
-        elConnected.classList.remove('hidden');
-        elConnected.classList.add('flex');
-      }
-      if (elInstructions) elInstructions.classList.add('hidden');
-      if (btnDisconnect) btnDisconnect.classList.remove('hidden');
-
-      // Update gateway bar di tab 9
-      if (data.phone) {
-        const phoneStorageKey = getOmniStoragePhoneKey();
-        currentActiveGatewayPhone = data.phone;
-        localStorage.setItem(phoneStorageKey, data.phone);
-        updateOmniGatewayDisplay(data.phone);
-      }
-    } else {
-      if (window.USER_KODE_SOSMED) {
-        const phoneStorageKey = getOmniStoragePhoneKey();
-        currentActiveGatewayPhone = '';
-        localStorage.removeItem(phoneStorageKey);
-        updateOmniGatewayDisplay('');
-      }
-      if (elDot) {
-        elDot.className = 'inline-block size-2.5 rounded-full bg-amber-400 animate-pulse';
-      }
-      if (elStatusText) {
-        elStatusText.textContent = data.hasQR ? 'Silakan Scan QR WhatsApp' : 'Menyiapkan Koneksi...';
-        elStatusText.className = 'font-bold text-amber-700';
-      }
-      if (elPhoneText) {
-        elPhoneText.textContent = 'Belum Terhubung';
-      }
-      if (elConnected) {
-        elConnected.classList.remove('flex');
-        elConnected.classList.add('hidden');
-      }
-      if (elInstructions) elInstructions.classList.remove('hidden');
-      if (btnDisconnect) btnDisconnect.classList.add('hidden');
-
-      if (data.qr) {
-        if (elQrLoading) elQrLoading.classList.add('hidden');
-        if (elQrImage) {
-          elQrImage.src = data.qr;
-          elQrImage.classList.remove('hidden');
-        }
-      } else {
-        if (elQrLoading) elQrLoading.classList.remove('hidden');
-        if (elQrImage) elQrImage.classList.add('hidden');
-      }
-    }
-  })
-  .catch(function(err) {
-    console.warn('Gagal memuat status WhatsApp mandiri:', err);
-  });
-}
-
-function disconnectMyWa() {
-  if (!confirm('Apakah Anda yakin ingin memutuskan koneksi WhatsApp ini? Anda harus scan QR ulang jika ingin menghubungkannya kembali.')) {
-    return;
-  }
-
-  const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-  fetch('/api/sosmed/my-wa-disconnect', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-TOKEN': token,
-      'Accept': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    }
-  })
-  .then(function(res) { return res.json(); })
-  .then(function(data) {
-    alert(data.message || 'Koneksi WhatsApp berhasil diputuskan.');
-    refreshMyWaStatus(true);
-  })
-  .catch(function(err) {
-    alert('Gagal memutuskan WhatsApp: ' + err.message);
-  });
-}
-
-window.openMyWhatsAppModal = openMyWhatsAppModal;
-window.closeMyWhatsAppModal = closeMyWhatsAppModal;
-window.refreshMyWaStatus = refreshMyWaStatus;
-window.disconnectMyWa = disconnectMyWa;

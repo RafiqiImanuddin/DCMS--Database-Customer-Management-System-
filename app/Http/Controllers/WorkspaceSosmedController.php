@@ -47,15 +47,12 @@ class WorkspaceSosmedController extends Controller
             }
         }
 
-        $user = $request->user();
-        $defaultTab = ($user && $user->hasKodeSosmed() && ! $user->isSuperAdmin()) ? 4 : 1;
-
         $activeTab = $tab
             ?? ($request->route('tab') ? (int) $request->route('tab') : null)
             ?? ($request->query('tab') && is_numeric($request->query('tab')) ? (int) $request->query('tab') : null)
             ?? RouteCipher::resolveWorkspaceTab($request)
             ?? WorkspaceUrlCipher::resolveTab($request)
-            ?? $defaultTab;
+            ?? 1;
 
         $tabFeatureMap = [
             1 => 'workspace_dashboard',
@@ -759,22 +756,10 @@ class WorkspaceSosmedController extends Controller
             $mediaType = in_array($pathExt, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : 'document';
         }
 
-        // Scoping pengiriman WhatsApp: Jika admin sosmed mandiri, gunakan sesi miliknya
-        $user = $request->user();
-        $sessionId = null;
-        $userKodeSosmed = null;
-        if ($user && $user->hasKodeSosmed()) {
-            $userKodeSosmed = $user->getKodeSosmed();
-            $rawSlug = \Illuminate\Support\Str::slug($userKodeSosmed, '_');
-            $sessionId = str_starts_with($rawSlug, 'sosmed_') ? $rawSlug : 'sosmed_'.$rawSlug;
-        } elseif ($request->input('session')) {
-            $sessionId = trim((string) $request->input('session'));
-        }
-
         // Kirim via Dual-Gateway Omnichannel (Baileys Bot primary + WAHA VPS + WatZap fallback)
         $cleanPhone = $watzapService->resolvePhoneOrLid($rawPhone);
         $targetPhone = $cleanPhone ?: $rawPhone;
-        $result = $watzapService->sendOmnichannel($targetPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null, $fileData, $sessionId);
+        $result = $watzapService->sendOmnichannel($targetPhone, $message, $mediaUrl, $mediaType, is_array($replyTo) ? $replyTo : null, $fileData);
 
         $clientMsgId = $request->input('messageId') ?: $request->input('id');
         $clientTs = $request->input('timestamp');
@@ -800,8 +785,6 @@ class WorkspaceSosmedController extends Controller
             'sender' => 'ADMIN',
             'gateway' => $result['source'] ?? 'WATZAP',
             'gateway_phone' => $currentGatewayPhone,
-            'session_id' => $sessionId ?: 'default',
-            'kode_sosmed' => $userKodeSosmed,
         ];
 
         try {
@@ -903,37 +886,27 @@ class WorkspaceSosmedController extends Controller
             ], 401);
         }
 
-        $sessionId = trim((string) ($request->input('session_id') ?? $request->query('session_id') ?? $request->input('session') ?? $request->query('session') ?? 'default'));
-        if (! preg_match('/^[a-zA-Z0-9_\-]+$/', $sessionId)) {
-            $sessionId = 'default';
-        }
-
-        $sessionKey = $sessionId === 'default' ? 'baileys_auth_session' : "baileys_auth_session_{$sessionId}";
-        $savedAtKey = $sessionId === 'default' ? 'baileys_auth_saved_at' : "baileys_auth_saved_at_{$sessionId}";
-
         // 1. GET: Ambil snapshot sesi auth yang tersimpan di database DCMS
         if ($request->isMethod('get')) {
-            $rawSession = (string) Setting::get($sessionKey, '');
+            $rawSession = (string) Setting::get('baileys_auth_session', '');
             $session = ! empty($rawSession) ? json_decode($rawSession, true) : null;
 
             if (empty($session) || ! is_array($session) || empty($session['creds.json'])) {
                 return response()->json([
                     'success' => true,
                     'exists' => false,
-                    'session_id' => $sessionId,
                     'session' => null,
-                    'message' => "Belum ada sesi auth Baileys ({$sessionId}) tersimpan di database.",
+                    'message' => 'Belum ada sesi auth Baileys tersimpan di database.',
                 ]);
             }
 
             return response()->json([
                 'success' => true,
                 'exists' => true,
-                'session_id' => $sessionId,
                 'count' => count($session),
-                'saved_at' => Setting::get($savedAtKey),
+                'saved_at' => Setting::get('baileys_auth_saved_at'),
                 'session' => $session,
-                'message' => "Sesi auth Baileys ({$sessionId}) berhasil dimuat dari database.",
+                'message' => 'Sesi auth Baileys berhasil dimuat dari database.',
             ]);
         }
 
@@ -964,28 +937,25 @@ class WorkspaceSosmedController extends Controller
                 ], 422);
             }
 
-            Setting::set($sessionKey, json_encode($cleanSession));
-            Setting::set($savedAtKey, now()->toIso8601String());
+            Setting::set('baileys_auth_session', json_encode($cleanSession));
+            Setting::set('baileys_auth_saved_at', now()->toIso8601String());
 
             return response()->json([
                 'success' => true,
-                'session_id' => $sessionId,
                 'count' => count($cleanSession),
                 'saved_at' => now()->toIso8601String(),
-                'message' => "Sesi auth Baileys ({$sessionId}) berhasil disimpan ke database DCMS.",
+                'message' => 'Sesi auth Baileys berhasil disimpan ke database DCMS.',
             ]);
         }
 
         // 3. DELETE: Hapus sesi auth tersimpan (misal saat logout dari WhatsApp)
         if ($request->isMethod('delete')) {
-            Setting::forget($sessionKey);
-            Setting::forget($savedAtKey);
-            cache()->forget("baileys_status_cache_v2_{$sessionId}");
+            Setting::forget('baileys_auth_session');
+            Setting::forget('baileys_auth_saved_at');
 
             return response()->json([
                 'success' => true,
-                'session_id' => $sessionId,
-                'message' => "Sesi auth Baileys ({$sessionId}) berhasil dihapus dari database DCMS.",
+                'message' => 'Sesi auth Baileys berhasil dihapus dari database DCMS.',
             ]);
         }
 
@@ -1212,69 +1182,34 @@ class WorkspaceSosmedController extends Controller
                 return $parseEpochMs($a['timestamp'] ?? 0) <=> $parseEpochMs($b['timestamp'] ?? 0);
             });
 
-            // Filter scoping berdasarkan kode_sosmed / session untuk Admin Sosmed mandiri
-            $currentUser = $request->user();
-            $userKodeSosmed = $currentUser?->hasKodeSosmed() ? $currentUser->getKodeSosmed() : null;
-            $rawSlug = $userKodeSosmed ? \Illuminate\Support\Str::slug($userKodeSosmed, '_') : null;
-            $userSession = $rawSlug ? (str_starts_with($rawSlug, 'sosmed_') ? $rawSlug : 'sosmed_'.$rawSlug) : null;
-
-            if ($currentUser && ! $currentUser->isSuperAdmin() && $userKodeSosmed) {
-                // Untuk Admin Sosmed: Ambil status nomor WA dari sesi miliknya sendiri, BUKAN Bot Utama
-                $adminWaStatus = $watzapService->getBaileysStatus(false, $userSession);
-                if (empty($adminWaStatus['online']) || empty($adminWaStatus['phone'])) {
-                    $adminWaStatus = $watzapService->getBaileysStatus(false, $rawSlug);
-                }
-
-                $gatewayPhone = (! empty($adminWaStatus['online']) && ! empty($adminWaStatus['phone']))
-                    ? preg_replace('/\D/', '', (string) $adminWaStatus['phone'])
-                    : null;
-
-                // Admin Sosmed HANYA melihat pesan yang masuk ke sesi / kode_sosmed miliknya sendiri
-                // Pesan Bot Utama (default/legacy) HARUS kosong untuk admin sosmed yang baru / belum punya chat
-                $filtered = array_values(array_filter($filtered, function ($m) use ($userSession, $rawSlug, $userKodeSosmed) {
-                    $mSession = $m['session_id'] ?? $m['session'] ?? null;
-                    $mKode = $m['kode_sosmed'] ?? null;
-                    if ($mSession && ($mSession === $userSession || $mSession === $rawSlug)) return true;
-                    if ($mKode && strcasecmp($mKode, $userKodeSosmed) === 0) return true;
-                    return false;
-                }));
-            } else {
-                // Untuk Superadmin atau Bot Utama
-                $gatewayPhone = cache()->get('baileys_bot_phone');
-                if (! $gatewayPhone) {
-                    try {
-                        $bStatus = $watzapService->getBaileysStatus();
-                        if (! empty($bStatus['phone'])) {
-                            $gatewayPhone = preg_replace('/\D/', '', (string) $bStatus['phone']);
-                            if ($gatewayPhone) {
-                                cache()->put('baileys_bot_phone', $gatewayPhone, now()->addDays(7));
-                            }
+            // Ambil nomor gateway dari cache untuk respon instan tanpa blocking HTTP network call
+            $gatewayPhone = cache()->get('baileys_bot_phone');
+            if (! $gatewayPhone) {
+                try {
+                    $bStatus = $watzapService->getBaileysStatus();
+                    if (! empty($bStatus['phone'])) {
+                        $gatewayPhone = preg_replace('/\D/', '', (string) $bStatus['phone']);
+                        if ($gatewayPhone) {
+                            cache()->put('baileys_bot_phone', $gatewayPhone, now()->addDays(7));
                         }
-                    } catch (\Throwable) {}
-                }
-                if (! $gatewayPhone) {
-                    $gatewayPhone = '6285111426699';
-                }
-
-                // Filter opsional berdasarkan nomor gateway aktif jika diminta client
-                $requestedGateway = $request->query('gateway_phone');
-                if ($requestedGateway) {
-                    $cleanReqGw = preg_replace('/\D/', '', (string) $requestedGateway);
-                    if ($cleanReqGw) {
-                        $filtered = array_values(array_filter($filtered, function ($m) use ($cleanReqGw) {
-                            if (empty($m['gateway_phone'])) {
-                                return true; // legacy message tetap diizinkan untuk superadmin
-                            }
-                            $mGw = preg_replace('/\D/', '', (string) $m['gateway_phone']);
-                            return $mGw === $cleanReqGw;
-                        }));
                     }
-                }
+                } catch (\Throwable) {}
+            }
+            if (! $gatewayPhone) {
+                $gatewayPhone = '6285111426699';
+            }
 
-                if ($request->query('session') && $currentUser?->isSuperAdmin()) {
-                    $reqSession = trim((string) $request->query('session'));
-                    $filtered = array_values(array_filter($filtered, function ($m) use ($reqSession) {
-                        return ($m['session_id'] ?? $m['session'] ?? '') === $reqSession;
+            // Filter opsional berdasarkan nomor gateway aktif jika diminta client
+            $requestedGateway = $request->query('gateway_phone');
+            if ($requestedGateway) {
+                $cleanReqGw = preg_replace('/\D/', '', (string) $requestedGateway);
+                if ($cleanReqGw) {
+                    $filtered = array_values(array_filter($filtered, function ($m) use ($cleanReqGw) {
+                        if (empty($m['gateway_phone'])) {
+                            return true; // legacy message tetap diizinkan
+                        }
+                        $mGw = preg_replace('/\D/', '', (string) $m['gateway_phone']);
+                        return $mGw === $cleanReqGw;
                     }));
                 }
             }
@@ -1518,9 +1453,6 @@ class WorkspaceSosmedController extends Controller
                 $detectedGateway = cache()->get('baileys_bot_phone', '6285111426699');
             }
 
-            $inSessionId = (string) ($p['session'] ?? $p['session_id'] ?? $data['session'] ?? $data['session_id'] ?? 'default');
-            $inKodeSosmed = $inSessionId !== 'default' ? strtoupper(str_replace('_', ' ', $inSessionId)) : null;
-
             $entry = [
                 'messageId' => $messageId,
                 'phone' => $cleanPhone,
@@ -1535,8 +1467,6 @@ class WorkspaceSosmedController extends Controller
                 'senderName' => $senderName,
                 'gateway' => 'BAILEYS_GATEWAY',
                 'gateway_phone' => $detectedGateway,
-                'session_id' => $inSessionId,
-                'kode_sosmed' => $inKodeSosmed,
                 'raw' => $data,
             ];
 
@@ -2796,68 +2726,5 @@ class WorkspaceSosmedController extends Controller
                          " {$updatedKeepsCount} data keep diperbarui dan siap dikirim.",
             'new_phone' => $cleanNewPhone,
         ]);
-    }
-
-    /**
-     * Mengambil status WhatsApp mandiri untuk admin sosmed yang sedang login.
-     * Superadmin dapat memantau bot default maupun session sosmed tertentu via ?session=...
-     */
-    public function myWaStatus(Request $request, WatzapService $watzapService): JsonResponse
-    {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-
-        $sessionId = 'default';
-        $kodeSosmed = null;
-
-        if ($user->hasKodeSosmed()) {
-            $kodeSosmed = $user->getKodeSosmed();
-            $rawSlug = \Illuminate\Support\Str::slug($kodeSosmed, '_');
-            $sessionId = str_starts_with($rawSlug, 'sosmed_') ? $rawSlug : 'sosmed_'.$rawSlug;
-        } elseif ($request->query('session') && $user->isSuperAdmin()) {
-            $sessionId = trim((string) $request->query('session'));
-        }
-
-        $forceFresh = $request->boolean('refresh', false);
-        $status = $watzapService->getBaileysStatus($forceFresh, $sessionId);
-
-        return response()->json([
-            'success' => true,
-            'session_id' => $sessionId,
-            'kode_sosmed' => $kodeSosmed,
-            'is_admin_sosmed' => $user->hasKodeSosmed(),
-            'online' => $status['online'] ?? false,
-            'status' => $status['status'] ?? 'DISCONNECTED',
-            'phone' => $status['phone'] ?? null,
-            'name' => $status['name'] ?? null,
-            'message' => $status['message'] ?? '',
-            'hasQR' => $status['hasQR'] ?? false,
-            'qr' => $status['qr'] ?? null,
-        ]);
-    }
-
-    /**
-     * Memutuskan / reset WhatsApp mandiri untuk admin sosmed yang sedang login.
-     */
-    public function myWaDisconnect(Request $request, WatzapService $watzapService): JsonResponse
-    {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-
-        $sessionId = 'default';
-        if ($user->hasKodeSosmed()) {
-            $rawSlug = \Illuminate\Support\Str::slug($user->getKodeSosmed(), '_');
-            $sessionId = str_starts_with($rawSlug, 'sosmed_') ? $rawSlug : 'sosmed_'.$rawSlug;
-        } elseif ($request->input('session') && $user->isSuperAdmin()) {
-            $sessionId = trim((string) $request->input('session'));
-        }
-
-        $result = $watzapService->resetBaileysSession($sessionId);
-
-        return response()->json($result);
     }
 }

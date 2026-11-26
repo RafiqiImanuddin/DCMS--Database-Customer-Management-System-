@@ -91,13 +91,7 @@
                                                 <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                                                 <span class="font-bold text-slate-800 text-[11px] truncate" id="omniGatewayAccountText">Akun WA: Memuat...</span>
                                             </div>
-                                            <div class="flex items-center gap-1 shrink-0">
-                                                <span class="text-[10px] text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-bold" id="omniGatewayAccountTag">Aktif</span>
-                                                <button type="button" onclick="openMyWhatsAppModal()" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-2xs transition cursor-pointer" title="Scan QR WhatsApp atau Kelola Koneksi WA">
-                                                    <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z"/></svg>
-                                                    <span>Scan WA</span>
-                                                </button>
-                                            </div>
+                                            <span class="text-[10px] text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-bold shrink-0" id="omniGatewayAccountTag">Aktif</span>
                                         </div>
                                         <div class="omni-search-input-wrap relative">
                                             <span class="omni-search-icon absolute left-2.5 top-2 text-slate-400">

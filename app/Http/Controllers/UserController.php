@@ -339,7 +339,6 @@ class UserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:25'],
             'role' => ['required', 'string', 'in:admin,user'],
-            'kode_sosmed' => ['nullable', 'string', 'max:50'],
             'password' => ['required', 'string', 'min:6'],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['string', 'in:' . implode(',', $featureKeys)],
@@ -364,9 +363,6 @@ class UserController extends Controller
         ];
         if (Schema::hasColumn('users', 'phone') && ! empty($validated['phone'])) {
             $userData['phone'] = trim($validated['phone']);
-        }
-        if (Schema::hasColumn('users', 'kode_sosmed') && ! empty($validated['kode_sosmed'])) {
-            $userData['kode_sosmed'] = strtoupper(trim($validated['kode_sosmed']));
         }
         if (Schema::hasColumn('users', 'permissions')) {
             $userData['permissions'] = $permissions;
@@ -401,17 +397,12 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'role' => ['sometimes', 'required', 'string', 'in:admin,user'],
-            'kode_sosmed' => ['nullable', 'string', 'max:50'],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['string', 'in:' . implode(',', $featureKeys)],
         ]);
 
         if (isset($validated['role'])) {
             $user->role = $validated['role'];
-        }
-
-        if (Schema::hasColumn('users', 'kode_sosmed')) {
-            $user->kode_sosmed = ! empty($validated['kode_sosmed']) ? strtoupper(trim($validated['kode_sosmed'])) : null;
         }
 
         if (Schema::hasColumn('users', 'permissions')) {
